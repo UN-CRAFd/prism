@@ -23,8 +23,6 @@ interface Props {
   onChange: (data: VisibilityData) => void;
 }
 
-const LABELS_3 = ["a", "b", "c"] as const;
-const LABELS_5 = ["a", "b", "c", "d", "e"] as const;
 
 const COVERAGE_TYPE_OPTIONS = [
   "",
@@ -108,7 +106,6 @@ export function VisibilityEngagementForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 w-44">Type</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[200px]">Description</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[140px]">Reach / indicator</th>
@@ -118,7 +115,6 @@ export function VisibilityEngagementForm({ data, onChange }: Props) {
               <tbody>
                 {data.externalCoverage.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">{LABELS_3[i]}.</td>
                     <td className="py-3 pr-3">
                       <select
                         className={selectClassName}
@@ -182,7 +178,6 @@ export function VisibilityEngagementForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[160px]">Photo label</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[250px]">Description &amp; short caption</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[150px]">Photo credits</th>
@@ -191,7 +186,6 @@ export function VisibilityEngagementForm({ data, onChange }: Props) {
               <tbody>
                 {data.implementationPhotos.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">{LABELS_5[i]}.</td>
                     <td className="py-3 pr-3">
                       <Input
                         className="text-sm"
@@ -297,7 +291,6 @@ export function VisibilityEngagementForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[200px]">Quote (max. 20 words)</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[140px]">Full name</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[160px]">Title &amp; organization</th>
@@ -307,7 +300,6 @@ export function VisibilityEngagementForm({ data, onChange }: Props) {
               <tbody>
                 {data.partnerTestimonials.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">{LABELS_3[i]}.</td>
                     <td className="py-3 pr-3">
                       <Textarea
                         rows={2}

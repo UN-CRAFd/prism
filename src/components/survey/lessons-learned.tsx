@@ -15,19 +15,16 @@ interface Props {
   onChange: (data: LessonEntry[]) => void;
 }
 
-const LABELS = ["a", "b", "c", "d", "e"] as const;
 
 const CATEGORY_OPTIONS = [
   "",
-  "Data quality",
-  "Data access & transparency",
-  "Ecosystem & collaboration",
+  "Communications",
+  "Financial",
+  "Methodology",
+  "Operational",
+  "Organizational",
   "Partnerships",
-  "Data uptake & use",
-  "Technical / operational",
-  "Financial / sustainability",
-  "Gender & inclusion",
-  "Other",
+  "Others",
 ];
 
 const selectClassName =
@@ -61,7 +58,6 @@ export function LessonsLearnedForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 w-48">Category</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[250px]">Lesson learned</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[250px]">Adjustment informed</th>
@@ -70,9 +66,6 @@ export function LessonsLearnedForm({ data, onChange }: Props) {
               <tbody>
                 {data.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">
-                      {LABELS[i]}.
-                    </td>
                     <td className="py-3 pr-3">
                       <select
                         className={selectClassName}

@@ -110,7 +110,6 @@ export function SelfAssessmentForm({ data, onChange }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                     <th className="text-left font-medium text-muted-foreground pb-3 min-w-[300px]">Question</th>
                     <th className="text-left font-medium text-muted-foreground pb-3 w-52">Rating</th>
                     <th className="text-left font-medium text-muted-foreground pb-3 min-w-[250px]">Justification (evidence-based)</th>
@@ -119,9 +118,6 @@ export function SelfAssessmentForm({ data, onChange }: Props) {
                 <tbody>
                   {section.questions.map((q) => (
                     <tr key={q.id} className="border-b last:border-0 align-top">
-                      <td className="py-3 pr-2 text-muted-foreground font-medium">
-                        {q.id}.
-                      </td>
                       <td className="py-3 pr-4 leading-relaxed">
                         {q.text}
                       </td>

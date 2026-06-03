@@ -21,7 +21,6 @@ interface Props {
   onChange: (data: KeyAchievementsData) => void;
 }
 
-const LABELS = ["a", "b", "c"] as const;
 
 export function KeyAchievementsForm({ data, onChange }: Props) {
   function updateAchievement(
@@ -83,7 +82,6 @@ export function KeyAchievementsForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[200px]">Key achievement</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[200px]">Significance</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[150px]">Links / materials</th>
@@ -92,7 +90,6 @@ export function KeyAchievementsForm({ data, onChange }: Props) {
               <tbody>
                 {data.achievements.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">{LABELS[i]}.</td>
                     <td className="py-3 pr-3">
                       <Textarea
                         rows={4}
@@ -143,7 +140,6 @@ export function KeyAchievementsForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[160px]">Partner organization</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[250px]">Result of the partnership</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[150px]">Links / materials</th>
@@ -152,7 +148,6 @@ export function KeyAchievementsForm({ data, onChange }: Props) {
               <tbody>
                 {data.ecosystemPartnerships.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">{LABELS[i]}.</td>
                     <td className="py-3 pr-3">
                       <Input
                         className="text-sm"
@@ -202,7 +197,6 @@ export function KeyAchievementsForm({ data, onChange }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left font-medium text-muted-foreground pb-3 w-8">#</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[180px]">Context</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[180px]">Data-driven decision</th>
                   <th className="text-left font-medium text-muted-foreground pb-3 min-w-[180px]">Resulting impact</th>
@@ -212,7 +206,6 @@ export function KeyAchievementsForm({ data, onChange }: Props) {
               <tbody>
                 {data.dataUptakeResults.map((entry, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-3 pr-2 text-muted-foreground font-medium">{LABELS[i]}.</td>
                     <td className="py-3 pr-3">
                       <Textarea
                         rows={4}

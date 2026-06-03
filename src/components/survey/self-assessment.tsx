@@ -9,20 +9,52 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Props {
   data: SelfAssessmentData;
   onChange: (data: SelfAssessmentData) => void;
 }
 
-const RATING_OPTIONS = [
-  "",
-  "1 - Not at all",
-  "2 - To a limited extent",
-  "3 - To a moderate extent",
-  "4 - To a significant extent",
-  "5 - To a very significant extent",
+const RATINGS: { value: string; label: string }[] = [
+  { value: "1", label: "Not at all" },
+  { value: "2", label: "To a limited extent" },
+  { value: "3", label: "To a moderate extent" },
+  { value: "4", label: "To a significant extent" },
+  { value: "5", label: "To a very significant extent" },
 ];
+
+const RATING_STYLES: Record<string, string> = {
+  "1": "bg-rose-50 text-rose-700 border-rose-200",
+  "2": "bg-orange-50 text-orange-700 border-orange-200",
+  "3": "bg-amber-50 text-amber-700 border-amber-200",
+  "4": "bg-lime-50 text-lime-700 border-lime-200",
+  "5": "bg-green-50 text-green-700 border-green-200",
+};
+
+function RatingBadge({ value }: { value: string }) {
+  const rating = RATINGS.find((r) => r.value === value);
+  if (!rating) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium",
+        RATING_STYLES[value]
+      )}
+    >
+      <span className="font-bold">{value}</span>
+      <span className="opacity-80">—</span>
+      {rating.label}
+    </span>
+  );
+}
 
 interface QuestionDef {
   id: string;
@@ -73,9 +105,6 @@ const SECTIONS: { title: string; number: string; questions: QuestionDef[] }[] = 
   },
 ];
 
-const selectClassName =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus:border-ring focus:ring-ring/50 focus:ring-[3px] outline-none";
-
 export function SelfAssessmentForm({ data, onChange }: Props) {
   function updateAnswer(id: string, field: keyof AssessmentAnswer, value: string) {
     onChange({
@@ -86,7 +115,7 @@ export function SelfAssessmentForm({ data, onChange }: Props) {
 
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-none py-0 gap-0">
+      <Card className="border-0 py-0 gap-0">
         <CardHeader className="px-0">
           <CardTitle>2. Project Self-Assessment Survey</CardTitle>
           <CardDescription className="leading-relaxed">
@@ -111,41 +140,52 @@ export function SelfAssessmentForm({ data, onChange }: Props) {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left font-medium text-muted-foreground pb-3 min-w-[300px]">Question</th>
-                    <th className="text-left font-medium text-muted-foreground pb-3 w-52">Rating</th>
+                    <th className="text-left font-medium text-muted-foreground pb-3 w-56 pr-4">Rating</th>
                     <th className="text-left font-medium text-muted-foreground pb-3 min-w-[250px]">Justification (evidence-based)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {section.questions.map((q) => (
-                    <tr key={q.id} className="border-b last:border-0 align-top">
-                      <td className="py-3 pr-4 leading-relaxed">
-                        {q.text}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <select
-                          className={selectClassName}
-                          value={data[q.id]?.rating || ""}
-                          onChange={(e) => updateAnswer(q.id, "rating", e.target.value)}
-                        >
-                          {RATING_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt || "Select a rating"}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3">
-                        <Textarea
-                          rows={3}
-                          className="min-h-[72px] text-sm"
-                          value={data[q.id]?.justification || ""}
-                          onChange={(e) =>
-                            updateAnswer(q.id, "justification", e.target.value)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {section.questions.map((q) => {
+                    const currentRating = data[q.id]?.rating || "";
+                    return (
+                      <tr key={q.id} className="border-b last:border-0 align-top">
+                        <td className="py-3 pr-4 leading-relaxed">
+                          {q.text}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <Select
+                            value={currentRating}
+                            onValueChange={(v) => updateAnswer(q.id, "rating", v)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select a rating">
+                                {currentRating ? (
+                                  <RatingBadge value={currentRating} />
+                                ) : undefined}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {RATINGS.map((r) => (
+                                <SelectItem key={r.value} value={r.value}>
+                                  <RatingBadge value={r.value} />
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="py-3">
+                          <Textarea
+                            rows={3}
+                            className="min-h-[72px] text-sm"
+                            value={data[q.id]?.justification || ""}
+                            onChange={(e) =>
+                              updateAnswer(q.id, "justification", e.target.value)
+                            }
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

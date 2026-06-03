@@ -9,6 +9,7 @@ import {
   Database,
   LogOut,
   User,
+  PenLine,
   FileText,
   ClipboardCheck,
   Trophy,
@@ -32,6 +33,7 @@ const adminLinks = [
   { href: "/admin", label: "Full Data", icon: Database },
   { href: "/admin/visualization", label: "Visualization", icon: BarChart3 },
   { href: "/admin/comparison", label: "Comparison", icon: GitCompareArrows },
+  { href: "/admin/survey-editor", label: "Survey Editor", icon: PenLine },
 ];
 
 const narrativeIcons: Record<string, React.ElementType> = {

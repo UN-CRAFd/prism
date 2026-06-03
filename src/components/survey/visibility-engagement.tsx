@@ -26,15 +26,12 @@ interface Props {
 
 const COVERAGE_TYPE_OPTIONS = [
   "",
-  "Event / Conference",
-  "Publication / Report",
-  "Blog / Article",
-  "Peer-reviewed journal",
-  "Media coverage",
-  "Webinar / Online event",
-  "Podcast / Interview",
-  "Social media campaign",
-  "Other",
+  "Events & Presentations",
+  "Publications & Reports",
+  "News Media Coverage",
+  "Peer-Reviewed Journals",
+  "Case Studies"
+
 ];
 
 const selectClassName =

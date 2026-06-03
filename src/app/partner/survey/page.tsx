@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Save, CheckCircle } from "lucide-react";
 
+import { resolveTemplate, type AssessmentSection } from "@/lib/survey-template";
 import { ProjectInformationForm } from "@/components/survey/project-information";
 import { SelfAssessmentForm } from "@/components/survey/self-assessment";
 import { KeyAchievementsForm } from "@/components/survey/key-achievements";
@@ -42,11 +43,14 @@ function SurveyContent() {
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [data, setData] = useState<SurveyData | null>(null);
   const [saved, setSaved] = useState(false);
+  const [assessmentSections, setAssessmentSections] = useState<AssessmentSection[] | undefined>(undefined);
 
   useEffect(() => {
     if (user?.id) {
       setData(getSurveyData(user.id, selectedYear));
       setSaved(false);
+      const { sections } = resolveTemplate(user.id, selectedYear);
+      setAssessmentSections(sections);
     }
   }, [user?.id, selectedYear]);
 
@@ -167,6 +171,7 @@ function SurveyContent() {
           <SelfAssessmentForm
             data={data.narrative.selfAssessment}
             onChange={(v) => updateNarrative("selfAssessment", v)}
+            sections={assessmentSections}
           />
         )}
         {activeTab === "achievements" && (

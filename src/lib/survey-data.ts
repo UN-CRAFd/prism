@@ -1,63 +1,92 @@
-export interface SurveyData {
-  partnerId: string;
-  year: number;
-  narrative: {
-    projectInformation: {
-      projectTitle: string;
-      projectNumber: string;
-      reportingPeriod: string;
-      projectManager: string;
-      email: string;
-      totalBudget: string;
-      startDate: string;
-      endDate: string;
-      summary: string;
-    };
-    selfAssessment: {
-      overallProgress: string;
-      timelinessRating: string;
-      budgetUtilization: string;
-      partnershipQuality: string;
-      comments: string;
-    };
-    keyAchievements: {
-      achievements: string;
-      unexpectedResults: string;
-      contributions: string;
-    };
-    lessonsLearned: {
-      lessons: string;
-      challenges: string;
-      recommendations: string;
-    };
-    visibilityEngagement: {
-      publications: string;
-      events: string;
-      mediaEngagement: string;
-      partnerships: string;
-    };
-  };
-  quantitative: {
-    indicators: {
-      rows: IndicatorRow[];
-    };
-    expenditures: {
-      rows: ExpenditureRow[];
-    };
-    workPlan: {
-      rows: WorkPlanRow[];
-    };
-    riskManagement: {
-      rows: RiskRow[];
-    };
-    fundingTransfer: {
-      rows: FundingTransferRow[];
-    };
-    complementaryFunding: {
-      rows: ComplementaryFundingRow[];
-    };
-  };
+// --- Narrative types ---
+
+export interface ProjectInformation {
+  projectTitle: string;
+  mptfoProjectNumber: string;
+  organizationName: string;
+  organizationWebsite: string;
+  projectDuration: string;
+  grantSize: string;
+  implementingPartners: string;
+  geographicScope: string;
+  reportSubmissionDate: string;
+  authorizationGranted: boolean;
 }
+
+export interface AssessmentAnswer {
+  rating: string;
+  justification: string;
+}
+
+export type SelfAssessmentData = Record<string, AssessmentAnswer>;
+
+export interface AchievementEntry {
+  achievement: string;
+  significance: string;
+  links: string;
+}
+
+export interface PartnershipEntry {
+  partnerOrganization: string;
+  result: string;
+  links: string;
+}
+
+export interface DataUptakeEntry {
+  context: string;
+  dataDrivenDecision: string;
+  resultingImpact: string;
+  links: string;
+}
+
+export interface KeyAchievementsData {
+  achievements: AchievementEntry[];
+  ecosystemPartnerships: PartnershipEntry[];
+  dataUptakeResults: DataUptakeEntry[];
+}
+
+export interface LessonEntry {
+  category: string;
+  lessonLearned: string;
+  adjustmentInformed: string;
+}
+
+export interface CoverageEntry {
+  type: string;
+  description: string;
+  reachIndicator: string;
+  links: string;
+}
+
+export interface PhotoEntry {
+  photoLabel: string;
+  description: string;
+  photoCredits: string;
+}
+
+export interface LeadershipTestimonial {
+  quote: string;
+  fullName: string;
+  title: string;
+  photoLabel: string;
+  photoCredits: string;
+}
+
+export interface PartnerTestimonialEntry {
+  quote: string;
+  fullName: string;
+  titleOrganization: string;
+  photoCredits: string;
+}
+
+export interface VisibilityData {
+  externalCoverage: CoverageEntry[];
+  implementationPhotos: PhotoEntry[];
+  leadershipTestimonial: LeadershipTestimonial;
+  partnerTestimonials: PartnerTestimonialEntry[];
+}
+
+// --- Quantitative types (unchanged) ---
 
 export interface IndicatorRow {
   id: string;
@@ -114,6 +143,51 @@ export interface ComplementaryFundingRow {
   status: string;
 }
 
+// --- Main survey data ---
+
+export interface SurveyData {
+  partnerId: string;
+  year: number;
+  narrative: {
+    projectInformation: ProjectInformation;
+    selfAssessment: SelfAssessmentData;
+    keyAchievements: KeyAchievementsData;
+    lessonsLearned: LessonEntry[];
+    visibilityEngagement: VisibilityData;
+  };
+  quantitative: {
+    indicators: { rows: IndicatorRow[] };
+    expenditures: { rows: ExpenditureRow[] };
+    workPlan: { rows: WorkPlanRow[] };
+    riskManagement: { rows: RiskRow[] };
+    fundingTransfer: { rows: FundingTransferRow[] };
+    complementaryFunding: { rows: ComplementaryFundingRow[] };
+  };
+}
+
+// --- Self-assessment question IDs ---
+
+export const ASSESSMENT_QUESTION_IDS = [
+  "a", "b", "c", "d", "e",
+  "f", "g", "h", "i",
+  "j", "k", "l", "m",
+  "n", "o", "p", "r",
+] as const;
+
+// --- Defaults ---
+
+function createEmptyAssessment(): SelfAssessmentData {
+  const result: SelfAssessmentData = {};
+  for (const id of ASSESSMENT_QUESTION_IDS) {
+    result[id] = { rating: "", justification: "" };
+  }
+  return result;
+}
+
+function createEmptyEntries<T>(template: T, count: number): T[] {
+  return Array.from({ length: count }, () => ({ ...template }));
+}
+
 function createEmptySurvey(partnerId: string, year: number): SurveyData {
   return {
     partnerId,
@@ -121,37 +195,55 @@ function createEmptySurvey(partnerId: string, year: number): SurveyData {
     narrative: {
       projectInformation: {
         projectTitle: "",
-        projectNumber: "",
-        reportingPeriod: `January - December ${year}`,
-        projectManager: "",
-        email: "",
-        totalBudget: "",
-        startDate: "",
-        endDate: "",
-        summary: "",
+        mptfoProjectNumber: "",
+        organizationName: "",
+        organizationWebsite: "",
+        projectDuration: "",
+        grantSize: "",
+        implementingPartners: "",
+        geographicScope: "",
+        reportSubmissionDate: "",
+        authorizationGranted: false,
       },
-      selfAssessment: {
-        overallProgress: "",
-        timelinessRating: "",
-        budgetUtilization: "",
-        partnershipQuality: "",
-        comments: "",
-      },
+      selfAssessment: createEmptyAssessment(),
       keyAchievements: {
-        achievements: "",
-        unexpectedResults: "",
-        contributions: "",
+        achievements: createEmptyEntries(
+          { achievement: "", significance: "", links: "" },
+          3
+        ),
+        ecosystemPartnerships: createEmptyEntries(
+          { partnerOrganization: "", result: "", links: "" },
+          3
+        ),
+        dataUptakeResults: createEmptyEntries(
+          { context: "", dataDrivenDecision: "", resultingImpact: "", links: "" },
+          3
+        ),
       },
-      lessonsLearned: {
-        lessons: "",
-        challenges: "",
-        recommendations: "",
-      },
+      lessonsLearned: createEmptyEntries(
+        { category: "", lessonLearned: "", adjustmentInformed: "" },
+        5
+      ),
       visibilityEngagement: {
-        publications: "",
-        events: "",
-        mediaEngagement: "",
-        partnerships: "",
+        externalCoverage: createEmptyEntries(
+          { type: "", description: "", reachIndicator: "", links: "" },
+          3
+        ),
+        implementationPhotos: createEmptyEntries(
+          { photoLabel: "", description: "", photoCredits: "" },
+          5
+        ),
+        leadershipTestimonial: {
+          quote: "",
+          fullName: "",
+          title: "",
+          photoLabel: "",
+          photoCredits: "",
+        },
+        partnerTestimonials: createEmptyEntries(
+          { quote: "", fullName: "", titleOrganization: "", photoCredits: "" },
+          3
+        ),
       },
     },
     quantitative: {
@@ -165,7 +257,9 @@ function createEmptySurvey(partnerId: string, year: number): SurveyData {
   };
 }
 
-const STORAGE_KEY = "crafd-survey-data";
+// --- Storage ---
+
+const STORAGE_KEY = "crafd-survey-data-v2";
 
 export function getAllSurveyData(): SurveyData[] {
   if (typeof window === "undefined") return [];
@@ -173,10 +267,7 @@ export function getAllSurveyData(): SurveyData[] {
   return stored ? JSON.parse(stored) : [];
 }
 
-export function getSurveyData(
-  partnerId: string,
-  year: number
-): SurveyData {
+export function getSurveyData(partnerId: string, year: number): SurveyData {
   const all = getAllSurveyData();
   const existing = all.find(
     (s) => s.partnerId === partnerId && s.year === year
@@ -203,4 +294,23 @@ export const PARTNERS = [
   { id: "acled", name: "ACLED", fullName: "Armed Conflict Location & Event Data Project" },
   { id: "iom", name: "IOM", fullName: "International Organization for Migration" },
   { id: "fhn", name: "FHN", fullName: "Famine and Hunger Network" },
+] as const;
+
+// --- Tab definitions ---
+
+export const NARRATIVE_TABS = [
+  { id: "project-info", label: "Project Information", number: "1" },
+  { id: "self-assessment", label: "Self-Assessment Survey", number: "2" },
+  { id: "achievements", label: "Key Achievements", number: "3" },
+  { id: "lessons", label: "Lessons Learned", number: "4" },
+  { id: "visibility", label: "Visibility & Engagement", number: "5" },
+] as const;
+
+export const QUANTITATIVE_TABS = [
+  { id: "indicators", label: "Indicators", number: "1" },
+  { id: "expenditures", label: "Expenditures", number: "2" },
+  { id: "work-plan", label: "Work Plan", number: "3" },
+  { id: "risk", label: "Risk Management", number: "4" },
+  { id: "funding-transfer", label: "Funding Transfer", number: "5" },
+  { id: "complementary", label: "Complementary Funding", number: "6" },
 ] as const;

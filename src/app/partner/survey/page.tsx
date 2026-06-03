@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
   getSurveyData,
   saveSurveyData,
   YEARS,
+  NARRATIVE_TABS,
+  QUANTITATIVE_TABS,
   type SurveyData,
 } from "@/lib/survey-data";
 import {
@@ -15,10 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Save, CheckCircle } from "lucide-react";
 
 import { ProjectInformationForm } from "@/components/survey/project-information";
@@ -33,12 +34,14 @@ import { RiskManagementForm } from "@/components/survey/risk-management-form";
 import { FundingTransferForm } from "@/components/survey/funding-transfer-form";
 import { ComplementaryFundingForm } from "@/components/survey/complementary-funding-form";
 
-export default function SurveyPage() {
+function SurveyContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "project-info";
+
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [data, setData] = useState<SurveyData | null>(null);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState("project-info");
 
   useEffect(() => {
     if (user?.id) {
@@ -91,13 +94,29 @@ export default function SurveyPage() {
 
   if (!data) return null;
 
+  const narrativeTab = NARRATIVE_TABS.find((t) => t.id === activeTab);
+  const quantitativeTab = QUANTITATIVE_TABS.find((t) => t.id === activeTab);
+  const isNarrative = !!narrativeTab;
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b px-8 py-4">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">
-            Annual Report
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold font-qanelas">
+              {narrativeTab?.label || quantitativeTab?.label || "Survey"}
+            </h1>
+            <Badge
+              variant="outline"
+              className={
+                isNarrative
+                  ? "border-crafd-yellow/40 text-crafd-yellow"
+                  : "border-blue-500/40 text-blue-600"
+              }
+            >
+              {isNarrative ? "Narrative" : "Quantitative"}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground mt-0.5">
             {user?.organization} &mdash; Reporting Year {selectedYear}
           </p>
@@ -118,7 +137,10 @@ export default function SurveyPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={handleSave} className="bg-crafd-yellow text-black hover:bg-crafd-yellow/90 font-semibold">
+          <Button
+            onClick={handleSave}
+            className="bg-crafd-yellow text-black hover:bg-crafd-yellow/90 font-semibold"
+          >
             {saved ? (
               <>
                 <CheckCircle className="size-4" />
@@ -135,138 +157,84 @@ export default function SurveyPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="mb-4">
-          <Badge variant="outline" className="mr-2 text-xs">Narrative Report</Badge>
-          <Badge variant="secondary" className="text-xs">Quantitative Report</Badge>
-        </div>
+        {activeTab === "project-info" && (
+          <ProjectInformationForm
+            data={data.narrative.projectInformation}
+            onChange={(v) => updateNarrative("projectInformation", v)}
+          />
+        )}
+        {activeTab === "self-assessment" && (
+          <SelfAssessmentForm
+            data={data.narrative.selfAssessment}
+            onChange={(v) => updateNarrative("selfAssessment", v)}
+          />
+        )}
+        {activeTab === "achievements" && (
+          <KeyAchievementsForm
+            data={data.narrative.keyAchievements}
+            onChange={(v) => updateNarrative("keyAchievements", v)}
+          />
+        )}
+        {activeTab === "lessons" && (
+          <LessonsLearnedForm
+            data={data.narrative.lessonsLearned}
+            onChange={(v) => updateNarrative("lessonsLearned", v)}
+          />
+        )}
+        {activeTab === "visibility" && (
+          <VisibilityEngagementForm
+            data={data.narrative.visibilityEngagement}
+            onChange={(v) => updateNarrative("visibilityEngagement", v)}
+          />
+        )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0 mb-6">
-            <Separator orientation="vertical" className="hidden" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-2 self-center">
-              Narrative
-            </p>
-            <TabsTrigger value="project-info" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              1. Project Information
-            </TabsTrigger>
-            <TabsTrigger value="self-assessment" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              2. Self Assessment
-            </TabsTrigger>
-            <TabsTrigger value="achievements" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              3. Key Achievements
-            </TabsTrigger>
-            <TabsTrigger value="lessons" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              4. Lessons Learned
-            </TabsTrigger>
-            <TabsTrigger value="visibility" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              5. Visibility
-            </TabsTrigger>
-
-            <Separator orientation="vertical" className="mx-2 h-6" />
-
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-2 self-center">
-              Quantitative
-            </p>
-            <TabsTrigger value="indicators" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              1. Indicators
-            </TabsTrigger>
-            <TabsTrigger value="expenditures" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              2. Expenditures
-            </TabsTrigger>
-            <TabsTrigger value="work-plan" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              3. Work Plan
-            </TabsTrigger>
-            <TabsTrigger value="risk" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              4. Risk Management
-            </TabsTrigger>
-            <TabsTrigger value="funding-transfer" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              5. Funding Transfer
-            </TabsTrigger>
-            <TabsTrigger value="complementary" className="data-[state=active]:bg-crafd-yellow/10 data-[state=active]:text-crafd-yellow">
-              6. Complementary Funding
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="project-info">
-            <ProjectInformationForm
-              data={data.narrative.projectInformation}
-              onChange={(v) => updateNarrative("projectInformation", v)}
-            />
-          </TabsContent>
-
-          <TabsContent value="self-assessment">
-            <SelfAssessmentForm
-              data={data.narrative.selfAssessment}
-              onChange={(v) => updateNarrative("selfAssessment", v)}
-            />
-          </TabsContent>
-
-          <TabsContent value="achievements">
-            <KeyAchievementsForm
-              data={data.narrative.keyAchievements}
-              onChange={(v) => updateNarrative("keyAchievements", v)}
-            />
-          </TabsContent>
-
-          <TabsContent value="lessons">
-            <LessonsLearnedForm
-              data={data.narrative.lessonsLearned}
-              onChange={(v) => updateNarrative("lessonsLearned", v)}
-            />
-          </TabsContent>
-
-          <TabsContent value="visibility">
-            <VisibilityEngagementForm
-              data={data.narrative.visibilityEngagement}
-              onChange={(v) => updateNarrative("visibilityEngagement", v)}
-            />
-          </TabsContent>
-
-          <TabsContent value="indicators">
-            <IndicatorsForm
-              rows={data.quantitative.indicators.rows}
-              onChange={(rows) => updateQuantitative("indicators", { rows })}
-            />
-          </TabsContent>
-
-          <TabsContent value="expenditures">
-            <ExpendituresForm
-              rows={data.quantitative.expenditures.rows}
-              onChange={(rows) => updateQuantitative("expenditures", { rows })}
-            />
-          </TabsContent>
-
-          <TabsContent value="work-plan">
-            <WorkPlanForm
-              rows={data.quantitative.workPlan.rows}
-              onChange={(rows) => updateQuantitative("workPlan", { rows })}
-            />
-          </TabsContent>
-
-          <TabsContent value="risk">
-            <RiskManagementForm
-              rows={data.quantitative.riskManagement.rows}
-              onChange={(rows) => updateQuantitative("riskManagement", { rows })}
-            />
-          </TabsContent>
-
-          <TabsContent value="funding-transfer">
-            <FundingTransferForm
-              rows={data.quantitative.fundingTransfer.rows}
-              onChange={(rows) => updateQuantitative("fundingTransfer", { rows })}
-            />
-          </TabsContent>
-
-          <TabsContent value="complementary">
-            <ComplementaryFundingForm
-              rows={data.quantitative.complementaryFunding.rows}
-              onChange={(rows) =>
-                updateQuantitative("complementaryFunding", { rows })
-              }
-            />
-          </TabsContent>
-        </Tabs>
+        {activeTab === "indicators" && (
+          <IndicatorsForm
+            rows={data.quantitative.indicators.rows}
+            onChange={(rows) => updateQuantitative("indicators", { rows })}
+          />
+        )}
+        {activeTab === "expenditures" && (
+          <ExpendituresForm
+            rows={data.quantitative.expenditures.rows}
+            onChange={(rows) => updateQuantitative("expenditures", { rows })}
+          />
+        )}
+        {activeTab === "work-plan" && (
+          <WorkPlanForm
+            rows={data.quantitative.workPlan.rows}
+            onChange={(rows) => updateQuantitative("workPlan", { rows })}
+          />
+        )}
+        {activeTab === "risk" && (
+          <RiskManagementForm
+            rows={data.quantitative.riskManagement.rows}
+            onChange={(rows) => updateQuantitative("riskManagement", { rows })}
+          />
+        )}
+        {activeTab === "funding-transfer" && (
+          <FundingTransferForm
+            rows={data.quantitative.fundingTransfer.rows}
+            onChange={(rows) => updateQuantitative("fundingTransfer", { rows })}
+          />
+        )}
+        {activeTab === "complementary" && (
+          <ComplementaryFundingForm
+            rows={data.quantitative.complementaryFunding.rows}
+            onChange={(rows) =>
+              updateQuantitative("complementaryFunding", { rows })
+            }
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+export default function SurveyPage() {
+  return (
+    <Suspense>
+      <SurveyContent />
+    </Suspense>
   );
 }

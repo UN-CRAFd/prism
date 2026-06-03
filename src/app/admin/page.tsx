@@ -121,23 +121,20 @@ export default function AdminFullDataPage() {
 
                       <TabsContent value="narrative" className="mt-4">
                         <div className="space-y-4">
-                          <NarrativeSection
+                          <FlatSection
                             title="Project Information"
                             data={survey.narrative.projectInformation}
                           />
-                          <NarrativeSection
-                            title="Self Assessment"
-                            data={survey.narrative.selfAssessment}
-                          />
-                          <NarrativeSection
+                          <AssessmentSection data={survey.narrative.selfAssessment} />
+                          <NestedSection
                             title="Key Achievements"
                             data={survey.narrative.keyAchievements}
                           />
-                          <NarrativeSection
+                          <ArraySection
                             title="Lessons Learned"
                             data={survey.narrative.lessonsLearned}
                           />
-                          <NarrativeSection
+                          <NestedSection
                             title="Visibility & Engagement"
                             data={survey.narrative.visibilityEngagement}
                           />
@@ -184,20 +181,23 @@ export default function AdminFullDataPage() {
   );
 }
 
-function NarrativeSection({
+function camelToLabel(s: string) {
+  return s.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim();
+}
+
+function FlatSection({
   title,
   data,
 }: {
   title: string;
-  data: Record<string, string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>;
 }) {
-  const entries = Object.entries(data).filter(([, v]) => v);
+  const entries = Object.entries(data).filter(
+    ([, v]) => v !== "" && v !== false && v !== null && v !== undefined
+  );
   if (entries.length === 0)
-    return (
-      <div className="text-sm text-muted-foreground italic">
-        {title}: No data entered
-      </div>
-    );
+    return <div className="text-sm text-muted-foreground italic">{title}: No data entered</div>;
 
   return (
     <div className="rounded-lg border p-4">
@@ -206,14 +206,95 @@ function NarrativeSection({
         <TableBody>
           {entries.map(([key, value]) => (
             <TableRow key={key}>
-              <TableCell className="font-medium capitalize w-48">
-                {key.replace(/([A-Z])/g, " $1").trim()}
-              </TableCell>
-              <TableCell className="whitespace-pre-wrap">{value}</TableCell>
+              <TableCell className="font-medium w-48">{camelToLabel(key)}</TableCell>
+              <TableCell className="whitespace-pre-wrap">{String(value)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+function AssessmentSection({ data }: { data: Record<string, { rating: string; justification: string }> }) {
+  const filled = Object.entries(data).filter(([, v]) => v.rating || v.justification);
+  if (filled.length === 0)
+    return <div className="text-sm text-muted-foreground italic">Self Assessment: No data entered</div>;
+
+  return (
+    <div className="rounded-lg border p-4">
+      <h4 className="font-semibold mb-2 text-sm">Self Assessment</h4>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Rating</TableHead>
+            <TableHead>Justification</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filled.map(([key, val]) => (
+            <TableRow key={key}>
+              <TableCell className="font-medium">{key}.</TableCell>
+              <TableCell>{val.rating || "—"}</TableCell>
+              <TableCell className="whitespace-pre-wrap">{val.justification || "—"}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ArraySection({ title, data }: { title: string; data: any[] }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filled = data.filter((entry: any) =>
+    Object.values(entry).some((v) => v !== "" && v !== null && v !== undefined)
+  );
+  if (filled.length === 0)
+    return <div className="text-sm text-muted-foreground italic">{title}: No data entered</div>;
+
+  const columns = Object.keys(filled[0]);
+  return (
+    <div className="rounded-lg border p-4">
+      <h4 className="font-semibold mb-2 text-sm">{title}</h4>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {columns.map((col) => (
+              <TableHead key={col}>{camelToLabel(col)}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filled.map((row, i) => (
+            <TableRow key={i}>
+              {columns.map((col) => (
+                <TableCell key={col} className="whitespace-pre-wrap">{String(row[col] ?? "")}</TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function NestedSection({ title, data }: { title: string; data: Record<string, any> }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="font-semibold text-sm">{title}</h4>
+      {Object.entries(data).map(([key, value]) => {
+        if (Array.isArray(value)) {
+          return <ArraySection key={key} title={camelToLabel(key)} data={value} />;
+        }
+        if (typeof value === "object" && value !== null) {
+          return <FlatSection key={key} title={camelToLabel(key)} data={value} />;
+        }
+        return null;
+      })}
     </div>
   );
 }

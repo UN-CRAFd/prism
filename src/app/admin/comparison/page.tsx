@@ -160,42 +160,38 @@ export default function ComparisonPage() {
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Overall Progress</TableCell>
+                        <TableCell className="font-medium">Organization</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.narrative.selfAssessment.overallProgress || "—"}
+                            {survey?.narrative.projectInformation.organizationName || "—"}
                           </TableCell>
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Timeliness</TableCell>
+                        <TableCell className="font-medium">Grant Size</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.narrative.selfAssessment.timelinessRating || "—"}
+                            {survey?.narrative.projectInformation.grantSize || "—"}
                           </TableCell>
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Budget Utilization</TableCell>
+                        <TableCell className="font-medium">Assessment Questions Rated</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.narrative.selfAssessment.budgetUtilization || "—"}
+                            {survey
+                              ? `${Object.values(survey.narrative.selfAssessment).filter((a) => a.rating).length} / 17`
+                              : "—"}
                           </TableCell>
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Partnership Quality</TableCell>
+                        <TableCell className="font-medium">Lessons Entered</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.narrative.selfAssessment.partnershipQuality || "—"}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Total Budget</TableCell>
-                        {partnerComparison.map(({ partner, survey }) => (
-                          <TableCell key={partner.id}>
-                            {survey?.narrative.projectInformation.totalBudget || "—"}
+                            {survey
+                              ? survey.narrative.lessonsLearned.filter((l) => l.lessonLearned).length
+                              : 0}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -281,34 +277,30 @@ export default function ComparisonPage() {
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Overall Progress</TableCell>
+                        <TableCell className="font-medium">Grant Size</TableCell>
                         {yearComparison.map(({ year, survey }) => (
                           <TableCell key={year}>
-                            {survey?.narrative.selfAssessment.overallProgress || "—"}
+                            {survey?.narrative.projectInformation.grantSize || "—"}
                           </TableCell>
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Timeliness</TableCell>
+                        <TableCell className="font-medium">Assessment Questions Rated</TableCell>
                         {yearComparison.map(({ year, survey }) => (
                           <TableCell key={year}>
-                            {survey?.narrative.selfAssessment.timelinessRating || "—"}
+                            {survey
+                              ? `${Object.values(survey.narrative.selfAssessment).filter((a) => a.rating).length} / 17`
+                              : "—"}
                           </TableCell>
                         ))}
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Budget Utilization</TableCell>
+                        <TableCell className="font-medium">Lessons Entered</TableCell>
                         {yearComparison.map(({ year, survey }) => (
                           <TableCell key={year}>
-                            {survey?.narrative.selfAssessment.budgetUtilization || "—"}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Total Budget</TableCell>
-                        {yearComparison.map(({ year, survey }) => (
-                          <TableCell key={year}>
-                            {survey?.narrative.projectInformation.totalBudget || "—"}
+                            {survey
+                              ? survey.narrative.lessonsLearned.filter((l) => l.lessonLearned).length
+                              : 0}
                           </TableCell>
                         ))}
                       </TableRow>

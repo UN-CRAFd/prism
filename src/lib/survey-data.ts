@@ -97,6 +97,46 @@ export interface IndicatorRow {
   comments: string;
 }
 
+// IndicatorRow kept for type compatibility (no longer used in form)
+export interface IndicatorRow {
+  id: string;
+  indicator: string;
+  baseline: string;
+  target: string;
+  achieved: string;
+  comments: string;
+}
+
+// --- New quantitative types ---
+
+export interface IndicatorResponse {
+  achievedValue: string;
+  status: string;
+  comment: string;
+}
+
+export type IndicatorResponses = Record<string, IndicatorResponse>;
+
+export interface ExpenditureEntry {
+  category: string;
+  approvedAnnualBudget: number;
+  annualExpenditure: number;
+  description: string;
+  comment: string;
+}
+
+export interface RiskEntry {
+  id: string;
+  isExisting: boolean;
+  number: number;
+  title: string;
+  categories: string;
+  likelihood: string;
+  impact: string;
+  mitigationStrategy: string;
+}
+
+// Legacy — still used by work plan / funding transfer / complementary forms
 export interface ExpenditureRow {
   id: string;
   category: string;
@@ -117,6 +157,7 @@ export interface WorkPlanRow {
   comments: string;
 }
 
+// Legacy RiskRow kept for reference
 export interface RiskRow {
   id: string;
   risk: string;
@@ -128,19 +169,20 @@ export interface RiskRow {
 
 export interface FundingTransferRow {
   id: string;
-  implementingPartner: string;
-  amount: number;
-  dateTransferred: string;
-  purpose: string;
-  status: string;
+  organizationName: string;
+  websiteLink: string;
+  partnerType: string;
+  amountTransferred: number;
+  linkedActivity: string;
 }
 
 export interface ComplementaryFundingRow {
   id: string;
-  source: string;
-  amount: number;
-  purpose: string;
-  status: string;
+  contributorName: string;
+  websiteLink: string;
+  fundingType: string;
+  totalContribution: number;
+  linkedActivities: string;
 }
 
 // --- Main survey data ---
@@ -156,10 +198,10 @@ export interface SurveyData {
     visibilityEngagement: VisibilityData;
   };
   quantitative: {
-    indicators: { rows: IndicatorRow[] };
-    expenditures: { rows: ExpenditureRow[] };
+    indicators: { responses: IndicatorResponses };
+    expenditures: { entries: ExpenditureEntry[] };
     workPlan: { rows: WorkPlanRow[] };
-    riskManagement: { rows: RiskRow[] };
+    riskManagement: { entries: RiskEntry[] };
     fundingTransfer: { rows: FundingTransferRow[] };
     complementaryFunding: { rows: ComplementaryFundingRow[] };
   };
@@ -247,10 +289,10 @@ function createEmptySurvey(partnerId: string, year: number): SurveyData {
       },
     },
     quantitative: {
-      indicators: { rows: [] },
-      expenditures: { rows: [] },
+      indicators: { responses: {} },
+      expenditures: { entries: [] },
       workPlan: { rows: [] },
-      riskManagement: { rows: [] },
+      riskManagement: { entries: [] },
       fundingTransfer: { rows: [] },
       complementaryFunding: { rows: [] },
     },
@@ -259,7 +301,7 @@ function createEmptySurvey(partnerId: string, year: number): SurveyData {
 
 // --- Storage ---
 
-const STORAGE_KEY = "crafd-survey-data-v2";
+const STORAGE_KEY = "crafd-survey-data-v3";
 
 export function getAllSurveyData(): SurveyData[] {
   if (typeof window === "undefined") return [];

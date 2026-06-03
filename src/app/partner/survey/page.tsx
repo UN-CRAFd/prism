@@ -195,14 +195,14 @@ function SurveyContent() {
 
         {activeTab === "indicators" && (
           <IndicatorsForm
-            rows={data.quantitative.indicators.rows}
-            onChange={(rows) => updateQuantitative("indicators", { rows })}
+            responses={data.quantitative.indicators.responses}
+            onChange={(responses) => updateQuantitative("indicators", { responses })}
           />
         )}
         {activeTab === "expenditures" && (
           <ExpendituresForm
-            rows={data.quantitative.expenditures.rows}
-            onChange={(rows) => updateQuantitative("expenditures", { rows })}
+            entries={data.quantitative.expenditures.entries}
+            onChange={(entries) => updateQuantitative("expenditures", { entries })}
           />
         )}
         {activeTab === "work-plan" && (
@@ -213,8 +213,8 @@ function SurveyContent() {
         )}
         {activeTab === "risk" && (
           <RiskManagementForm
-            rows={data.quantitative.riskManagement.rows}
-            onChange={(rows) => updateQuantitative("riskManagement", { rows })}
+            entries={data.quantitative.riskManagement.entries}
+            onChange={(entries) => updateQuantitative("riskManagement", { entries })}
           />
         )}
         {activeTab === "funding-transfer" && (

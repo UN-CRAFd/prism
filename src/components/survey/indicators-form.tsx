@@ -1,143 +1,185 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import type { IndicatorResponses, IndicatorResponse } from "@/lib/survey-data";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import type { IndicatorRow } from "@/lib/survey-data";
+  DEFAULT_INDICATORS,
+  INDICATOR_STATUS_OPTIONS,
+} from "@/lib/indicator-definitions";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
-interface IndicatorsFormProps {
-  rows: IndicatorRow[];
-  onChange: (rows: IndicatorRow[]) => void;
+interface Props {
+  responses: IndicatorResponses;
+  onChange: (responses: IndicatorResponses) => void;
 }
 
-export function IndicatorsForm({ rows, onChange }: IndicatorsFormProps) {
-  function addRow() {
-    onChange([
-      ...rows,
-      {
-        id: crypto.randomUUID(),
-        indicator: "",
-        baseline: "",
-        target: "",
-        achieved: "",
-        comments: "",
-      },
-    ]);
+const STATUS_STYLES: Record<string, string> = {
+  "Ahead of schedule": "bg-green-50 text-green-700 border-green-200",
+  "On track": "bg-blue-50 text-blue-700 border-blue-200",
+  "Off track": "bg-rose-50 text-rose-700 border-rose-200",
+  "Not started": "bg-neutral-100 text-neutral-500 border-neutral-200",
+  "N/A": "bg-neutral-100 text-neutral-400 border-neutral-200",
+};
+
+const selectClassName =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus:border-ring focus:ring-ring/50 focus:ring-[3px] outline-none";
+
+export function IndicatorsForm({ responses, onChange }: Props) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  function getResponse(id: string): IndicatorResponse {
+    return responses[id] ?? { achievedValue: "", status: "", comment: "" };
   }
 
-  function updateRow(id: string, field: string, value: string) {
-    onChange(rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
-  }
-
-  function deleteRow(id: string) {
-    onChange(rows.filter((r) => r.id !== id));
+  function update(id: string, field: keyof IndicatorResponse, value: string) {
+    onChange({
+      ...responses,
+      [id]: { ...getResponse(id), [field]: value },
+    });
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Performance Indicators</CardTitle>
-          <Button variant="outline" size="sm" onClick={addRow}>
-            <Plus className="mr-1 h-4 w-4" />
-            Add Row
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <p className="mb-4">No data yet</p>
-            <Button variant="outline" size="sm" onClick={addRow}>
-              <Plus className="mr-1 h-4 w-4" />
-              Add Row
-            </Button>
+    <div className="space-y-6">
+      <Card className="border-0 py-0 gap-0">
+        <CardHeader className="px-0">
+          <CardTitle>1. Indicators</CardTitle>
+          <CardDescription className="leading-relaxed">
+            Report the achieved value for each indicator for this reporting period.
+            Only enter numbers. Leave blank if not applicable.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left font-medium text-muted-foreground pb-3 w-10">#</th>
+                  <th className="text-left font-medium text-muted-foreground pb-3 min-w-[260px]">Indicator</th>
+                  <th className="text-left font-medium text-muted-foreground pb-3 w-28 text-center">Baseline</th>
+                  <th className="text-left font-medium text-muted-foreground pb-3 w-24 text-center">Target</th>
+                  <th className="text-left font-medium text-muted-foreground pb-3 w-32">Achieved value</th>
+                  <th className="text-left font-medium text-muted-foreground pb-3 w-44">Status</th>
+                  <th className="text-left font-medium text-muted-foreground pb-3 min-w-[180px]">Comment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {DEFAULT_INDICATORS.map((def) => {
+                  const resp = getResponse(def.id);
+                  const isOpen = expanded[def.id];
+                  const status = resp.status;
+                  const isSubIndicator = def.number.includes(".");
+
+                  return (
+                    <tr key={def.id} className="border-b last:border-0 align-top">
+                      <td className={cn(
+                        "py-3 pr-2 font-mono text-xs text-muted-foreground",
+                        isSubIndicator && "pl-3"
+                      )}>
+                        {def.number}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className={cn(isSubIndicator && "pl-2 border-l-2 border-muted")}>
+                          <p className={cn(
+                            "font-medium leading-snug",
+                            isSubIndicator && "text-muted-foreground font-normal"
+                          )}>
+                            {def.title}
+                          </p>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground mt-1 transition-colors"
+                            onClick={() =>
+                              setExpanded((prev) => ({ ...prev, [def.id]: !prev[def.id] }))
+                            }
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="size-3" />
+                            ) : (
+                              <ChevronRight className="size-3" />
+                            )}
+                            {isOpen ? "Hide" : "Show"} description
+                          </button>
+                          {isOpen && (
+                            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed border-t pt-1.5">
+                              {def.description}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-center">
+                        <span className="text-xs text-muted-foreground">
+                          {def.baselineValue}
+                          <span className="block text-muted-foreground/50">({def.baselineYear})</span>
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 text-center">
+                        <span className="text-xs text-muted-foreground">
+                          {def.targetValue}
+                          <span className="block text-muted-foreground/50">({def.targetYear})</span>
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <Input
+                          type="number"
+                          className="text-sm w-28"
+                          placeholder="—"
+                          value={resp.achievedValue}
+                          onChange={(e) => update(def.id, "achievedValue", e.target.value)}
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <div className="space-y-1.5">
+                          <select
+                            className={selectClassName}
+                            value={status}
+                            onChange={(e) => update(def.id, "status", e.target.value)}
+                          >
+                            <option value="">Select status</option>
+                            {INDICATOR_STATUS_OPTIONS.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                          {status && STATUS_STYLES[status] && (
+                            <span className={cn(
+                              "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
+                              STATUS_STYLES[status]
+                            )}>
+                              {status}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <Textarea
+                          rows={2}
+                          className="text-sm min-h-[60px]"
+                          placeholder={status === "Off track" ? "Required if off track…" : ""}
+                          value={resp.comment}
+                          onChange={(e) => update(def.id, "comment", e.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Indicator</TableHead>
-                <TableHead>Baseline</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Achieved</TableHead>
-                <TableHead>Comments</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <Input
-                      value={row.indicator}
-                      onChange={(e) =>
-                        updateRow(row.id, "indicator", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={row.baseline}
-                      onChange={(e) =>
-                        updateRow(row.id, "baseline", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={row.target}
-                      onChange={(e) =>
-                        updateRow(row.id, "target", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={row.achieved}
-                      onChange={(e) =>
-                        updateRow(row.id, "achieved", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={row.comments}
-                      onChange={(e) =>
-                        updateRow(row.id, "comments", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteRow(row.id)}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

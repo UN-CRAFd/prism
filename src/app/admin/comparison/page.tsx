@@ -199,7 +199,7 @@ export default function ComparisonPage() {
                         <TableCell className="font-medium">Indicators Count</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.quantitative.indicators.rows.length ?? 0}
+                            {survey ? Object.keys(survey.quantitative.indicators.responses).length : 0}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -207,7 +207,7 @@ export default function ComparisonPage() {
                         <TableCell className="font-medium">Expenditure Lines</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.quantitative.expenditures.rows.length ?? 0}
+                            {survey?.quantitative.expenditures.entries.length ?? 0}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -215,7 +215,7 @@ export default function ComparisonPage() {
                         <TableCell className="font-medium">Risk Items</TableCell>
                         {partnerComparison.map(({ partner, survey }) => (
                           <TableCell key={partner.id}>
-                            {survey?.quantitative.riskManagement.rows.length ?? 0}
+                            {survey?.quantitative.riskManagement.entries.length ?? 0}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -308,7 +308,7 @@ export default function ComparisonPage() {
                         <TableCell className="font-medium">Indicators Count</TableCell>
                         {yearComparison.map(({ year, survey }) => (
                           <TableCell key={year}>
-                            {survey?.quantitative.indicators.rows.length ?? 0}
+                            {survey ? Object.keys(survey.quantitative.indicators.responses).length : 0}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -316,7 +316,7 @@ export default function ComparisonPage() {
                         <TableCell className="font-medium">Expenditure Lines</TableCell>
                         {yearComparison.map(({ year, survey }) => (
                           <TableCell key={year}>
-                            {survey?.quantitative.expenditures.rows.length ?? 0}
+                            {survey?.quantitative.expenditures.entries.length ?? 0}
                           </TableCell>
                         ))}
                       </TableRow>

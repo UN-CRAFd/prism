@@ -145,11 +145,11 @@ export default function AdminFullDataPage() {
                         <div className="space-y-4">
                           <QuantitativeSection
                             title="Indicators"
-                            rows={survey.quantitative.indicators.rows}
+                            rows={Object.entries(survey.quantitative.indicators.responses).map(([id, r]) => ({ id, ...r }))}
                           />
                           <QuantitativeSection
                             title="Expenditures"
-                            rows={survey.quantitative.expenditures.rows}
+                            rows={survey.quantitative.expenditures.entries}
                           />
                           <QuantitativeSection
                             title="Work Plan"
@@ -157,7 +157,7 @@ export default function AdminFullDataPage() {
                           />
                           <QuantitativeSection
                             title="Risk Management"
-                            rows={survey.quantitative.riskManagement.rows}
+                            rows={survey.quantitative.riskManagement.entries}
                           />
                           <QuantitativeSection
                             title="Funding Transfer"

@@ -106,6 +106,23 @@ export function AppSidebar() {
           {NARRATIVE_TABS.map((tab) => {
             const Icon = narrativeIcons[tab.id] || FileText;
             const isActive = pathname === "/partner/survey" && activeTab === tab.id;
+            const isEnabled = tab.id === "project-info";
+            
+            if (!isEnabled) {
+              return (
+                <div
+                  key={tab.id}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors opacity-40 cursor-not-allowed",
+                    "text-muted-foreground"
+                  )}
+                >
+                  <Icon className="size-3.5 shrink-0" />
+                  {tab.label}
+                </div>
+              );
+            }
+            
             return (
               <Link
                 key={tab.id}
@@ -130,6 +147,23 @@ export function AppSidebar() {
           {QUANTITATIVE_TABS.map((tab) => {
             const Icon = quantitativeIcons[tab.id] || TrendingUp;
             const isActive = pathname === "/partner/survey" && activeTab === tab.id;
+            const isEnabled = tab.id === "indicators";
+            
+            if (!isEnabled) {
+              return (
+                <div
+                  key={tab.id}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors opacity-40 cursor-not-allowed",
+                    "text-muted-foreground"
+                  )}
+                >
+                  <Icon className="size-3.5 shrink-0" />
+                  {tab.label}
+                </div>
+              );
+            }
+            
             return (
               <Link
                 key={tab.id}

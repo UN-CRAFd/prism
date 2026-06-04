@@ -39,8 +39,11 @@ function SurveyContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "project-info";
+  const yearParam = searchParams.get("year");
 
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [selectedYear, setSelectedYear] = useState<number>(
+    yearParam ? Number(yearParam) : 2026
+  );
   const [data, setData] = useState<SurveyData | null>(null);
   const [saved, setSaved] = useState(false);
   const [assessmentSections, setAssessmentSections] = useState<AssessmentSection[] | undefined>(undefined);

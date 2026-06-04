@@ -10,6 +10,7 @@ import {
   LogOut,
   User,
   PenLine,
+  LayoutDashboard,
   FileText,
   ClipboardCheck,
   Trophy,
@@ -77,6 +78,19 @@ export function AppSidebar() {
 
       {isPartner ? (
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          <Link
+            href="/partner/dashboard"
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mb-2",
+              pathname === "/partner/dashboard"
+                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <LayoutDashboard className="size-3.5 shrink-0" />
+            Dashboard
+          </Link>
+          <Separator className="my-2" />
           <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-widest text-crafd-yellow">
             Narrative Report
           </p>
@@ -95,7 +109,6 @@ export function AppSidebar() {
                 )}
               >
                 <Icon className="size-3.5 shrink-0" />
-                <span className="text-muted-foreground/70 mr-0.5">{tab.number}.</span>
                 {tab.label}
               </Link>
             );
@@ -120,7 +133,6 @@ export function AppSidebar() {
                 )}
               >
                 <Icon className="size-3.5 shrink-0" />
-                <span className="text-muted-foreground/70 mr-0.5">{tab.number}.</span>
                 {tab.label}
               </Link>
             );

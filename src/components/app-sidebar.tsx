@@ -11,6 +11,7 @@ import {
   User,
   PenLine,
   LayoutDashboard,
+  Users,
   FileText,
   ClipboardCheck,
   Trophy,
@@ -35,6 +36,7 @@ const adminLinks = [
   { href: "/admin/visualization", label: "Visualization", icon: BarChart3 },
   { href: "/admin/comparison", label: "Comparison", icon: GitCompareArrows },
   { href: "/admin/survey-editor", label: "Survey Editor", icon: PenLine },
+  { href: "/admin/manage", label: "Partners & Projects", icon: Users },
 ];
 
 const narrativeIcons: Record<string, React.ElementType> = {

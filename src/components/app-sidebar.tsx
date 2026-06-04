@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Users,
   FileText,
+  ClipboardList,
   ClipboardCheck,
   Trophy,
   Lightbulb,
@@ -35,6 +36,7 @@ const dataLinks = [
 ];
 
 const administrationLinks = [
+  { href: "/admin/reports", label: "Reports", icon: ClipboardList },
   { href: "/admin/survey-editor", label: "Survey Editor", icon: PenLine },
   { href: "/admin/manage", label: "Partners & Projects", icon: Users },
 ];

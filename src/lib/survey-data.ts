@@ -311,12 +311,48 @@ export function getAllSurveyData(): SurveyData[] {
   return stored ? JSON.parse(stored) : [];
 }
 
+function normalizeSurveyData(data: any): SurveyData {
+  // Ensure all fields have proper defaults by merging with empty template
+  const empty = createEmptySurvey(data.partnerId || "", data.year || 2026);
+  return {
+    partnerId: data.partnerId || empty.partnerId,
+    year: data.year || empty.year,
+    narrative: {
+      projectInformation: {
+        projectTitle: data.narrative?.projectInformation?.projectTitle ?? "",
+        mptfoProjectNumber: data.narrative?.projectInformation?.mptfoProjectNumber ?? "",
+        organizationName: data.narrative?.projectInformation?.organizationName ?? "",
+        organizationWebsite: data.narrative?.projectInformation?.organizationWebsite ?? "",
+        projectStartDate: data.narrative?.projectInformation?.projectStartDate ?? "",
+        projectDuration: data.narrative?.projectInformation?.projectDuration ?? "",
+        grantSize: data.narrative?.projectInformation?.grantSize ?? "",
+        implementingPartners: data.narrative?.projectInformation?.implementingPartners ?? "",
+        geographicScope: data.narrative?.projectInformation?.geographicScope ?? "",
+        reportSubmissionDate: data.narrative?.projectInformation?.reportSubmissionDate ?? "",
+        authorizationGranted: data.narrative?.projectInformation?.authorizationGranted ?? false,
+      },
+      selfAssessment: data.narrative?.selfAssessment || empty.narrative.selfAssessment,
+      keyAchievements: data.narrative?.keyAchievements || empty.narrative.keyAchievements,
+      lessonsLearned: data.narrative?.lessonsLearned || empty.narrative.lessonsLearned,
+      visibilityEngagement: data.narrative?.visibilityEngagement || empty.narrative.visibilityEngagement,
+    },
+    quantitative: {
+      indicators: data.quantitative?.indicators || empty.quantitative.indicators,
+      expenditures: data.quantitative?.expenditures || empty.quantitative.expenditures,
+      workPlan: data.quantitative?.workPlan || empty.quantitative.workPlan,
+      riskManagement: data.quantitative?.riskManagement || empty.quantitative.riskManagement,
+      fundingTransfer: data.quantitative?.fundingTransfer || empty.quantitative.fundingTransfer,
+      complementaryFunding: data.quantitative?.complementaryFunding || empty.quantitative.complementaryFunding,
+    },
+  };
+}
+
 export function getSurveyData(partnerId: string, year: number): SurveyData {
   const all = getAllSurveyData();
   const existing = all.find(
     (s) => s.partnerId === partnerId && s.year === year
   );
-  return existing || createEmptySurvey(partnerId, year);
+  return existing ? normalizeSurveyData(existing) : createEmptySurvey(partnerId, year);
 }
 
 export function saveSurveyData(data: SurveyData): void {

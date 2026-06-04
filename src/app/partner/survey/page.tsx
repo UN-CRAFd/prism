@@ -251,8 +251,8 @@ function SurveyContent() {
 
         {activeTab === "indicators" && (
           <IndicatorsForm
-            responses={data.quantitative.indicators.responses}
-            onChange={(responses) => updateQuantitative("indicators", { responses })}
+            projectId={projectRecord?.id ?? null}
+            year={selectedYear}
           />
         )}
         {activeTab === "expenditures" && (

@@ -75,6 +75,15 @@ export function ProjectInformationForm({ data, onChange }: Props) {
             </div>
 
             <div className="flex flex-col gap-2">
+              <Label htmlFor="grantSize">Grant size (USD)</Label>
+              <Input
+                id="grantSize"
+                value={data.grantSize}
+                onChange={(e) => update("grantSize", e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
               <Label htmlFor="projectDuration">Project duration (months)</Label>
               <Input
                 id="projectDuration"
@@ -84,15 +93,6 @@ export function ProjectInformationForm({ data, onChange }: Props) {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="grantSize">Grant size (USD)</Label>
-              <Input
-                id="grantSize"
-                value={data.grantSize}
-                onChange={(e) => update("grantSize", e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="implementingPartners">Implementing partners</Label>
               <Input
                 id="implementingPartners"
@@ -107,6 +107,16 @@ export function ProjectInformationForm({ data, onChange }: Props) {
                 id="geographicScope"
                 value={data.geographicScope}
                 onChange={(e) => update("geographicScope", e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="projectStartDate">Project start date</Label>
+              <Input
+                id="projectStartDate"
+                type="date"
+                value={data.projectStartDate}
+                onChange={(e) => update("projectStartDate", e.target.value)}
               />
             </div>
 

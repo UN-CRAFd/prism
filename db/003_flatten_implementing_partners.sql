@@ -8,3 +8,4 @@ ALTER TABLE projects
 
 -- 2. Drop the join table (indexes and FK constraints drop automatically)
 DROP TABLE IF EXISTS implementing_partners CASCADE;
+

@@ -5,6 +5,7 @@ export interface ProjectInformation {
   mptfoProjectNumber: string;
   organizationName: string;
   organizationWebsite: string;
+  projectStartDate: string;
   projectDuration: string;
   grantSize: string;
   implementingPartners: string;
@@ -240,6 +241,7 @@ function createEmptySurvey(partnerId: string, year: number): SurveyData {
         mptfoProjectNumber: "",
         organizationName: "",
         organizationWebsite: "",
+        projectStartDate: "",
         projectDuration: "",
         grantSize: "",
         implementingPartners: "",

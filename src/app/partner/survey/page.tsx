@@ -40,6 +40,7 @@ interface ProjectRecord {
   project_title: string | null;
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
+  project_start_date: string | null;
   project_duration: string | null;
   geographic_scope: string | null;
   partner_short_name: string | null;
@@ -97,6 +98,7 @@ function SurveyContent() {
           organizationName: pi.organizationName || projectRecord?.partner_long_name || "",
           organizationWebsite: pi.organizationWebsite || partnerRecord?.organization_website || "",
           grantSize: pi.grantSize || (projectRecord?.grant_size_usd ? String(projectRecord.grant_size_usd) : ""),
+          projectStartDate: pi.projectStartDate || projectRecord?.project_start_date || "",
           projectDuration: pi.projectDuration || projectRecord?.project_duration || "",
           geographicScope: pi.geographicScope || projectRecord?.geographic_scope || "",
         };

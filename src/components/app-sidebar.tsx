@@ -83,7 +83,9 @@ export function AppSidebar() {
 
       <Separator />
 
-      {isPartner ? (
+      {!mounted ? (
+        <nav className="flex-1 space-y-1 px-3 py-4" />
+      ) : isPartner ? (
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           <Link
             href="/partner/dashboard"

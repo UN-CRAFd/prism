@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
+const ALLOWED_FIELDS: Record<string, string> = {
+  short_name: "short_name",
+  long_name: "long_name",
+  organization_website: "organization_website",
+  mail_account: "mail_account",
+  password: "password_hash",
+};
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -8,27 +16,17 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { organization_name, organization_website, password, mail_account } = body;
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
 
-    if (organization_name !== undefined) {
-      setClauses.push(`organization_name = $${idx++}`);
-      values.push(organization_name);
-    }
-    if (organization_website !== undefined) {
-      setClauses.push(`organization_website = $${idx++}`);
-      values.push(organization_website);
-    }
-    if (password !== undefined && password !== "") {
-      setClauses.push(`password_hash = $${idx++}`);
-      values.push(password);
-    }
-    if (mail_account !== undefined) {
-      setClauses.push(`mail_account = $${idx++}`);
-      values.push(mail_account);
+    for (const [bodyKey, dbCol] of Object.entries(ALLOWED_FIELDS)) {
+      const val = body[bodyKey];
+      if (val === undefined) continue;
+      if (bodyKey === "password" && val === "") continue;
+      setClauses.push(`${dbCol} = $${idx++}`);
+      values.push(val);
     }
 
     if (setClauses.length === 0) {
@@ -37,7 +35,9 @@ export async function PUT(
 
     values.push(id);
     const rows = await query(
-      `UPDATE reporting_platform.partners SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+      `UPDATE reporting_platform.partners SET ${setClauses.join(", ")}
+       WHERE id = $${idx}
+       RETURNING id, short_name, long_name, organization_website, mail_account, created_at, updated_at`,
       values
     );
 

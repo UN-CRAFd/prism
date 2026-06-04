@@ -1,11 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  BarChart3,
-  GitCompareArrows,
   Database,
   LogOut,
   User,
@@ -31,10 +30,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const adminLinks = [
+const dataLinks = [
   { href: "/admin", label: "Full Data", icon: Database },
-  { href: "/admin/visualization", label: "Visualization", icon: BarChart3 },
-  { href: "/admin/comparison", label: "Comparison", icon: GitCompareArrows },
+];
+
+const administrationLinks = [
   { href: "/admin/survey-editor", label: "Survey Editor", icon: PenLine },
   { href: "/admin/manage", label: "Partners & Projects", icon: Users },
 ];
@@ -61,6 +61,11 @@ export function AppSidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "project-info";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isPartner = user?.role === "partner";
 
@@ -143,9 +148,35 @@ export function AppSidebar() {
       ) : (
         <nav className="flex-1 space-y-1 px-3 py-4">
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Data
+          </p>
+          {dataLinks.map((link) => {
+            const isActive =
+              link.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-crafd-yellow/10 text-crafd-yellow"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                <link.icon className="size-4" />
+                {link.label}
+              </Link>
+            );
+          })}
+
+          <div className="pt-2" />
+          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Administration
           </p>
-          {adminLinks.map((link) => {
+          {administrationLinks.map((link) => {
             const isActive =
               link.href === "/admin"
                 ? pathname === "/admin"
@@ -175,13 +206,13 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
           <Avatar className="size-9">
             <AvatarFallback className="bg-crafd-yellow text-black text-xs font-bold">
-              {user?.name?.charAt(0) || <User className="size-4" />}
+              {mounted && user?.name ? user.name.charAt(0) : <User className="size-4" />}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-sm font-medium truncate">{mounted && user?.name ? user.name : ""}</p>
             <p className="text-xs text-muted-foreground capitalize">
-              {user?.role}
+              {mounted && user?.role ? user.role : ""}
             </p>
           </div>
           <Button

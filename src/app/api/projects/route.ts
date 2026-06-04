@@ -4,11 +4,10 @@ import { query } from "@/lib/db";
 export async function GET() {
   try {
     const rows = await query(`
-      SELECT pr.*,
-             p.organization_name AS partner_name
+      SELECT pr.*, p.short_name AS partner_short_name, p.long_name AS partner_long_name
       FROM reporting_platform.projects pr
       JOIN reporting_platform.partners p ON p.id = pr.partner_id
-      ORDER BY p.organization_name, pr.project_title
+      ORDER BY p.short_name, pr.project_title
     `);
     return NextResponse.json(rows);
   } catch (err) {
@@ -21,12 +20,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      partner_id,
-      project_title,
-      mptfo_project_number,
-      grant_size_usd,
-      project_duration,
-      geographic_scope,
+      partner_id, project_title, short_name, long_name,
+      mptfo_project_number, grant_size_usd, project_duration, geographic_scope,
     } = body;
 
     if (!partner_id || !project_title) {
@@ -38,16 +33,14 @@ export async function POST(request: Request) {
 
     const rows = await query(
       `INSERT INTO reporting_platform.projects
-         (partner_id, project_title, mptfo_project_number, grant_size_usd, project_duration, geographic_scope)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (partner_id, project_title, short_name, long_name, mptfo_project_number, grant_size_usd, project_duration, geographic_scope)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
-        partner_id,
-        project_title,
-        mptfo_project_number || null,
-        grant_size_usd || null,
-        project_duration || null,
-        geographic_scope || null,
+        partner_id, project_title,
+        short_name || null, long_name || null,
+        mptfo_project_number || null, grant_size_usd || null,
+        project_duration || null, geographic_scope || null,
       ]
     );
 

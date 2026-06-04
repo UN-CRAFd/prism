@@ -1,11 +1,12 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Card,
   CardContent,
@@ -29,39 +30,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  X,
-  Check,
-  Building2,
-  FolderKanban,
-  ExternalLink,
-  Loader2,
+  Plus, Pencil, Trash2, X, Check, Building2, FolderKanban, ExternalLink, Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 // ── Types ──
 
 interface Partner {
   id: number;
-  organization_name: string;
+  short_name: string | null;
+  long_name: string | null;
   organization_website: string | null;
   mail_account: string;
   created_at: string;
-  projects: { id: number; project_title: string }[];
+  projects: { id: number; project_title: string; short_name: string | null }[];
 }
 
 interface Project {
   id: number;
   partner_id: number;
-  partner_name: string;
+  partner_short_name: string | null;
+  partner_long_name: string | null;
   project_title: string;
+  short_name: string | null;
+  long_name: string | null;
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
   project_duration: string | null;
   geographic_scope: string | null;
-  created_at: string;
 }
 
 // ── Main page ──
@@ -90,9 +85,7 @@ export default function ManagePage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   return (
     <div className="flex flex-col h-full">
@@ -102,27 +95,20 @@ export default function ManagePage() {
           Manage partner organizations and their projects
         </p>
       </div>
-
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
         {error && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         )}
-
         {loading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
-            <Loader2 className="size-4 animate-spin" />
-            Loading...
+            <Loader2 className="size-4 animate-spin" /> Loading...
           </div>
         ) : (
           <>
             <PartnersSection partners={partners} onRefresh={loadData} />
-            <ProjectsSection
-              projects={projects}
-              partners={partners}
-              onRefresh={loadData}
-            />
+            <ProjectsSection projects={projects} partners={partners} onRefresh={loadData} />
           </>
         )}
       </div>
@@ -130,101 +116,80 @@ export default function ManagePage() {
   );
 }
 
+// ── Helpers ──
+
+function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}{required && " *"}</Label>
+      {children}
+    </div>
+  );
+}
+
+function Dash() {
+  return <span className="text-xs text-muted-foreground/50">—</span>;
+}
+
 // ── Partners Section ──
 
-function PartnersSection({
-  partners,
-  onRefresh,
-}: {
-  partners: Partner[];
-  onRefresh: () => void;
-}) {
+function PartnersSection({ partners, onRefresh }: { partners: Partner[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [longName, setLongName] = useState("");
   const [website, setWebsite] = useState("");
   const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
 
   function resetForm() {
-    setName("");
-    setWebsite("");
-    setMail("");
-    setPassword("");
-    setEditId(null);
-    setShowForm(false);
-    setFormError(null);
+    setShortName(""); setLongName("");
+    setWebsite(""); setMail(""); setPassword("");
+    setEditId(null); setShowForm(false); setFormError(null);
   }
 
   function startEdit(p: Partner) {
-    setName(p.organization_name);
+    setShortName(p.short_name || "");
+    setLongName(p.long_name || "");
     setWebsite(p.organization_website || "");
     setMail(p.mail_account);
     setPassword("");
-    setEditId(p.id);
-    setShowForm(true);
-    setFormError(null);
+    setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
   async function handleSubmit() {
-    if (!name.trim() || !mail.trim()) {
-      setFormError("Name and email are required");
-      return;
-    }
-    if (!editId && !password.trim()) {
-      setFormError("Password is required for new partners");
-      return;
-    }
+    if (!shortName.trim() || !mail.trim()) { setFormError("Short name and email are required"); return; }
+    if (!editId && !password.trim()) { setFormError("Password is required for new partners"); return; }
 
-    setSaving(true);
-    setFormError(null);
+    setSaving(true); setFormError(null);
     try {
-      const body: Record<string, string> = {
-        organization_name: name.trim(),
-        organization_website: website.trim(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: Record<string, any> = {
+        short_name: shortName.trim(),
+        long_name: longName.trim() || null,
+        organization_website: website.trim() || null,
         mail_account: mail.trim(),
       };
       if (password) body.password = password;
 
-      const url = editId ? `/api/partners/${editId}` : "/api/partners";
-      const method = editId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
-
-      resetForm();
-      onRefresh();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setSaving(false);
-    }
+      const res = await fetch(
+        editId ? `/api/partners/${editId}` : "/api/partners",
+        { method: editId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to save"); }
+      resetForm(); onRefresh();
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setSaving(false); }
   }
 
   async function handleDelete(id: number) {
     if (!confirm("Delete this partner? This cannot be undone.")) return;
-    try {
-      const res = await fetch(`/api/partners/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Failed to delete");
-        return;
-      }
-      onRefresh();
-    } catch {
-      alert("Failed to delete partner");
-    }
+    const res = await fetch(`/api/partners/${id}`, { method: "DELETE" });
+    if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
+    onRefresh();
   }
 
   return (
@@ -235,58 +200,43 @@ function PartnersSection({
             <Building2 className="size-5 text-muted-foreground" />
             <div>
               <CardTitle>Partners</CardTitle>
-              <CardDescription>
-                {partners.length} partner organization{partners.length !== 1 ? "s" : ""} registered
-              </CardDescription>
+              <CardDescription>{partners.length} partner organization{partners.length !== 1 ? "s" : ""}</CardDescription>
             </div>
           </div>
           {!showForm && (
             <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
-              <Plus className="size-3.5" />
-              Add partner
+              <Plus className="size-3.5" /> Add partner
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent>
-        {/* Inline form */}
         {showForm && (
           <div className="mb-6 rounded-lg border bg-muted/30 p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">
-                {editId ? "Edit partner" : "New partner"}
-              </p>
-              <Button variant="ghost" size="icon" className="size-7" onClick={resetForm}>
-                <X className="size-3.5" />
-              </Button>
+              <p className="text-sm font-semibold">{editId ? "Edit partner" : "New partner"}</p>
+              <Button variant="ghost" size="icon" className="size-7" onClick={resetForm}><X className="size-3.5" /></Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Organization name *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ACLED" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Email account *</Label>
-                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="contact@org.com" type="email" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Website</Label>
-                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">
-                  Password {editId ? "(leave blank to keep current)" : "*"}
-                </Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Field label="Short name" required>
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="ACLED" />
+              </Field>
+              <Field label="Long name">
+                <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Armed Conflict Location & Event Data (ACLED)" />
+              </Field>
+              <Field label="Website">
+                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://acleddata.com" />
+              </Field>
+              <Field label="Email account" required>
+                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="acled@crafd.org" type="email" />
+              </Field>
+              <Field label={editId ? "Password (blank = keep current)" : "Password"} required={!editId}>
                 <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={editId ? "Unchanged" : ""} />
-              </div>
+              </Field>
             </div>
-            {formError && (
-              <p className="text-xs text-destructive">{formError}</p>
-            )}
+            {formError && <p className="text-xs text-destructive">{formError}</p>}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={resetForm}>
-                Cancel
-              </Button>
+              <Button variant="outline" size="sm" onClick={resetForm}>Cancel</Button>
               <Button size="sm" onClick={handleSubmit} disabled={saving}>
                 {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                 {editId ? "Update" : "Create"}
@@ -295,70 +245,56 @@ function PartnersSection({
           </div>
         )}
 
-        {/* Table */}
         {partners.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No partners yet. Add the first one above.
-          </p>
+          <p className="text-sm text-muted-foreground text-center py-8">No partners yet.</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Organization</TableHead>
+                <TableHead>Short</TableHead>
+                <TableHead>Long name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Website</TableHead>
                 <TableHead>Projects</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {partners.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.organization_name}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.mail_account}</TableCell>
+                  <TableCell>
+                    {p.short_name ? (
+                      <Badge variant="outline" className="text-xs font-semibold">{p.short_name}</Badge>
+                    ) : <Dash />}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {p.long_name || <Dash />}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{p.mail_account}</TableCell>
                   <TableCell>
                     {p.organization_website ? (
-                      <a
-                        href={p.organization_website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                      >
+                      <a href={p.organization_website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
                         Link <ExternalLink className="size-3" />
                       </a>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50">—</span>
-                    )}
+                    ) : <Dash />}
                   </TableCell>
                   <TableCell>
                     {p.projects.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {p.projects.map((pr) => (
-                          <Badge key={pr.id} variant="outline" className="text-xs font-normal">
-                            {pr.project_title}
+                          <Badge key={pr.id} variant="secondary" className="text-xs font-normal">
+                            {pr.short_name || pr.project_title}
                           </Badge>
                         ))}
                       </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50">None</span>
-                    )}
+                    ) : <Dash />}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        onClick={() => startEdit(p)}
-                      >
+                      <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(p)}>
                         <Pencil className="size-3" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(p.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
                         <Trash2 className="size-3" />
                       </Button>
                     </div>
@@ -375,15 +311,7 @@ function PartnersSection({
 
 // ── Projects Section ──
 
-function ProjectsSection({
-  projects,
-  partners,
-  onRefresh,
-}: {
-  projects: Project[];
-  partners: Partner[];
-  onRefresh: () => void;
-}) {
+function ProjectsSection({ projects, partners, onRefresh }: { projects: Project[]; partners: Partner[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -391,96 +319,69 @@ function ProjectsSection({
 
   const [partnerId, setPartnerId] = useState("");
   const [title, setTitle] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [longName, setLongName] = useState("");
   const [mptfo, setMptfo] = useState("");
   const [grantSize, setGrantSize] = useState("");
   const [duration, setDuration] = useState("");
   const [scope, setScope] = useState("");
 
   function resetForm() {
-    setPartnerId("");
-    setTitle("");
-    setMptfo("");
-    setGrantSize("");
-    setDuration("");
-    setScope("");
-    setEditId(null);
-    setShowForm(false);
-    setFormError(null);
+    setPartnerId(""); setTitle(""); setShortName(""); setLongName("");
+    setMptfo(""); setGrantSize(""); setDuration(""); setScope("");
+    setEditId(null); setShowForm(false); setFormError(null);
   }
 
   function startEdit(p: Project) {
     setPartnerId(String(p.partner_id));
     setTitle(p.project_title);
+    setShortName(p.short_name || "");
+    setLongName(p.long_name || "");
     setMptfo(p.mptfo_project_number || "");
     setGrantSize(p.grant_size_usd || "");
     setDuration(p.project_duration || "");
     setScope(p.geographic_scope || "");
-    setEditId(p.id);
-    setShowForm(true);
-    setFormError(null);
+    setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
   async function handleSubmit() {
-    if (!partnerId || !title.trim()) {
-      setFormError("Partner and project title are required");
-      return;
-    }
+    if (!partnerId || !title.trim()) { setFormError("Partner and project title are required"); return; }
 
-    setSaving(true);
-    setFormError(null);
+    setSaving(true); setFormError(null);
     try {
       const body = {
         partner_id: Number(partnerId),
         project_title: title.trim(),
+        short_name: shortName.trim() || null,
+        long_name: longName.trim() || null,
         mptfo_project_number: mptfo.trim() || null,
         grant_size_usd: grantSize ? parseFloat(grantSize) : null,
         project_duration: duration.trim() || null,
         geographic_scope: scope.trim() || null,
       };
 
-      const url = editId ? `/api/projects/${editId}` : "/api/projects";
-      const method = editId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
-
-      resetForm();
-      onRefresh();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setSaving(false);
-    }
+      const res = await fetch(
+        editId ? `/api/projects/${editId}` : "/api/projects",
+        { method: editId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to save"); }
+      resetForm(); onRefresh();
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setSaving(false); }
   }
 
   async function handleDelete(id: number) {
     if (!confirm("Delete this project? This cannot be undone.")) return;
-    try {
-      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Failed to delete");
-        return;
-      }
-      onRefresh();
-    } catch {
-      alert("Failed to delete project");
-    }
+    const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
+    onRefresh();
   }
 
-  function fmt(v: string | null) {
-    if (!v) return <span className="text-xs text-muted-foreground/50">—</span>;
+  function fmtUsd(v: string | null) {
+    if (!v) return <Dash />;
     const n = parseFloat(v);
-    if (!isNaN(n)) return "$" + n.toLocaleString("en-US");
-    return v;
+    if (isNaN(n)) return v;
+    return "$" + n.toLocaleString("en-US");
   }
 
   return (
@@ -491,79 +392,61 @@ function ProjectsSection({
             <FolderKanban className="size-5 text-muted-foreground" />
             <div>
               <CardTitle>Projects</CardTitle>
-              <CardDescription>
-                {projects.length} project{projects.length !== 1 ? "s" : ""} across {partners.length} partner{partners.length !== 1 ? "s" : ""}
-              </CardDescription>
+              <CardDescription>{projects.length} project{projects.length !== 1 ? "s" : ""} across {partners.length} partner{partners.length !== 1 ? "s" : ""}</CardDescription>
             </div>
           </div>
           {!showForm && (
-            <Button
-              size="sm"
-              onClick={() => { resetForm(); setShowForm(true); }}
-              disabled={partners.length === 0}
-            >
-              <Plus className="size-3.5" />
-              Add project
+            <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} disabled={partners.length === 0}>
+              <Plus className="size-3.5" /> Add project
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent>
-        {/* Inline form */}
         {showForm && (
           <div className="mb-6 rounded-lg border bg-muted/30 p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">
-                {editId ? "Edit project" : "New project"}
-              </p>
-              <Button variant="ghost" size="icon" className="size-7" onClick={resetForm}>
-                <X className="size-3.5" />
-              </Button>
+              <p className="text-sm font-semibold">{editId ? "Edit project" : "New project"}</p>
+              <Button variant="ghost" size="icon" className="size-7" onClick={resetForm}><X className="size-3.5" /></Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Partner *</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Field label="Partner" required>
                 <Select value={partnerId} onValueChange={setPartnerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select partner" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select partner" /></SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.id} value={String(p.id)}>
-                        {p.organization_name}
+                        {p.short_name ? `${p.short_name} — ${p.long_name || p.short_name}` : (p.long_name || "—")}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Project title *</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ACLED Data" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">MPTFO project number</Label>
-                <Input value={mptfo} onChange={(e) => setMptfo(e.target.value)} placeholder="00123456" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Grant size (USD)</Label>
+              </Field>
+              <Field label="Project title" required>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Maintaining & Improving ACLED..." />
+              </Field>
+              <Field label="Short name">
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="MaintainingACLED" />
+              </Field>
+              <Field label="Long name">
+                <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full project title..." />
+              </Field>
+              <Field label="MPTFO project number">
+                <Input value={mptfo} onChange={(e) => setMptfo(e.target.value)} placeholder="00140841" />
+              </Field>
+              <Field label="Grant size (USD)">
                 <Input value={grantSize} onChange={(e) => setGrantSize(e.target.value)} type="number" placeholder="0" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Project duration</Label>
+              </Field>
+              <Field label="Project duration">
                 <Input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="24 months" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Geographic scope</Label>
+              </Field>
+              <Field label="Geographic scope">
                 <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Global" />
-              </div>
+              </Field>
             </div>
-            {formError && (
-              <p className="text-xs text-destructive">{formError}</p>
-            )}
+            {formError && <p className="text-xs text-destructive">{formError}</p>}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={resetForm}>
-                Cancel
-              </Button>
+              <Button variant="outline" size="sm" onClick={resetForm}>Cancel</Button>
               <Button size="sm" onClick={handleSubmit} disabled={saving}>
                 {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                 {editId ? "Update" : "Create"}
@@ -572,24 +455,22 @@ function ProjectsSection({
           </div>
         )}
 
-        {/* Table */}
         {projects.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            {partners.length === 0
-              ? "Add a partner first, then create projects."
-              : "No projects yet. Add the first one above."}
+            {partners.length === 0 ? "Add a partner first, then create projects." : "No projects yet."}
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Partner</TableHead>
-                <TableHead>Project Title</TableHead>
+                <TableHead>Short</TableHead>
+                <TableHead>Project title</TableHead>
                 <TableHead>MPTFO #</TableHead>
-                <TableHead className="text-right">Grant Size</TableHead>
+                <TableHead className="text-right">Grant size</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Scope</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -597,38 +478,23 @@ function ProjectsSection({
                 <TableRow key={p.id}>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
-                      {p.partner_name}
+                      {p.partner_short_name || "—"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{p.project_title}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">
-                    {p.mptfo_project_number || "—"}
+                  <TableCell className="text-xs font-mono text-muted-foreground">
+                    {p.short_name || <Dash />}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fmt(p.grant_size_usd)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {p.project_duration || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {p.geographic_scope || "—"}
-                  </TableCell>
+                  <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">{p.mptfo_project_number || <Dash />}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtUsd(p.grant_size_usd)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{p.project_duration || <Dash />}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        onClick={() => startEdit(p)}
-                      >
+                      <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(p)}>
                         <Pencil className="size-3" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(p.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
                         <Trash2 className="size-3" />
                       </Button>
                     </div>

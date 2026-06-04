@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
+const ALLOWED_FIELDS = [
+  "partner_id", "project_title", "short_name", "long_name",
+  "mptfo_project_number", "grant_size_usd", "project_duration", "geographic_scope",
+];
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -8,42 +13,15 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const {
-      partner_id,
-      project_title,
-      mptfo_project_number,
-      grant_size_usd,
-      project_duration,
-      geographic_scope,
-    } = body;
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
 
-    if (partner_id !== undefined) {
-      setClauses.push(`partner_id = $${idx++}`);
-      values.push(partner_id);
-    }
-    if (project_title !== undefined) {
-      setClauses.push(`project_title = $${idx++}`);
-      values.push(project_title);
-    }
-    if (mptfo_project_number !== undefined) {
-      setClauses.push(`mptfo_project_number = $${idx++}`);
-      values.push(mptfo_project_number);
-    }
-    if (grant_size_usd !== undefined) {
-      setClauses.push(`grant_size_usd = $${idx++}`);
-      values.push(grant_size_usd);
-    }
-    if (project_duration !== undefined) {
-      setClauses.push(`project_duration = $${idx++}`);
-      values.push(project_duration);
-    }
-    if (geographic_scope !== undefined) {
-      setClauses.push(`geographic_scope = $${idx++}`);
-      values.push(geographic_scope);
+    for (const field of ALLOWED_FIELDS) {
+      if (body[field] === undefined) continue;
+      setClauses.push(`${field} = $${idx++}`);
+      values.push(body[field]);
     }
 
     if (setClauses.length === 0) {

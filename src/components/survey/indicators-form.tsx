@@ -15,7 +15,13 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -32,8 +38,20 @@ const STATUS_STYLES: Record<string, string> = {
   "N/A": "bg-neutral-100 text-neutral-400 border-neutral-200",
 };
 
-const selectClassName =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus:border-ring focus:ring-ring/50 focus:ring-[3px] outline-none";
+function StatusBadge({ value }: { value: string }) {
+  const style = STATUS_STYLES[value];
+  if (!style) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
+        style
+      )}
+    >
+      {value}
+    </span>
+  );
+}
 
 export function IndicatorsForm({ responses, onChange }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -142,26 +160,23 @@ export function IndicatorsForm({ responses, onChange }: Props) {
                         />
                       </td>
                       <td className="py-3 pr-3">
-                        <div className="space-y-1.5">
-                          <select
-                            className={selectClassName}
-                            value={status}
-                            onChange={(e) => update(def.id, "status", e.target.value)}
-                          >
-                            <option value="">Select status</option>
+                        <Select
+                          value={status}
+                          onValueChange={(v) => update(def.id, "status", v)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select status">
+                              {status ? <StatusBadge value={status} /> : undefined}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
                             {INDICATOR_STATUS_OPTIONS.map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
+                              <SelectItem key={opt} value={opt}>
+                                <StatusBadge value={opt} />
+                              </SelectItem>
                             ))}
-                          </select>
-                          {status && STATUS_STYLES[status] && (
-                            <span className={cn(
-                              "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
-                              STATUS_STYLES[status]
-                            )}>
-                              {status}
-                            </span>
-                          )}
-                        </div>
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="py-3">
                         <Textarea

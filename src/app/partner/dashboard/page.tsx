@@ -319,10 +319,12 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="flex-1 px-8 py-8 space-y-8 max-w-5xl">
+      <div className="flex-1 px-8 py-8 max-w-5xl">
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-8">
 
         {/* ── Current year card ── */}
-        <section>
+        <section className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold">
               {CURRENT_YEAR} Annual Report
@@ -412,35 +414,10 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ── What still needs attention ── */}
-        {currentPct > 0 && currentPct < 100 && (
-          <section>
-            <h2 className="text-base font-semibold mb-3">Needs attention</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {currentSections
-                .filter((s) => s.state === "empty")
-                .map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => goToTab(s.tab, CURRENT_YEAR)}
-                    className="flex items-center gap-3 rounded-lg border border-dashed border-neutral-200 bg-muted/20 px-4 py-3 text-left hover:border-neutral-300 hover:bg-accent/50 transition-colors group"
-                  >
-                    <Circle className="size-4 text-neutral-300 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
-                      <p className="text-xs text-muted-foreground/60">Not started</p>
-                    </div>
-                    <ChevronRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
-                  </button>
-                ))}
-            </div>
-          </section>
-        )}
-
         {/* ── Previous years ── */}
-        <section>
-          <h2 className="text-base font-semibold mb-3">Previous reporting years</h2>
-          <div className="grid grid-cols-3 gap-4">
+        <section className="lg:col-span-1">
+          <h2 className="text-base font-semibold mb-3">Previous years</h2>
+          <div className="flex flex-col gap-3">
             {previousYears.map((year) => {
               const yearData = surveyDataByYear[year] ?? null;
               const sections = getSections(yearData);
@@ -484,6 +461,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        </div>
       </div>
     </div>
   );

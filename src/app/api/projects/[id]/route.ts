@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "long_name",
   "mptfo_project_number", "grant_size_usd", "project_duration", "geographic_scope",
+  "implementing_partners",
 ];
 
 export async function PUT(
@@ -62,7 +63,6 @@ export async function DELETE(
       );
     }
 
-    await query(`DELETE FROM reporting_platform.implementing_partners WHERE project_id = $1`, [id]);
     const rows = await query(`DELETE FROM reporting_platform.projects WHERE id = $1 RETURNING id`, [id]);
     if (rows.length === 0) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });

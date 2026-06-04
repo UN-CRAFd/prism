@@ -35,6 +35,21 @@ import { RiskManagementForm } from "@/components/survey/risk-management-form";
 import { FundingTransferForm } from "@/components/survey/funding-transfer-form";
 import { ComplementaryFundingForm } from "@/components/survey/complementary-funding-form";
 
+interface ProjectRecord {
+  id: string;
+  project_title: string | null;
+  mptfo_project_number: string | null;
+  grant_size_usd: string | null;
+  project_duration: string | null;
+  geographic_scope: string | null;
+  partner_short_name: string | null;
+  partner_long_name: string | null;
+}
+
+interface PartnerRecord {
+  organization_website: string | null;
+}
+
 function SurveyContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -47,15 +62,51 @@ function SurveyContent() {
   const [data, setData] = useState<SurveyData | null>(null);
   const [saved, setSaved] = useState(false);
   const [assessmentSections, setAssessmentSections] = useState<AssessmentSection[] | undefined>(undefined);
+  const [projectRecord, setProjectRecord] = useState<ProjectRecord | null>(null);
+  const [partnerRecord, setPartnerRecord] = useState<PartnerRecord | null>(null);
+
+  // Fetch partner + project data from DB once
+  useEffect(() => {
+    if (!user?.id) return;
+    Promise.all([
+      fetch("/api/projects").then((r) => r.json()),
+      fetch("/api/partners").then((r) => r.json()),
+    ]).then(([projects, partners]: [ProjectRecord[], (PartnerRecord & { short_name: string })[]] ) => {
+      const partnerShort = user.id.toUpperCase();
+      const proj = (projects as ProjectRecord[]).find(
+        (p) => p.partner_short_name?.toUpperCase() === partnerShort
+      ) ?? null;
+      const part = (partners as (PartnerRecord & { short_name: string })[]).find(
+        (p) => p.short_name?.toUpperCase() === partnerShort
+      ) ?? null;
+      setProjectRecord(proj);
+      setPartnerRecord(part);
+    }).catch(() => {});
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id) {
-      setData(getSurveyData(user.id, selectedYear));
+      const survey = getSurveyData(user.id, selectedYear);
+      // Pre-fill project information fields that are still empty
+      if (projectRecord || partnerRecord) {
+        const pi = survey.narrative.projectInformation;
+        survey.narrative.projectInformation = {
+          ...pi,
+          projectTitle: pi.projectTitle || projectRecord?.project_title || "",
+          mptfoProjectNumber: pi.mptfoProjectNumber || projectRecord?.mptfo_project_number || "",
+          organizationName: pi.organizationName || projectRecord?.partner_long_name || "",
+          organizationWebsite: pi.organizationWebsite || partnerRecord?.organization_website || "",
+          grantSize: pi.grantSize || (projectRecord?.grant_size_usd ? String(projectRecord.grant_size_usd) : ""),
+          projectDuration: pi.projectDuration || projectRecord?.project_duration || "",
+          geographicScope: pi.geographicScope || projectRecord?.geographic_scope || "",
+        };
+      }
+      setData(survey);
       setSaved(false);
       const { sections } = resolveTemplate(user.id, selectedYear);
       setAssessmentSections(sections);
     }
-  }, [user?.id, selectedYear]);
+  }, [user?.id, selectedYear, projectRecord, partnerRecord]);
 
   const updateNarrative = useCallback(
     <K extends keyof SurveyData["narrative"]>(

@@ -69,7 +69,6 @@ export async function DELETE(
       );
     }
 
-    await query(`DELETE FROM reporting_platform.implementing_partners WHERE partner_id = $1`, [id]);
     const rows = await query(`DELETE FROM reporting_platform.partners WHERE id = $1 RETURNING id`, [id]);
     if (rows.length === 0) {
       return NextResponse.json({ error: "Partner not found" }, { status: 404 });

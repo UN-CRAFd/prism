@@ -38,7 +38,7 @@ export async function PUT(
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PUT /api/reports/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update report" }, { status: 500 });
   }
 }
 
@@ -59,6 +59,6 @@ export async function DELETE(
     return NextResponse.json({ deleted: id });
   } catch (err) {
     console.error("DELETE /api/reports/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete report" }, { status: 500 });
   }
 }

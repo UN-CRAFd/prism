@@ -243,7 +243,7 @@ function ProgressBar({ percentage, className }: { percentage: number; className?
   const color =
     percentage >= 80 ? "bg-green-500"
     : percentage >= 40 ? "bg-crafd-yellow"
-    : "bg-orange-400";
+    : "bg-crafd-yellow";
 
   return (
     <div className={cn("h-2 w-full rounded-full bg-muted overflow-hidden", className)}>

@@ -9,12 +9,12 @@ import {
   LogOut,
   User,
   PenLine,
-  LayoutDashboard,
-  Users,
   FileText,
   ClipboardList,
   Home,
   Bell,
+  Building2,
+  FolderKanban,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,8 @@ const dataLinks = [
 const administrationLinks = [
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
   { href: "/admin/survey-editor", label: "Survey Editor", icon: PenLine },
-  { href: "/admin/manage", label: "Partners & Projects", icon: Users },
+  { href: "/admin/partners", label: "Partners", icon: Building2 },
+  { href: "/admin/projects", label: "Projects", icon: FolderKanban },
 ];
 
 

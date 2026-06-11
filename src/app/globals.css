@@ -87,7 +87,8 @@
   --color-crafd-yellow: #f1b434;
 
   /* Custom Fonts */
-  --font-qanelas: "Qanelas", sans-serif;
+  --font-qanelas: var(--font-qanelas), "Qanelas", sans-serif;
+  --font-roboto: var(--font-roboto), "Roboto", sans-serif;
 
   /* shadcn */
   --color-sidebar-ring: var(--sidebar-ring);

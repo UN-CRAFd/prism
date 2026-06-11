@@ -55,9 +55,10 @@ export default function LoginPage() {
           />
         </div>
 
-        <h1 className="text-2xl font-bold text-white font-qanelas mb-1">
-          Reporting Platform
-        </h1>
+       <h1 className="text-2xl text-white mb-1">
+  <span className="font-bold font-qanelas">MOSAIC</span>{" "}
+  <span className="font-normal font-roboto">Administration Platform</span>
+</h1>
         <p className="text-neutral-400 text-sm mb-8">
           Sign in with your credentials to continue. If you don&apos;t have an account, please contact your administrator.
         </p>

@@ -14,7 +14,7 @@ const qanelas = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "CRAF'd Reporting Platform",
+  title: "CRAF'd | Mosaic",
   description:
     "Complex Risk Analytics Fund'd - Partner Reporting & Administration Platform",
 };

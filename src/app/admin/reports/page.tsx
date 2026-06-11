@@ -118,11 +118,29 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4">
-        <h1 className="text-2xl font-bold font-qanelas">Reports</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Create and manage reporting periods for projects
-        </p>
+      <div className="border-b px-8 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold font-qanelas">Reports</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Create and manage reporting periods for projects
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Layers className="size-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Group by</span>
+          <Select
+            value={groupMode}
+            onValueChange={setGroupMode}
+          >
+            <SelectTrigger className="w-[160px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="year">Year</SelectItem>
+              <SelectItem value="organization">Organization</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
@@ -132,32 +150,10 @@ export default function ReportsPage() {
           </div>
         )}
 
-        <CreateReportSection projects={projects} onRefresh={loadData} />
-
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <FileText className="size-5 text-muted-foreground" /> All Reports
-            <span className="text-sm font-normal text-muted-foreground">
-              ({reports.length})
-            </span>
-          </h2>
-          <div className="flex items-center gap-2">
-            <Layers className="size-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Group by</span>
-            <Select
-              value={groupMode}
-              onValueChange={(v) => setGroupMode(v as GroupMode)}
-            >
-              <SelectTrigger className="w-[160px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="year">Year</SelectItem>
-                <SelectItem value="organization">Organization</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <CreateReportSection 
+          projects={projects} 
+          onRefresh={loadData}
+        />
 
         {loading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">

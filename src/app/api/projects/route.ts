@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      partner_id, project_title, short_name, long_name,
+      partner_id, project_title, short_name,
       mptfo_project_number, grant_size_usd, project_start_date, project_duration, geographic_scope,
     } = body;
 
@@ -33,12 +33,12 @@ export async function POST(request: Request) {
 
     const rows = await query(
       `INSERT INTO reporting_platform.projects
-         (partner_id, project_title, short_name, long_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration, geographic_scope)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration, geographic_scope)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         partner_id, project_title,
-        short_name || null, long_name || null,
+        short_name || null,
         mptfo_project_number || null, grant_size_usd || null,
         project_start_date || null, project_duration || null, geographic_scope || null,
       ]

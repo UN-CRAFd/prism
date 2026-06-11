@@ -32,7 +32,6 @@ interface Project {
   partner_long_name: string | null;
   project_title: string;
   short_name: string | null;
-  long_name: string | null;
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
   project_duration: string | null;
@@ -63,7 +62,6 @@ export default function ProjectsPage() {
   const [partnerId, setPartnerId] = useState("");
   const [title, setTitle] = useState("");
   const [shortName, setShortName] = useState("");
-  const [longName, setLongName] = useState("");
   const [mptfo, setMptfo] = useState("");
   const [grantSize, setGrantSize] = useState("");
   const [duration, setDuration] = useState("");
@@ -87,7 +85,7 @@ export default function ProjectsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setPartnerId(""); setTitle(""); setShortName(""); setLongName("");
+    setPartnerId(""); setTitle(""); setShortName("");
     setMptfo(""); setGrantSize(""); setDuration(""); setScope("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
@@ -96,7 +94,6 @@ export default function ProjectsPage() {
     setPartnerId(String(p.partner_id));
     setTitle(p.project_title);
     setShortName(p.short_name || "");
-    setLongName(p.long_name || "");
     setMptfo(p.mptfo_project_number || "");
     setGrantSize(p.grant_size_usd || "");
     setDuration(p.project_duration || "");
@@ -112,7 +109,6 @@ export default function ProjectsPage() {
         partner_id: Number(partnerId),
         project_title: title.trim(),
         short_name: shortName.trim() || null,
-        long_name: longName.trim() || null,
         mptfo_project_number: mptfo.trim() || null,
         grant_size_usd: grantSize ? parseFloat(grantSize) : null,
         project_duration: duration.trim() || null,
@@ -183,9 +179,6 @@ export default function ProjectsPage() {
               </Field>
               <Field label="Short name">
                 <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="MaintainingACLED" />
-              </Field>
-              <Field label="Long name">
-                <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full project title..." />
               </Field>
               <Field label="MPTFO project number">
                 <Input value={mptfo} onChange={(e) => setMptfo(e.target.value)} placeholder="00140841" />

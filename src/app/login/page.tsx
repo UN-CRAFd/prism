@@ -32,7 +32,7 @@ export default function LoginPage() {
       if (user?.role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/partner/survey");
+        router.push("/partner");
       }
     } else {
       setError("Invalid username or password");

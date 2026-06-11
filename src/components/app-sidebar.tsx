@@ -8,7 +8,6 @@ import {
   Database,
   LogOut,
   User,
-  PenLine,
   FileText,
   ClipboardList,
   Home,
@@ -28,7 +27,6 @@ const dataLinks = [
 
 const administrationLinks = [
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
-  { href: "/admin/survey-editor", label: "Survey Editor", icon: PenLine },
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
 ];

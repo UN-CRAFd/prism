@@ -7,13 +7,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -40,75 +33,80 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 p-4">
-      <div className="mb-10">
-        <Image
-          src="/images/crafd-logo-full-white.svg"
-          alt="CRAF'd"
-          width={280}
-          height={185}
-          priority
-        />
-      </div>
+    <div className="relative flex min-h-screen overflow-hidden">
+      {/* Fullscreen background */}
+      <Image
+        src="/images/login.webp"
+        alt=""
+        fill
+        priority
+        className="object-cover blur-sm scale-105 brightness-[0.35]"
+      />
 
-      <Card className="w-full max-w-md border-neutral-800 bg-neutral-900/80 backdrop-blur-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl text-white">
-            MineCRAF'd
-          </CardTitle>
-          <CardDescription className="text-neutral-400">
-            Sign in with your credentials to access the reporting platform. If you don&apos;t have an account, please contact your administrator.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="username" className="text-neutral-300">
-                Username
-              </Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                className="border-neutral-700 bg-neutral-800 text-white placeholder:text-neutral-500"
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-neutral-300">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="border-neutral-700 bg-neutral-800 text-white placeholder:text-neutral-500"
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-red-400">{error}</p>
-            )}
-            <Button
-              type="submit"
-              className="mt-2 bg-crafd-yellow text-black font-semibold hover:bg-crafd-yellow/90"
-            >
-              Sign In
-            </Button>
-          </form>
+      {/* Left panel — logo + form */}
+      <div className="relative z-10 flex w-full max-w-md flex-col justify-center px-10 py-12 min-h-screen bg-black/40 backdrop-blur-md border-r border-white/10">
+        <div className="mb-10">
+          <Image
+            src="/images/crafd-logo-full-white.svg"
+            alt="CRAF'd"
+            width={200}
+            height={132}
+            priority
+          />
+        </div>
 
-          <div className="mt-6 border-t border-neutral-800 pt-4">
-            <p className="text-xs text-neutral-500 text-center">
-              Admin: admin / admin
-            </p>
-            <p className="text-xs text-neutral-500 text-center mt-1">
-              Partners: acled, iom, fhn (password: [name]2024)
-            </p>
+        <h1 className="text-2xl font-bold text-white font-qanelas mb-1">
+          Reporting Platform
+        </h1>
+        <p className="text-neutral-400 text-sm mb-8">
+          Sign in with your credentials to continue. If you don&apos;t have an account, please contact your administrator.
+        </p>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="username" className="text-neutral-300 text-sm">
+              Username
+            </Label>
+            <Input
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
+              className="border-white/10 bg-white/10 text-white placeholder:text-neutral-500 focus-visible:ring-crafd-yellow"
+              autoFocus
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password" className="text-neutral-300 text-sm">
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              className="border-white/10 bg-white/10 text-white placeholder:text-neutral-500 focus-visible:ring-crafd-yellow"
+            />
+          </div>
+          {error && (
+            <p className="text-sm text-red-400">{error}</p>
+          )}
+          <Button
+            type="submit"
+            className="mt-2 bg-crafd-yellow text-black font-semibold hover:bg-crafd-yellow/90"
+          >
+            Sign In
+          </Button>
+        </form>
+
+        <div className="mt-8 border-t border-white/10 pt-6">
+          <p className="text-xs text-neutral-500">Admin: admin / admin</p>
+          <p className="text-xs text-neutral-500 mt-1">
+            Partners: acled, iom, fhn (password: [name]2024)
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

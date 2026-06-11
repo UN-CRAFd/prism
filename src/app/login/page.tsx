@@ -54,10 +54,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md border-neutral-800 bg-neutral-900/80 backdrop-blur-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-xl text-white">
-            Reporting Platform
+            MineCRAF'd
           </CardTitle>
           <CardDescription className="text-neutral-400">
-            Sign in to access your dashboard
+            Sign in with your credentials to access the reporting platform. If you don&apos;t have an account, please contact your administrator.
           </CardDescription>
         </CardHeader>
         <CardContent>

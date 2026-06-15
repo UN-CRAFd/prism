@@ -32,7 +32,7 @@ export default function PartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"list" | "grid">("list");
+  const [view, setView] = useState<"list" | "grid">("grid");
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);

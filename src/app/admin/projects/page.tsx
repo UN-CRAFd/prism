@@ -12,7 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, MapPin, Clock, DollarSign } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, CardActions, RowActions,
 } from "@/components/admin/shared";
@@ -52,7 +52,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"list" | "grid">("list");
+  const [view, setView] = useState<"list" | "grid">("grid");
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -246,39 +246,42 @@ export default function ProjectsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map((p) => (
               <div key={p.id} className="rounded-xl border bg-card p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <Badge variant="outline" className="text-xs font-normal mb-1.5">
-                      {p.partner_short_name || "—"}
-                    </Badge>
-                    <p className="text-xl font-semibold leading-snug line-clamp-2">{p.project_title}</p>
-                    {p.short_name && (
-                      <p className="text-xs text-muted-foreground font-mono mt-0.5">{p.short_name}</p>
+                <div>
+                  <Badge variant="outline" className="text-xs font-normal mb-1.5">
+                    {p.partner_short_name || "—"}
+                  </Badge>
+                  <p className="text-xl font-semibold leading-snug line-clamp-2">{p.project_title}</p>
+                  {p.short_name && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{p.short_name}</p>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                    {p.grant_size_usd && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <DollarSign className="size-3 shrink-0" />
+                        {fmtUsd(p.grant_size_usd)}
+                      </span>
+                    )}
+                    {p.project_duration && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock className="size-3 shrink-0" />
+                        {p.project_duration}
+                      </span>
                     )}
                   </div>
-                  <FolderKanban className="size-4 text-muted-foreground/40 shrink-0 mt-0.5" />
-                </div>
-                <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                  {p.grant_size_usd && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <DollarSign className="size-3 shrink-0" />
-                      {fmtUsd(p.grant_size_usd)}
-                    </span>
-                  )}
-                  {p.project_duration && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock className="size-3 shrink-0" />
-                      {p.project_duration}
-                    </span>
-                  )}
-                  {p.geographic_scope && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <MapPin className="size-3 shrink-0" />
-                      {p.geographic_scope}
-                    </span>
-                  )}
                   {p.mptfo_project_number && (
-                    <span className="font-mono">{p.mptfo_project_number}</span>
+                    <a
+                      href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0"
+                    >
+                      <Badge className="text-xs font-mono cursor-pointer hover:opacity-80">
+                        {p.mptfo_project_number}
+                        <ExternalLink className="size-2.5 ml-1" />
+                      </Badge>
+                    </a>
                   )}
                 </div>
                 <CardActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />

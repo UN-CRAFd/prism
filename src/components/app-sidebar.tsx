@@ -22,7 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const dataLinks = [
-  { href: "/admin", label: "Full Data", icon: Database },
+  { href: "/admin/data", label: "Full Data", icon: Database },
 ];
 
 const administrationLinks = [
@@ -83,14 +83,24 @@ export function AppSidebar() {
         </nav>
       ) : (
         <nav className="flex-1 space-y-1 px-3 py-4">
-<p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mb-2",
+              pathname === "/admin"
+                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Home className="size-4" />
+            Home
+          </Link>
+
+          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Administration
           </p>
           {administrationLinks.map((link) => {
-            const isActive =
-              link.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(link.href);
+            const isActive = pathname.startsWith(link.href);
             return (
               <Link
                 key={link.href}
@@ -115,10 +125,7 @@ export function AppSidebar() {
             Data
           </p>
           {dataLinks.map((link) => {
-            const isActive =
-              link.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(link.href);
+            const isActive = pathname.startsWith(link.href);
             return (
               <Link
                 key={link.href}

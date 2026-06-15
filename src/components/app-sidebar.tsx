@@ -26,9 +26,9 @@ const dataLinks = [
 ];
 
 const administrationLinks = [
-  { href: "/admin/reports", label: "Reports", icon: ClipboardList },
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
+  { href: "/admin/reports", label: "Reports", icon: ClipboardList },
 ];
 
 

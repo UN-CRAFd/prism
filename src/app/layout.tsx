@@ -22,7 +22,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "CRAF'd | Mosaic",
+  title: "CRAF'd | PRISM",
   description:
     "Complex Risk Analytics Fund'd - Partner Reporting & Administration Platform",
 };

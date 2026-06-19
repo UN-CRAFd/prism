@@ -14,6 +14,8 @@ import {
   Bell,
   Building2,
   FolderKanban,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -44,7 +47,11 @@ export function AppSidebar() {
   const isPartner = user?.role === "partner";
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-sidebar shrink-0">
+    <div className="relative shrink-0">
+    <aside className={cn(
+      "flex h-screen flex-col border-r border-border bg-sidebar overflow-hidden transition-all duration-300 ease-in-out",
+      isOpen ? "w-64" : "w-0"
+    )}>
       <div className="flex items-center gap-3 px-6 py-5">
         <Image
           src="/images/crafd-logo-full-black.svg"
@@ -176,5 +183,13 @@ export function AppSidebar() {
         </div>
       </div>
     </aside>
+    <button
+      onClick={() => setIsOpen(!isOpen)}
+      className="absolute top-1/2 right-0 translate-x-full -translate-y-1/2 z-20 flex items-center justify-center w-5 h-10 bg-sidebar border border-l-0 border-border rounded-r-md hover:bg-accent transition-colors"
+      aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+    >
+      {isOpen ? <ChevronLeft className="size-3" /> : <ChevronRight className="size-3" />}
+    </button>
+    </div>
   );
 }

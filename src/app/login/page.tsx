@@ -60,7 +60,7 @@ export default function LoginPage() {
   <span className="font-normal font-roboto">Administration Platform</span>
 </h1>
         <p className="text-neutral-400 text-sm mb-8">
-          Sign in with your credentials to continue. If you don&apos;t have an account, please contact your administrator.
+          Sign in with your credentials to continue. If you don&apos;t have an account, please contact the CRAF'd Secretariat.
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

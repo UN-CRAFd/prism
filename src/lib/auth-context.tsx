@@ -20,7 +20,7 @@ interface AuthContextType {
 
 const USERS: Record<string, { password: string; user: User }> = {
   admin: {
-    password: "admin",
+    password: process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "admin",
     user: { id: "admin", name: "CRAF'd Secretariat", role: "admin" },
   },
   acled: {

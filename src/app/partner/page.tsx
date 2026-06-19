@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -60,38 +60,7 @@ const TODOS: Todo[] = [
   },
 ];
 
-const TIMELINE: TimelineEvent[] = [
-  {
-    date: "1 June 2026",
-    label: "Reporting period opens",
-    description: "The 2025 annual reporting cycle is now open.",
-    type: "info",
-  },
-  {
-    date: "15 June 2026",
-    label: "Narrative report deadline",
-    description: "All narrative sections must be completed.",
-    type: "deadline",
-  },
-  {
-    date: "30 June 2026",
-    label: "Final submission deadline",
-    description: "All quantitative sections and full report submission.",
-    type: "deadline",
-  },
-  {
-    date: "15 July 2026",
-    label: "CRAF'd review period",
-    description: "Programme team reviews and authorizes submitted reports.",
-    type: "feedback",
-  },
-  {
-    date: "31 July 2026",
-    label: "Reporting cycle closes",
-    description: "Authorization deadline and cycle closure.",
-    type: "info",
-  },
-];
+
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
@@ -143,9 +112,52 @@ function TodoItem({ todo, onClick }: { todo: Todo; onClick: () => void }) {
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
+interface Report {
+  id: number;
+  year: number;
+  report_submission_date: string | null;
+  authorized: boolean;
+  project_title: string;
+  partner_short_name: string;
+}
+
 export default function PartnerHomePage() {
   const { user } = useAuth();
   const router = useRouter();
+
+  const [reports, setReports] = useState<Report[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/reports")
+      .then((r) => r.json())
+      .then((all: Report[]) => {
+        const filtered = all.filter(
+          (r) =>
+            r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
+            r.partner_short_name === user.organization
+        );
+        setReports(filtered);
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const timeline: TimelineEvent[] = useMemo(() => {
+    return reports
+      .filter((r) => r.report_submission_date)
+      .map((r) => ({
+        date: new Date(r.report_submission_date!).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+        label: `${r.year} report deadline`,
+        description: r.project_title,
+        type: "deadline" as const,
+        _dateObj: new Date(r.report_submission_date!),
+      }))
+      .sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
+  }, [reports]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -240,15 +252,21 @@ export default function PartnerHomePage() {
               {/* vertical line */}
               <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
 
+              {timeline.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No report deadlines found.
+                </p>
+              )}
+
               <ol className="flex flex-col gap-0">
-                {TIMELINE.map((event, i) => {
+                {timeline.map((event, i) => {
                   const cfg = timelineConfig[event.type];
                   const today = new Date();
                   const eventDate = new Date(event.date);
                   const isPast = eventDate < today;
                   const isNext =
                     !isPast &&
-                    TIMELINE.slice(0, i).every((e) => new Date(e.date) < today);
+                    timeline.slice(0, i).every((e) => new Date(e.date) < today);
 
                   return (
                     <li key={i} className="relative flex gap-4 pb-6 last:pb-0">

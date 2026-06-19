@@ -100,13 +100,6 @@ export default function LoginPage() {
             Sign In
           </Button>
         </form>
-
-        <div className="mt-8 border-t border-white/10 pt-6">
-          <p className="text-xs text-neutral-500">Admin: admin / admin</p>
-          <p className="text-xs text-neutral-500 mt-1">
-            Partners: acled, iom, fhn (password: [name]2024)
-          </p>
-        </div>
       </div>
     </div>
   );

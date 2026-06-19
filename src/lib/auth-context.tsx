@@ -21,7 +21,7 @@ interface AuthContextType {
 const USERS: Record<string, { password: string; user: User }> = {
   admin: {
     password: "admin",
-    user: { id: "admin", name: "CRAF'd Admin", role: "admin" },
+    user: { id: "admin", name: "CRAF'd Secretariat", role: "admin" },
   },
   acled: {
     password: "acled2024",

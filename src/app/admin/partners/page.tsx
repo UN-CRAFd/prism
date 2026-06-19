@@ -224,7 +224,6 @@ export default function PartnersPage() {
                   <Building2 className="size-4 text-muted-foreground/40 shrink-0 mt-0.5" />
                 </div>
                 <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  <span className="truncate">{p.mail_account}</span>
                   {p.organization_website && (
                     <a href={p.organization_website} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-blue-600 hover:underline w-fit">

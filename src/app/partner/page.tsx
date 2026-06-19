@@ -166,7 +166,8 @@ export default function PartnerHomePage() {
     return "Good evening";
   }, []);
 
-  const pendingCount = TODOS.filter((t) => !t.done).length;
+  const hasReports = reports.length > 0;
+  const pendingCount = hasReports ? TODOS.filter((t) => !t.done).length : 0;
 
   return (
     <div className="flex flex-col min-h-full bg-background">
@@ -198,19 +199,27 @@ export default function PartnerHomePage() {
               </div>
 
               <div className="rounded-xl border bg-card overflow-hidden divide-y">
-                {TODOS.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    onClick={() => router.push(todo.href)}
-                  />
-                ))}
-
-                {TODOS.every((t) => t.done) && (
+                {!hasReports ? (
                   <div className="flex items-center gap-3 px-4 py-6 text-center justify-center">
-                    <CheckCircle2 className="size-4 text-green-500" />
-                    <p className="text-sm text-muted-foreground">All caught up!</p>
+                    <CheckCircle2 className="size-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Nothing to action right now — check back when a reporting cycle is open.</p>
                   </div>
+                ) : (
+                  <>
+                    {TODOS.map((todo) => (
+                      <TodoItem
+                        key={todo.id}
+                        todo={todo}
+                        onClick={() => router.push(todo.href)}
+                      />
+                    ))}
+                    {TODOS.every((t) => t.done) && (
+                      <div className="flex items-center gap-3 px-4 py-6 text-center justify-center">
+                        <CheckCircle2 className="size-4 text-green-500" />
+                        <p className="text-sm text-muted-foreground">All caught up!</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

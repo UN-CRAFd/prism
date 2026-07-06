@@ -143,7 +143,7 @@ export default function AdminHomePage() {
       <div className="flex-1 px-8 py-8 space-y-8">
 
         {/* Stat cards */}
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-5 gap-4 hidden">
           {statCards.map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="rounded-xl border bg-card px-4 py-3 flex items-center gap-3">
               <Icon className={`size-5 shrink-0 ${color}`} />

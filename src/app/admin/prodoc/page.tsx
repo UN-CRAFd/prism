@@ -2,35 +2,79 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Loader2,
-  CalendarDays,
-  Building2,
-  Layers,
-} from "lucide-react";
-import {
-  ReportRow,
-  Project,
-  GroupMode,
-  GROUP_COLORS,
-  ReportCard,
-  CreateReportSection,
-} from "@/components/admin/report-components";
+import { useCallback, useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Printer, Pencil, Trash2, CalendarDays, CheckCircle2, Circle } from "lucide-react";
+import { ReportRow, Project, CreateReportSection } from "@/components/admin/report-components";
+
+function ProDocCard({
+  doc,
+  onEdit,
+  onDelete,
+}: {
+  doc: ReportRow;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card className="group relative p-3.5 border bg-card transition-colors hover:bg-muted/50">
+      <div className="absolute right-2.5 top-2.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={() => window.print()}
+          className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
+          title="Print"
+        >
+          <Printer className="size-3.5" />
+        </button>
+        <button
+          onClick={onEdit}
+          className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
+          title="Edit"
+        >
+          <Pencil className="size-3.5" />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-1 hover:bg-destructive/10 rounded transition-colors text-muted-foreground hover:text-destructive"
+          title="Delete"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="pr-20">
+        <p className="truncate text-[15px] font-bold leading-snug" title={doc.project_short_name || doc.project_title}>
+          {doc.project_short_name || doc.project_title}
+        </p>
+        <p className="truncate text-sm text-muted-foreground">
+          {doc.partner_long_name || doc.partner_short_name}
+        </p>
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <Badge variant="secondary" className="gap-1 text-xs">
+          <CalendarDays className="size-3" /> {doc.year}
+        </Badge>
+        {doc.authorized ? (
+          <Badge className="gap-1 text-xs bg-green-500/15 text-green-700 hover:bg-green-500/15">
+            <CheckCircle2 className="size-3" /> Authorized
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+            <Circle className="size-3" /> Pending
+          </Badge>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 export default function ProDocPage() {
-  const [reports, setReports] = useState<ReportRow[]>([]);
+  const [docs, setDocs] = useState<ReportRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [groupMode, setGroupMode] = useState<GroupMode>("year");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -42,7 +86,7 @@ export default function ProDocPage() {
       ]);
       if (!rRes.ok) throw new Error("Failed to load project documents");
       if (!pRes.ok) throw new Error("Failed to load projects");
-      setReports(await rRes.json());
+      setDocs(await rRes.json());
       setProjects(await pRes.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -53,18 +97,6 @@ export default function ProDocPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, ReportRow[]>();
-    for (const r of reports) {
-      const key = groupMode === "year" ? String(r.year) : r.partner_long_name || r.partner_short_name;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(r);
-    }
-    return Array.from(map.entries()).sort((a, b) =>
-      groupMode === "year" ? b[0].localeCompare(a[0]) : a[0].localeCompare(b[0])
-    );
-  }, [reports, groupMode]);
-
   async function handleDelete(id: number) {
     if (!confirm("Delete this project document and all its indicator data?")) return;
     const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
@@ -72,26 +104,18 @@ export default function ProDocPage() {
     else setError("Failed to delete project document");
   }
 
+  function handleEdit(doc: ReportRow) {
+    // TODO: open edit form
+    console.log("edit", doc.id);
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-qanelas">Project Documents</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Create and manage project documents
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Layers className="size-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Group by</span>
-          <Select value={groupMode} onValueChange={setGroupMode}>
-            <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="year">Year</SelectItem>
-              <SelectItem value="organization">Organization</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="border-b px-8 py-4">
+        <h1 className="text-2xl font-bold font-qanelas">Project Documents</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Create and manage project documents
+        </p>
       </div>
 
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
@@ -117,39 +141,20 @@ export default function ProDocPage() {
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
             <Loader2 className="size-4 animate-spin" /> Loading...
           </div>
-        ) : reports.length === 0 ? (
+        ) : docs.length === 0 ? (
           <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
             No project documents yet. Create one above to get started.
           </div>
         ) : (
-          <div className="space-y-5">
-            {groups.map(([key, rows], gi) => {
-              const color = GROUP_COLORS[gi % GROUP_COLORS.length];
-              return (
-                <div key={key} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    {groupMode === "year" ? (
-                      <CalendarDays className={`size-4 ${color.icon}`} />
-                    ) : (
-                      <Building2 className={`size-4 ${color.icon}`} />
-                    )}
-                    <h3 className={`text-base font-bold ${color.label}`}>{key}</h3>
-                    <span className="text-sm text-muted-foreground">({rows.length})</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-                    {rows.map((r) => (
-                      <ReportCard
-                        key={r.id}
-                        report={r}
-                        groupMode={groupMode}
-                        color={color}
-                        onDelete={() => handleDelete(r.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {docs.map((doc) => (
+              <ProDocCard
+                key={doc.id}
+                doc={doc}
+                onEdit={() => handleEdit(doc)}
+                onDelete={() => handleDelete(doc.id)}
+              />
+            ))}
           </div>
         )}
       </div>

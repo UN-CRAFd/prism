@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       const inserted = await client.query<{ id: number }>(
         `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type)
          SELECT pr.id, $1, $2, $3 FROM reporting_platform.projects pr
-         ON CONFLICT (project_id, year) DO NOTHING
+         ON CONFLICT (project_id, year, data_type) DO NOTHING
          RETURNING id`,
         [year, submissionDate, dataType]
       );
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     const inserted = await client.query<{ id: number }>(
       `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (project_id, year) DO NOTHING
+       ON CONFLICT (project_id, year, data_type) DO NOTHING
        RETURNING *`,
       [projectId, year, submissionDate, dataType]
     );
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     if (inserted.rows.length === 0) {
       await client.query("ROLLBACK");
       return NextResponse.json(
-        { error: "A report already exists for this project and year" },
+        { error: `A ${dataType === "prodoc" ? "project document" : "report"} already exists for this project and year` },
         { status: 409 }
       );
     }

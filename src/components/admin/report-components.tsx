@@ -72,7 +72,7 @@ export function ReportCard({
   onDelete: () => void;
 }) {
   return (
-    <Card className={`group relative p-3.5 transition-shadow hover:shadow-md border ${color.border} ${color.bg}`}>
+    <Card className={`group relative p-3.5 transition-colors border ${color.border} ${color.bg} hover:bg-opacity-75`}>
       <button
         onClick={onDelete}
         className="absolute right-2.5 top-2.5 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"

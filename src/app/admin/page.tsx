@@ -14,6 +14,7 @@ import {
   ArrowRight,
   TrendingUp,
   Users,
+  FileStack,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,14 @@ const quickLinks = [
     card: "bg-emerald-50 border-emerald-200 text-emerald-700",
     iconClass: "text-emerald-500",
   },
+  {
+    href: "/admin/prodoc",
+    label: "Project Documents",
+    description: "Manage project documents",
+    icon: FileStack,
+    card: "bg-rose-50 border-rose-200 text-rose-700",
+    iconClass: "text-rose-500",
+  },
 ];
 
 export default function AdminHomePage() {
@@ -77,7 +86,7 @@ export default function AdminHomePage() {
     async function loadStats() {
       try {
         const [rRes, pRes, prRes] = await Promise.all([
-          fetch("/api/reports"),
+          fetch("/api/reports?data_type=report"),
           fetch("/api/partners"),
           fetch("/api/projects"),
         ]);
@@ -152,7 +161,7 @@ export default function AdminHomePage() {
 
         {/* Quick access */}
         <div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {quickLinks.map(({ href, label, description, icon: Icon, card, iconClass }) => (
               <button
                 key={href}

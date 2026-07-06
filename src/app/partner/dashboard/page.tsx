@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { ArrowRight, FileText, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -153,8 +153,7 @@ export default function ReportingPage() {
                           <StatusBadge report={report} />
                           {report.report_submission_date && (
                             <span className="text-xs text-muted-foreground">
-                              Submitted{" "}
-                              {new Date(report.report_submission_date).toLocaleDateString()}
+                              Submitted {formatDate(report.report_submission_date)}
                             </span>
                           )}
                         </div>

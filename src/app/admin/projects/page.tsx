@@ -42,6 +42,12 @@ function fmtUsd(v: string | null) {
   if (!v) return <Dash />;
   const n = parseFloat(v);
   if (isNaN(n)) return v;
+  if (n >= 1_000_000) {
+    return "$" + (n / 1_000_000).toFixed(1) + " M";
+  }
+  if (n >= 1_000) {
+    return "$" + Math.round(n / 1_000) + "k";
+  }
   return "$" + n.toLocaleString("en-US");
 }
 

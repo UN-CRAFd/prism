@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   AlertCircle,
   ArrowRight,
@@ -146,11 +146,7 @@ export default function PartnerHomePage() {
     return reports
       .filter((r) => r.report_submission_date)
       .map((r) => ({
-        date: new Date(r.report_submission_date!).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
+        date: formatDate(r.report_submission_date!),
         label: `${r.year} report deadline`,
         description: r.project_title,
         type: "deadline" as const,

@@ -131,26 +131,27 @@ export default function AdminHomePage() {
         </p>
       </div>
 
-      <div className="flex-1 px-8 py-8 max-w-5xl space-y-8">
+      <div className="flex-1 px-8 py-8 space-y-8">
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           {statCards.map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="rounded-xl border bg-card px-5 py-4 flex flex-col gap-2">
-              <Icon className={`size-4 ${color}`} />
-              <p className="text-2xl font-bold">
-                {loading
-                  ? <span className="inline-block w-8 h-6 bg-muted animate-pulse rounded" />
-                  : (value ?? "0")}
-              </p>
-              <p className="text-xs text-muted-foreground">{label}</p>
+            <div key={label} className="rounded-xl border bg-card px-4 py-3 flex items-center gap-3">
+              <Icon className={`size-5 shrink-0 ${color}`} />
+              <div className="min-w-0">
+                <p className="text-xl font-bold">
+                  {loading
+                    ? <span className="inline-block w-8 h-5 bg-muted animate-pulse rounded" />
+                    : (value ?? "0")}
+                </p>
+                <p className="text-xs text-muted-foreground">{label}</p>
+              </div>
             </div>
           ))}
         </div>
 
         {/* Quick access */}
         <div>
-          <h2 className="text-base font-semibold mb-3">Quick access</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {quickLinks.map(({ href, label, description, icon: Icon, card, iconClass }) => (
               <button

@@ -438,6 +438,7 @@ function CreateReportSection({
               <Input
                 type="date"
                 className="w-36"
+                placeholder="dd/mm/yyyy"
                 value={submissionDate}
                 onChange={(e) => setSubmissionDate(e.target.value)}
               />

@@ -9,9 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Building2, ExternalLink } from "lucide-react";
+import { Plus, Building2, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import {
-  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, CardActions, RowActions,
+  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions,
 } from "@/components/admin/shared";
 
 // -- Types ------------------------------------------------------------------
@@ -211,36 +211,59 @@ export default function PartnersPage() {
             </TableBody>
           </Table>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {partners.map((p) => (
-              <div key={p.id} className="rounded-xl border bg-card p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    {p.short_name && (
-                      <Badge variant="outline" className="text-xs font-semibold mb-1.5">{p.short_name}</Badge>
-                    )}
-                    <p className="text-xl font-semibold leading-snug">{p.long_name || p.short_name || "—"}</p>
-                  </div>
-                  <Building2 className="size-4 text-muted-foreground/40 shrink-0 mt-0.5" />
+              <div key={p.id} className="group rounded-xl border bg-card flex transition-colors hover:bg-muted/30 cursor-pointer overflow-hidden">
+                <div className="bg-muted w-24 flex-shrink-0 flex items-center justify-center">
+                  <Building2 className="size-10 text-muted-foreground/40" />
                 </div>
-                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  {p.organization_website && (
-                    <a href={p.organization_website} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline w-fit">
-                      Website <ExternalLink className="size-3" />
-                    </a>
+                <div className="flex-1 flex flex-col gap-2 p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-semibold leading-snug line-clamp-2">{p.long_name || "—"}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEdit(p);
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="size-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(p.id);
+                        }}
+                        className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                    {p.organization_website && (
+                      <a href={p.organization_website} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit">
+                        <ExternalLink className="size-3" />
+                        Website
+                      </a>
+                    )}
+                  </div>
+                  {p.projects.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {p.projects.map((pr) => (
+                        <Badge key={pr.id} variant="secondary" className="text-xs font-normal">
+                          {pr.short_name || pr.project_title}
+                        </Badge>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {p.projects.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {p.projects.map((pr) => (
-                      <Badge key={pr.id} variant="secondary" className="text-xs font-normal">
-                        {pr.short_name || pr.project_title}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <CardActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
               </div>
             ))}
           </div>

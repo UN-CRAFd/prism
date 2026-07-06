@@ -52,7 +52,7 @@ export function AppSidebar() {
       "flex h-screen flex-col border-r border-border bg-sidebar overflow-hidden transition-all duration-300 ease-in-out",
       isOpen ? "w-64" : "w-0"
     )}>
-      <div className="flex items-center gap-3 px-6 py-5">
+      <div className="flex items-center gap-3 px-6 h-32">
         <Image
           src="/images/crafd-logo-full-black.svg"
           alt="CRAF'd"

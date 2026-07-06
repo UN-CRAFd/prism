@@ -248,61 +248,57 @@ function PartnersSection({ partners, onRefresh }: { partners: Partner[]; onRefre
         {partners.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">No partners yet.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Short</TableHead>
-                <TableHead>Long name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead>Projects</TableHead>
-                <TableHead className="w-20" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {partners.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    {p.short_name ? (
-                      <Badge variant="outline" className="text-xs font-semibold">{p.short_name}</Badge>
-                    ) : <Dash />}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {p.long_name || <Dash />}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{p.mail_account}</TableCell>
-                  <TableCell>
-                    {p.organization_website ? (
-                      <a href={p.organization_website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                        Link <ExternalLink className="size-3" />
-                      </a>
-                    ) : <Dash />}
-                  </TableCell>
-                  <TableCell>
-                    {p.projects.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {p.projects.map((pr) => (
-                          <Badge key={pr.id} variant="secondary" className="text-xs font-normal">
-                            {pr.short_name || pr.project_title}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : <Dash />}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="size-7" onClick={() => startEdit(p)}>
-                        <Pencil className="size-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {partners.map((p) => (
+              <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground mb-1">{p.short_name || "—"}</p>
+                    <p className="text-lg font-semibold leading-snug line-clamp-2">{p.long_name || "—"}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit(p);
+                      }}
+                      className="p-1.5 hover:bg-accent rounded transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="size-4 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(p.id);
+                      }}
+                      className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                  <span className="truncate">{p.mail_account}</span>
+                  {p.organization_website && (
+                    <a
+                      href={p.organization_website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit"
+                    >
+                      <ExternalLink className="size-3" />
+                      Website
+                    </a>
+                  )}
+                  {p.projects.length > 0 && (
+                    <span className="text-xs">{p.projects.length} project{p.projects.length !== 1 ? "s" : ""}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

@@ -121,7 +121,7 @@ export default function AdminHomePage() {
 
   return (
     <div className="flex flex-col min-h-full bg-background">
-      <div className="bg-neutral-950 text-white px-8 py-8">
+      <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">Administrator</p>
         <h1 className="text-3xl font-bold font-qanelas">
           {mounted ? `${greeting}, ${user?.name ?? "Admin"}` : "Good day, Admin"}
@@ -157,7 +157,7 @@ export default function AdminHomePage() {
               <button
                 key={href}
                 onClick={() => router.push(href)}
-                className={`group rounded-xl border p-5 text-left transition-shadow hover:shadow-md ${card}`}
+                className={`group rounded-xl border p-5 text-left transition-colors hover:bg-opacity-80 cursor-pointer ${card}`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <Icon className={`size-5 ${iconClass}`} />

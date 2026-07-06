@@ -12,7 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, CardActions, RowActions,
 } from "@/components/admin/shared";
@@ -251,46 +251,60 @@ export default function ProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map((p) => (
-              <div key={p.id} className="rounded-xl border bg-card p-5 flex flex-col gap-3">
-                <div>
-                  <Badge variant="outline" className="text-xs font-normal mb-1.5">
-                    {p.partner_short_name || "—"}
-                  </Badge>
-                  <p className="text-xl font-semibold leading-snug line-clamp-2">{p.project_title}</p>
-                  {p.short_name && (
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{p.short_name}</p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                    {p.grant_size_usd && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <DollarSign className="size-3 shrink-0" />
-                        {fmtUsd(p.grant_size_usd)}
-                      </span>
-                    )}
-                    {p.project_duration && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Clock className="size-3 shrink-0" />
-                        {p.project_duration}
-                      </span>
-                    )}
+              <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
+                    <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
                   </div>
+                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit(p);
+                      }}
+                      className="p-1.5 hover:bg-accent rounded transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="size-4 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(p.id);
+                      }}
+                      className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                  {p.grant_size_usd && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <DollarSign className="size-3 shrink-0" />
+                      {fmtUsd(p.grant_size_usd)}
+                    </span>
+                  )}
+                  {p.project_duration && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="size-3 shrink-0" />
+                      {p.project_duration}
+                    </span>
+                  )}
                   {p.mptfo_project_number && (
                     <a
                       href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0"
+                      className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit"
                     >
-                      <Badge className="text-xs font-mono cursor-pointer hover:opacity-80">
-                        {p.mptfo_project_number}
-                        <ExternalLink className="size-2.5 ml-1" />
-                      </Badge>
+                      <ExternalLink className="size-3" />
+                      {p.mptfo_project_number}
                     </a>
                   )}
                 </div>
-                <CardActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
               </div>
             ))}
           </div>

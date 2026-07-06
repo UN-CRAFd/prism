@@ -74,7 +74,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4 flex items-center justify-between">
+      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-bold font-qanelas">Reports</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -84,7 +84,7 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2">
           <Layers className="size-4 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Group by</span>
-          <Select value={groupMode} onValueChange={setGroupMode}>
+          <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
             <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="year">Year</SelectItem>

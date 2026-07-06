@@ -17,6 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileStack,
+  Edit,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -24,15 +26,21 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const dataLinks = [
-  { href: "/admin/data", label: "Full Data", icon: Database },
-];
-
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
   { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
+];
+
+const editorLinks = [
+  { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
+  { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: Edit },
+];
+
+const dataLinks = [
+  { href: "/admin/data", label: "Full Data", icon: Database },
+  { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
 ];
 
 
@@ -115,7 +123,7 @@ export function AppSidebar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-crafd-yellow/10 text-crafd-yellow"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -127,10 +135,29 @@ export function AppSidebar() {
             );
           })}
 
-          
-          <div className="pt-2" />
+          <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Editor
+          </p>
+          {editorLinks.map((link) => {
+            const isActive = pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-crafd-yellow/10 text-crafd-yellow"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                <link.icon className="size-4" />
+                {link.label}
+              </Link>
+            );
+          })}
 
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Data
           </p>
           {dataLinks.map((link) => {
@@ -140,7 +167,7 @@ export function AppSidebar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-crafd-yellow/10 text-crafd-yellow"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -151,8 +178,6 @@ export function AppSidebar() {
               </Link>
             );
           })}
-
-          
         </nav>
       )}
 

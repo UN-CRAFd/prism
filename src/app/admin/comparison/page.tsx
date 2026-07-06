@@ -64,7 +64,7 @@ export default function ComparisonPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4">
+      <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
         <h1 className="text-2xl font-bold font-qanelas">Comparison</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Compare data across projects and years

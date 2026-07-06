@@ -235,7 +235,7 @@ export default function VisualizationPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4">
+      <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
         <h1 className="text-2xl font-bold font-qanelas">Visualization</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Survey data insights — narrative and quantitative reports

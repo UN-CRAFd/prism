@@ -107,7 +107,7 @@ export default function PartnersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4 flex items-center justify-between">
+      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-bold font-qanelas">Partners</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Manage partner organizations</p>

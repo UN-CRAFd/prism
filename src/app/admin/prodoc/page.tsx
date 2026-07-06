@@ -111,7 +111,7 @@ export default function ProDocPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 py-4">
+      <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
         <h1 className="text-2xl font-bold font-qanelas">Project Documents</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Create and manage project documents

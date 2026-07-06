@@ -25,7 +25,7 @@ import {
   CreateReportSection,
 } from "@/components/admin/report-components";
 
-export default function ReportsPage() {
+export default function ProDocPage() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,10 +37,10 @@ export default function ReportsPage() {
     setError(null);
     try {
       const [rRes, pRes] = await Promise.all([
-        fetch("/api/reports?data_type=report"),
+        fetch("/api/reports?data_type=prodoc"),
         fetch("/api/projects"),
       ]);
-      if (!rRes.ok) throw new Error("Failed to load reports");
+      if (!rRes.ok) throw new Error("Failed to load project documents");
       if (!pRes.ok) throw new Error("Failed to load projects");
       setReports(await rRes.json());
       setProjects(await pRes.json());
@@ -66,19 +66,19 @@ export default function ReportsPage() {
   }, [reports, groupMode]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this report and all its indicator data?")) return;
+    if (!confirm("Delete this project document and all its indicator data?")) return;
     const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
     if (res.ok) loadData();
-    else setError("Failed to delete report");
+    else setError("Failed to delete project document");
   }
 
   return (
     <div className="flex flex-col h-full">
       <div className="border-b px-8 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">Reports</h1>
+          <h1 className="text-2xl font-bold font-qanelas">Project Documents</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Create and manage reporting periods for projects
+            Create and manage project documents
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -103,13 +103,13 @@ export default function ReportsPage() {
 
         <CreateReportSection
           projects={projects}
-          dataType="report"
+          dataType="prodoc"
           onRefresh={loadData}
           labels={{
-            title: "Add a report",
-            description: "Create a single report for one project, or an annual report for all projects.",
-            individual: "Individual Report",
-            annual: "Annual Report",
+            title: "Add a project document",
+            description: "Create a project document for one project, or create one for all projects at once.",
+            individual: "Individual Document",
+            annual: "All Projects",
           }}
         />
 
@@ -119,7 +119,7 @@ export default function ReportsPage() {
           </div>
         ) : reports.length === 0 ? (
           <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
-            No reports yet. Create one above to get started.
+            No project documents yet. Create one above to get started.
           </div>
         ) : (
           <div className="space-y-5">

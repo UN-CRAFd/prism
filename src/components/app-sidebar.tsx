@@ -16,6 +16,7 @@ import {
   FolderKanban,
   ChevronLeft,
   ChevronRight,
+  FileStack,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
+  { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
 ];
 
 

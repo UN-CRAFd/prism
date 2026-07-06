@@ -5,8 +5,12 @@ const MIN_YEAR = 2020;
 const MAX_YEAR = 2050;
 
 // GET /api/reports — list all reports with project + partner info
-export async function GET() {
+// Optional query param: ?data_type=report|prodoc
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const dataType = searchParams.get("data_type");
+
     const rows = await query(`
       SELECT
         r.id,
@@ -15,6 +19,7 @@ export async function GET() {
         r.report_submission_date,
         r.authorized,
         r.created_at,
+        r.data_type,
         pr.project_title,
         pr.short_name      AS project_short_name,
         p.short_name       AS partner_short_name,
@@ -24,6 +29,7 @@ export async function GET() {
       JOIN reporting_platform.projects pr ON pr.id = r.project_id
       JOIN reporting_platform.partners p  ON p.id  = pr.partner_id
       LEFT JOIN reporting_platform.indicator_sections s ON s.report_id = r.id
+      ${dataType ? `WHERE r.data_type = '${dataType === "prodoc" ? "prodoc" : "report"}'` : ""}
       GROUP BY r.id, pr.project_title, pr.short_name, p.short_name, p.long_name
       ORDER BY r.year DESC, p.short_name, pr.project_title
     `);
@@ -59,6 +65,7 @@ export async function POST(request: Request) {
     );
   }
   const submissionDate = (body.report_submission_date as string) || null;
+  const dataType = body.data_type === "prodoc" ? "prodoc" : "report";
 
   const client = await pool.connect();
   try {
@@ -67,11 +74,11 @@ export async function POST(request: Request) {
     // ── Annual report: one report per project, seeded in two set-based queries ──
     if (body.annual) {
       const inserted = await client.query<{ id: number }>(
-        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date)
-         SELECT pr.id, $1, $2 FROM reporting_platform.projects pr
+        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type)
+         SELECT pr.id, $1, $2, $3 FROM reporting_platform.projects pr
          ON CONFLICT (project_id, year) DO NOTHING
          RETURNING id`,
-        [year, submissionDate]
+        [year, submissionDate, dataType]
       );
 
       if (inserted.rows.length > 0) {
@@ -111,11 +118,11 @@ export async function POST(request: Request) {
     }
 
     const inserted = await client.query<{ id: number }>(
-      `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date)
-       VALUES ($1, $2, $3)
+      `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (project_id, year) DO NOTHING
        RETURNING *`,
-      [projectId, year, submissionDate]
+      [projectId, year, submissionDate, dataType]
     );
 
     if (inserted.rows.length === 0) {

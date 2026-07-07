@@ -8,11 +8,11 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Plus, Trash2, FileQuestion } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Report {
   id: number;
@@ -36,7 +36,7 @@ const SECTIONS = [{ value: "surveys", label: "Surveys" }];
 export default function ReportEditorPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [selectedSection, setSelectedSection] = useState<string>("surveys");
 
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loadingSurveys, setLoadingSurveys] = useState(false);
@@ -72,13 +72,13 @@ export default function ReportEditorPage() {
   function handleReportChange(val: string) {
     setSelectedReportId(val);
     setSurveys([]);
-    if (val && selectedSection) loadSurveys(val);
+    if (val) loadSurveys(val);
   }
 
   function handleSectionChange(val: string) {
     setSelectedSection(val);
     setSurveys([]);
-    if (selectedReportId && val) loadSurveys(selectedReportId);
+    if (selectedReportId) loadSurveys(selectedReportId);
   }
 
   async function handleAdd() {
@@ -117,7 +117,7 @@ export default function ReportEditorPage() {
   }
 
   const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
-  const showContent = selectedReportId && selectedSection;
+  const showContent = !!selectedReportId;
 
   return (
     <div className="flex flex-col h-full">
@@ -163,24 +163,25 @@ export default function ReportEditorPage() {
             </SelectContent>
           </Select>
 
-          {/* Section selector */}
-          <Select
-            value={selectedSection}
-            onValueChange={handleSectionChange}
-            disabled={!selectedReportId}
-          >
-            <SelectTrigger className="w-[180px] h-9">
-              <SelectValue placeholder="Select section" />
-            </SelectTrigger>
-            <SelectContent>
-              {SECTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
+      </div>
+
+      {/* Section tabs */}
+      <div className="border-b px-8 flex gap-1 shrink-0">
+        {SECTIONS.map((sec) => (
+          <button
+            key={sec.value}
+            onClick={() => handleSectionChange(sec.value)}
+            className={cn(
+              "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+              selectedSection === sec.value
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {sec.label}
+          </button>
+        ))}
       </div>
 
       {/* Content */}
@@ -195,7 +196,7 @@ export default function ReportEditorPage() {
         {!showContent ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">Select a report and a section to start editing.</p>
+            <p className="text-sm">Select a report to start editing.</p>
           </div>
         ) : (
           <div className="max-w-2xl space-y-4">

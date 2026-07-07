@@ -174,7 +174,7 @@ export default function PartnerReportEditorPage() {
   const anyDirty = surveys.some((s) => rowStates[s.id]?.dirty);
 
   return (
-    <div className="flex flex-col min-h-full bg-background">
+    <div className="flex flex-col h-full bg-background">
 
       {/* Top bar */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between shrink-0">
@@ -248,7 +248,7 @@ export default function PartnerReportEditorPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-8 py-6">
+      <div className="flex-1 overflow-auto px-8 py-6">
         {error && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {error}

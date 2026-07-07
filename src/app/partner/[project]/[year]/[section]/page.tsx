@@ -438,9 +438,11 @@ export default function PartnerReportEditorPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                            {[1, 2, 3, 4, 5].map((n) => (
-                              <SelectItem key={n} value={String(n)}><AssessmentBadge value={n} /></SelectItem>
-                            ))}
+                            <SelectItem value="1"><div className="flex items-center gap-2"><AssessmentBadge value={1} /> <span className="text-sm">Not at all</span></div></SelectItem>
+                            <SelectItem value="2"><AssessmentBadge value={2} /></SelectItem>
+                            <SelectItem value="3"><AssessmentBadge value={3} /></SelectItem>
+                            <SelectItem value="4"><AssessmentBadge value={4} /></SelectItem>
+                            <SelectItem value="5"><div className="flex items-center gap-2"><AssessmentBadge value={5} /> <span className="text-sm">To a very great extent</span></div></SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -534,9 +536,9 @@ export default function PartnerReportEditorPage() {
                 <h3 className="text-sm font-semibold">Authorization</h3>
               </div>
 
-              <div className="border-l-2 border-border pl-3 space-y-2">
+              <div className="space-y-2">
                 {AUTHORIZATION_MESSAGES.map((msg, i) => (
-                  <p key={i} className="text-xs text-muted-foreground leading-relaxed italic">{msg}</p>
+                  <p key={i} className="text-sm text-muted-foreground leading-relaxed">{msg}</p>
                 ))}
               </div>
 

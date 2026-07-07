@@ -1,0 +1,127 @@
+{
+  "sections": {
+    "overview": "Overview",
+    "surveys": "Surveys",
+    "risk": "Risk Management"
+  },
+  "assessment": {
+    "min": "Not at all",
+    "max": "To a very great extent"
+  },
+  "authorization": {
+    "heading": "Authorization",
+    "checkbox": "I authorize this report",
+    "messages": [
+      "We grant the Complex Risk Analytics Fund (CRAF'd) a non-exclusive, worldwide, royalty-free, perpetual license to use, reproduce, adapt, distribute, and publicly display the submitted quotes, photographs, videos, and other communication materials solely for communications, outreach, advocacy, and reporting purposes.",
+      "We confirm that we hold all necessary rights and have obtained required consents from any individuals or third parties featured, in line with applicable laws and ethical standards. Ownership remains with the originating party. Where feasible, CRAF'd will provide attribution as specified, except where impracticable or inconsistent with the format or purpose of use. Materials shall not be used in a misleading or defamatory manner."
+    ]
+  },
+  "risk": {
+    "likelihood": {
+      "1": "Rare",
+      "2": "Unlikely",
+      "3": "Possible",
+      "4": "Likely",
+      "5": "Very Likely"
+    },
+    "impact": {
+      "1": "Insignificant",
+      "2": "Minor",
+      "3": "Moderate",
+      "4": "Major",
+      "5": "Extreme"
+    },
+    "levels": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "veryHigh": "Very High"
+    },
+    "columns": {
+      "number": "#",
+      "risk": "Risk",
+      "likelihood": "Likelihood",
+      "impact": "Impact",
+      "riskLevel": "Risk Level",
+      "approvedMitigation": "Approved Mitigation",
+      "updatedMitigation": "Updated Mitigation",
+      "revision": "Revision",
+      "actions": "Actions"
+    }
+  },
+  "overviewFields": {
+    "projectTitle": "Project Title",
+    "mptfoProjectNumber": "MPTFO Project Number",
+    "organizationName": "Organization Name",
+    "organizationWebsite": "Organization Website",
+    "projectLead": "Project Lead",
+    "durationMonths": "Duration (months)",
+    "grantSizeUsd": "Grant Size (USD)",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "reportSubmissionDate": "Report Submission Date",
+    "implementingPartners": "Implementing Partners",
+    "geographicScope": "Geographic Scope"
+  },
+  "placeholders": {
+    "projectTitle": "Project title…",
+    "mptfoProjectNumber": "e.g. MPTFO-2025-001",
+    "organizationName": "Organization name…",
+    "organizationWebsite": "https://…",
+    "projectLead": "Name…",
+    "durationMonths": "e.g. 24",
+    "grantSizeUsd": "e.g. 500000",
+    "implementingPartners": "List implementing partners…",
+    "geographicScope": "Describe the geographic scope…",
+    "assessmentContext": "Add context or explanation…",
+    "updatedMitigation": "Updated mitigation…",
+    "approvedMitigation": "Approved mitigation…",
+    "newSurveyQuestion": "New survey question…",
+    "riskName": "Risk name…",
+    "riskCategories": "Categories (comma-separated)…"
+  },
+  "partnerEditor": {
+    "eyebrow": "PRISM V.0.1",
+    "title": "Report Editor",
+    "assessmentLabel": "Assessment",
+    "contextLabel": "Context",
+    "selectReport": "Select a report",
+    "loading": "Loading…",
+    "saveChanges": "Save changes",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "emptySurveys": "No survey questions found for this report.",
+    "emptyRisks": "No risks have been added to this report yet.",
+    "notFound": "Report not found.",
+    "sectionNotFound": "Section not found."
+  },
+  "adminEditor": {
+    "title": "Report Editor",
+    "subtitle": "Edit survey questions and risks for a selected report",
+    "selectReport": "Select a report",
+    "loadingReports": "Loading reports…",
+    "selectToStart": "Select a report to start editing.",
+    "emptySurveys": "No survey questions yet.",
+    "emptyRisks": "No risks added yet.",
+    "add": "Add",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "dashboard": {
+    "title": "Reporting",
+    "subtitle": "CRAF'd Annual Reporting Platform",
+    "loading": "Loading reports…",
+    "empty": "No reports found for your organization.",
+    "annualReport": "Annual Report",
+    "previousYears": "Previous years",
+    "openReport": "Open report",
+    "review": "Review",
+    "open": "Open",
+    "openReports": "Open reports",
+    "status": {
+      "authorized": "Authorized",
+      "partial": "Partial",
+      "pending": "Pending"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -16,11 +16,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import labels from "@/lib/labels.json";
+import {
+  likelihoodLabel,
+  impactLabel,
+  riskLevelLabel,
+  computeRiskLevelKey,
+  SCALE_COLORS,
+  RISK_LEVEL_COLORS,
+  FALLBACK_COLORS,
+} from "@/lib/risk";
 
 const SECTIONS = [
-  { value: "overview", label: "Overview" },
-  { value: "surveys", label: "Surveys" },
-  { value: "risk", label: "Risk Management" },
+  { value: "overview", label: labels.sections.overview },
+  { value: "surveys", label: labels.sections.surveys },
+  { value: "risk", label: labels.sections.risk },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -31,102 +41,33 @@ const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: stri
   5: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
 };
 
-const AUTHORIZATION_MESSAGES = [
-  "We grant the Complex Risk Analytics Fund (CRAF'd) a non-exclusive, worldwide, royalty-free, perpetual license to use, reproduce, adapt, distribute, and publicly display the submitted quotes, photographs, videos, and other communication materials solely for communications, outreach, advocacy, and reporting purposes.",
-  "We confirm that we hold all necessary rights and have obtained required consents from any individuals or third parties featured, in line with applicable laws and ethical standards. Ownership remains with the originating party. Where feasible, CRAF'd will provide attribution as specified, except where impracticable or inconsistent with the format or purpose of use. Materials shall not be used in a misleading or defamatory manner.",
-];
+const AUTHORIZATION_MESSAGES = labels.authorization.messages;
 
-const LIKELIHOOD_LABELS: Record<number, string> = {
-  1: "Rare", 2: "Unlikely", 3: "Possible", 4: "Likely", 5: "Very Likely",
-};
-
-const IMPACT_LABELS: Record<number, string> = {
-  1: "Insignificant", 2: "Minor", 3: "Moderate", 4: "Major", 5: "Extreme",
-};
-
-const RISK_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
-  2: { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-300"   },
-  3: { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-300"  },
-  4: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-300" },
-  5: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
-};
-
-function AssessmentBadge({ value }: { value: number }) {
-  const c = ASSESSMENT_CONFIG[value] ?? { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" };
+// Shared coloured word-badge used by the assessment + risk cells.
+function Badge({ colors, children }: { colors: { bg: string; text: string; border: string }; children: ReactNode }) {
   return (
-    <span className={cn("inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold", c.bg, c.text, c.border)}>
-      {value}
+    <span className={cn("inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", colors.bg, colors.text, colors.border)}>
+      {children}
     </span>
   );
+}
+
+function AssessmentBadge({ value }: { value: number }) {
+  return <Badge colors={ASSESSMENT_CONFIG[value] ?? FALLBACK_COLORS}>{value}</Badge>;
 }
 
 function LikelihoodBadge({ value }: { value: number }) {
-  const c = RISK_CONFIG[value] ?? { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" };
-  return (
-    <span className={cn("inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", c.bg, c.text, c.border)}>
-      {LIKELIHOOD_LABELS[value] ?? value}
-    </span>
-  );
+  return <Badge colors={SCALE_COLORS[value] ?? FALLBACK_COLORS}>{likelihoodLabel(value)}</Badge>;
 }
 
 function ImpactBadge({ value }: { value: number }) {
-  const c = RISK_CONFIG[value] ?? { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" };
-  return (
-    <span className={cn("inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", c.bg, c.text, c.border)}>
-      {IMPACT_LABELS[value] ?? value}
-    </span>
-  );
-}
-
-const RISK_LEVEL_CONFIG: Record<string, { bg: string; text: string; border: string }> = {
-  "Low":       { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
-  "Medium":    { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-300"  },
-  "High":      { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-300" },
-  "Very High": { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
-};
-
-function computeRiskLevel(likelihood: number | null, impact: number | null): string {
-  if (likelihood === null || impact === null) return "";
-  const l = LIKELIHOOD_LABELS[likelihood];
-  const i = IMPACT_LABELS[impact];
-
-  if (
-    (["Rare", "Unlikely"].includes(l) && ["Insignificant", "Minor"].includes(i)) ||
-    (l === "Possible" && i === "Insignificant")
-  ) return "Low";
-
-  if (
-    (l === "Possible" && i === "Minor") ||
-    (l === "Likely" && i === "Minor") ||
-    (["Very Likely", "Likely"].includes(l) && i === "Insignificant") ||
-    (["Rare", "Unlikely"].includes(l) && ["Moderate", "Major"].includes(i))
-  ) return "Medium";
-
-  if (
-    (l === "Very Likely" && ["Minor", "Moderate"].includes(i)) ||
-    (l === "Likely" && ["Moderate", "Major"].includes(i)) ||
-    (l === "Possible" && ["Moderate", "Major", "Extreme"].includes(i)) ||
-    (["Unlikely", "Rare"].includes(l) && i === "Extreme")
-  ) return "High";
-
-  if (
-    (l === "Very Likely" && ["Major", "Extreme"].includes(i)) ||
-    (l === "Likely" && i === "Extreme")
-  ) return "Very High";
-
-  return "";
+  return <Badge colors={SCALE_COLORS[value] ?? FALLBACK_COLORS}>{impactLabel(value)}</Badge>;
 }
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
-  const level = computeRiskLevel(likelihood, impact);
-  if (!level) return <span className="text-muted-foreground text-sm">—</span>;
-  const c = RISK_LEVEL_CONFIG[level];
-  return (
-    <span className={cn("inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", c.bg, c.text, c.border)}>
-      {level}
-    </span>
-  );
+  const key = computeRiskLevelKey(likelihood, impact);
+  if (!key) return <span className="text-muted-foreground text-sm">—</span>;
+  return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
 }
 
 function Label({ children }: { children: string }) {
@@ -511,8 +452,8 @@ export default function PartnerReportEditorPage() {
       {/* Top bar */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between shrink-0">
         <div>
-          <p className="text-neutral-400 text-sm mb-1">PRISM V.0.1</p>
-          <h1 className="text-2xl font-bold font-qanelas">Report Editor</h1>
+          <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.eyebrow}</p>
+          <h1 className="text-2xl font-bold font-qanelas">{labels.partnerEditor.title}</h1>
         </div>
 
         <div className="flex items-center gap-3">
@@ -524,14 +465,14 @@ export default function PartnerReportEditorPage() {
             <SelectTrigger className="w-[300px] h-9 bg-neutral-900 border-neutral-700 text-white">
               {loadingReports ? (
                 <span className="flex items-center gap-2 text-neutral-400">
-                  <Loader2 className="size-3 animate-spin" /> Loading…
+                  <Loader2 className="size-3 animate-spin" /> {labels.partnerEditor.loading}
                 </span>
               ) : selectedReport ? (
                 <span className="truncate capitalize">
                   {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {selectedReport.project_short_name || selectedReport.project_title}
                 </span>
               ) : (
-                <span className="text-neutral-400">Select a report</span>
+                <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
               )}
             </SelectTrigger>
             <SelectContent>
@@ -549,7 +490,7 @@ export default function PartnerReportEditorPage() {
           {reportId && !sectionLoading && (
             saveSuccess ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm">
-                <CheckCircle2 className="size-4" /> Saved
+                <CheckCircle2 className="size-4" /> {labels.partnerEditor.saved}
               </span>
             ) : (
               <Button
@@ -559,8 +500,8 @@ export default function PartnerReportEditorPage() {
                 className="bg-crafd-yellow text-black hover:bg-crafd-yellow/90 disabled:opacity-40"
               >
                 {saving
-                  ? <><Loader2 className="size-3.5 animate-spin mr-1.5" /> Saving…</>
-                  : <><Save className="size-3.5 mr-1.5" /> Save changes</>}
+                  ? <><Loader2 className="size-3.5 animate-spin mr-1.5" /> {labels.partnerEditor.saving}</>
+                  : <><Save className="size-3.5 mr-1.5" /> {labels.partnerEditor.saveChanges}</>}
               </Button>
             )
           )}
@@ -604,18 +545,18 @@ export default function PartnerReportEditorPage() {
         {notFound ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">Report not found.</p>
+            <p className="text-sm">{labels.partnerEditor.notFound}</p>
           </div>
         ) : loadingReports || sectionLoading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Loading…
+            <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
           </div>
 
         ) : params.section === "surveys" ? (
           surveys.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
               <FileQuestion className="size-8 opacity-30" />
-              <p className="text-sm">No survey questions found for this report.</p>
+              <p className="text-sm">{labels.partnerEditor.emptySurveys}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -633,7 +574,7 @@ export default function PartnerReportEditorPage() {
                     </div>
                     <div className="flex gap-6 items-start pl-8">
                       <div className="shrink-0 space-y-1.5">
-                        <p className="text-xs text-muted-foreground">Assessment</p>
+                        <p className="text-xs text-muted-foreground">{labels.partnerEditor.assessmentLabel}</p>
                         <Select
                           value={state.assessment != null ? String(state.assessment) : "none"}
                           onValueChange={(v) => updateRow(survey.id, { assessment: v === "none" ? null : Number(v) })}
@@ -645,20 +586,20 @@ export default function PartnerReportEditorPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                            <SelectItem value="1"><div className="flex items-center gap-2"><AssessmentBadge value={1} /> <span className="text-sm">Not at all</span></div></SelectItem>
+                            <SelectItem value="1"><div className="flex items-center gap-2"><AssessmentBadge value={1} /> <span className="text-sm">{labels.assessment.min}</span></div></SelectItem>
                             <SelectItem value="2"><AssessmentBadge value={2} /></SelectItem>
                             <SelectItem value="3"><AssessmentBadge value={3} /></SelectItem>
                             <SelectItem value="4"><AssessmentBadge value={4} /></SelectItem>
-                            <SelectItem value="5"><div className="flex items-center gap-2"><AssessmentBadge value={5} /> <span className="text-sm">To a very great extent</span></div></SelectItem>
+                            <SelectItem value="5"><div className="flex items-center gap-2"><AssessmentBadge value={5} /> <span className="text-sm">{labels.assessment.max}</span></div></SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="flex-1 space-y-1.5">
-                        <p className="text-xs text-muted-foreground">Context</p>
+                        <p className="text-xs text-muted-foreground">{labels.partnerEditor.contextLabel}</p>
                         <Textarea
                           value={state.context}
                           onChange={(e) => updateRow(survey.id, { context: e.target.value })}
-                          placeholder="Add context or explanation…"
+                          placeholder={labels.placeholders.assessmentContext}
                           className="text-sm min-h-[80px] resize-y"
                         />
                       </div>
@@ -675,64 +616,64 @@ export default function PartnerReportEditorPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Project Title</Label>
-                  <Input value={overview.project_title} onChange={(e) => updateOverview({ project_title: e.target.value })} placeholder="Project title…" className="text-sm" />
+                  <Label>{labels.overviewFields.projectTitle}</Label>
+                  <Input value={overview.project_title} onChange={(e) => updateOverview({ project_title: e.target.value })} placeholder={labels.placeholders.projectTitle} className="text-sm" />
                 </div>
                 <div>
-                  <Label>MPTFO Project Number</Label>
-                  <Input value={overview.mptfo_project_number} onChange={(e) => updateOverview({ mptfo_project_number: e.target.value })} placeholder="e.g. MPTFO-2025-001" className="text-sm" />
+                  <Label>{labels.overviewFields.mptfoProjectNumber}</Label>
+                  <Input value={overview.mptfo_project_number} onChange={(e) => updateOverview({ mptfo_project_number: e.target.value })} placeholder={labels.placeholders.mptfoProjectNumber} className="text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Organization Name</Label>
-                  <Input value={overview.organization_name} onChange={(e) => updateOverview({ organization_name: e.target.value })} placeholder="Organization name…" className="text-sm" />
+                  <Label>{labels.overviewFields.organizationName}</Label>
+                  <Input value={overview.organization_name} onChange={(e) => updateOverview({ organization_name: e.target.value })} placeholder={labels.placeholders.organizationName} className="text-sm" />
                 </div>
                 <div>
-                  <Label>Organization Website</Label>
-                  <Input value={overview.organization_website} onChange={(e) => updateOverview({ organization_website: e.target.value })} placeholder="https://…" className="text-sm" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Project Lead</Label>
-                  <Input value={overview.project_lead} onChange={(e) => updateOverview({ project_lead: e.target.value })} placeholder="Name…" className="text-sm" />
-                </div>
-                <div>
-                  <Label>Duration (months)</Label>
-                  <Input type="number" min={0} value={overview.project_duration_months} onChange={(e) => updateOverview({ project_duration_months: e.target.value })} placeholder="e.g. 24" className="text-sm" />
-                </div>
-                <div>
-                  <Label>Grant Size (USD)</Label>
-                  <Input type="number" min={0} value={overview.grant_size_usd} onChange={(e) => updateOverview({ grant_size_usd: e.target.value })} placeholder="e.g. 500000" className="text-sm" />
+                  <Label>{labels.overviewFields.organizationWebsite}</Label>
+                  <Input value={overview.organization_website} onChange={(e) => updateOverview({ organization_website: e.target.value })} placeholder={labels.placeholders.organizationWebsite} className="text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>Start Date</Label>
+                  <Label>{labels.overviewFields.projectLead}</Label>
+                  <Input value={overview.project_lead} onChange={(e) => updateOverview({ project_lead: e.target.value })} placeholder={labels.placeholders.projectLead} className="text-sm" />
+                </div>
+                <div>
+                  <Label>{labels.overviewFields.durationMonths}</Label>
+                  <Input type="number" min={0} value={overview.project_duration_months} onChange={(e) => updateOverview({ project_duration_months: e.target.value })} placeholder={labels.placeholders.durationMonths} className="text-sm" />
+                </div>
+                <div>
+                  <Label>{labels.overviewFields.grantSizeUsd}</Label>
+                  <Input type="number" min={0} value={overview.grant_size_usd} onChange={(e) => updateOverview({ grant_size_usd: e.target.value })} placeholder={labels.placeholders.grantSizeUsd} className="text-sm" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>{labels.overviewFields.startDate}</Label>
                   <Input type="date" value={overview.starting_date} onChange={(e) => updateOverview({ starting_date: e.target.value })} className="text-sm" />
                 </div>
                 <div>
-                  <Label>End Date</Label>
+                  <Label>{labels.overviewFields.endDate}</Label>
                   <Input type="date" value={overview.end_date} onChange={(e) => updateOverview({ end_date: e.target.value })} className="text-sm" />
                 </div>
                 <div>
-                  <Label>Report Submission Date</Label>
+                  <Label>{labels.overviewFields.reportSubmissionDate}</Label>
                   <Input type="date" value={overview.report_submission_date} onChange={(e) => updateOverview({ report_submission_date: e.target.value })} className="text-sm" />
                 </div>
               </div>
 
               <div>
-                <Label>Implementing Partners</Label>
-                <Textarea value={overview.implementing_partners} onChange={(e) => updateOverview({ implementing_partners: e.target.value })} placeholder="List implementing partners…" className="text-sm min-h-[72px] resize-y" />
+                <Label>{labels.overviewFields.implementingPartners}</Label>
+                <Textarea value={overview.implementing_partners} onChange={(e) => updateOverview({ implementing_partners: e.target.value })} placeholder={labels.placeholders.implementingPartners} className="text-sm min-h-[72px] resize-y" />
               </div>
 
               <div>
-                <Label>Geographic Scope</Label>
-                <Textarea value={overview.geographic_scope} onChange={(e) => updateOverview({ geographic_scope: e.target.value })} placeholder="Describe the geographic scope…" className="text-sm min-h-[72px] resize-y" />
+                <Label>{labels.overviewFields.geographicScope}</Label>
+                <Textarea value={overview.geographic_scope} onChange={(e) => updateOverview({ geographic_scope: e.target.value })} placeholder={labels.placeholders.geographicScope} className="text-sm min-h-[72px] resize-y" />
               </div>
             </div>
 
@@ -740,7 +681,7 @@ export default function PartnerReportEditorPage() {
             <div className="rounded-xl border bg-card p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="size-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Authorization</h3>
+                <h3 className="text-sm font-semibold">{labels.authorization.heading}</h3>
               </div>
 
               <div className="space-y-2">
@@ -756,7 +697,7 @@ export default function PartnerReportEditorPage() {
                   onChange={(e) => updateOverview({ authorized: e.target.checked })}
                   className="size-4 rounded"
                 />
-                <span className="text-sm font-medium">I authorize this report</span>
+                <span className="text-sm font-medium">{labels.authorization.checkbox}</span>
               </label>
             </div>
           </div>
@@ -765,21 +706,21 @@ export default function PartnerReportEditorPage() {
           risks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
               <FileQuestion className="size-8 opacity-30" />
-              <p className="text-sm">No risks have been added to this report yet.</p>
+              <p className="text-sm">{labels.partnerEditor.emptyRisks}</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-12">#</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Risk</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">Likelihood</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">Impact</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">Risk Level</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">Approved Mitigation</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">Updated Mitigation</th>
-                    <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-24">Revision</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-12">{labels.risk.columns.number}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.risk.columns.risk}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.risk.columns.likelihood}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.risk.columns.impact}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">{labels.risk.columns.riskLevel}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.approvedMitigation}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.updatedMitigation}</th>
+                    <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.revision}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -864,7 +805,7 @@ export default function PartnerReportEditorPage() {
                               <Textarea
                                 value={state.updated_mitigation}
                                 onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                                placeholder="Updated mitigation…"
+                                placeholder={labels.placeholders.updatedMitigation}
                                 className="text-sm h-8 min-h-0 resize-none overflow-hidden py-1"
                               />
                             </td>
@@ -927,7 +868,7 @@ export default function PartnerReportEditorPage() {
                               <Textarea
                                 value={state.updated_mitigation}
                                 onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                                placeholder="Updated mitigation…"
+                                placeholder={labels.placeholders.updatedMitigation}
                                 className="text-sm min-h-[80px] resize-y"
                               />
                             </td>

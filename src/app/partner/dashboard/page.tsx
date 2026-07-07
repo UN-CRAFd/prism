@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
 import { ArrowRight, FileText, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import labels from "@/lib/labels.json";
 
 interface Report {
   id: number;
@@ -30,14 +31,14 @@ function StatusBadge({ report }: { report: Report }) {
     return (
       <Badge variant="outline" className="border-green-300 text-green-700 text-xs">
         <CheckCircle2 className="size-3 mr-1" />
-        Authorized
+        {labels.dashboard.status.authorized}
       </Badge>
     );
   }
   return (
     <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs">
       <Clock className="size-3 mr-1" />
-      Pending
+      {labels.dashboard.status.pending}
     </Badge>
   );
 }
@@ -94,10 +95,10 @@ export default function ReportingPage() {
     <div className="flex flex-col min-h-full bg-background">
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 py-8">
-        <h1 className="text-3xl font-bold font-qanelas">Reporting</h1>
+        <h1 className="text-3xl font-bold font-qanelas">{labels.dashboard.title}</h1>
         {mounted && (
           <p className="text-neutral-400 text-sm mt-2">
-            CRAF&apos;d Annual Reporting Platform &middot;{" "}
+            {labels.dashboard.subtitle} &middot;{" "}
             {user?.organization ?? user?.name}
           </p>
         )}
@@ -105,7 +106,7 @@ export default function ReportingPage() {
 
       <div className="flex-1 px-8 py-8 max-w-5xl">
         {loading && (
-          <p className="text-sm text-muted-foreground">Loading reports…</p>
+          <p className="text-sm text-muted-foreground">{labels.dashboard.loading}</p>
         )}
 
         {error && (
@@ -116,7 +117,7 @@ export default function ReportingPage() {
           <div className="rounded-xl border bg-card px-6 py-12 text-center mt-4">
             <FileText className="mx-auto size-8 text-muted-foreground/40 mb-3" />
             <p className="text-sm text-muted-foreground">
-              No reports found for your organization.
+              {labels.dashboard.empty}
             </p>
           </div>
         )}
@@ -128,7 +129,7 @@ export default function ReportingPage() {
             <section className="lg:col-span-2">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold">
-                  {latestYear} Annual Report
+                  {latestYear} {labels.dashboard.annualReport}
                   <Badge
                     variant="outline"
                     className={cn(
@@ -141,10 +142,10 @@ export default function ReportingPage() {
                     )}
                   >
                     {allAuthorized(byYear[latestYear])
-                      ? "Authorized"
+                      ? labels.dashboard.status.authorized
                       : anyAuthorized(byYear[latestYear])
-                      ? "Partial"
-                      : "Pending"}
+                      ? labels.dashboard.status.partial
+                      : labels.dashboard.status.pending}
                   </Badge>
                 </h2>
                 <span className="text-sm text-muted-foreground">
@@ -171,7 +172,7 @@ export default function ReportingPage() {
                         onClick={() => router.push(`/partner/${toSlug(report)}/${report.year}/overview`)}
                         className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        Open <ChevronRight className="size-3" />
+                        {labels.dashboard.open} <ChevronRight className="size-3" />
                       </button>
                     </div>
                   ))}
@@ -188,7 +189,7 @@ export default function ReportingPage() {
                     onClick={() => router.push(`/partner/${toSlug(byYear[latestYear][0])}/${latestYear}/overview`)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
                   >
-                    {allAuthorized(byYear[latestYear]) ? "Review" : "Open report"}
+                    {allAuthorized(byYear[latestYear]) ? labels.dashboard.review : labels.dashboard.openReport}
                     <ArrowRight className="size-3.5" />
                   </button>
                 </div>
@@ -198,7 +199,7 @@ export default function ReportingPage() {
             {/* ── Previous years ── */}
             {previousYears.length > 0 && (
               <section className="lg:col-span-1">
-                <h2 className="text-base font-semibold mb-3">Previous years</h2>
+                <h2 className="text-base font-semibold mb-3">{labels.dashboard.previousYears}</h2>
                 <div className="flex flex-col gap-3">
                   {previousYears.map((year) => {
                     const yearReports = byYear[year];
@@ -225,7 +226,7 @@ export default function ReportingPage() {
                                 : "bg-neutral-100 text-neutral-400 border-neutral-200"
                             )}
                           >
-                            {done ? "Authorized" : partial ? "Partial" : "Pending"}
+                            {done ? labels.dashboard.status.authorized : partial ? labels.dashboard.status.partial : labels.dashboard.status.pending}
                           </span>
                         </div>
 
@@ -234,7 +235,7 @@ export default function ReportingPage() {
                         </p>
 
                         <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-                          Open reports <ChevronRight className="size-3" />
+                          {labels.dashboard.openReports} <ChevronRight className="size-3" />
                         </div>
                       </button>
                     );

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import labels from "@/lib/labels.json";
 
 interface Report {
   id: number;
@@ -45,8 +46,8 @@ interface Risk {
 }
 
 const SECTIONS = [
-  { value: "surveys", label: "Surveys" },
-  { value: "risk", label: "Risk Management" },
+  { value: "surveys", label: labels.sections.surveys },
+  { value: "risk", label: labels.sections.risk },
 ];
 
 export default function ReportEditorPage() {
@@ -281,9 +282,9 @@ export default function ReportEditorPage() {
       {/* Top bar */}
       <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">Report Editor</h1>
+          <h1 className="text-2xl font-bold font-qanelas">{labels.adminEditor.title}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Edit survey questions and risks for a selected report
+            {labels.adminEditor.subtitle}
           </p>
         </div>
 
@@ -291,14 +292,14 @@ export default function ReportEditorPage() {
           <SelectTrigger className="w-[320px] h-9">
             {loadingReports ? (
               <span className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" /> Loading reports…
+                <Loader2 className="size-3 animate-spin" /> {labels.adminEditor.loadingReports}
               </span>
             ) : selectedReport ? (
               <span className="truncate capitalize">
                 {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {selectedReport.project_short_name || selectedReport.project_title}
               </span>
             ) : (
-              <span className="text-muted-foreground">Select a report</span>
+              <span className="text-muted-foreground">{labels.adminEditor.selectReport}</span>
             )}
           </SelectTrigger>
           <SelectContent>
@@ -343,30 +344,30 @@ export default function ReportEditorPage() {
         {!showContent ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">Select a report to start editing.</p>
+            <p className="text-sm">{labels.adminEditor.selectToStart}</p>
           </div>
         ) : sectionLoading ? (
           <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Loading…
+            <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
           </div>
 
         ) : selectedSection === "surveys" ? (
           <div className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="New survey question…"
+                placeholder={labels.placeholders.newSurveyQuestion}
                 value={newQuestion}
                 onChange={(e) => setNewQuestion(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
                 className="flex-1"
               />
               <Button onClick={handleAdd} disabled={adding || !newQuestion.trim()} size="sm" className="shrink-0">
-                {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> Add</>}
+                {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> {labels.adminEditor.add}</>}
               </Button>
             </div>
             {surveys.length === 0 ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                No survey questions yet.
+                {labels.adminEditor.emptySurveys}
               </div>
             ) : (
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
@@ -385,8 +386,8 @@ export default function ReportEditorPage() {
                             autoFocus
                           />
                           <div className="flex gap-2 shrink-0">
-                            <Button size="sm" variant="outline" onClick={() => handleEditSave(s.id)}>Save</Button>
-                            <Button size="sm" variant="outline" onClick={handleEditCancel}>Cancel</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleEditSave(s.id)}>{labels.adminEditor.save}</Button>
+                            <Button size="sm" variant="outline" onClick={handleEditCancel}>{labels.adminEditor.cancel}</Button>
                           </div>
                         </div>
                       ) : (
@@ -416,41 +417,41 @@ export default function ReportEditorPage() {
           <div className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="Risk name…"
+                placeholder={labels.placeholders.riskName}
                 value={newRiskName}
                 onChange={(e) => setNewRiskName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !newRiskName.trim()) return; if (e.key === "Enter") handleRiskAdd(); }}
                 className="flex-1"
               />
               <Input
-                placeholder="Categories (comma-separated)…"
+                placeholder={labels.placeholders.riskCategories}
                 value={newRiskCategory}
                 onChange={(e) => setNewRiskCategory(e.target.value)}
                 className="flex-1"
               />
               <Input
-                placeholder="Approved mitigation…"
+                placeholder={labels.placeholders.approvedMitigation}
                 value={newRiskApprovedMitigation}
                 onChange={(e) => setNewRiskApprovedMitigation(e.target.value)}
                 className="flex-1"
               />
               <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
-                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> Add</>}
+                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> {labels.adminEditor.add}</>}
               </Button>
             </div>
             {risks.length === 0 ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                No risks added yet.
+                {labels.adminEditor.emptyRisks}
               </div>
             ) : (
               <div className="rounded-xl border bg-card overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">#</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-96">Risk</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Approved Mitigation</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28">Actions</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">{labels.risk.columns.number}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-96">{labels.risk.columns.risk}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.risk.columns.approvedMitigation}</th>
+                      <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28">{labels.risk.columns.actions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -467,28 +468,28 @@ export default function ReportEditorPage() {
                                   <Input
                                     value={editingRiskName}
                                     onChange={(e) => setEditingRiskName(e.target.value)}
-                                    placeholder="Risk name…"
+                                    placeholder={labels.placeholders.riskName}
                                     className="text-sm"
                                     autoFocus
                                   />
                                   <Input
                                     value={editingRiskCategory}
                                     onChange={(e) => setEditingRiskCategory(e.target.value)}
-                                    placeholder="Categories (comma-separated)…"
+                                    placeholder={labels.placeholders.riskCategories}
                                     className="text-sm"
                                   />
                                   <Textarea
                                     value={editingRiskApprovedMitigation}
                                     onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)}
-                                    placeholder="Approved mitigation…"
+                                    placeholder={labels.placeholders.approvedMitigation}
                                     className="text-sm min-h-[80px] resize-y"
                                   />
                                 </div>
                               </td>
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>Save</Button>
-                                  <Button size="sm" variant="outline" onClick={handleRiskEditCancel}>Cancel</Button>
+                                  <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
+                                  <Button size="sm" variant="outline" onClick={handleRiskEditCancel}>{labels.adminEditor.cancel}</Button>
                                 </div>
                               </td>
                             </>

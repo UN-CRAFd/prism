@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { likelihoodFromText, impactFromText } from "@/lib/risk";
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -32,20 +33,6 @@ function parseCSV(text: string): Record<string, string>[] {
     });
     return row;
   });
-}
-
-const LIKELIHOOD_MAP: Record<string, number> = {
-  "rare": 1, "unlikely": 2, "possible": 3, "likely": 4, "very likely": 5,
-};
-const IMPACT_MAP: Record<string, number> = {
-  "insignificant": 1, "minor": 2, "moderate": 3, "major": 4, "extreme": 5,
-};
-
-function toRiskNum(val: string | undefined, map: Record<string, number>): number | null {
-  if (!val) return null;
-  const n = Number(val);
-  if (Number.isFinite(n) && n >= 1 && n <= 5) return Math.round(n);
-  return map[val.trim().toLowerCase()] ?? null;
 }
 
 function toProjectRevision(val: string | undefined): boolean {
@@ -134,8 +121,8 @@ export async function POST(req: NextRequest) {
           reportId,
           risk_name.trim(),
           categories,
-          toRiskNum(likelihood, LIKELIHOOD_MAP),
-          toRiskNum(impact, IMPACT_MAP),
+          likelihoodFromText(likelihood),
+          impactFromText(impact),
           approved_mitigation || null,
           updated_mitigation || null,
           toProjectRevision(project_revision),

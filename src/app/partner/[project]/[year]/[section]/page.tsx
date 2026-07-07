@@ -55,6 +55,14 @@ interface Report {
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string;
+  partner_long_name: string | null;
+  report_submission_date: string | null;
+  mptfo_project_number: string | null;
+  grant_size_usd: string | null;
+  project_duration: number | null;
+  geographic_scope: string | null;
+  project_start_date: string | null;
+  organization_website: string | null;
 }
 
 interface Survey {
@@ -155,28 +163,28 @@ export default function PartnerReportEditorPage() {
       const res = await fetch(`/api/overview?reportId=${id}`);
       if (!res.ok) throw new Error("Failed to load overview");
       const data = await res.json();
-      setOverview(
-        data
-          ? {
-              project_title: data.project_title ?? "",
-              mptfo_project_number: data.mptfo_project_number ?? "",
-              organization_name: data.organization_name ?? "",
-              organization_website: data.organization_website ?? "",
-              project_duration_months: data.project_duration_months != null ? String(data.project_duration_months) : "",
-              grant_size_usd: data.grant_size_usd != null ? String(data.grant_size_usd) : "",
-              implementing_partners: data.implementing_partners ?? "",
-              geographic_scope: data.geographic_scope ?? "",
-              report_submission_date: data.report_submission_date?.slice(0, 10) ?? "",
-              starting_date: data.starting_date?.slice(0, 10) ?? "",
-              end_date: data.end_date?.slice(0, 10) ?? "",
-              project_lead: data.project_lead ?? "",
-              authorized: data.authorized ?? false,
-            }
-          : EMPTY_OVERVIEW
-      );
+      // Only override pre-populated form if there is saved data
+      if (data) {
+        setOverview({
+          project_title: data.project_title ?? "",
+          mptfo_project_number: data.mptfo_project_number ?? "",
+          organization_name: data.organization_name ?? "",
+          organization_website: data.organization_website ?? "",
+          project_duration_months: data.project_duration_months != null ? String(data.project_duration_months) : "",
+          grant_size_usd: data.grant_size_usd != null ? String(data.grant_size_usd) : "",
+          implementing_partners: data.implementing_partners ?? "",
+          geographic_scope: data.geographic_scope ?? "",
+          report_submission_date: data.report_submission_date?.slice(0, 10) ?? "",
+          starting_date: data.starting_date?.slice(0, 10) ?? "",
+          end_date: data.end_date?.slice(0, 10) ?? "",
+          project_lead: data.project_lead ?? "",
+          authorized: data.authorized ?? false,
+        });
+      }
       setOverviewDirty(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
+      // on error, keep whatever was pre-populated — don't blank the form
     } finally {
       setLoadingOverview(false);
     }
@@ -201,7 +209,26 @@ export default function PartnerReportEditorPage() {
         const match = filtered.find(
           (r) => toSlug(r) === params.project && String(r.year) === params.year
         );
-        if (match) setReportId(match.id);
+        if (match) {
+          setReportId(match.id);
+          // Pre-populate overview immediately from already-loaded report data.
+          // loadOverview will override this with any saved row from the DB.
+          setOverview({
+            project_title: match.project_title || "",
+            mptfo_project_number: match.mptfo_project_number || "",
+            organization_name: match.partner_long_name || "",
+            organization_website: match.organization_website || "",
+            project_duration_months: match.project_duration != null ? String(match.project_duration) : "",
+            grant_size_usd: match.grant_size_usd != null ? String(match.grant_size_usd) : "",
+            implementing_partners: "",
+            geographic_scope: match.geographic_scope || "",
+            report_submission_date: match.report_submission_date?.slice(0, 10) || "",
+            starting_date: match.project_start_date?.slice(0, 10) || "",
+            end_date: "",
+            project_lead: "",
+            authorized: false,
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setLoadingReports(false));
@@ -501,39 +528,29 @@ export default function PartnerReportEditorPage() {
             </div>
 
             {/* Authorization */}
-            <div className={cn(
-              "rounded-xl border p-6 space-y-4 transition-colors",
-              overview.authorized ? "border-green-200 bg-green-50/40" : "bg-card"
-            )}>
+            <div className="rounded-xl border bg-card p-6 space-y-4">
               <div className="flex items-center gap-2">
-                <ShieldCheck className={cn("size-4", overview.authorized ? "text-green-600" : "text-muted-foreground")} />
-                <h3 className={cn("text-sm font-semibold", overview.authorized ? "text-green-700" : "")}>
-                  Authorization
-                </h3>
+                <ShieldCheck className="size-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Authorization</h3>
               </div>
 
-              <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3 italic">
-                {AUTHORIZATION_MESSAGE}
-              </p>
+              <div className="border-l-2 border-border pl-3 space-y-2">
+                {AUTHORIZATION_MESSAGES.map((msg, i) => (
+                  <p key={i} className="text-xs text-muted-foreground leading-relaxed italic">{msg}</p>
+                ))}
+              </div>
 
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={overview.authorized}
                   onChange={(e) => updateOverview({ authorized: e.target.checked })}
-                  className="size-4 rounded accent-green-600"
+                  className="size-4 rounded"
                 />
-                <span className={cn("text-sm font-medium", overview.authorized ? "text-green-700" : "")}>
-                  I authorize and submit this report
+                <span className="text-sm font-medium">
+                  I authorize this report
                 </span>
               </label>
-
-              {overview.authorized && (
-                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
-                  <CheckCircle2 className="size-4" />
-                  This report has been authorized.
-                </div>
-              )}
             </div>
           </div>
 

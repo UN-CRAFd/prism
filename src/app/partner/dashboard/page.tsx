@@ -58,7 +58,7 @@ export default function ReportingPage() {
 
     async function load() {
       try {
-        const res = await fetch("/api/reports");
+        const res = await fetch("/api/reports?data_type=report");
         if (!res.ok) throw new Error("Failed to load reports");
         const all: Report[] = await res.json();
         const filtered = all.filter(

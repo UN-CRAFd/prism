@@ -172,7 +172,7 @@ export default function AdminFullDataPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
-            <Loader2 className="size-4 animate-spin" /> Loading…
+            <Loader2 className="size-4 animate-spin" /> Fetching...
           </div>
         ) : section === "surveys" && visibleSurveys.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">

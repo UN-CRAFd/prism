@@ -16,15 +16,21 @@ export async function GET(request: Request) {
         r.id,
         r.project_id,
         r.year,
-        r.report_submission_date,
+        TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date,
         r.authorized,
         r.created_at,
         r.data_type,
         r.report_type,
         pr.project_title,
-        pr.short_name      AS project_short_name,
-        p.short_name       AS partner_short_name,
-        p.long_name        AS partner_long_name
+        pr.short_name                                   AS project_short_name,
+        pr.mptfo_project_number,
+        pr.grant_size_usd,
+        pr.project_duration,
+        pr.geographic_scope,
+        TO_CHAR(pr.project_start_date, 'YYYY-MM-DD')   AS project_start_date,
+        p.short_name                                    AS partner_short_name,
+        p.long_name                                     AS partner_long_name,
+        p.organization_website
       FROM reporting_platform.reports r
       JOIN reporting_platform.projects pr ON pr.id = r.project_id
       JOIN reporting_platform.partners p  ON p.id  = pr.partner_id

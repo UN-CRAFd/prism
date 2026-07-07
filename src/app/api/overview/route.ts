@@ -5,15 +5,56 @@ export async function GET(req: NextRequest) {
   const reportId = req.nextUrl.searchParams.get("reportId");
   if (!reportId) return NextResponse.json({ error: "reportId required" }, { status: 400 });
 
-  const rows = await query(
-    `SELECT * FROM reporting_platform.overview WHERE reportid = $1`,
-    [reportId]
-  );
-  return NextResponse.json(rows[0] ?? null);
+  try {
+    // Return saved row if it exists
+    const existing = await query(
+      `SELECT * FROM reporting_platform.overview WHERE reportid = $1`,
+      [reportId]
+    );
+    if (existing.length > 0) return NextResponse.json(existing[0]);
+
+    // No saved row yet — seed defaults from related tables
+    const defaults = await query(
+      `SELECT
+         p.project_title,
+         p.mptfo_project_number,
+         p.grant_size_usd,
+         TO_CHAR(p.project_start_date,    'YYYY-MM-DD') AS starting_date,
+         p.project_duration                             AS project_duration_months,
+         p.geographic_scope,
+         pt.long_name                                   AS organization_name,
+         pt.organization_website,
+         TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date
+       FROM reporting_platform.reports  r
+       JOIN reporting_platform.projects p  ON p.id  = r.project_id
+       JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+       WHERE r.id = $1`,
+      [reportId]
+    );
+
+    if (defaults.length === 0) return NextResponse.json(null);
+
+    return NextResponse.json({
+      ...defaults[0],
+      implementing_partners: null,
+      project_lead: null,
+      end_date: null,
+      authorized: false,
+    });
+  } catch (err) {
+    console.error("GET /api/overview error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: NextRequest) {
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
   const {
     reportId,
     project_title,
@@ -40,44 +81,49 @@ export async function PATCH(req: NextRequest) {
     return isNaN(n) ? null : n;
   };
 
-  const rows = await query(
-    `INSERT INTO reporting_platform.overview (
-       reportid, project_title, mptfo_project_number, organization_name, organization_website,
-       project_duration_months, grant_size_usd, implementing_partners, geographic_scope,
-       report_submission_date, starting_date, end_date, project_lead, authorized
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-     ON CONFLICT (reportid) DO UPDATE SET
-       project_title           = EXCLUDED.project_title,
-       mptfo_project_number    = EXCLUDED.mptfo_project_number,
-       organization_name       = EXCLUDED.organization_name,
-       organization_website    = EXCLUDED.organization_website,
-       project_duration_months = EXCLUDED.project_duration_months,
-       grant_size_usd          = EXCLUDED.grant_size_usd,
-       implementing_partners   = EXCLUDED.implementing_partners,
-       geographic_scope        = EXCLUDED.geographic_scope,
-       report_submission_date  = EXCLUDED.report_submission_date,
-       starting_date           = EXCLUDED.starting_date,
-       end_date                = EXCLUDED.end_date,
-       project_lead            = EXCLUDED.project_lead,
-       authorized              = EXCLUDED.authorized,
-       updated_at              = NOW()
-     RETURNING *`,
-    [
-      reportId,
-      project_title || null,
-      mptfo_project_number || null,
-      organization_name || null,
-      organization_website || null,
-      toNum(project_duration_months),
-      toNum(grant_size_usd),
-      implementing_partners || null,
-      geographic_scope || null,
-      toDate(report_submission_date),
-      toDate(starting_date),
-      toDate(end_date),
-      project_lead || null,
-      authorized ?? false,
-    ]
-  );
-  return NextResponse.json(rows[0]);
+  try {
+    const rows = await query(
+      `INSERT INTO reporting_platform.overview (
+         reportid, project_title, mptfo_project_number, organization_name, organization_website,
+         project_duration_months, grant_size_usd, implementing_partners, geographic_scope,
+         report_submission_date, starting_date, end_date, project_lead, authorized
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ON CONFLICT (reportid) DO UPDATE SET
+         project_title           = EXCLUDED.project_title,
+         mptfo_project_number    = EXCLUDED.mptfo_project_number,
+         organization_name       = EXCLUDED.organization_name,
+         organization_website    = EXCLUDED.organization_website,
+         project_duration_months = EXCLUDED.project_duration_months,
+         grant_size_usd          = EXCLUDED.grant_size_usd,
+         implementing_partners   = EXCLUDED.implementing_partners,
+         geographic_scope        = EXCLUDED.geographic_scope,
+         report_submission_date  = EXCLUDED.report_submission_date,
+         starting_date           = EXCLUDED.starting_date,
+         end_date                = EXCLUDED.end_date,
+         project_lead            = EXCLUDED.project_lead,
+         authorized              = EXCLUDED.authorized,
+         updated_at              = NOW()
+       RETURNING *`,
+      [
+        reportId,
+        project_title || null,
+        mptfo_project_number || null,
+        organization_name || null,
+        organization_website || null,
+        toNum(project_duration_months),
+        toNum(grant_size_usd),
+        implementing_partners || null,
+        geographic_scope || null,
+        toDate(report_submission_date),
+        toDate(starting_date),
+        toDate(end_date),
+        project_lead || null,
+        authorized ?? false,
+      ]
+    );
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    console.error("PATCH /api/overview error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }

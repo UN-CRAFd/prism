@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Report {
@@ -45,6 +46,8 @@ export default function ReportEditorPage() {
   const [newQuestion, setNewQuestion] = useState("");
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,6 +103,36 @@ export default function ReportEditorPage() {
     } finally {
       setAdding(false);
     }
+  }
+
+  function handleEditStart(survey: Survey) {
+    setEditingId(survey.id);
+    setEditingText(survey.question);
+  }
+
+  async function handleEditSave(id: number) {
+    if (!editingText.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/surveys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, question: editingText }),
+      });
+      if (!res.ok) throw new Error("Failed to update question");
+      setSurveys((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, question: editingText } : s))
+      );
+      setEditingId(null);
+      setEditingText("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    }
+  }
+
+  function handleEditCancel() {
+    setEditingId(null);
+    setEditingText("");
   }
 
   async function handleDelete(id: number) {
@@ -201,13 +234,6 @@ export default function ReportEditorPage() {
         ) : (
           <div className="max-w-2xl space-y-4">
 
-            {/* Context */}
-            {selectedReport && (
-              <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                Editing <span className="font-medium text-foreground capitalize">{selectedReport.report_type ?? "annual"} Report {selectedReport.year}</span> &mdash; {selectedReport.project_short_name || selectedReport.project_title} &mdash; Surveys
-              </div>
-            )}
-
             {/* Existing questions */}
             {loadingSurveys ? (
               <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
@@ -221,26 +247,64 @@ export default function ReportEditorPage() {
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
                 {surveys.map((s, i) => {
                   const isAnswered = s.assessment !== null && s.context;
+                  const isEditing = editingId === s.id;
                   return (
                     <div key={s.id} className="flex items-start gap-3 px-4 py-3.5">
                       <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">
                         {i + 1}.
                       </span>
-                      <p className="flex-1 text-sm">{s.question}</p>
-                      {isAnswered ? (
-                        <CheckCircle2 className="size-4 text-green-600 shrink-0 mt-0.5" />
+                      {isEditing ? (
+                        <div className="flex-1 flex gap-2 items-start">
+                          <Textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="flex-1 text-sm min-h-[60px] resize-none"
+                            autoFocus
+                          />
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditSave(s.id)}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleEditCancel}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
                       ) : (
-                        <Circle className="size-4 text-muted-foreground/40 shrink-0 mt-0.5" />
+                        <>
+                          <p className="flex-1 text-sm">{s.question}</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isAnswered ? (
+                              <CheckCircle2 className="size-4 text-green-600" />
+                            ) : (
+                              <Circle className="size-4 text-muted-foreground/40" />
+                            )}
+                            <button
+                              onClick={() => handleEditStart(s)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="size-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(s.id)}
+                              disabled={deletingId === s.id}
+                              className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                            >
+                              {deletingId === s.id
+                                ? <Loader2 className="size-3.5 animate-spin" />
+                                : <Trash2 className="size-3.5" />}
+                            </button>
+                          </div>
+                        </>
                       )}
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        disabled={deletingId === s.id}
-                        className="shrink-0 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-                      >
-                        {deletingId === s.id
-                          ? <Loader2 className="size-3.5 animate-spin" />
-                          : <Trash2 className="size-3.5" />}
-                      </button>
                     </div>
                   );
                 })}

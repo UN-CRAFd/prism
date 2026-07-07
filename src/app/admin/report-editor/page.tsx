@@ -351,10 +351,22 @@ export default function ReportEditorPage() {
           </div>
 
         ) : selectedSection === "surveys" ? (
-          <div className="max-w-2xl space-y-4">
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="New survey question…"
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+                className="flex-1"
+              />
+              <Button onClick={handleAdd} disabled={adding || !newQuestion.trim()} size="sm" className="shrink-0">
+                {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> Add</>}
+              </Button>
+            </div>
             {surveys.length === 0 ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                No survey questions yet. Add one below.
+                No survey questions yet.
               </div>
             ) : (
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
@@ -398,25 +410,37 @@ export default function ReportEditorPage() {
                 })}
               </div>
             )}
-            <div className="flex gap-2 pt-2">
-              <Input
-                placeholder="New survey question…"
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-                className="flex-1"
-              />
-              <Button onClick={handleAdd} disabled={adding || !newQuestion.trim()} size="sm" className="shrink-0">
-                {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> Add</>}
-              </Button>
-            </div>
           </div>
 
         ) : selectedSection === "risk" ? (
           <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Risk name…"
+                value={newRiskName}
+                onChange={(e) => setNewRiskName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !newRiskName.trim()) return; if (e.key === "Enter") handleRiskAdd(); }}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Categories (comma-separated)…"
+                value={newRiskCategory}
+                onChange={(e) => setNewRiskCategory(e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Approved mitigation…"
+                value={newRiskApprovedMitigation}
+                onChange={(e) => setNewRiskApprovedMitigation(e.target.value)}
+                className="flex-1"
+              />
+              <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
+                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> Add</>}
+              </Button>
+            </div>
             {risks.length === 0 ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                No risks added yet. Add one below.
+                No risks added yet.
               </div>
             ) : (
               <div className="rounded-xl border bg-card overflow-hidden">
@@ -424,7 +448,7 @@ export default function ReportEditorPage() {
                   <thead>
                     <tr className="border-b bg-muted/30">
                       <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">#</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-56">Risk</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-96">Risk</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Approved Mitigation</th>
                       <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28">Actions</th>
                     </tr>
@@ -507,30 +531,6 @@ export default function ReportEditorPage() {
                 </table>
               </div>
             )}
-            <div className="flex gap-2 pt-2">
-              <Input
-                placeholder="Risk name…"
-                value={newRiskName}
-                onChange={(e) => setNewRiskName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !newRiskName.trim()) return; if (e.key === "Enter") handleRiskAdd(); }}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Categories (comma-separated)…"
-                value={newRiskCategory}
-                onChange={(e) => setNewRiskCategory(e.target.value)}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Approved mitigation…"
-                value={newRiskApprovedMitigation}
-                onChange={(e) => setNewRiskApprovedMitigation(e.target.value)}
-                className="flex-1"
-              />
-              <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
-                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" /> Add</>}
-              </Button>
-            </div>
           </div>
 
         ) : null}

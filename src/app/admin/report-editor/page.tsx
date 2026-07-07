@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Trash2, FileQuestion } from "lucide-react";
+import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Report {
@@ -219,23 +219,31 @@ export default function ReportEditorPage() {
               </div>
             ) : (
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
-                {surveys.map((s, i) => (
-                  <div key={s.id} className="flex items-start gap-3 px-4 py-3.5">
-                    <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">
-                      {i + 1}.
-                    </span>
-                    <p className="flex-1 text-sm">{s.question}</p>
-                    <button
-                      onClick={() => handleDelete(s.id)}
-                      disabled={deletingId === s.id}
-                      className="shrink-0 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-                    >
-                      {deletingId === s.id
-                        ? <Loader2 className="size-3.5 animate-spin" />
-                        : <Trash2 className="size-3.5" />}
-                    </button>
-                  </div>
-                ))}
+                {surveys.map((s, i) => {
+                  const isAnswered = s.assessment !== null && s.context;
+                  return (
+                    <div key={s.id} className="flex items-start gap-3 px-4 py-3.5">
+                      <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">
+                        {i + 1}.
+                      </span>
+                      <p className="flex-1 text-sm">{s.question}</p>
+                      {isAnswered ? (
+                        <CheckCircle2 className="size-4 text-green-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <Circle className="size-4 text-muted-foreground/40 shrink-0 mt-0.5" />
+                      )}
+                      <button
+                        onClick={() => handleDelete(s.id)}
+                        disabled={deletingId === s.id}
+                        className="shrink-0 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                      >
+                        {deletingId === s.id
+                          ? <Loader2 className="size-3.5 animate-spin" />
+                          : <Trash2 className="size-3.5" />}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
 

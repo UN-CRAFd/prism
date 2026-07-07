@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -306,6 +306,26 @@ export default function PartnerReportEditorPage() {
     : params.section === "overview" ? overviewDirty : false;
   const notFound = !loadingReports && !selectedReport;
 
+  const overviewEmptyCount = useMemo(() => {
+    const requiredFields: (keyof OverviewData)[] = [
+      "project_title",
+      "mptfo_project_number",
+      "organization_name",
+      "organization_website",
+      "project_duration_months",
+      "grant_size_usd",
+      "geographic_scope",
+      "report_submission_date",
+      "starting_date",
+    ];
+    return requiredFields.filter((field) => !overview[field]).length;
+  }, [overview]);
+
+  const surveysEmptyCount = useMemo(
+    () => surveys.filter((s) => rowStates[s.id]?.assessment === null).length,
+    [surveys, rowStates]
+  );
+
   return (
     <div className="flex flex-col h-full bg-background">
 
@@ -370,20 +390,28 @@ export default function PartnerReportEditorPage() {
 
       {/* Section tabs */}
       <div className="border-b px-8 flex gap-1 shrink-0 bg-background">
-        {SECTIONS.map((sec) => (
-          <button
-            key={sec.value}
-            onClick={() => router.push(`/partner/${params.project}/${params.year}/${sec.value}`)}
-            className={cn(
-              "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-              params.section === sec.value
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {sec.label}
-          </button>
-        ))}
+        {SECTIONS.map((sec) => {
+          const emptyCount = sec.value === "overview" ? overviewEmptyCount : surveysEmptyCount;
+          return (
+            <button
+              key={sec.value}
+              onClick={() => router.push(`/partner/${params.project}/${params.year}/${sec.value}`)}
+              className={cn(
+                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2",
+                params.section === sec.value
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {sec.label}
+              {emptyCount > 0 && (
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-neutral-400 text-white text-[10px] font-semibold">
+                  {emptyCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}

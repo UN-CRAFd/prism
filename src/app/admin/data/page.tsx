@@ -181,19 +181,23 @@ export default function AdminFullDataPage() {
           </div>
         ) : section === "surveys" ? (
           <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed w-full">
+            <Table className="w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[14%]">Project</TableHead>
-                  <TableHead className="w-[10%]">Partner</TableHead>
-                  <TableHead className="w-[44%]">Question</TableHead>
-                  <TableHead className="w-[8%] text-center">Assessment</TableHead>
-                  <TableHead className="w-[24%]">Context</TableHead>
+                  <TableHead className="min-w-[50px] flex-1">Year</TableHead>
+                  <TableHead className="min-w-[120px] flex-1">Project</TableHead>
+                  <TableHead className="min-w-[100px] flex-1">Partner</TableHead>
+                  <TableHead className="min-w-[200px] flex-1">Question</TableHead>
+                  <TableHead className="min-w-[80px] text-center">Assessment</TableHead>
+                  <TableHead className="min-w-[200px] flex-1">Context</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleSurveys.map((row) => (
                   <TableRow key={row.id}>
+                    <TableCell className="text-sm align-top text-muted-foreground">
+                      {row.year}
+                    </TableCell>
                     <TableCell className="text-sm align-top overflow-hidden whitespace-normal">
                       <p className="break-words">{row.project_short_name || row.project_title}</p>
                     </TableCell>

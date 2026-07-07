@@ -219,16 +219,16 @@ function PartnersSection({ partners, onRefresh }: { partners: Partner[]; onRefre
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <Field label="Short name" required>
-                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="ACLED" />
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Acronym" />
               </Field>
               <Field label="Long name">
-                <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Armed Conflict Location & Event Data (ACLED)" />
+                <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full organization name" />
               </Field>
               <Field label="Website">
-                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://acleddata.com" />
+                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.org" />
               </Field>
               <Field label="Email account" required>
-                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="acled@crafd.org" type="email" />
+                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@example.org" type="email" />
               </Field>
               <Field label={editId ? "Password (blank = keep current)" : "Password"} required={!editId}>
                 <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={editId ? "Unchanged" : ""} />
@@ -419,10 +419,10 @@ function ProjectsSection({ projects, partners, onRefresh }: { projects: Project[
                 </Select>
               </Field>
               <Field label="Project title" required>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Maintaining & Improving ACLED..." />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Project title" />
               </Field>
               <Field label="Short name">
-                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="MaintainingACLED" />
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Short name" />
               </Field>
               <Field label="Long name">
                 <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full project title..." />

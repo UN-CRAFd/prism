@@ -181,10 +181,10 @@ export default function ProjectsPage() {
                 </Select>
               </Field>
               <Field label="Project title" required>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Maintaining & Improving ACLED..." />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Project title" />
               </Field>
               <Field label="Short name">
-                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="MaintainingACLED" />
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Short name" />
               </Field>
               <Field label="MPTFO project number">
                 <Input value={mptfo} onChange={(e) => setMptfo(e.target.value)} placeholder="00140841" />

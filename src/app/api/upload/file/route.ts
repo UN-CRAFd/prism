@@ -34,13 +34,32 @@ function parseCSV(text: string): Record<string, string>[] {
   });
 }
 
+const LIKELIHOOD_MAP: Record<string, number> = {
+  "rare": 1, "unlikely": 2, "possible": 3, "likely": 4, "very likely": 5,
+};
+const IMPACT_MAP: Record<string, number> = {
+  "insignificant": 1, "minor": 2, "moderate": 3, "major": 4, "extreme": 5,
+};
+
+function toRiskNum(val: string | undefined, map: Record<string, number>): number | null {
+  if (!val) return null;
+  const n = Number(val);
+  if (Number.isFinite(n) && n >= 1 && n <= 5) return Math.round(n);
+  return map[val.trim().toLowerCase()] ?? null;
+}
+
+function toProjectRevision(val: string | undefined): boolean {
+  if (!val) return false;
+  return ["yes", "true", "1"].includes(val.trim().toLowerCase());
+}
+
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const section = (form.get("section") as string | null) ?? "surveys";
 
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
-  if (section !== "surveys") {
+  if (section !== "surveys" && section !== "risk") {
     return NextResponse.json({ error: `Unknown section: ${section}` }, { status: 400 });
   }
 
@@ -51,6 +70,85 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No data rows found in file" }, { status: 400 });
   }
 
+  // ── Risk Management ──────────────────────────────────────────────────────
+  if (section === "risk") {
+    const required = ["year", "project_name", "risk_name"];
+    for (const col of required) {
+      if (!(col in rows[0])) {
+        return NextResponse.json(
+          { error: `Missing required column: "${col}". Expected: year, project_name, risk_name` },
+          { status: 400 }
+        );
+      }
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      const { year, project_name, risk_name, risk_category, likelihood, impact,
+              approved_mitigation, updated_mitigation, project_revision } = row;
+
+      if (!year || !project_name || !risk_name) {
+        skipped++;
+        errors.push(`Skipped empty row (year="${year}", project_name="${project_name}", risk_name="${risk_name}")`);
+        continue;
+      }
+
+      const yearNum = Number(year);
+      if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+        skipped++;
+        errors.push(`Skipped row: invalid year "${year}" for project "${project_name}"`);
+        continue;
+      }
+
+      const matches = await query<{ id: number }>(
+        `SELECT r.id
+         FROM reporting_platform.reports r
+         JOIN reporting_platform.projects p ON p.id = r.project_id
+         WHERE r.year = $1
+           AND r.data_type = 'report'
+           AND (p.project_title ILIKE $2 OR p.short_name ILIKE $2)
+         LIMIT 1`,
+        [yearNum, project_name.trim()]
+      );
+
+      if (matches.length === 0) {
+        skipped++;
+        errors.push(`No report found for year=${year}, project="${project_name}"`);
+        continue;
+      }
+
+      const reportId = matches[0].id;
+      const categories = risk_category
+        ? risk_category.split(",").map((c) => c.trim()).filter(Boolean)
+        : null;
+
+      await query(
+        `INSERT INTO reporting_platform.risk_management
+           (report_id, risk_name, risk_category, likelihood, impact,
+            approved_mitigation, updated_mitigation, project_revision)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          reportId,
+          risk_name.trim(),
+          categories,
+          toRiskNum(likelihood, LIKELIHOOD_MAP),
+          toRiskNum(impact, IMPACT_MAP),
+          approved_mitigation || null,
+          updated_mitigation || null,
+          toProjectRevision(project_revision),
+        ]
+      );
+
+      inserted++;
+    }
+
+    return NextResponse.json({ inserted, skipped, errors });
+  }
+
+  // ── Surveys ──────────────────────────────────────────────────────────────
   const required = ["year", "project_name", "question"];
   for (const col of required) {
     if (!(col in rows[0])) {

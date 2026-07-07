@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const SECTIONS = [{ value: "surveys", label: "Surveys" }];
+const SECTIONS = [
+  { value: "surveys", label: "Surveys" },
+  { value: "risk", label: "Risk Management" },
+];
 
 type UploadState = "idle" | "ready" | "uploading" | "success" | "error";
 
@@ -170,14 +173,30 @@ function IndividualUpload() {
         </Select>
       </div>
 
-      <NamingConvention lines={[
-        `Required columns (surveys):`,
-        `  year · project_name · question`,
-        `  assessment · context  (optional)`,
-        ``,
-        `year + project_name are matched to the`,
-        `corresponding report in the database.`,
-      ]} />
+      {section === "surveys" ? (
+        <NamingConvention lines={[
+          `Required columns:`,
+          `  year · project_name · question`,
+          `  assessment · context  (optional)`,
+          ``,
+          `year + project_name are matched to the`,
+          `corresponding report in the database.`,
+        ]} />
+      ) : (
+        <NamingConvention lines={[
+          `Required columns:`,
+          `  year · project_name · risk_name`,
+          ``,
+          `Optional columns:`,
+          `  risk_category  (comma-separated)`,
+          `  likelihood     (1–5 or Rare/Unlikely/`,
+          `                  Possible/Likely/Very Likely)`,
+          `  impact         (1–5 or Insignificant/`,
+          `                  Minor/Moderate/Major/Extreme)`,
+          `  approved_mitigation · updated_mitigation`,
+          `  project_revision   (yes/no)`,
+        ]} />
+      )}
 
       <FileDropzone
         accept=".csv,.xlsx"
@@ -275,12 +294,16 @@ function ZipDownload() {
       </div>
 
       <NamingConvention lines={[
-        `Each section is exported as a CSV:`,
+        `Each section exported as a CSV:`,
         `  surveys_[partner]_[year].csv`,
+        `  risk_[partner]_[year].csv`,
         ``,
-        `Columns (surveys):`,
-        `  year · project_name · question`,
-        `  assessment · context`,
+        `Surveys: year · project_name · question`,
+        `         assessment · context`,
+        `Risk:    year · project_name · risk_name`,
+        `         risk_category · likelihood · impact`,
+        `         approved_mitigation · updated_mitigation`,
+        `         project_revision`,
       ]} />
 
       <div className="rounded-xl border-2 border-dashed border-border px-6 py-8 flex flex-col items-center gap-2 text-center text-muted-foreground">

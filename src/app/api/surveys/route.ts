@@ -52,6 +52,21 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(rows[0], { status: 201 });
 }
 
+export async function PATCH(req: NextRequest) {
+  const body = await req.json();
+  const { id, assessment, context } = body as { id: number; assessment: number | null; context: string | null };
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const rows = await query(
+    `UPDATE reporting_platform.surveys
+     SET assessment = $1, context = $2
+     WHERE id = $3
+     RETURNING *`,
+    [assessment ?? null, context ?? null, id]
+  );
+  if (rows.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(rows[0]);
+}
+
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });

@@ -11,7 +11,6 @@ import {
   FileText,
   ClipboardList,
   Home,
-  Bell,
   Building2,
   FolderKanban,
   ChevronLeft,
@@ -83,7 +82,7 @@ export function AppSidebar() {
           {[
             { href: "/partner", label: "Home", icon: Home, exact: true },
             { href: "/partner/dashboard", label: "Reporting", icon: FileText, exact: false },
-            { href: "/partner/notifications", label: "Notifications", icon: Bell, exact: false },
+            { href: "/partner/report-editor", label: "Report Editor", icon: Edit, exact: false },
           ].map(({ href, label, icon: Icon, exact }) => (
             <Link
               key={href}

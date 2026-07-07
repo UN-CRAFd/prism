@@ -42,6 +42,7 @@ export default function ReportingPage() {
   const { user } = useAuth();
   const router = useRouter();
 
+  const [mounted, setMounted] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,7 +171,7 @@ export default function ReportingPage() {
                       : "Continue filling out your " + latestYear + " annual report"}
                   </p>
                   <button
-                    onClick={() => router.push(`/partner/survey?year=${latestYear}`)}
+                    onClick={() => router.push(`/partner/report-editor?reportId=${byYear[latestYear][0].id}`)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
                   >
                     {allAuthorized(byYear[latestYear]) ? "Review" : "Open report"}
@@ -195,7 +196,7 @@ export default function ReportingPage() {
                     return (
                       <button
                         key={year}
-                        onClick={() => router.push(`/partner/survey?year=${year}`)}
+                        onClick={() => router.push(`/partner/report-editor?reportId=${yearReports[0].id}`)}
                         className="group rounded-xl border bg-card p-5 text-left hover:border-neutral-300 transition-colors"
                       >
                         <div className="flex items-start justify-between mb-3">

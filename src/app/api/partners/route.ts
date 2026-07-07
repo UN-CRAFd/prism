@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { hashPassword } from "@/lib/password";
 
 export async function GET() {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
          (short_name, long_name, organization_website, password_hash, mail_account)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, short_name, long_name, organization_website, mail_account, created_at, updated_at`,
-      [short_name, long_name || null, organization_website || null, password, mail_account]
+      [short_name, long_name || null, organization_website || null, hashPassword(password), mail_account]
     );
 
     return NextResponse.json(rows[0], { status: 201 });

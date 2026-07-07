@@ -15,10 +15,10 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const success = login(username, password);
+    const success = await login(username, password);
     if (success) {
       const stored = localStorage.getItem("crafd-user");
       const user = stored ? JSON.parse(stored) : null;

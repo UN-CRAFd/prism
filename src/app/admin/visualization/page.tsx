@@ -44,12 +44,6 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-const PARTNER_COLORS: Record<string, string> = {
-  acled: "#f1b434",
-  iom: "#3b82f6",
-  fhn: "#10b981",
-};
-
 const RATING_COLORS: Record<number, string> = {
   1: "#fca5a5",
   2: "#fdba74",

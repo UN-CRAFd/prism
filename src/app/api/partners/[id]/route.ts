@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { hashPassword } from "@/lib/password";
 
 const ALLOWED_FIELDS: Record<string, string> = {
   short_name: "short_name",
@@ -26,7 +27,7 @@ export async function PUT(
       if (val === undefined) continue;
       if (bodyKey === "password" && val === "") continue;
       setClauses.push(`${dbCol} = $${idx++}`);
-      values.push(val);
+      values.push(bodyKey === "password" ? hashPassword(val) : val);
     }
 
     if (setClauses.length === 0) {

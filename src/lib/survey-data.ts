@@ -370,22 +370,6 @@ export function saveSurveyData(data: SurveyData): void {
 
 export const YEARS = [2023, 2024, 2025, 2026] as const;
 
-export const PARTNERS = [
-  { id: "acled", name: "ACLED", fullName: "Armed Conflict Location & Event Data Project" },
-  { id: "iom", name: "IOM", fullName: "International Organization for Migration" },
-  { id: "fhn", name: "FHN", fullName: "Famine and Hunger Network" },
-] as const;
-
-// --- Tab definitions ---
-
-export const NARRATIVE_TABS = [
-  { id: "project-info", label: "Project Information", number: "1" },
-  { id: "self-assessment", label: "Self-Assessment Survey", number: "2" },
-  { id: "achievements", label: "Key Achievements", number: "3" },
-  { id: "lessons", label: "Lessons Learned", number: "4" },
-  { id: "visibility", label: "Visibility & Engagement", number: "5" },
-] as const;
-
 export const QUANTITATIVE_TABS = [
   { id: "indicators", label: "Indicators", number: "1" },
   { id: "expenditures", label: "Expenditures", number: "2" },

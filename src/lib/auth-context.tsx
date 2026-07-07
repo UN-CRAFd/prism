@@ -13,44 +13,10 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
-
-const USERS: Record<string, { password: string; user: User }> = {
-  admin: {
-    password: process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "admin",
-    user: { id: "admin", name: "CRAF'd Secretariat", role: "admin" },
-  },
-  acled: {
-    password: "acled2024",
-    user: {
-      id: "acled",
-      name: "ACLED",
-      role: "partner",
-      organization: "ACLED",
-    },
-  },
-  iom: {
-    password: "iom2024",
-    user: {
-      id: "iom",
-      name: "IOM",
-      role: "partner",
-      organization: "IOM",
-    },
-  },
-  fhn: {
-    password: "fhn2024",
-    user: {
-      id: "fhn",
-      name: "FHN",
-      role: "partner",
-      organization: "FHN",
-    },
-  },
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -63,14 +29,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   });
 
-  const login = useCallback((username: string, password: string): boolean => {
-    const entry = USERS[username.toLowerCase()];
-    if (entry && entry.password === password) {
-      setUser(entry.user);
-      localStorage.setItem("crafd-user", JSON.stringify(entry.user));
+  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!data?.user) return false;
+      setUser(data.user);
+      localStorage.setItem("crafd-user", JSON.stringify(data.user));
       return true;
+    } catch {
+      return false;
     }
-    return false;
   }, []);
 
   const logout = useCallback(() => {

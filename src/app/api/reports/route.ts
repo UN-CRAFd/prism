@@ -20,6 +20,7 @@ export async function GET(request: Request) {
         r.authorized,
         r.created_at,
         r.data_type,
+        r.report_type,
         pr.project_title,
         pr.short_name      AS project_short_name,
         p.short_name       AS partner_short_name,
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
   }
   const submissionDate = (body.report_submission_date as string) || null;
   const dataType = body.data_type === "prodoc" ? "prodoc" : "report";
+  const reportType = body.report_type === "final" ? "final" : "annual";
 
   const client = await pool.connect();
   try {
@@ -71,11 +73,11 @@ export async function POST(request: Request) {
     // ── Annual report: one report per project, seeded in two set-based queries ──
     if (body.annual) {
       const inserted = await client.query<{ id: number }>(
-        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type)
-         SELECT pr.id, $1, $2, $3 FROM reporting_platform.projects pr
+        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type)
+         SELECT pr.id, $1, $2, $3, $4 FROM reporting_platform.projects pr
          ON CONFLICT (project_id, year, data_type) DO NOTHING
          RETURNING id`,
-        [year, submissionDate, dataType]
+        [year, submissionDate, dataType, reportType]
       );
 
       const totalProjects = await client.query<{ count: number }>(
@@ -103,11 +105,11 @@ export async function POST(request: Request) {
     }
 
     const inserted = await client.query<{ id: number }>(
-      `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (project_id, year, data_type) DO NOTHING
        RETURNING *`,
-      [projectId, year, submissionDate, dataType]
+      [projectId, year, submissionDate, dataType, reportType]
     );
 
     if (inserted.rows.length === 0) {

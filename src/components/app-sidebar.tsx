@@ -19,6 +19,7 @@ import {
   FileStack,
   Edit,
   BarChart3,
+  UploadCloud,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ const editorLinks = [
 const dataLinks = [
   { href: "/admin/data", label: "Full Data", icon: Database },
   { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
+  { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
 ];
 
 

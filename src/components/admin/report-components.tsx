@@ -17,7 +17,6 @@ import {
   Plus,
   Trash2,
   Loader2,
-  CalendarDays,
   Building2,
   CheckCircle2,
   Circle,
@@ -40,6 +39,7 @@ export interface ReportRow {
   authorized: boolean;
   created_at: string;
   data_type: "report" | "prodoc";
+  report_type: "annual" | "final" | null;
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string;
@@ -62,12 +62,10 @@ export const GROUP_COLORS = [
 
 export function ReportCard({
   report,
-  groupMode,
   color,
   onDelete,
 }: {
   report: ReportRow;
-  groupMode: GroupMode;
   color: typeof GROUP_COLORS[number];
   onDelete: () => void;
 }) {
@@ -82,27 +80,18 @@ export function ReportCard({
       </button>
 
       <div className="flex items-start gap-2 pr-6">
-        {groupMode === "year" ? (
-          <Building2 className={`mt-0.5 size-4 shrink-0 ${color.icon}`} />
-        ) : (
-          <CalendarDays className={`mt-0.5 size-4 shrink-0 ${color.icon}`} />
-        )}
+        <Building2 className={`mt-0.5 size-4 shrink-0 ${color.icon}`} />
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold leading-snug" title={report.project_title}>
-            {report.project_title}
+          <p className="truncate text-[15px] font-bold leading-snug">
+            <span className="capitalize">{report.report_type ?? "annual"}</span> Report {report.year}
           </p>
           <p className="truncate text-sm text-muted-foreground">
-            {report.partner_long_name || report.partner_short_name}
+            {report.project_short_name || report.project_title}
           </p>
         </div>
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        {groupMode === "organization" && (
-          <Badge variant="secondary" className="gap-1 text-xs">
-            <CalendarDays className="size-3" /> {report.year}
-          </Badge>
-        )}
         {report.authorized ? (
           <Badge className="gap-1 text-xs bg-green-500/15 text-green-700 hover:bg-green-500/15">
             <CheckCircle2 className="size-3" /> Authorized
@@ -112,9 +101,11 @@ export function ReportCard({
             <Circle className="size-3" /> Pending
           </Badge>
         )}
-        <Badge variant="outline" className="text-xs text-muted-foreground">
-          {report.indicator_count} indicators
-        </Badge>
+        {report.report_type && (
+          <Badge variant="outline" className="text-xs text-muted-foreground capitalize">
+            {report.report_type}
+          </Badge>
+        )}
       </div>
     </Card>
   );
@@ -139,12 +130,14 @@ export function CreateReportSection({
   const [projectId, setProjectId] = useState<string>("");
   const [year, setYear] = useState<string>(String(YEARS[YEARS.length - 1]));
   const [submissionDate, setSubmissionDate] = useState<string>("");
+  const [reportType, setReportType] = useState<string>("annual");
 
   function reset() {
     setMode(null);
     setProjectId("");
     setYear(String(YEARS[YEARS.length - 1]));
     setSubmissionDate("");
+    setReportType("annual");
     setFormError(null);
   }
 
@@ -159,8 +152,8 @@ export function CreateReportSection({
     try {
       const body =
         mode === "annual"
-          ? { year: Number(year), annual: true, report_submission_date: submissionDate || null, data_type: dataType }
-          : { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: dataType };
+          ? { year: Number(year), annual: true, report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType }
+          : { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType };
 
       const res = await fetch("/api/reports", {
         method: "POST",
@@ -252,6 +245,17 @@ export function CreateReportSection({
                 Creates one entry for every project for {year}. Existing ones are skipped.
               </p>
             )}
+
+            <div className="space-y-1.5 shrink-0">
+              <Label className="text-xs">Report Type *</Label>
+              <Select value={reportType} onValueChange={setReportType}>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="annual">Annual</SelectItem>
+                  <SelectItem value="final">Final</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-1.5 shrink-0">
               <Label className="text-xs">Year *</Label>

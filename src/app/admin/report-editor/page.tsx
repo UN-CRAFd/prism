@@ -17,7 +17,9 @@ import { Loader2, Plus, Trash2, FileQuestion } from "lucide-react";
 interface Report {
   id: number;
   year: number;
+  report_type: "annual" | "final" | null;
   project_title: string;
+  project_short_name: string | null;
   partner_short_name: string;
 }
 
@@ -136,19 +138,26 @@ export default function ReportEditorPage() {
             onValueChange={handleReportChange}
             disabled={loadingReports}
           >
-            <SelectTrigger className="w-[280px] h-9">
+            <SelectTrigger className="w-[320px] h-9">
               {loadingReports ? (
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" /> Loading reports…
                 </span>
+              ) : selectedReport ? (
+                <span className="truncate capitalize">
+                  {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {selectedReport.project_short_name || selectedReport.project_title}
+                </span>
               ) : (
-                <SelectValue placeholder="Select a report" />
+                <span className="text-muted-foreground">Select a report</span>
               )}
             </SelectTrigger>
             <SelectContent>
               {reports.map((r) => (
                 <SelectItem key={r.id} value={String(r.id)}>
-                  {r.project_title} · {r.partner_short_name} · {r.year}
+                  <div className="flex flex-col">
+                    <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
+                    <span className="text-xs text-muted-foreground">{r.project_short_name || r.project_title}</span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -194,7 +203,7 @@ export default function ReportEditorPage() {
             {/* Context */}
             {selectedReport && (
               <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                Editing <span className="font-medium text-foreground">{selectedReport.project_title}</span> ({selectedReport.year}) &mdash; Surveys section
+                Editing <span className="font-medium text-foreground capitalize">{selectedReport.report_type ?? "annual"} Report {selectedReport.year}</span> &mdash; {selectedReport.project_short_name || selectedReport.project_title} &mdash; Surveys
               </div>
             )}
 

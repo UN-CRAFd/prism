@@ -141,7 +141,6 @@ export default function ReportsPage() {
                       <ReportCard
                         key={r.id}
                         report={r}
-                        groupMode={groupMode}
                         color={color}
                         onDelete={() => handleDelete(r.id)}
                       />

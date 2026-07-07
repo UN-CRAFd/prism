@@ -3,15 +3,38 @@ import { query } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const reportId = req.nextUrl.searchParams.get("reportId");
-  if (!reportId) {
-    return NextResponse.json({ error: "reportId is required" }, { status: 400 });
+
+  if (reportId) {
+    const rows = await query(
+      `SELECT id, reportid, question, assessment, context
+       FROM reporting_platform.surveys
+       WHERE reportid = $1
+       ORDER BY id ASC`,
+      [reportId]
+    );
+    return NextResponse.json(rows);
   }
+
+  // No reportId — return all surveys with report/project/partner context
   const rows = await query(
-    `SELECT id, reportid, question, assessment, context
-     FROM reporting_platform.surveys
-     WHERE reportid = $1
-     ORDER BY id ASC`,
-    [reportId]
+    `SELECT
+       s.id,
+       s.reportid,
+       s.question,
+       s.assessment,
+       s.context,
+       r.year,
+       r.report_type,
+       p.project_title,
+       p.short_name   AS project_short_name,
+       pt.short_name  AS partner_short_name,
+       pt.long_name   AS partner_long_name
+     FROM reporting_platform.surveys s
+     JOIN reporting_platform.reports  r  ON r.id  = s.reportid
+     JOIN reporting_platform.projects p  ON p.id  = r.project_id
+     JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+     WHERE r.data_type = 'report'
+     ORDER BY r.year DESC, pt.short_name, p.project_title, s.id`
   );
   return NextResponse.json(rows);
 }

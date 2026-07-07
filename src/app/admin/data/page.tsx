@@ -1,13 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  getAllSurveyData,
-  PARTNERS,
-  YEARS,
-  type SurveyData,
-} from "@/lib/survey-data";
-import { DEFAULT_INDICATORS } from "@/lib/indicator-definitions";
+export const dynamic = "force-dynamic";
+
+import { useCallback, useEffect, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -23,157 +18,131 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Loader2, TableIcon } from "lucide-react";
 
-const SECTIONS = [
-  { id: "indicators", label: "Indicators" },
-] as const;
+const SECTIONS = [{ value: "surveys", label: "Surveys" }];
 
-type SectionId = (typeof SECTIONS)[number]["id"];
+interface SurveyRow {
+  id: number;
+  reportid: number;
+  question: string;
+  assessment: number | null;
+  context: string | null;
+  year: number;
+  report_type: string | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
 
 export default function AdminFullDataPage() {
-  const [allData, setAllData] = useState<SurveyData[]>([]);
-  const [filterSection, setFilterSection] = useState<SectionId>("indicators");
-  const [filterPartner, setFilterPartner] = useState<string>("all");
-  const [filterYear, setFilterYear] = useState<string>("all");
+  const [section, setSection] = useState("surveys");
+  const [surveys, setSurveys] = useState<SurveyRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setAllData(getAllSurveyData());
+  const loadData = useCallback(async (sec: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (sec === "surveys") {
+        const res = await fetch("/api/surveys");
+        if (!res.ok) throw new Error("Failed to load surveys");
+        const data = await res.json();
+        setSurveys(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filtered = allData.filter((d) => {
-    if (filterPartner !== "all" && d.partnerId !== filterPartner) return false;
-    if (filterYear !== "all" && d.year !== Number(filterYear)) return false;
-    return true;
-  });
+  useEffect(() => { loadData(section); }, [section, loadData]);
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
-        <h1 className="text-2xl font-bold font-qanelas">Full Data</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          View all partner submissions across all years
-        </p>
-      </div>
 
-      <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="flex gap-3 mb-6">
-          <Select value={filterSection} onValueChange={(v) => setFilterSection(v as SectionId)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Section" />
-            </SelectTrigger>
-            <SelectContent>
-              {SECTIONS.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filterPartner} onValueChange={setFilterPartner}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Partners" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Partners</SelectItem>
-              {PARTNERS.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filterYear} onValueChange={setFilterYear}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Years" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Years</SelectItem>
-              {YEARS.map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Top bar */}
+      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold font-qanelas">Full Data</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            View all submissions across all reports
+          </p>
         </div>
 
-        {filterSection === "indicators" && (
-          <IndicatorsTable surveys={filtered} />
+        <Select value={section} onValueChange={(v) => setSection(v)}>
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SECTIONS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto px-8 py-6">
+        {error && (
+          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
         )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+            <Loader2 className="size-4 animate-spin" /> Loading…
+          </div>
+        ) : section === "surveys" && surveys.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <TableIcon className="size-8 opacity-30" />
+            <p className="text-sm">No survey data found.</p>
+          </div>
+        ) : section === "surveys" ? (
+          <div className="rounded-lg border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Year</TableHead>
+                  <TableHead className="w-24">Type</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead className="w-32">Partner</TableHead>
+                  <TableHead>Question</TableHead>
+                  <TableHead className="w-24">Assessment</TableHead>
+                  <TableHead>Context</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {surveys.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.year}</TableCell>
+                    <TableCell className="capitalize text-muted-foreground text-xs">
+                      {row.report_type ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {row.project_short_name || row.project_title}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {row.partner_short_name}
+                    </TableCell>
+                    <TableCell className="text-sm">{row.question}</TableCell>
+                    <TableCell className="text-sm">
+                      {row.assessment ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {row.context || <span>—</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
-
-function IndicatorsTable({ surveys }: { surveys: SurveyData[] }) {
-  const rows = surveys.flatMap((survey) => {
-    const partner = PARTNERS.find((p) => p.id === survey.partnerId);
-    return Object.entries(survey.quantitative.indicators.responses).map(([id, response]) => {
-      const def = DEFAULT_INDICATORS.find((d) => d.id === id);
-      return {
-        partner: partner?.name ?? survey.partnerId,
-        year: survey.year,
-        number: def?.number ?? "—",
-        title: def?.title ?? id,
-        achievedValue: response.achievedValue,
-        status: response.status,
-        comment: response.comment,
-      };
-    });
-  });
-
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <p className="text-muted-foreground">
-            No indicator data found. Partners need to fill out and save their surveys first.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-24">Partner</TableHead>
-            <TableHead className="w-16">Year</TableHead>
-            <TableHead className="w-12">#</TableHead>
-            <TableHead>Indicator</TableHead>
-            <TableHead className="w-32">Achieved Value</TableHead>
-            <TableHead className="w-36">Status</TableHead>
-            <TableHead>Comment</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, i) => (
-            <TableRow key={i}>
-              <TableCell className="font-medium">{row.partner}</TableCell>
-              <TableCell>{row.year}</TableCell>
-              <TableCell className="text-muted-foreground">{row.number}</TableCell>
-              <TableCell className="text-sm">{row.title}</TableCell>
-              <TableCell>{row.achievedValue || "—"}</TableCell>
-              <TableCell>
-                {row.status ? (
-                  <Badge variant="outline" className="text-xs">{row.status}</Badge>
-                ) : "—"}
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {row.comment || "—"}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-

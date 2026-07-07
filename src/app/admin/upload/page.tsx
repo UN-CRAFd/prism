@@ -102,10 +102,10 @@ function NamingConvention({ lines }: { lines: string[] }) {
   return (
     <div className="rounded-lg border bg-muted/30 px-4 py-3 flex gap-2.5">
       <Info className="size-3.5 shrink-0 text-muted-foreground mt-0.5" />
-      <div className="space-y-0.5">
+      <div className="space-y-0.5 flex-1 min-w-0">
         <p className="text-xs font-medium text-muted-foreground">Naming convention</p>
         {lines.map((l, i) =>
-          l === `` ? <div key={i} className="h-1" /> : <p key={i} className="text-xs font-mono text-foreground">{l}</p>
+          l === `` ? <div key={i} className="h-1" /> : <p key={i} className="text-xs font-mono text-foreground whitespace-nowrap">{l}</p>
         )}
       </div>
     </div>
@@ -143,12 +143,11 @@ function IndividualUpload() {
       form.append("file", file);
       form.append("section", section);
       const res = await fetch("/api/upload/file", { method: "POST", body: form });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || "Upload failed");
-      }
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Upload failed");
       setState("success");
-      setMessage("File uploaded successfully.");
+      setResult(d);
+      setMessage(`Done: ${d.inserted} inserted, ${d.skipped} skipped.`);
     } catch (e) {
       setState("error");
       setMessage(e instanceof Error ? e.message : "Upload failed");
@@ -172,10 +171,6 @@ function IndividualUpload() {
       </div>
 
       <NamingConvention lines={[
-        `surveys_[partner]_[year].csv`,
-        `surveys_[partner]_[year].xlsx`,
-        `e.g.  surveys_ACLED_2025.csv`,
-        ``,
         `Required columns (surveys):`,
         `  year · project_name · question`,
         `  assessment · context  (optional)`,
@@ -198,6 +193,13 @@ function IndividualUpload() {
         <p className={cn("text-xs", state === "error" ? "text-destructive" : "text-green-600")}>
           {message}
         </p>
+      )}
+      {result && result.errors.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 space-y-1 max-h-32 overflow-auto">
+          {result.errors.map((e, i) => (
+            <p key={i} className="text-xs text-amber-700">{e}</p>
+          ))}
+        </div>
       )}
 
       <Button
@@ -315,7 +317,7 @@ export default function UploadDownloadPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           <div className="rounded-xl border bg-card p-6 space-y-4">
             <div className="flex items-center gap-2.5">

@@ -21,6 +21,10 @@ interface Report {
   indicator_count: number;
 }
 
+function toSlug(report: Report): string {
+  return (report.project_short_name ?? report.project_title).toLowerCase();
+}
+
 function StatusBadge({ report }: { report: Report }) {
   if (report.authorized) {
     return (
@@ -163,6 +167,12 @@ export default function ReportingPage() {
                           )}
                         </div>
                       </div>
+                      <button
+                        onClick={() => router.push(`/partner/${toSlug(report)}/${report.year}/surveys`)}
+                        className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Open <ChevronRight className="size-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -175,7 +185,7 @@ export default function ReportingPage() {
                       : "Continue filling out your " + latestYear + " annual report"}
                   </p>
                   <button
-                    onClick={() => router.push(`/partner/report-editor?reportId=${byYear[latestYear][0].id}`)}
+                    onClick={() => router.push(`/partner/${toSlug(byYear[latestYear][0])}/${latestYear}/surveys`)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
                   >
                     {allAuthorized(byYear[latestYear]) ? "Review" : "Open report"}
@@ -200,7 +210,7 @@ export default function ReportingPage() {
                     return (
                       <button
                         key={year}
-                        onClick={() => router.push(`/partner/report-editor?reportId=${yearReports[0].id}`)}
+                        onClick={() => router.push(`/partner/${toSlug(yearReports[0])}/${year}/surveys`)}
                         className="group rounded-xl border bg-card p-5 text-left hover:border-neutral-300 transition-colors"
                       >
                         <div className="flex items-start justify-between mb-3">

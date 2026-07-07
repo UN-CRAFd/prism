@@ -80,16 +80,34 @@ export function AppSidebar() {
       ) : isPartner ? (
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {[
-            { href: "/partner", label: "Home", icon: Home, exact: true },
-            { href: "/partner/dashboard", label: "Reporting", icon: FileText, exact: false },
-            { href: "/partner/report-editor", label: "Report Editor", icon: Edit, exact: false },
-          ].map(({ href, label, icon: Icon, exact }) => (
+            {
+              href: "/partner",
+              label: "Home",
+              icon: Home,
+              isActive: (p: string) => p === "/partner",
+            },
+            {
+              href: "/partner/dashboard",
+              label: "Reporting",
+              icon: FileText,
+              isActive: (p: string) => p.startsWith("/partner/dashboard"),
+            },
+            {
+              href: "/partner/report-editor",
+              label: "Report Editor",
+              icon: Edit,
+              isActive: (p: string) =>
+                p.startsWith("/partner/report-editor") ||
+                (p.startsWith("/partner/") &&
+                  p.split("/").filter(Boolean).length >= 4),
+            },
+          ].map(({ href, label, icon: Icon, isActive }) => (
             <Link
               key={href}
               href={href}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-                (exact ? pathname === href : pathname.startsWith(href))
+                isActive(pathname)
                   ? "bg-crafd-yellow/10 text-crafd-yellow"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}

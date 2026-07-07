@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck } from "lucide-react";
+import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -240,6 +240,7 @@ export default function PartnerReportEditorPage() {
 
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
+  const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -318,6 +319,9 @@ export default function PartnerReportEditorPage() {
         };
       }
       setRiskStates(states);
+      const collapsed: Record<number, boolean> = {};
+      for (const r of data) collapsed[r.id] = true;
+      setCollapsedRows(collapsed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -398,6 +402,10 @@ export default function PartnerReportEditorPage() {
     setRiskStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
   }
 
+  function toggleCollapse(id: number) {
+    setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   async function saveAll() {
     setSaving(true);
     setError(null);
@@ -439,7 +447,6 @@ export default function PartnerReportEditorPage() {
                 id,
                 likelihood: state.likelihood,
                 impact: state.impact,
-                approved_mitigation: state.approved_mitigation || null,
                 updated_mitigation: state.updated_mitigation || null,
                 project_revision: state.project_revision,
               }),
@@ -765,13 +772,13 @@ export default function PartnerReportEditorPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">#</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-12">#</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Risk</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">Likelihood</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">Impact</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">Likelihood</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">Impact</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">Risk Level</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-60">Approved Mitigation</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-60">Updated Mitigation</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">Approved Mitigation</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">Updated Mitigation</th>
                     <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-24">Revision</th>
                   </tr>
                 </thead>
@@ -779,10 +786,24 @@ export default function PartnerReportEditorPage() {
                   {risks.map((risk, i) => {
                     const state = riskStates[risk.id];
                     if (!state) return null;
+                    const collapsed = collapsedRows[risk.id] ?? true;
                     return (
                       <tr key={risk.id} className={cn("transition-colors", state.dirty && "bg-amber-50/40")}>
-                        <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
-                        <td className="px-4 py-3 align-top">
+                        {/* # + toggle */}
+                        <td className="px-4 py-3 align-middle">
+                          <button
+                            onClick={() => toggleCollapse(risk.id)}
+                            className="flex items-center gap-0.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {collapsed
+                              ? <ChevronRight className="size-3 shrink-0" />
+                              : <ChevronDown className="size-3 shrink-0" />}
+                            {i + 1}.
+                          </button>
+                        </td>
+
+                        {/* Risk name + categories */}
+                        <td className="px-4 py-3 align-middle">
                           <p className="font-medium text-sm">{risk.risk_name}</p>
                           {risk.risk_category && risk.risk_category.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1.5">
@@ -792,69 +813,134 @@ export default function PartnerReportEditorPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-top">
-                          <Select
-                            value={state.likelihood !== null ? String(state.likelihood) : "none"}
-                            onValueChange={(v) => updateRisk(risk.id, { likelihood: v === "none" ? null : Number(v) })}
-                          >
-                            <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                              {state.likelihood != null
-                                ? <LikelihoodBadge value={state.likelihood} />
-                                : <span className="text-muted-foreground text-sm px-1">—</span>}
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <SelectItem key={n} value={String(n)}><LikelihoodBadge value={n} /></SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <Select
-                            value={state.impact !== null ? String(state.impact) : "none"}
-                            onValueChange={(v) => updateRisk(risk.id, { impact: v === "none" ? null : Number(v) })}
-                          >
-                            <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                              {state.impact != null
-                                ? <ImpactBadge value={state.impact} />
-                                : <span className="text-muted-foreground text-sm px-1">—</span>}
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <SelectItem key={n} value={String(n)}><ImpactBadge value={n} /></SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <RiskLevelBadge likelihood={state.likelihood} impact={state.impact} />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <Textarea
-                            value={state.approved_mitigation}
-                            onChange={(e) => updateRisk(risk.id, { approved_mitigation: e.target.value })}
-                            placeholder="Approved mitigation…"
-                            className="text-sm min-h-[80px] resize-y"
-                          />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <Textarea
-                            value={state.updated_mitigation}
-                            onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                            placeholder="Updated mitigation…"
-                            className="text-sm min-h-[80px] resize-y"
-                          />
-                        </td>
-                        <td className="px-4 py-3 align-top text-center">
-                          <input
-                            type="checkbox"
-                            checked={state.project_revision}
-                            onChange={(e) => updateRisk(risk.id, { project_revision: e.target.checked })}
-                            className="size-4 rounded mt-1"
-                          />
-                        </td>
+
+                        {collapsed ? (
+                          <>
+                            <td className="px-4 py-3 align-middle">
+                              <Select
+                                value={state.likelihood !== null ? String(state.likelihood) : "none"}
+                                onValueChange={(v) => updateRisk(risk.id, { likelihood: v === "none" ? null : Number(v) })}
+                              >
+                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
+                                  {state.likelihood != null
+                                    ? <LikelihoodBadge value={state.likelihood} />
+                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <SelectItem key={n} value={String(n)}><LikelihoodBadge value={n} /></SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <Select
+                                value={state.impact !== null ? String(state.impact) : "none"}
+                                onValueChange={(v) => updateRisk(risk.id, { impact: v === "none" ? null : Number(v) })}
+                              >
+                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
+                                  {state.impact != null
+                                    ? <ImpactBadge value={state.impact} />
+                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <SelectItem key={n} value={String(n)}><ImpactBadge value={n} /></SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <RiskLevelBadge likelihood={state.likelihood} impact={state.impact} />
+                            </td>
+                            <td className="px-4 py-3 align-middle max-w-[288px]">
+                              {risk.approved_mitigation
+                                ? <p className="text-sm text-muted-foreground truncate">{risk.approved_mitigation}</p>
+                                : <span className="text-muted-foreground text-sm">—</span>}
+                            </td>
+                            <td className="px-4 py-3 align-middle max-w-[288px]">
+                              <Textarea
+                                value={state.updated_mitigation}
+                                onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
+                                placeholder="Updated mitigation…"
+                                className="text-sm h-8 min-h-0 resize-none overflow-hidden py-1"
+                              />
+                            </td>
+                            <td className="px-4 py-3 align-middle text-center">
+                              <input
+                                type="checkbox"
+                                checked={state.project_revision}
+                                onChange={(e) => updateRisk(risk.id, { project_revision: e.target.checked })}
+                                className="size-4 rounded"
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-4 py-3 align-top">
+                              <Select
+                                value={state.likelihood !== null ? String(state.likelihood) : "none"}
+                                onValueChange={(v) => updateRisk(risk.id, { likelihood: v === "none" ? null : Number(v) })}
+                              >
+                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
+                                  {state.likelihood != null
+                                    ? <LikelihoodBadge value={state.likelihood} />
+                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <SelectItem key={n} value={String(n)}><LikelihoodBadge value={n} /></SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <Select
+                                value={state.impact !== null ? String(state.impact) : "none"}
+                                onValueChange={(v) => updateRisk(risk.id, { impact: v === "none" ? null : Number(v) })}
+                              >
+                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
+                                  {state.impact != null
+                                    ? <ImpactBadge value={state.impact} />
+                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <SelectItem key={n} value={String(n)}><ImpactBadge value={n} /></SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <RiskLevelBadge likelihood={state.likelihood} impact={state.impact} />
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              {risk.approved_mitigation
+                                ? <p className="text-sm text-muted-foreground leading-relaxed">{risk.approved_mitigation}</p>
+                                : <span className="text-sm text-muted-foreground/40">—</span>}
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <Textarea
+                                value={state.updated_mitigation}
+                                onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
+                                placeholder="Updated mitigation…"
+                                className="text-sm min-h-[80px] resize-y"
+                              />
+                            </td>
+                            <td className="px-4 py-3 align-top text-center">
+                              <input
+                                type="checkbox"
+                                checked={state.project_revision}
+                                onChange={(e) => updateRisk(risk.id, { project_revision: e.target.checked })}
+                                className="size-4 rounded mt-1"
+                              />
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}

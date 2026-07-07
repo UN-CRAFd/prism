@@ -73,6 +73,8 @@ export default function ReportEditorPage() {
   const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
   const [editingRiskName, setEditingRiskName] = useState("");
   const [editingRiskCategory, setEditingRiskCategory] = useState("");
+  const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
+  const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
 
   const [loadingReports, setLoadingReports] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -204,6 +206,7 @@ export default function ReportEditorPage() {
     setEditingRiskId(risk.id);
     setEditingRiskName(risk.risk_name);
     setEditingRiskCategory(risk.risk_category?.join(", ") ?? "");
+    setEditingRiskApprovedMitigation(risk.approved_mitigation ?? "");
   }
 
   async function handleRiskEditSave(id: number) {
@@ -213,7 +216,7 @@ export default function ReportEditorPage() {
       const res = await fetch("/api/risk", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, risk_name: editingRiskName, risk_category: editingRiskCategory }),
+        body: JSON.stringify({ id, risk_name: editingRiskName, risk_category: editingRiskCategory, approved_mitigation: editingRiskApprovedMitigation || null }),
       });
       if (!res.ok) throw new Error("Failed to update risk");
       const updated: Risk = await res.json();
@@ -228,6 +231,7 @@ export default function ReportEditorPage() {
     setEditingRiskId(null);
     setEditingRiskName("");
     setEditingRiskCategory("");
+    setEditingRiskApprovedMitigation("");
   }
 
   async function handleRiskAdd() {
@@ -238,13 +242,14 @@ export default function ReportEditorPage() {
       const res = await fetch("/api/risk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId: Number(selectedReportId), risk_name: newRiskName, risk_category: newRiskCategory }),
+        body: JSON.stringify({ reportId: Number(selectedReportId), risk_name: newRiskName, risk_category: newRiskCategory, approved_mitigation: newRiskApprovedMitigation || null }),
       });
       if (!res.ok) throw new Error("Failed to add risk");
       const created: Risk = await res.json();
       setRisks((prev) => [...prev, created]);
       setNewRiskName("");
       setNewRiskCategory("");
+      setNewRiskApprovedMitigation("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -408,69 +413,98 @@ export default function ReportEditorPage() {
           </div>
 
         ) : selectedSection === "risk" ? (
-          <div className="max-w-2xl space-y-4">
+          <div className="space-y-4">
             {risks.length === 0 ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
                 No risks added yet. Add one below.
               </div>
             ) : (
-              <div className="rounded-xl border bg-card divide-y overflow-hidden">
-                {risks.map((risk, i) => {
-                  const isAnswered = risk.likelihood !== null && risk.impact !== null;
-                  const isEditing = editingRiskId === risk.id;
-                  return (
-                    <div key={risk.id} className="flex items-start gap-3 px-4 py-3.5">
-                      <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-                      {isEditing ? (
-                        <div className="flex-1 flex flex-col gap-2">
-                          <Input
-                            value={editingRiskName}
-                            onChange={(e) => setEditingRiskName(e.target.value)}
-                            placeholder="Risk name…"
-                            className="text-sm"
-                            autoFocus
-                          />
-                          <Input
-                            value={editingRiskCategory}
-                            onChange={(e) => setEditingRiskCategory(e.target.value)}
-                            placeholder="Categories (comma-separated)…"
-                            className="text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>Save</Button>
-                            <Button size="sm" variant="outline" onClick={handleRiskEditCancel}>Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm">{risk.risk_name}</p>
-                            {risk.risk_category && risk.risk_category.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {risk.risk_category.map((cat, ci) => (
-                                  <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-                                    {cat}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {isAnswered
-                              ? <CheckCircle2 className="size-4 text-green-600" />
-                              : <Circle className="size-4 text-muted-foreground/40" />}
-                            <button onClick={() => handleRiskEditStart(risk)} className="text-muted-foreground hover:text-foreground transition-colors">
-                              <Pencil className="size-3.5" />
-                            </button>
-                            <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
-                              {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">#</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-56">Risk</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Approved Mitigation</th>
+                      <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {risks.map((risk, i) => {
+                      const isAnswered = risk.likelihood !== null && risk.impact !== null;
+                      const isEditing = editingRiskId === risk.id;
+                      return (
+                        <tr key={risk.id} className="transition-colors hover:bg-muted/20">
+                          <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
+                          {isEditing ? (
+                            <>
+                              <td colSpan={2} className="px-4 py-3 align-top">
+                                <div className="flex flex-col gap-2">
+                                  <Input
+                                    value={editingRiskName}
+                                    onChange={(e) => setEditingRiskName(e.target.value)}
+                                    placeholder="Risk name…"
+                                    className="text-sm"
+                                    autoFocus
+                                  />
+                                  <Input
+                                    value={editingRiskCategory}
+                                    onChange={(e) => setEditingRiskCategory(e.target.value)}
+                                    placeholder="Categories (comma-separated)…"
+                                    className="text-sm"
+                                  />
+                                  <Textarea
+                                    value={editingRiskApprovedMitigation}
+                                    onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)}
+                                    placeholder="Approved mitigation…"
+                                    className="text-sm min-h-[80px] resize-y"
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>Save</Button>
+                                  <Button size="sm" variant="outline" onClick={handleRiskEditCancel}>Cancel</Button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-3 align-top">
+                                <p className="text-sm font-medium">{risk.risk_name}</p>
+                                {risk.risk_category && risk.risk_category.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {risk.risk_category.map((cat, ci) => (
+                                      <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                {risk.approved_mitigation
+                                  ? <p className="text-sm text-muted-foreground">{risk.approved_mitigation}</p>
+                                  : <span className="text-sm text-muted-foreground/40">—</span>}
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <div className="flex items-center justify-end gap-2">
+                                  {isAnswered
+                                    ? <CheckCircle2 className="size-4 text-green-600" />
+                                    : <Circle className="size-4 text-muted-foreground/40" />}
+                                  <button onClick={() => handleRiskEditStart(risk)} className="text-muted-foreground hover:text-foreground transition-colors">
+                                    <Pencil className="size-3.5" />
+                                  </button>
+                                  <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
+                                    {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
             <div className="flex gap-2 pt-2">
@@ -485,6 +519,12 @@ export default function ReportEditorPage() {
                 placeholder="Categories (comma-separated)…"
                 value={newRiskCategory}
                 onChange={(e) => setNewRiskCategory(e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Approved mitigation…"
+                value={newRiskApprovedMitigation}
+                onChange={(e) => setNewRiskApprovedMitigation(e.target.value)}
                 className="flex-1"
               />
               <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">

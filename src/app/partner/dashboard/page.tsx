@@ -47,6 +47,8 @@ export default function ReportingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => { setMounted(true); }, []);
+
   useEffect(() => {
     if (!user) return;
 
@@ -89,10 +91,12 @@ export default function ReportingPage() {
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 py-8">
         <h1 className="text-3xl font-bold font-qanelas">Reporting</h1>
-        <p className="text-neutral-400 text-sm mt-2">
-          CRAF&apos;d Annual Reporting Platform &middot;{" "}
-          {user?.organization ?? user?.name}
-        </p>
+        {mounted && (
+          <p className="text-neutral-400 text-sm mt-2">
+            CRAF&apos;d Annual Reporting Platform &middot;{" "}
+            {user?.organization ?? user?.name}
+          </p>
+        )}
       </div>
 
       <div className="flex-1 px-8 py-8 max-w-5xl">

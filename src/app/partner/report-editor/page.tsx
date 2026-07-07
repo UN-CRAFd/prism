@@ -64,7 +64,7 @@ export default function PartnerReportEditorPage() {
 
   const [reports, setReports] = useState<Report[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [selectedSection, setSelectedSection] = useState<string>("surveys");
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [rowStates, setRowStates] = useState<Record<number, RowState>>({});
   const [loadingReports, setLoadingReports] = useState(true);
@@ -124,7 +124,7 @@ export default function PartnerReportEditorPage() {
     setSurveys([]);
     setRowStates({});
     setSaveSuccess(false);
-    if (val && selectedSection) loadSurveys(val);
+    if (val) loadSurveys(val);
   }
 
   function handleSectionChange(val: string) {
@@ -132,7 +132,7 @@ export default function PartnerReportEditorPage() {
     setSurveys([]);
     setRowStates({});
     setSaveSuccess(false);
-    if (selectedReportId && val) loadSurveys(selectedReportId);
+    if (selectedReportId) loadSurveys(selectedReportId);
   }
 
   function updateRow(id: number, patch: Partial<RowState>) {
@@ -170,7 +170,7 @@ export default function PartnerReportEditorPage() {
   }
 
   const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
-  const showContent = selectedReportId && selectedSection;
+  const showContent = !!selectedReportId;
   const anyDirty = surveys.some((s) => rowStates[s.id]?.dirty);
 
   return (
@@ -210,19 +210,6 @@ export default function PartnerReportEditorPage() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedSection} onValueChange={handleSectionChange} disabled={!selectedReportId}>
-            <SelectTrigger className="w-[160px] h-9 bg-neutral-900 border-neutral-700 text-white">
-              {selectedSection
-                ? <span>{SECTIONS.find((s) => s.value === selectedSection)?.label}</span>
-                : <span className="text-neutral-400">Select section</span>}
-            </SelectTrigger>
-            <SelectContent>
-              {SECTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           {showContent && surveys.length > 0 && (
             saveSuccess ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm">
@@ -242,6 +229,24 @@ export default function PartnerReportEditorPage() {
         </div>
       </div>
 
+      {/* Section tabs */}
+      <div className="border-b px-8 flex gap-1 shrink-0 bg-background">
+        {SECTIONS.map((sec) => (
+          <button
+            key={sec.value}
+            onClick={() => handleSectionChange(sec.value)}
+            className={cn(
+              "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+              selectedSection === sec.value
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {sec.label}
+          </button>
+        ))}
+      </div>
+
       {/* Content */}
       <div className="flex-1 px-8 py-6">
         {error && (
@@ -253,7 +258,7 @@ export default function PartnerReportEditorPage() {
         {!showContent ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">Select a report and section to start editing.</p>
+            <p className="text-sm">Select a report to start editing.</p>
           </div>
         ) : loadingSurveys ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">

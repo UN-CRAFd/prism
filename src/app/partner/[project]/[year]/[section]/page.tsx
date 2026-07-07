@@ -461,7 +461,7 @@ export default function PartnerReportEditorPage() {
           )
 
         ) : params.section === "overview" ? (
-          <div className="max-w-3xl space-y-5">
+          <div className="space-y-5">
             <div className="rounded-xl border bg-card p-6 space-y-5">
 
               <div className="grid grid-cols-2 gap-4">

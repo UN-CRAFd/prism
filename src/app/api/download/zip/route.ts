@@ -36,6 +36,53 @@ export async function GET(req: NextRequest) {
   const files: Record<string, Uint8Array> = {};
 
   try {
+    if (sections.includes("overview")) {
+      const rows = (await query(`
+        SELECT
+          r.year,
+          p.project_title  AS project_name,
+          pt.short_name    AS partner,
+          o.project_title,
+          o.mptfo_project_number,
+          o.organization_name,
+          o.organization_website,
+          o.project_lead,
+          o.project_duration_months,
+          o.grant_size_usd,
+          o.starting_date,
+          o.end_date,
+          o.implementing_partners,
+          o.geographic_scope,
+          o.report_submission_date,
+          o.authorized
+        FROM reporting_platform.overview o
+        JOIN reporting_platform.reports  r  ON r.id  = o.reportid
+        JOIN reporting_platform.projects p  ON p.id  = r.project_id
+        JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+        WHERE r.data_type = 'report'
+        ORDER BY r.year, pt.short_name, p.project_title
+      `)) as Record<string, unknown>[];
+
+      const groups = new Map<string, { partner: string; year: number; rows: Record<string, unknown>[] }>();
+      for (const row of rows) {
+        const key = `${row.partner}::${row.year}`;
+        if (!groups.has(key)) {
+          groups.set(key, { partner: row.partner as string, year: row.year as number, rows: [] });
+        }
+        groups.get(key)!.rows.push(row);
+      }
+
+      const HEADERS = [
+        "year", "project_name", "partner", "project_title", "mptfo_project_number",
+        "organization_name", "organization_website", "project_lead", "project_duration_months",
+        "grant_size_usd", "starting_date", "end_date", "implementing_partners",
+        "geographic_scope", "report_submission_date", "authorized",
+      ];
+      for (const { partner, year, rows: groupRows } of groups.values()) {
+        files[`overview_${slug(partner)}_${year}.csv`] = strToU8(toCsv(HEADERS, groupRows));
+      }
+    }
+
     if (sections.includes("surveys")) {
       const rows = (await query(`
         SELECT

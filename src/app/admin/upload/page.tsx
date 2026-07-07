@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
+  { value: "overview", label: "Overview" },
   { value: "surveys", label: "Surveys" },
   { value: "risk", label: "Risk Management" },
 ];
@@ -236,7 +237,7 @@ function IndividualUpload() {
 // ── ZIP download panel ─────────────────────────────────────────────────────
 
 function ZipDownload() {
-  const [sections, setSections] = useState<string[]>(["surveys"]);
+  const [sections, setSections] = useState<string[]>(["overview", "surveys", "risk"]);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
@@ -295,15 +296,19 @@ function ZipDownload() {
 
       <NamingConvention lines={[
         `Each section exported as a CSV:`,
+        `  overview_[partner]_[year].csv`,
         `  surveys_[partner]_[year].csv`,
         `  risk_[partner]_[year].csv`,
         ``,
-        `Surveys: year · project_name · question`,
-        `         assessment · context`,
-        `Risk:    year · project_name · risk_name`,
-        `         risk_category · likelihood · impact`,
-        `         approved_mitigation · updated_mitigation`,
-        `         project_revision`,
+        `Overview: year · project_name · partner`,
+        `          project_title · mptfo_project_number`,
+        `          organization_name · project_lead · etc.`,
+        `Surveys:  year · project_name · question`,
+        `          assessment · context`,
+        `Risk:     year · project_name · risk_name`,
+        `          risk_category · likelihood · impact`,
+        `          approved_mitigation · updated_mitigation`,
+        `          project_revision`,
       ]} />
 
       <div className="rounded-xl border-2 border-dashed border-border px-6 py-8 flex flex-col items-center gap-2 text-center text-muted-foreground">

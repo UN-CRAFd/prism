@@ -3,37 +3,44 @@
 export const dynamic = "force-dynamic";
 
 import { useRef, useState } from "react";
-import { UploadCloud, FileSpreadsheet, FileArchive, Info, X, CheckCircle2, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  UploadCloud, FileSpreadsheet, X,
+  CheckCircle2, Download, ArrowUpFromLine, ArrowDownToLine,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const SECTIONS = [
-  { value: "overview", label: "Overview" },
+// ── Constants ──────────────────────────────────────────────────────────────
+
+const UPLOAD_SECTIONS = [
   { value: "surveys", label: "Surveys" },
-  { value: "risk", label: "Risk Management" },
+  { value: "risk",    label: "Risk Management" },
 ];
+
+const DOWNLOAD_SECTIONS = [
+  { value: "overview", label: "Overview" },
+  { value: "surveys",  label: "Surveys" },
+  { value: "risk",     label: "Risk Management" },
+];
+
+const SCHEMA: Record<string, { required: string; optional?: string }> = {
+  surveys: {
+    required: "year · project_name · question",
+    optional: "assessment · context",
+  },
+  risk: {
+    required: "year · project_name · risk_name",
+    optional: "risk_category · likelihood · impact · approved_mitigation · updated_mitigation · project_revision",
+  },
+};
 
 type UploadState = "idle" | "ready" | "uploading" | "success" | "error";
 
+// ── Dropzone ───────────────────────────────────────────────────────────────
+
 function FileDropzone({
-  accept,
-  label,
-  hint,
-  onFile,
-  file,
-  onClear,
-  state,
+  onFile, file, onClear, state,
 }: {
-  accept: string;
-  label: string;
-  hint: string;
   onFile: (f: File) => void;
   file: File | null;
   onClear: () => void;
@@ -52,9 +59,12 @@ function FileDropzone({
   return (
     <div
       className={cn(
-        "relative rounded-xl border-2 border-dashed transition-colors px-6 py-8 flex flex-col items-center gap-3 text-center cursor-pointer",
-        dragging ? "border-primary bg-primary/5" : "border-border hover:border-neutral-400",
-        file && "border-solid border-neutral-300 bg-muted/30"
+        "relative rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-3 text-center cursor-pointer min-h-[160px]",
+        dragging
+          ? "border-primary bg-primary/5 scale-[1.01]"
+          : file
+          ? "border-solid border-neutral-300 bg-muted/20 cursor-default"
+          : "border-border hover:border-neutral-400 hover:bg-muted/10"
       )}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
@@ -64,18 +74,16 @@ function FileDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept={accept}
+        accept=".csv,.xlsx"
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
       />
 
       {file ? (
         <>
-          {state === "success" ? (
-            <CheckCircle2 className="size-8 text-green-500" />
-          ) : (
-            <FileSpreadsheet className="size-8 text-muted-foreground" />
-          )}
+          {state === "success"
+            ? <CheckCircle2 className="size-7 text-green-500" />
+            : <FileSpreadsheet className="size-7 text-muted-foreground" />}
           <div>
             <p className="text-sm font-medium">{file.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
@@ -83,18 +91,20 @@ function FileDropzone({
           {state !== "uploading" && (
             <button
               onClick={(e) => { e.stopPropagation(); onClear(); }}
-              className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute top-2.5 right-2.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
-              <X className="size-4" />
+              <X className="size-3.5" />
             </button>
           )}
         </>
       ) : (
         <>
-          <UploadCloud className="size-8 text-muted-foreground" />
+          <div className="rounded-full bg-muted p-3">
+            <UploadCloud className="size-5 text-muted-foreground" />
+          </div>
           <div>
-            <p className="text-sm font-medium">{label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
+            <p className="text-sm font-medium">Drop your file here</p>
+            <p className="text-xs text-muted-foreground mt-0.5">CSV or XLSX · click to browse</p>
           </div>
         </>
       )}
@@ -102,46 +112,22 @@ function FileDropzone({
   );
 }
 
-function NamingConvention({ lines }: { lines: string[] }) {
-  return (
-    <div className="rounded-lg border bg-muted/30 px-4 py-3 flex gap-2.5">
-      <Info className="size-3.5 shrink-0 text-muted-foreground mt-0.5" />
-      <div className="space-y-0.5 flex-1 min-w-0">
-        <p className="text-xs font-medium text-muted-foreground">Naming convention</p>
-        {lines.map((l, i) =>
-          l === `` ? <div key={i} className="h-1" /> : <p key={i} className="text-xs font-mono text-foreground whitespace-nowrap">{l}</p>
-        )}
-      </div>
-    </div>
-  );
-}
+// ── Upload panel ───────────────────────────────────────────────────────────
 
-// ── Individual file upload panel ───────────────────────────────────────────
-
-function IndividualUpload() {
+function ImportPanel() {
   const [section, setSection] = useState("surveys");
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<UploadState>("idle");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<{ inserted: number; skipped: number; errors: string[] } | null>(null);
 
-  function handleFile(f: File) {
-    setFile(f);
-    setState("ready");
-    setMessage("");
-  }
-
   function clear() {
-    setFile(null);
-    setState("idle");
-    setMessage("");
-    setResult(null);
+    setFile(null); setState("idle"); setMessage(""); setResult(null);
   }
 
   async function handleUpload() {
     if (!file) return;
-    setState("uploading");
-    setMessage("");
+    setState("uploading"); setMessage("");
     try {
       const form = new FormData();
       form.append("file", file);
@@ -151,97 +137,111 @@ function IndividualUpload() {
       if (!res.ok) throw new Error(d.error || "Upload failed");
       setState("success");
       setResult(d);
-      setMessage(`Done: ${d.inserted} inserted, ${d.skipped} skipped.`);
+      setMessage(`${d.inserted} inserted · ${d.skipped} skipped`);
     } catch (e) {
       setState("error");
       setMessage(e instanceof Error ? e.message : "Upload failed");
     }
   }
 
+  const schema = SCHEMA[section];
+
   return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Section</p>
-        <Select value={section} onValueChange={(v) => { setSection(v); clear(); }}>
-          <SelectTrigger className="w-48 h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SECTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="flex flex-col h-full">
+      {/* Card header */}
+      <div className="flex items-center gap-3 pb-5 border-b">
+        <div className="rounded-lg bg-muted p-2.5">
+          <ArrowUpFromLine className="size-4 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Import data</p>
+          <p className="text-xs text-muted-foreground">CSV or XLSX, one section at a time</p>
+        </div>
       </div>
 
-      {section === "surveys" ? (
-        <NamingConvention lines={[
-          `Required columns:`,
-          `  year · project_name · question`,
-          `  assessment · context  (optional)`,
-          ``,
-          `year + project_name are matched to the`,
-          `corresponding report in the database.`,
-        ]} />
-      ) : (
-        <NamingConvention lines={[
-          `Required columns:`,
-          `  year · project_name · risk_name`,
-          ``,
-          `Optional columns:`,
-          `  risk_category  (comma-separated)`,
-          `  likelihood     (1–5 or Rare/Unlikely/`,
-          `                  Possible/Likely/Very Likely)`,
-          `  impact         (1–5 or Insignificant/`,
-          `                  Minor/Moderate/Major/Extreme)`,
-          `  approved_mitigation · updated_mitigation`,
-          `  project_revision   (yes/no)`,
-        ]} />
-      )}
-
-      <FileDropzone
-        accept=".csv,.xlsx"
-        label="Drop a CSV or XLSX file here"
-        hint="or click to browse"
-        onFile={handleFile}
-        file={file}
-        onClear={clear}
-        state={state}
-      />
-
-      {message && (
-        <p className={cn("text-xs", state === "error" ? "text-destructive" : "text-green-600")}>
-          {message}
-        </p>
-      )}
-      {result && result.errors.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 space-y-1 max-h-32 overflow-auto">
-          {result.errors.map((e, i) => (
-            <p key={i} className="text-xs text-amber-700">{e}</p>
-          ))}
+      <div className="flex flex-col gap-5 pt-5 flex-1">
+        {/* Section tabs */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Section</p>
+          <div className="flex gap-1 p-1 rounded-lg bg-muted">
+            {UPLOAD_SECTIONS.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => { setSection(s.value); clear(); }}
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                  section === s.value
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      <Button
-        onClick={handleUpload}
-        disabled={!file || state === "uploading" || state === "success"}
-        className="w-full"
-        size="sm"
-      >
-        {state === "uploading" ? "Uploading…" : state === "success" ? "Uploaded" : "Upload"}
-      </Button>
+        {/* Schema hint */}
+        {schema && (
+          <div className="rounded-lg bg-muted/40 border px-3.5 py-3 space-y-1">
+            <div className="flex gap-1.5 text-xs">
+              <span className="font-medium text-foreground shrink-0">Required:</span>
+              <span className="font-mono text-muted-foreground">{schema.required}</span>
+            </div>
+            {schema.optional && (
+              <div className="flex gap-1.5 text-xs">
+                <span className="font-medium text-foreground shrink-0">Optional:</span>
+                <span className="font-mono text-muted-foreground">{schema.optional}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dropzone */}
+        <FileDropzone
+          onFile={(f) => { setFile(f); setState("ready"); setMessage(""); }}
+          file={file}
+          onClear={clear}
+          state={state}
+        />
+
+        {/* Feedback */}
+        {message && (
+          <p className={cn("text-xs font-medium", state === "error" ? "text-destructive" : "text-green-600")}>
+            {message}
+          </p>
+        )}
+        {result && result.errors.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1 max-h-28 overflow-auto">
+            {result.errors.map((e, i) => (
+              <p key={i} className="text-xs text-amber-700">{e}</p>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-auto">
+          <Button
+            onClick={handleUpload}
+            disabled={!file || state === "uploading" || state === "success"}
+            className="w-full"
+            size="sm"
+          >
+            {state === "uploading" ? "Uploading…" : state === "success" ? "Uploaded" : "Upload"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── ZIP download panel ─────────────────────────────────────────────────────
+// ── Download panel ─────────────────────────────────────────────────────────
 
-function ZipDownload() {
+function ExportPanel() {
   const [sections, setSections] = useState<string[]>(["overview", "surveys", "risk"]);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
-  function toggleSection(val: string) {
+  function toggle(val: string) {
     setSections((prev) =>
       prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
     );
@@ -272,62 +272,79 @@ function ZipDownload() {
     }
   }
 
+  const selectedLabels = sections
+    .map((v) => DOWNLOAD_SECTIONS.find((s) => s.value === v)?.label)
+    .filter(Boolean);
+
   return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Include sections</p>
-        <div className="flex flex-wrap gap-2">
-          {SECTIONS.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => toggleSection(s.value)}
-              className={cn(
-                "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                sections.includes(s.value)
-                  ? "border-neutral-800 bg-neutral-900 text-white"
-                  : "border-border text-muted-foreground hover:border-neutral-400"
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
+    <div className="flex flex-col h-full">
+      {/* Card header */}
+      <div className="flex items-center gap-3 pb-5 border-b">
+        <div className="rounded-lg bg-muted p-2.5">
+          <ArrowDownToLine className="size-4 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Export data</p>
+          <p className="text-xs text-muted-foreground">All reports, bundled as CSV files in a ZIP</p>
         </div>
       </div>
 
-      <NamingConvention lines={[
-        `Each section exported as a CSV:`,
-        `  overview_[partner]_[year].csv`,
-        `  surveys_[partner]_[year].csv`,
-        `  risk_[partner]_[year].csv`,
-        ``,
-        `Overview: year · project_name · partner`,
-        `          project_title · mptfo_project_number`,
-        `          organization_name · project_lead · etc.`,
-        `Surveys:  year · project_name · question`,
-        `          assessment · context`,
-        `Risk:     year · project_name · risk_name`,
-        `          risk_category · likelihood · impact`,
-        `          approved_mitigation · updated_mitigation`,
-        `          project_revision`,
-      ]} />
+      <div className="flex flex-col gap-5 pt-5 flex-1">
+        {/* Section toggles */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Sections to include</p>
+          <div className="flex flex-col gap-2">
+            {DOWNLOAD_SECTIONS.map((s) => {
+              const active = sections.includes(s.value);
+              return (
+                <button
+                  key={s.value}
+                  onClick={() => toggle(s.value)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors",
+                    active
+                      ? "border-neutral-800 bg-neutral-900 text-white"
+                      : "border-border text-muted-foreground hover:border-neutral-400 hover:text-foreground"
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{s.label}</p>
+                    <p className={cn("text-xs font-mono mt-0.5", active ? "text-neutral-400" : "text-muted-foreground/60")}>
+                      {s.value}_[partner]_[year].csv
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-      <div className="rounded-xl border-2 border-dashed border-border px-6 py-8 flex flex-col items-center gap-2 text-center text-muted-foreground">
-        <FileArchive className="size-8 opacity-40" />
-        <p className="text-sm">Selected sections will be bundled into a ZIP</p>
-        <p className="text-xs opacity-60">{sections.length === 0 ? "No sections selected" : sections.map((s) => SECTIONS.find((x) => x.value === s)?.label).join(", ")}</p>
+        {/* Summary */}
+        <div className="rounded-lg bg-muted/40 border px-3.5 py-3">
+          {selectedLabels.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No sections selected — pick at least one above.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{selectedLabels.length} section{selectedLabels.length !== 1 ? "s" : ""}</span>
+              {" "}will be exported: {selectedLabels.join(", ")}.
+            </p>
+          )}
+        </div>
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        <div className="mt-auto">
+          <Button
+            onClick={handleDownload}
+            disabled={sections.length === 0 || downloading}
+            className="w-full"
+            size="sm"
+          >
+            <Download className="size-3.5" />
+            {downloading ? "Preparing…" : "Download ZIP"}
+          </Button>
+        </div>
       </div>
-
-      {error && <p className="text-xs text-destructive">{error}</p>}
-
-      <Button
-        onClick={handleDownload}
-        disabled={sections.length === 0 || downloading}
-        className="w-full"
-        size="sm"
-      >
-        <Download className="size-3.5 mr-1.5" />
-        {downloading ? "Preparing…" : "Download ZIP"}
-      </Button>
     </div>
   );
 }
@@ -338,37 +355,20 @@ export default function UploadDownloadPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
-        <h1 className="text-2xl font-bold font-qanelas">Upload / Download</h1>
+        <h1 className="text-2xl font-bold font-qanelas">Import / Export</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Import section data via individual files or a ZIP archive
+          Bulk import section data or export all reports as CSV files
         </p>
       </div>
 
-      <div className="flex-1 overflow-auto px-8 py-6">
+      <div className="flex-1 overflow-auto px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          <div className="rounded-xl border bg-card p-6 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <FileSpreadsheet className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold">Upload by section</p>
-                <p className="text-xs text-muted-foreground">CSV or XLSX, one section at a time</p>
-              </div>
-            </div>
-            <IndividualUpload />
+          <div className="rounded-xl border bg-card p-6 flex flex-col">
+            <ImportPanel />
           </div>
-
-          <div className="rounded-xl border bg-card p-6 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <FileArchive className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold">Download as ZIP</p>
-                <p className="text-xs text-muted-foreground">Export selected sections as CSVs bundled in a ZIP</p>
-              </div>
-            </div>
-            <ZipDownload />
+          <div className="rounded-xl border bg-card p-6 flex flex-col">
+            <ExportPanel />
           </div>
-
         </div>
       </div>
     </div>

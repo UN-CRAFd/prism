@@ -4,6 +4,11 @@
     "surveys": "Surveys",
     "risk": "Risk Management"
   },
+  "tabInstructions": {
+    "overview": "Complete all required fields. These form the foundation of your annual report.",
+    "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
+    "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it."
+  },
   "assessment": {
     "min": "Not at all",
     "max": "To a very great extent"

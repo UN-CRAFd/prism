@@ -34,6 +34,7 @@ const SECTIONS = [
   { value: "achievements", label: labels.sections.keyAchievements },
   { value: "partnerships", label: labels.sections.partnerships },
   { value: "results", label: labels.sections.results },
+  { value: "lessons", label: labels.sections.lessons },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -236,6 +237,23 @@ interface ResultState {
   dirty: boolean;
 }
 
+interface LessonLearned {
+  id: number;
+  report_id: number;
+  category: string | null;
+  lesson_learned: string | null;
+  adjustment_informed: string | null;
+  sort_order: number;
+}
+
+interface LessonState {
+  id: number | null;
+  category: string;
+  lesson_learned: string;
+  adjustment_informed: string;
+  dirty: boolean;
+}
+
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
   mptfo_project_number: "",
@@ -286,6 +304,9 @@ export default function PartnerReportEditorPage() {
 
   const [resultRows, setResultRows] = useState<ResultState[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
+
+  const [lessonRows, setLessonRows] = useState<LessonState[]>([]);
+  const [loadingLessons, setLoadingLessons] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -443,6 +464,27 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
+  const loadLessons = useCallback(async (id: number) => {
+    setLoadingLessons(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/lessons-learned?reportId=${id}`);
+      if (!res.ok) throw new Error("Failed to load lessons");
+      const data: LessonLearned[] = await res.json();
+      setLessonRows(data.map((r) => ({
+        id: r.id,
+        category: r.category ?? "",
+        lesson_learned: r.lesson_learned ?? "",
+        adjustment_informed: r.adjustment_informed ?? "",
+        dirty: false,
+      })));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoadingLessons(false);
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -495,7 +537,8 @@ export default function PartnerReportEditorPage() {
     else if (params.section === "achievements") loadKeyAchievements(reportId);
     else if (params.section === "partnerships") loadPartnerships(reportId);
     else if (params.section === "results") loadResults(reportId);
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships, loadResults]);
+    else if (params.section === "lessons") loadLessons(reportId);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships, loadResults, loadLessons]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -632,6 +675,24 @@ export default function PartnerReportEditorPage() {
       await fetch(`/api/results?id=${id}`, { method: "DELETE" });
     }
     setResultRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addLessonRow() {
+    if (lessonRows.length >= 5) return;
+    setSaveSuccess(false);
+    setLessonRows((prev) => [...prev, { id: null, category: "", lesson_learned: "", adjustment_informed: "", dirty: true }]);
+  }
+
+  function updateLessonRow(index: number, patch: Partial<LessonState>) {
+    setSaveSuccess(false);
+    setLessonRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
+  }
+
+  async function deleteLessonRow(index: number, id: number | null) {
+    if (id !== null) {
+      await fetch(`/api/lessons-learned?id=${id}`, { method: "DELETE" });
+    }
+    setLessonRows((prev) => prev.filter((_, i) => i !== index));
   }
 
   function toggleCollapse(id: number) {
@@ -799,6 +860,41 @@ export default function PartnerReportEditorPage() {
           }
         }
         setResultRows(updated);
+      } else if (params.section === "lessons" && reportId) {
+        const updated: LessonState[] = [];
+        for (const row of lessonRows) {
+          if (row.id === null && row.dirty) {
+            const res = await fetch("/api/lessons-learned", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId,
+                category: row.category || null,
+                lesson_learned: row.lesson_learned || null,
+                adjustment_informed: row.adjustment_informed || null,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save lesson");
+            const saved: LessonLearned = await res.json();
+            updated.push({ ...row, id: saved.id, dirty: false });
+          } else if (row.id !== null && row.dirty) {
+            const res = await fetch("/api/lessons-learned", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: row.id,
+                category: row.category || null,
+                lesson_learned: row.lesson_learned || null,
+                adjustment_informed: row.adjustment_informed || null,
+              }),
+            });
+            if (!res.ok) throw new Error(`Failed to save lesson ${row.id}`);
+            updated.push({ ...row, dirty: false });
+          } else {
+            updated.push(row);
+          }
+        }
+        setLessonRows(updated);
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -817,14 +913,16 @@ export default function PartnerReportEditorPage() {
     params.section === "risk" ? loadingRisk :
     params.section === "achievements" ? loadingKA :
     params.section === "partnerships" ? loadingPartners :
-    params.section === "results" ? loadingResults : false;
+    params.section === "results" ? loadingResults :
+    params.section === "lessons" ? loadingLessons : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
     params.section === "achievements" ? kaRows.some((r) => r.dirty) :
     params.section === "partnerships" ? partnerRows.some((r) => r.dirty) :
-    params.section === "results" ? resultRows.some((r) => r.dirty) : false;
+    params.section === "results" ? resultRows.some((r) => r.dirty) :
+    params.section === "lessons" ? lessonRows.some((r) => r.dirty) : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -860,6 +958,11 @@ export default function PartnerReportEditorPage() {
     [resultRows]
   );
 
+  const lessonsEmptyCount = useMemo(
+    () => lessonRows.filter((r) => !r.lesson_learned.trim()).length,
+    [lessonRows]
+  );
+
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
@@ -867,6 +970,7 @@ export default function PartnerReportEditorPage() {
     if (sec === "achievements") return kaEmptyCount;
     if (sec === "partnerships") return partnersEmptyCount;
     if (sec === "results") return resultsEmptyCount;
+    if (sec === "lessons") return lessonsEmptyCount;
     return 0;
   }
 
@@ -1551,6 +1655,92 @@ export default function PartnerReportEditorPage() {
                 <Plus className="size-3.5" /> {labels.partnerEditor.addResult}
               </Button>
             </div>
+          </div>
+
+        ) : params.section === "lessons" ? (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{labels.lessons.columns.category}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[38%]">{labels.lessons.columns.lessonLearned}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.lessons.columns.adjustmentInformed}</th>
+                  <th className="w-10 px-4 py-3" />
+                </tr>
+                <tr className="border-b bg-background">
+                  <td />
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.lessons.remarks.category}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.lessons.remarks.lessonLearned}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.lessons.remarks.adjustmentInformed}</td>
+                  <td />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {lessonRows.map((row, i) => (
+                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                    <td className="px-4 py-3 align-top">
+                      <Select
+                        value={row.category || "none"}
+                        onValueChange={(v) => updateLessonRow(i, { category: v === "none" ? "" : v })}
+                      >
+                        <SelectTrigger className="w-full h-9 text-sm">
+                          {row.category
+                            ? <span>{row.category}</span>
+                            : <span className="text-muted-foreground">Select…</span>}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                          {labels.lessons.categories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.lesson_learned}
+                        onChange={(e) => updateLessonRow(i, { lesson_learned: e.target.value })}
+                        placeholder="Briefly describe what your organization learned…"
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.adjustment_informed}
+                        onChange={(e) => updateLessonRow(i, { adjustment_informed: e.target.value })}
+                        placeholder="Explain what you changed or will change as a result…"
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top text-center">
+                      <button
+                        onClick={() => deleteLessonRow(i, row.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Delete lesson"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {lessonRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      {labels.partnerEditor.emptyLessons}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {lessonRows.length < 5 && (
+              <div className="px-4 py-3 border-t">
+                <Button onClick={addLessonRow} variant="outline" size="sm" className="gap-1.5">
+                  <Plus className="size-3.5" /> {labels.partnerEditor.addLesson}
+                </Button>
+              </div>
+            )}
           </div>
 
         ) : (

@@ -5,7 +5,8 @@
     "risk": "Risk Management",
     "keyAchievements": "Key Achievements",
     "partnerships": "Partnerships",
-    "results": "Results"
+    "results": "Results",
+    "lessons": "Lessons Learned"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
@@ -13,7 +14,8 @@
     "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
     "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based.",
     "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence.",
-    "results": "Document cases where your project's data informed real decisions and produced measurable outcomes. Add at least 3 results. For each, describe the context and decision gap, explain how your data drove a concrete decision, and describe the resulting impact with quantitative evidence where available."
+    "results": "Document cases where your project's data informed real decisions and produced measurable outcomes. Add at least 3 results. For each, describe the context and decision gap, explain how your data drove a concrete decision, and describe the resulting impact with quantitative evidence where available.",
+    "lessons": "Capture up to five lessons from this reporting period that shaped or will shape project implementation. For each lesson, select a category, describe what your organization learned, and explain what you changed or plan to change as a result."
   },
   "assessment": {
     "min": "Not at all",
@@ -86,6 +88,19 @@
       "links": "Provide direct links to reports, tools, dashboards, articles, or other materials that demonstrate or document the achievement."
     }
   },
+  "lessons": {
+    "categories": ["Communications", "Financial", "Organizational", "Operational", "Methodology", "Partnership", "Other"],
+    "columns": {
+      "category": "Category",
+      "lessonLearned": "Lesson Learned",
+      "adjustmentInformed": "Adjustment Informed"
+    },
+    "remarks": {
+      "category": "Select the category of the lesson learned.",
+      "lessonLearned": "Briefly describe what your organization learned while implementing the project during this reporting period. For example: The project learned that data downloads alone did not provide insight into who was using the platform or how the data informed decision-making.",
+      "adjustmentInformed": "Explain what you changed (or will change) in project implementation or reporting as a result of this lesson. For example: An API user registration mechanism was introduced to capture user profiles and usage patterns, enabling better analysis of data uptake and use."
+    }
+  },
   "results": {
     "columns": {
       "context": "Context",
@@ -154,6 +169,8 @@
     "emptyPartnerships": "No partnerships added yet. Click below to add your first.",
     "addPartner": "Add partner",
     "addResult": "Add result",
+    "emptyLessons": "No lessons added yet. Click below to add your first.",
+    "addLesson": "Add lesson",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."
   },

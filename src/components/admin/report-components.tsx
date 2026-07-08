@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +18,11 @@ import {
   Plus,
   Trash2,
   Loader2,
-  Building2,
   CheckCircle2,
-  Circle,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const YEARS = [2023, 2024, 2025, 2026];
 
@@ -69,43 +71,66 @@ export function ReportCard({
   color: typeof GROUP_COLORS[number];
   onDelete: () => void;
 }) {
+  const router = useRouter();
+
   return (
-    <Card className={`group relative p-3.5 transition-colors border ${color.border} ${color.bg} hover:bg-opacity-75`}>
+    <Card
+      onClick={() => {
+        const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
+        router.push(`/admin/report-editor/${slug}/${report.year}/surveys`);
+      }}
+      className={`group relative flex flex-col gap-3 p-4 cursor-pointer transition-all border ${color.border} ${color.bg} hover:shadow-sm hover:brightness-[0.97]`}
+    >
+      {/* Delete */}
       <button
-        onClick={onDelete}
-        className="absolute right-2.5 top-2.5 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        className="absolute right-2.5 top-2.5 rounded p-1 text-muted-foreground/30 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
         title="Delete"
       >
         <Trash2 className="size-3.5" />
       </button>
 
-      <div className="flex items-start gap-2 pr-6">
-        <Building2 className={`mt-0.5 size-4 shrink-0 ${color.icon}`} />
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold leading-snug">
-            <span className="capitalize">{report.report_type ?? "annual"}</span> Report {report.year}
-          </p>
-          <p className="truncate text-sm text-muted-foreground">
-            {report.project_short_name || report.project_title}
-          </p>
-        </div>
+      {/* Partner + type */}
+      <div className="flex items-center gap-2 pr-6">
+        <Badge variant="outline" className={`text-[11px] font-semibold border ${color.border} ${color.label} bg-transparent`}>
+          {report.partner_short_name}
+        </Badge>
+        <span className="text-[11px] text-muted-foreground capitalize">
+          {report.report_type ?? "annual"}
+        </span>
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        {report.authorized ? (
-          <Badge className="gap-1 text-xs bg-green-500/15 text-green-700 hover:bg-green-500/15">
-            <CheckCircle2 className="size-3" /> Authorized
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
-            <Circle className="size-3" /> Pending
-          </Badge>
+      {/* Project title */}
+      <div className="min-w-0">
+        <p className="text-sm font-semibold leading-snug line-clamp-2">
+          {report.project_title}
+        </p>
+        {report.project_short_name && (
+          <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+            {report.project_short_name}
+          </p>
         )}
-        {report.report_type && (
-          <Badge variant="outline" className="text-xs text-muted-foreground capitalize">
-            {report.report_type}
-          </Badge>
-        )}
+      </div>
+
+      {/* Footer: status + date + arrow */}
+      <div className="flex items-center justify-between gap-2 mt-auto">
+        <div className="flex items-center gap-2">
+          {report.authorized ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
+              <CheckCircle2 className="size-3" /> Authorized
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Clock className="size-3" /> Pending
+            </span>
+          )}
+          {report.report_submission_date && (
+            <span className="text-[11px] text-muted-foreground">
+              · due {formatDate(report.report_submission_date)}
+            </span>
+          )}
+        </div>
+        <ArrowRight className="size-3.5 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
       </div>
     </Card>
   );

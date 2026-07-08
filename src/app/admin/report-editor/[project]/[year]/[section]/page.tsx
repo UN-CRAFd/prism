@@ -1,5 +1,5 @@
 import { ReportEditorView } from "@/components/admin/report-editor-view";
 
-export default function ReportEditorPage() {
+export default function ReportEditorDynamicPage() {
   return <ReportEditorView />;
 }

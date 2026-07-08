@@ -491,8 +491,17 @@ export default function PartnerReportEditorPage() {
       {/* Top bar */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between shrink-0">
         <div>
-          <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.eyebrow}</p>
-          <h1 className="text-2xl font-bold font-qanelas">{labels.partnerEditor.title}</h1>
+          <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.title}</p>
+          {selectedReport ? (
+            <>
+              <h1 className="text-2xl font-bold font-qanelas capitalize">
+                {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
+              </h1>
+              <p className="text-neutral-400 text-sm mt-0.5">{selectedReport.project_title}</p>
+            </>
+          ) : (
+            <h1 className="text-2xl font-bold font-qanelas">{labels.partnerEditor.title}</h1>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

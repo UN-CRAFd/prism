@@ -6,7 +6,8 @@
     "keyAchievements": "Key Achievements",
     "partnerships": "Partnerships",
     "results": "Results",
-    "lessons": "Lessons Learned"
+    "lessons": "Lessons Learned",
+    "externalCoverage": "External Coverage"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
@@ -15,7 +16,8 @@
     "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based.",
     "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence.",
     "results": "Document cases where your project's data informed real decisions and produced measurable outcomes. Add at least 3 results. For each, describe the context and decision gap, explain how your data drove a concrete decision, and describe the resulting impact with quantitative evidence where available.",
-    "lessons": "Capture up to five lessons from this reporting period that shaped or will shape project implementation. For each lesson, select a category, describe what your organization learned, and explain what you changed or plan to change as a result."
+    "lessons": "Capture up to five lessons from this reporting period that shaped or will shape project implementation. For each lesson, select a category, describe what your organization learned, and explain what you changed or plan to change as a result.",
+    "external-coverage": "Document how your project's work reached external audiences and stakeholders during this reporting period. For each item, select the type of coverage or engagement, describe what was shared, indicate the reach or uptake, and provide links to supporting materials."
   },
   "assessment": {
     "min": "Not at all",
@@ -88,6 +90,21 @@
       "links": "Provide direct links to reports, tools, dashboards, articles, or other materials that demonstrate or document the achievement."
     }
   },
+  "externalCoverage": {
+    "types": ["Events & Presentations", "Publications & Reports", "News Coverage", "Peer-Reviewed Journals", "Case Studies", "Other"],
+    "columns": {
+      "type": "Type",
+      "description": "Description",
+      "reachIndicator": "Reach / Indicator",
+      "links": "Links / Materials"
+    },
+    "remarks": {
+      "type": "Select the type of coverage and engagement.",
+      "description": "Provide the title and a short description of the engagement or coverage, explaining what was shared or referenced and in what context. For example: Presented at an international data forum to share the project's data collection methodology and gather feedback.",
+      "reachIndicator": "Provide a quantitative indication of reach or uptake, such as number of participants, downloads, views, citations, or mentions, where available. For example: Received feedback from over 50 workshop participants.",
+      "links": "Include direct links to publications, recordings, dashboards, or other materials documenting the engagement or coverage."
+    }
+  },
   "lessons": {
     "categories": ["Communications", "Financial", "Organizational", "Operational", "Methodology", "Partnership", "Other"],
     "columns": {
@@ -150,7 +167,9 @@
     "partnershipResult": "Describe what improved or changed because of the partnership…",
     "resultContext": "Briefly describe the problem, risk, or decision gap…",
     "dataDrivenDecision": "Explain how the project's data or insights informed concrete decisions…",
-    "resultingImpact": "Describe the difference this made in practice…"
+    "resultingImpact": "Describe the difference this made in practice…",
+    "coverageDescription": "Provide the title and a short description of the engagement or coverage…",
+    "reachIndicator": "Provide a quantitative indication of reach or uptake…"
   },
   "partnerEditor": {
     "eyebrow": "PRISM V.0.1",
@@ -171,6 +190,8 @@
     "addResult": "Add result",
     "emptyLessons": "No lessons added yet. Click below to add your first.",
     "addLesson": "Add lesson",
+    "emptyCoverage": "No external coverage added yet. Click below to add your first.",
+    "addCoverage": "Add coverage",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."
   },

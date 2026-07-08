@@ -72,11 +72,88 @@ interface RiskRow {
   partner_long_name: string | null;
 }
 
-type Section = "surveys" | "risk";
+interface AchievementRow {
+  id: number;
+  report_id: number;
+  achievement: string | null;
+  significance: string | null;
+  links: string | null;
+  year: number;
+  report_type: string | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
+
+interface PartnershipRow {
+  id: number;
+  report_id: number;
+  partner_organization: string | null;
+  result: string | null;
+  links: string | null;
+  year: number;
+  report_type: string | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
+
+interface ResultRow {
+  id: number;
+  report_id: number;
+  context: string | null;
+  data_driven_decision: string | null;
+  resulting_impact: string | null;
+  links: string | null;
+  year: number;
+  report_type: string | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
+
+interface LessonRow {
+  id: number;
+  report_id: number;
+  category: string | null;
+  lesson_learned: string | null;
+  adjustment_informed: string | null;
+  year: number;
+  report_type: string | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
+
+interface CoverageRow {
+  id: number;
+  report_id: number;
+  type: string | null;
+  description: string | null;
+  reach_indicator: string | null;
+  links: string | null;
+  year: number;
+  report_type: string | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
+
+type Section = "surveys" | "risk" | "achievements" | "partnerships" | "results" | "lessons" | "external-coverage";
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: "surveys", label: "Surveys" },
   { value: "risk", label: "Risk Management" },
+  { value: "achievements", label: "Key Achievements" },
+  { value: "partnerships", label: "Partnerships" },
+  { value: "results", label: "Results" },
+  { value: "lessons", label: "Lessons Learned" },
+  { value: "external-coverage", label: "External Coverage" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
@@ -117,6 +194,28 @@ function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {
   );
 }
 
+function LinksList({ raw }: { raw: string | null }) {
+  if (!raw) return <span className="text-muted-foreground">—</span>;
+  const urls = raw.split(",").map((l) => l.trim()).filter(Boolean);
+  if (!urls.length) return <span className="text-muted-foreground">—</span>;
+  return (
+    <ul className="space-y-0.5">
+      {urls.map((url, i) => (
+        <li key={i}>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline break-all"
+          >
+            {url}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function AdminFullDataPage() {
@@ -126,6 +225,12 @@ export default function AdminFullDataPage() {
 
   const [surveys, setSurveys] = useState<SurveyRow[]>([]);
   const [risks, setRisks] = useState<RiskRow[]>([]);
+  const [achievements, setAchievements] = useState<AchievementRow[]>([]);
+  const [partnerships, setPartnerships] = useState<PartnershipRow[]>([]);
+  const [results, setResults] = useState<ResultRow[]>([]);
+  const [lessons, setLessons] = useState<LessonRow[]>([]);
+  const [coverage, setCoverage] = useState<CoverageRow[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,15 +255,25 @@ export default function AdminFullDataPage() {
     setLoading(true);
     setError(null);
     try {
-      if (sec === "surveys") {
-        const res = await fetch("/api/surveys");
-        if (!res.ok) throw new Error("Failed to load surveys");
-        setSurveys(await res.json());
-      } else {
-        const res = await fetch("/api/risk");
-        if (!res.ok) throw new Error("Failed to load risk data");
-        setRisks(await res.json());
-      }
+      const endpoints: Record<Section, string> = {
+        surveys: "/api/surveys",
+        risk: "/api/risk",
+        achievements: "/api/achievements",
+        partnerships: "/api/partnerships",
+        results: "/api/results",
+        lessons: "/api/lessons-learned",
+        "external-coverage": "/api/external-coverage",
+      };
+      const res = await fetch(endpoints[sec]);
+      if (!res.ok) throw new Error(`Failed to load ${sec}`);
+      const data = await res.json();
+      if (sec === "surveys") setSurveys(data);
+      else if (sec === "risk") setRisks(data);
+      else if (sec === "achievements") setAchievements(data);
+      else if (sec === "partnerships") setPartnerships(data);
+      else if (sec === "results") setResults(data);
+      else if (sec === "lessons") setLessons(data);
+      else if (sec === "external-coverage") setCoverage(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -170,15 +285,30 @@ export default function AdminFullDataPage() {
 
   const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
 
-  const visibleSurveys = selectedReportId !== "all"
-    ? surveys.filter((s) => String(s.reportid) === selectedReportId)
-    : surveys;
+  function filterByReport<T extends { report_id?: number; reportid?: number }>(rows: T[]): T[] {
+    if (selectedReportId === "all") return rows;
+    return rows.filter((r) => String(r.report_id ?? (r as { reportid?: number }).reportid) === selectedReportId);
+  }
 
-  const visibleRisks = selectedReportId !== "all"
-    ? risks.filter((r) => String(r.report_id) === selectedReportId)
-    : risks;
+  const visibleSurveys = selectedReportId !== "all" ? surveys.filter((s) => String(s.reportid) === selectedReportId) : surveys;
+  const visibleRisks = filterByReport(risks);
+  const visibleAchievements = filterByReport(achievements);
+  const visiblePartnerships = filterByReport(partnerships);
+  const visibleResults = filterByReport(results);
+  const visibleLessons = filterByReport(lessons);
+  const visibleCoverage = filterByReport(coverage);
 
-  const isEmpty = section === "surveys" ? visibleSurveys.length === 0 : visibleRisks.length === 0;
+  const currentRows = {
+    surveys: visibleSurveys,
+    risk: visibleRisks,
+    achievements: visibleAchievements,
+    partnerships: visiblePartnerships,
+    results: visibleResults,
+    lessons: visibleLessons,
+    "external-coverage": visibleCoverage,
+  }[section];
+
+  const isEmpty = currentRows.length === 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -192,7 +322,6 @@ export default function AdminFullDataPage() {
           </p>
         </div>
 
-        {/* Report filter */}
         <Select value={selectedReportId} onValueChange={setSelectedReportId}>
           <SelectTrigger className="w-[280px] h-9">
             {selectedReport ? (
@@ -250,7 +379,7 @@ export default function AdminFullDataPage() {
         ) : isEmpty ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
             <TableIcon className="size-8 opacity-30" />
-            <p className="text-sm">No {section === "surveys" ? "survey" : "risk"} data found.</p>
+            <p className="text-sm">No data found.</p>
           </div>
         ) : section === "surveys" ? (
 
@@ -300,7 +429,7 @@ export default function AdminFullDataPage() {
             </Table>
           </div>
 
-        ) : (
+        ) : section === "risk" ? (
 
           <div className="rounded-lg border overflow-hidden">
             <Table className="table-fixed min-w-[1300px]">
@@ -389,6 +518,263 @@ export default function AdminFullDataPage() {
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          </div>
+
+        ) : section === "achievements" ? (
+
+          <div className="rounded-lg border overflow-hidden">
+            <Table className="table-fixed min-w-[1100px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">Year</TableHead>
+                  <TableHead className="w-[130px]">Project</TableHead>
+                  <TableHead className="w-[100px]">Partner</TableHead>
+                  <TableHead className="w-[30%]">Achievement</TableHead>
+                  <TableHead className="w-[30%]">Significance</TableHead>
+                  <TableHead>Links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleAchievements.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <p className="break-words">{row.project_short_name || row.project_title}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
+                      <p className="break-words">{row.partner_short_name}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.achievement}
+                        id={`ach-${row.id}`}
+                        expanded={expandedCells.has(`ach-${row.id}`)}
+                        onToggle={() => toggleCell(`ach-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.significance}
+                        id={`sig-${row.id}`}
+                        expanded={expandedCells.has(`sig-${row.id}`)}
+                        onToggle={() => toggleCell(`sig-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <LinksList raw={row.links} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+        ) : section === "partnerships" ? (
+
+          <div className="rounded-lg border overflow-hidden">
+            <Table className="table-fixed min-w-[1000px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">Year</TableHead>
+                  <TableHead className="w-[130px]">Project</TableHead>
+                  <TableHead className="w-[100px]">Partner</TableHead>
+                  <TableHead className="w-[160px]">Partner Organization</TableHead>
+                  <TableHead className="w-[40%]">Result of Partnership</TableHead>
+                  <TableHead>Links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visiblePartnerships.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <p className="break-words">{row.project_short_name || row.project_title}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
+                      <p className="break-words">{row.partner_short_name}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top font-medium overflow-hidden">
+                      <p className="break-words">{row.partner_organization ?? "—"}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.result}
+                        id={`pres-${row.id}`}
+                        expanded={expandedCells.has(`pres-${row.id}`)}
+                        onToggle={() => toggleCell(`pres-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <LinksList raw={row.links} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+        ) : section === "results" ? (
+
+          <div className="rounded-lg border overflow-hidden">
+            <Table className="table-fixed min-w-[1300px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">Year</TableHead>
+                  <TableHead className="w-[120px]">Project</TableHead>
+                  <TableHead className="w-[90px]">Partner</TableHead>
+                  <TableHead className="w-[24%]">Context</TableHead>
+                  <TableHead className="w-[24%]">Data-driven Decision</TableHead>
+                  <TableHead className="w-[24%]">Resulting Impact</TableHead>
+                  <TableHead>Links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleResults.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <p className="break-words">{row.project_short_name || row.project_title}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
+                      <p className="break-words">{row.partner_short_name}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.context}
+                        id={`rctx-${row.id}`}
+                        expanded={expandedCells.has(`rctx-${row.id}`)}
+                        onToggle={() => toggleCell(`rctx-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.data_driven_decision}
+                        id={`ddd-${row.id}`}
+                        expanded={expandedCells.has(`ddd-${row.id}`)}
+                        onToggle={() => toggleCell(`ddd-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.resulting_impact}
+                        id={`ri-${row.id}`}
+                        expanded={expandedCells.has(`ri-${row.id}`)}
+                        onToggle={() => toggleCell(`ri-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <LinksList raw={row.links} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+        ) : section === "lessons" ? (
+
+          <div className="rounded-lg border overflow-hidden">
+            <Table className="table-fixed min-w-[1000px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">Year</TableHead>
+                  <TableHead className="w-[130px]">Project</TableHead>
+                  <TableHead className="w-[100px]">Partner</TableHead>
+                  <TableHead className="w-[130px]">Category</TableHead>
+                  <TableHead className="w-[35%]">Lesson Learned</TableHead>
+                  <TableHead>Adjustment Informed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleLessons.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <p className="break-words">{row.project_short_name || row.project_title}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
+                      <p className="break-words">{row.partner_short_name}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top">
+                      {row.category
+                        ? <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{row.category}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.lesson_learned}
+                        id={`ll-${row.id}`}
+                        expanded={expandedCells.has(`ll-${row.id}`)}
+                        onToggle={() => toggleCell(`ll-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.adjustment_informed}
+                        id={`ai-${row.id}`}
+                        expanded={expandedCells.has(`ai-${row.id}`)}
+                        onToggle={() => toggleCell(`ai-${row.id}`)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+        ) : (
+
+          <div className="rounded-lg border overflow-hidden">
+            <Table className="table-fixed min-w-[1200px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">Year</TableHead>
+                  <TableHead className="w-[120px]">Project</TableHead>
+                  <TableHead className="w-[90px]">Partner</TableHead>
+                  <TableHead className="w-[140px]">Type</TableHead>
+                  <TableHead className="w-[28%]">Description</TableHead>
+                  <TableHead className="w-[20%]">Reach / Indicator</TableHead>
+                  <TableHead>Links / Materials</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleCoverage.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <p className="break-words">{row.project_short_name || row.project_title}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
+                      <p className="break-words">{row.partner_short_name}</p>
+                    </TableCell>
+                    <TableCell className="text-sm align-top">
+                      {row.type
+                        ? <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{row.type}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.description}
+                        id={`cdesc-${row.id}`}
+                        expanded={expandedCells.has(`cdesc-${row.id}`)}
+                        onToggle={() => toggleCell(`cdesc-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <TruncatedCell
+                        text={row.reach_indicator}
+                        id={`creach-${row.id}`}
+                        expanded={expandedCells.has(`creach-${row.id}`)}
+                        onToggle={() => toggleCell(`creach-${row.id}`)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm align-top overflow-hidden">
+                      <LinksList raw={row.links} />
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

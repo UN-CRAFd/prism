@@ -35,6 +35,7 @@ const SECTIONS = [
   { value: "partnerships", label: labels.sections.partnerships },
   { value: "results", label: labels.sections.results },
   { value: "lessons", label: labels.sections.lessons },
+  { value: "external-coverage", label: labels.sections.externalCoverage },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -254,6 +255,25 @@ interface LessonState {
   dirty: boolean;
 }
 
+interface ExternalCoverage {
+  id: number;
+  report_id: number;
+  type: string | null;
+  description: string | null;
+  reach_indicator: string | null;
+  links: string | null;
+  sort_order: number;
+}
+
+interface CoverageState {
+  id: number | null;
+  type: string;
+  description: string;
+  reach_indicator: string;
+  links: string[];
+  dirty: boolean;
+}
+
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
   mptfo_project_number: "",
@@ -307,6 +327,9 @@ export default function PartnerReportEditorPage() {
 
   const [lessonRows, setLessonRows] = useState<LessonState[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
+
+  const [coverageRows, setCoverageRows] = useState<CoverageState[]>([]);
+  const [loadingCoverage, setLoadingCoverage] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -485,6 +508,34 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
+  const emptyCoverageRow = (): CoverageState => ({
+    id: null, type: "", description: "", reach_indicator: "", links: [""], dirty: false,
+  });
+
+  const loadCoverage = useCallback(async (id: number) => {
+    setLoadingCoverage(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/external-coverage?reportId=${id}`);
+      if (!res.ok) throw new Error("Failed to load external coverage");
+      const data: ExternalCoverage[] = await res.json();
+      const loaded: CoverageState[] = data.map((r) => ({
+        id: r.id,
+        type: r.type ?? "",
+        description: r.description ?? "",
+        reach_indicator: r.reach_indicator ?? "",
+        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
+        dirty: false,
+      }));
+      while (loaded.length < 3) loaded.push(emptyCoverageRow());
+      setCoverageRows(loaded);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoadingCoverage(false);
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -538,7 +589,8 @@ export default function PartnerReportEditorPage() {
     else if (params.section === "partnerships") loadPartnerships(reportId);
     else if (params.section === "results") loadResults(reportId);
     else if (params.section === "lessons") loadLessons(reportId);
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships, loadResults, loadLessons]);
+    else if (params.section === "external-coverage") loadCoverage(reportId);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships, loadResults, loadLessons, loadCoverage]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -693,6 +745,44 @@ export default function PartnerReportEditorPage() {
       await fetch(`/api/lessons-learned?id=${id}`, { method: "DELETE" });
     }
     setLessonRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addCoverageRow() {
+    setSaveSuccess(false);
+    setCoverageRows((prev) => [...prev, { id: null, type: "", description: "", reach_indicator: "", links: [""], dirty: true }]);
+  }
+
+  function updateCoverageRow(index: number, patch: Partial<CoverageState>) {
+    setSaveSuccess(false);
+    setCoverageRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
+  }
+
+  function addCoverageLink(rowIndex: number) {
+    setSaveSuccess(false);
+    setCoverageRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
+    ));
+  }
+
+  function removeCoverageLink(rowIndex: number, linkIndex: number) {
+    setSaveSuccess(false);
+    setCoverageRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
+    ));
+  }
+
+  function updateCoverageLink(rowIndex: number, linkIndex: number, value: string) {
+    setSaveSuccess(false);
+    setCoverageRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
+    ));
+  }
+
+  async function deleteCoverageRow(index: number, id: number | null) {
+    if (id !== null) {
+      await fetch(`/api/external-coverage?id=${id}`, { method: "DELETE" });
+    }
+    setCoverageRows((prev) => prev.filter((_, i) => i !== index));
   }
 
   function toggleCollapse(id: number) {
@@ -895,6 +985,44 @@ export default function PartnerReportEditorPage() {
           }
         }
         setLessonRows(updated);
+      } else if (params.section === "external-coverage" && reportId) {
+        const updated: CoverageState[] = [];
+        for (const row of coverageRows) {
+          const linksStr = row.links.filter((l) => l.trim()).join(",") || null;
+          if (row.id === null && row.dirty) {
+            const res = await fetch("/api/external-coverage", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId,
+                type: row.type || null,
+                description: row.description || null,
+                reach_indicator: row.reach_indicator || null,
+                links: linksStr,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save coverage");
+            const saved: ExternalCoverage = await res.json();
+            updated.push({ ...row, id: saved.id, dirty: false });
+          } else if (row.id !== null && row.dirty) {
+            const res = await fetch("/api/external-coverage", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: row.id,
+                type: row.type || null,
+                description: row.description || null,
+                reach_indicator: row.reach_indicator || null,
+                links: linksStr,
+              }),
+            });
+            if (!res.ok) throw new Error(`Failed to save coverage ${row.id}`);
+            updated.push({ ...row, dirty: false });
+          } else {
+            updated.push(row);
+          }
+        }
+        setCoverageRows(updated);
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -914,7 +1042,8 @@ export default function PartnerReportEditorPage() {
     params.section === "achievements" ? loadingKA :
     params.section === "partnerships" ? loadingPartners :
     params.section === "results" ? loadingResults :
-    params.section === "lessons" ? loadingLessons : false;
+    params.section === "lessons" ? loadingLessons :
+    params.section === "external-coverage" ? loadingCoverage : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
@@ -922,7 +1051,8 @@ export default function PartnerReportEditorPage() {
     params.section === "achievements" ? kaRows.some((r) => r.dirty) :
     params.section === "partnerships" ? partnerRows.some((r) => r.dirty) :
     params.section === "results" ? resultRows.some((r) => r.dirty) :
-    params.section === "lessons" ? lessonRows.some((r) => r.dirty) : false;
+    params.section === "lessons" ? lessonRows.some((r) => r.dirty) :
+    params.section === "external-coverage" ? coverageRows.some((r) => r.dirty) : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -963,6 +1093,11 @@ export default function PartnerReportEditorPage() {
     [lessonRows]
   );
 
+  const coverageEmptyCount = useMemo(
+    () => coverageRows.filter((r) => !r.description.trim()).length,
+    [coverageRows]
+  );
+
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
@@ -971,6 +1106,7 @@ export default function PartnerReportEditorPage() {
     if (sec === "partnerships") return partnersEmptyCount;
     if (sec === "results") return resultsEmptyCount;
     if (sec === "lessons") return lessonsEmptyCount;
+    if (sec === "external-coverage") return coverageEmptyCount;
     return 0;
   }
 
@@ -1741,6 +1877,96 @@ export default function PartnerReportEditorPage() {
                 </Button>
               </div>
             )}
+          </div>
+
+        ) : params.section === "external-coverage" ? (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{labels.externalCoverage.columns.type}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[28%]">{labels.externalCoverage.columns.description}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[20%]">{labels.externalCoverage.columns.reachIndicator}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-52">{labels.externalCoverage.columns.links}</th>
+                  <th className="w-10 px-4 py-3" />
+                </tr>
+                <tr className="border-b bg-background">
+                  <td />
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.type}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.description}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.reachIndicator}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.links}</td>
+                  <td />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {coverageRows.map((row, i) => (
+                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                    <td className="px-4 py-3 align-top">
+                      <Select
+                        value={row.type || "none"}
+                        onValueChange={(v) => updateCoverageRow(i, { type: v === "none" ? "" : v })}
+                      >
+                        <SelectTrigger className="w-full h-9 text-sm">
+                          {row.type
+                            ? <span>{row.type}</span>
+                            : <span className="text-muted-foreground">Select…</span>}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                          {labels.externalCoverage.types.map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.description}
+                        onChange={(e) => updateCoverageRow(i, { description: e.target.value })}
+                        placeholder={labels.placeholders.coverageDescription}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.reach_indicator}
+                        onChange={(e) => updateCoverageRow(i, { reach_indicator: e.target.value })}
+                        placeholder={labels.placeholders.reachIndicator}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <MultiLinkInput
+                        links={row.links}
+                        onAdd={() => addCoverageLink(i)}
+                        onRemove={(li) => removeCoverageLink(i, li)}
+                        onUpdate={(li, val) => updateCoverageLink(i, li, val)}
+                        placeholder={labels.placeholders.achievementLinks}
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top text-center">
+                      {coverageRows.length > 3 && (
+                        <button
+                          onClick={() => deleteCoverageRow(i, row.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="Delete coverage"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-4 py-3 border-t">
+              <Button onClick={addCoverageRow} variant="outline" size="sm" className="gap-1.5">
+                <Plus className="size-3.5" /> {labels.partnerEditor.addCoverage}
+              </Button>
+            </div>
           </div>
 
         ) : (

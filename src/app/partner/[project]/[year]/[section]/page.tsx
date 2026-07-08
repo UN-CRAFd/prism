@@ -33,6 +33,7 @@ const SECTIONS = [
   { value: "risk", label: labels.sections.risk },
   { value: "achievements", label: labels.sections.keyAchievements },
   { value: "partnerships", label: labels.sections.partnerships },
+  { value: "results", label: labels.sections.results },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -216,6 +217,25 @@ interface PartnershipState {
   dirty: boolean;
 }
 
+interface Result {
+  id: number;
+  report_id: number;
+  context: string | null;
+  data_driven_decision: string | null;
+  resulting_impact: string | null;
+  links: string | null;
+  sort_order: number;
+}
+
+interface ResultState {
+  id: number | null;
+  context: string;
+  data_driven_decision: string;
+  resulting_impact: string;
+  links: string[];
+  dirty: boolean;
+}
+
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
   mptfo_project_number: "",
@@ -263,6 +283,9 @@ export default function PartnerReportEditorPage() {
 
   const [partnerRows, setPartnerRows] = useState<PartnershipState[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(false);
+
+  const [resultRows, setResultRows] = useState<ResultState[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -392,6 +415,34 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
+  const emptyResultRow = (): ResultState => ({
+    id: null, context: "", data_driven_decision: "", resulting_impact: "", links: [""], dirty: false,
+  });
+
+  const loadResults = useCallback(async (id: number) => {
+    setLoadingResults(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/results?reportId=${id}`);
+      if (!res.ok) throw new Error("Failed to load results");
+      const data: Result[] = await res.json();
+      const loaded: ResultState[] = data.map((r) => ({
+        id: r.id,
+        context: r.context ?? "",
+        data_driven_decision: r.data_driven_decision ?? "",
+        resulting_impact: r.resulting_impact ?? "",
+        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
+        dirty: false,
+      }));
+      while (loaded.length < 3) loaded.push(emptyResultRow());
+      setResultRows(loaded);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoadingResults(false);
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -443,7 +494,8 @@ export default function PartnerReportEditorPage() {
     else if (params.section === "risk") loadRisk(reportId);
     else if (params.section === "achievements") loadKeyAchievements(reportId);
     else if (params.section === "partnerships") loadPartnerships(reportId);
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships]);
+    else if (params.section === "results") loadResults(reportId);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships, loadResults]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -542,6 +594,44 @@ export default function PartnerReportEditorPage() {
       await fetch(`/api/partnerships?id=${id}`, { method: "DELETE" });
     }
     setPartnerRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addResultRow() {
+    setSaveSuccess(false);
+    setResultRows((prev) => [...prev, { id: null, context: "", data_driven_decision: "", resulting_impact: "", links: [""], dirty: true }]);
+  }
+
+  function updateResultRow(index: number, patch: Partial<ResultState>) {
+    setSaveSuccess(false);
+    setResultRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
+  }
+
+  function addResultLink(rowIndex: number) {
+    setSaveSuccess(false);
+    setResultRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
+    ));
+  }
+
+  function removeResultLink(rowIndex: number, linkIndex: number) {
+    setSaveSuccess(false);
+    setResultRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
+    ));
+  }
+
+  function updateResultLink(rowIndex: number, linkIndex: number, value: string) {
+    setSaveSuccess(false);
+    setResultRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
+    ));
+  }
+
+  async function deleteResultRow(index: number, id: number | null) {
+    if (id !== null) {
+      await fetch(`/api/results?id=${id}`, { method: "DELETE" });
+    }
+    setResultRows((prev) => prev.filter((_, i) => i !== index));
   }
 
   function toggleCollapse(id: number) {
@@ -671,6 +761,44 @@ export default function PartnerReportEditorPage() {
           }
         }
         setPartnerRows(updated);
+      } else if (params.section === "results" && reportId) {
+        const updated: ResultState[] = [];
+        for (const row of resultRows) {
+          const linksStr = row.links.filter((l) => l.trim()).join(",") || null;
+          if (row.id === null && row.dirty) {
+            const res = await fetch("/api/results", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId,
+                context: row.context || null,
+                data_driven_decision: row.data_driven_decision || null,
+                resulting_impact: row.resulting_impact || null,
+                links: linksStr,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save result");
+            const saved: Result = await res.json();
+            updated.push({ ...row, id: saved.id, dirty: false });
+          } else if (row.id !== null && row.dirty) {
+            const res = await fetch("/api/results", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: row.id,
+                context: row.context || null,
+                data_driven_decision: row.data_driven_decision || null,
+                resulting_impact: row.resulting_impact || null,
+                links: linksStr,
+              }),
+            });
+            if (!res.ok) throw new Error(`Failed to save result ${row.id}`);
+            updated.push({ ...row, dirty: false });
+          } else {
+            updated.push(row);
+          }
+        }
+        setResultRows(updated);
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -688,13 +816,15 @@ export default function PartnerReportEditorPage() {
     params.section === "overview" ? loadingOverview :
     params.section === "risk" ? loadingRisk :
     params.section === "achievements" ? loadingKA :
-    params.section === "partnerships" ? loadingPartners : false;
+    params.section === "partnerships" ? loadingPartners :
+    params.section === "results" ? loadingResults : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
     params.section === "achievements" ? kaRows.some((r) => r.dirty) :
-    params.section === "partnerships" ? partnerRows.some((r) => r.dirty) : false;
+    params.section === "partnerships" ? partnerRows.some((r) => r.dirty) :
+    params.section === "results" ? resultRows.some((r) => r.dirty) : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -725,12 +855,18 @@ export default function PartnerReportEditorPage() {
     [partnerRows]
   );
 
+  const resultsEmptyCount = useMemo(
+    () => resultRows.filter((r) => !r.context.trim()).length,
+    [resultRows]
+  );
+
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
     if (sec === "risk") return riskEmptyCount;
     if (sec === "achievements") return kaEmptyCount;
     if (sec === "partnerships") return partnersEmptyCount;
+    if (sec === "results") return resultsEmptyCount;
     return 0;
   }
 
@@ -1333,6 +1469,86 @@ export default function PartnerReportEditorPage() {
             <div className="px-4 py-3 border-t">
               <Button onClick={addPartnerRow} variant="outline" size="sm" className="gap-1.5">
                 <Plus className="size-3.5" /> {labels.partnerEditor.addPartner}
+              </Button>
+            </div>
+          </div>
+
+        ) : params.section === "results" ? (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[25%]">{labels.results.columns.context}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[25%]">{labels.results.columns.dataDrivenDecision}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[25%]">{labels.results.columns.resultingImpact}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-48">{labels.results.columns.links}</th>
+                  <th className="w-10 px-4 py-3" />
+                </tr>
+                <tr className="border-b bg-background">
+                  <td />
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.context}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.dataDrivenDecision}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.resultingImpact}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.links}</td>
+                  <td />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {resultRows.map((row, i) => (
+                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.context}
+                        onChange={(e) => updateResultRow(i, { context: e.target.value })}
+                        placeholder={labels.placeholders.resultContext}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.data_driven_decision}
+                        onChange={(e) => updateResultRow(i, { data_driven_decision: e.target.value })}
+                        placeholder={labels.placeholders.dataDrivenDecision}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.resulting_impact}
+                        onChange={(e) => updateResultRow(i, { resulting_impact: e.target.value })}
+                        placeholder={labels.placeholders.resultingImpact}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <MultiLinkInput
+                        links={row.links}
+                        onAdd={() => addResultLink(i)}
+                        onRemove={(li) => removeResultLink(i, li)}
+                        onUpdate={(li, val) => updateResultLink(i, li, val)}
+                        placeholder={labels.placeholders.achievementLinks}
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top text-center">
+                      {resultRows.length > 3 && (
+                        <button
+                          onClick={() => deleteResultRow(i, row.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="Delete result"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-4 py-3 border-t">
+              <Button onClick={addResultRow} variant="outline" size="sm" className="gap-1.5">
+                <Plus className="size-3.5" /> {labels.partnerEditor.addResult}
               </Button>
             </div>
           </div>

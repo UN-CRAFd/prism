@@ -4,14 +4,16 @@
     "surveys": "Surveys",
     "risk": "Risk Management",
     "keyAchievements": "Key Achievements",
-    "partnerships": "Partnerships"
+    "partnerships": "Partnerships",
+    "results": "Results"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
     "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
     "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
     "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based.",
-    "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence."
+    "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence.",
+    "results": "Document cases where your project's data informed real decisions and produced measurable outcomes. Add at least 3 results. For each, describe the context and decision gap, explain how your data drove a concrete decision, and describe the resulting impact with quantitative evidence where available."
   },
   "assessment": {
     "min": "Not at all",
@@ -84,6 +86,20 @@
       "links": "Provide direct links to reports, tools, dashboards, articles, or other materials that demonstrate or document the achievement."
     }
   },
+  "results": {
+    "columns": {
+      "context": "Context",
+      "dataDrivenDecision": "Data-driven Decision",
+      "resultingImpact": "Resulting Impact",
+      "links": "Links"
+    },
+    "remarks": {
+      "context": "Briefly describe the problem, risk, or decision gap in a fragile or crisis-affected setting. For example: Repeated intercommunal tensions in Akobo County, South Sudan, were causing cyclical displacement, with limited early warning to prevent escalation before violence occurred.",
+      "dataDrivenDecision": "Explain and, where possible, quantify how the project's data or insights informed concrete decisions and actions, including their relevance for resource allocation and programming. For example: Project's data was integrated into the displacement prediction model to forecast population movements up to 3 months ahead. In May 2024, elevated risk forecasts triggered a targeted programmatic response, including inter-community dialogues engaging over 200 local leaders, youth, and officials.",
+      "resultingImpact": "Describe the difference this made in practice, including quantitative results where available. For example: Preventive action contributed to 2,800 fewer displaced people than neighboring areas, achieved a ROI of over 6.6× emergency funding, and informed early-action models now used in 6 countries.",
+      "links": "Provide full links to relevant reports, articles, and other materials that demonstrate the use case and impact."
+    }
+  },
   "partnerships": {
     "columns": {
       "partnerOrganization": "Partner Organization",
@@ -116,7 +132,10 @@
     "significance": "Explain why this achievement is significant to the project's goals…",
     "achievementLinks": "https://…",
     "partnerOrganization": "Organization name…",
-    "partnershipResult": "Describe what improved or changed because of the partnership…"
+    "partnershipResult": "Describe what improved or changed because of the partnership…",
+    "resultContext": "Briefly describe the problem, risk, or decision gap…",
+    "dataDrivenDecision": "Explain how the project's data or insights informed concrete decisions…",
+    "resultingImpact": "Describe the difference this made in practice…"
   },
   "partnerEditor": {
     "eyebrow": "PRISM V.0.1",
@@ -134,6 +153,7 @@
     "addAchievement": "Add achievement",
     "emptyPartnerships": "No partnerships added yet. Click below to add your first.",
     "addPartner": "Add partner",
+    "addResult": "Add result",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."
   },

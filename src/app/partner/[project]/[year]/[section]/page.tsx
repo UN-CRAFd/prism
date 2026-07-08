@@ -1033,6 +1033,13 @@ export default function PartnerReportEditorPage() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-64">{labels.keyAchievements.columns.links}</th>
                   <th className="w-10 px-4 py-3" />
                 </tr>
+                <tr className="border-b bg-background">
+                  <td />
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.keyAchievements.remarks.achievement}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.keyAchievements.remarks.significance}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.keyAchievements.remarks.links}</td>
+                  <td />
+                </tr>
               </thead>
               <tbody className="divide-y">
                 {kaRows.map((row, i) => (

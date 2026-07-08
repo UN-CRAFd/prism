@@ -75,6 +75,11 @@
       "achievement": "Achievement",
       "significance": "Significance",
       "links": "Links"
+    },
+    "remarks": {
+      "achievement": "Briefly describe a major result or milestone achieved while implementing the project during this reporting period. For example: The project developed a cloud system that now delivers up-to-date weather and impact feeds.",
+      "significance": "Explain why this achievement matters, how it contributed to project objectives, and what changed as a result. For example: The cloud system enables drought outlooks from 2 to 4 months in advance and flood alerts up to 16 days ahead. Using this data, local NGOs started targeted seasonal funding allocations ahead of the hazard impact.",
+      "links": "Provide direct links to reports, tools, dashboards, articles, or other materials that demonstrate or document the achievement."
     }
   },
   "placeholders": {

@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
+import { WorkplanAdminEditor } from "@/components/workplan-grid";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface Report {
   id: number;
+  project_id: number;
   year: number;
   report_type: "annual" | "final" | null;
   project_title: string;
@@ -46,6 +48,7 @@ interface Risk {
 const SECTIONS = [
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
+  { value: "workplan", label: labels.sections.workplan },
 ];
 
 function toSlug(r: Report) {
@@ -250,7 +253,9 @@ export function ReportEditorView() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
-  const sectionLoading = selectedSection === "surveys" ? loadingSurveys : loadingRisk;
+  const sectionLoading =
+    selectedSection === "surveys" ? loadingSurveys :
+    selectedSection === "risk" ? loadingRisk : false;
 
   return (
     <div className="flex flex-col h-full">
@@ -467,6 +472,9 @@ export function ReportEditorView() {
               </div>
             )}
           </div>
+
+        ) : selectedSection === "workplan" ? (
+          selectedReport ? <WorkplanAdminEditor projectId={selectedReport.project_id} defaultAgent={selectedReport.partner_short_name} /> : null
         ) : null}
       </div>
     </div>

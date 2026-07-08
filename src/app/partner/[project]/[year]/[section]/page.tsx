@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown, Trash2, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
+import { WorkplanPartnerEditor, type WorkplanHandle } from "@/components/workplan-grid";
 import {
   likelihoodLabel,
   impactLabel,
@@ -36,6 +37,7 @@ const SECTIONS = [
   { value: "lessons", label: labels.sections.lessons },
   { value: "external-coverage", label: labels.sections.externalCoverage },
   { value: "risk", label: labels.sections.risk },
+  { value: "workplan", label: labels.sections.workplan },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -330,6 +332,9 @@ export default function PartnerReportEditorPage() {
 
   const [coverageRows, setCoverageRows] = useState<CoverageState[]>([]);
   const [loadingCoverage, setLoadingCoverage] = useState(false);
+
+  const workplanRef = useRef<WorkplanHandle>(null);
+  const [workplanDirty, setWorkplanDirty] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -1023,6 +1028,8 @@ export default function PartnerReportEditorPage() {
           }
         }
         setCoverageRows(updated);
+      } else if (params.section === "workplan") {
+        await workplanRef.current?.save();
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -1052,7 +1059,8 @@ export default function PartnerReportEditorPage() {
     params.section === "partnerships" ? partnerRows.some((r) => r.dirty) :
     params.section === "results" ? resultRows.some((r) => r.dirty) :
     params.section === "lessons" ? lessonRows.some((r) => r.dirty) :
-    params.section === "external-coverage" ? coverageRows.some((r) => r.dirty) : false;
+    params.section === "external-coverage" ? coverageRows.some((r) => r.dirty) :
+    params.section === "workplan" ? workplanDirty : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -1968,6 +1976,15 @@ export default function PartnerReportEditorPage() {
               </Button>
             </div>
           </div>
+
+        ) : params.section === "workplan" ? (
+          reportId ? (
+            <WorkplanPartnerEditor
+              ref={workplanRef}
+              reportId={reportId}
+              onDirtyChange={(d) => { setWorkplanDirty(d); if (d) setSaveSuccess(false); }}
+            />
+          ) : null
 
         ) : (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">

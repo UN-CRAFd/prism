@@ -7,7 +7,8 @@
     "partnerships": "Partnerships",
     "results": "Results",
     "lessons": "Lessons Learned",
-    "externalCoverage": "External Coverage"
+    "externalCoverage": "External Coverage",
+    "workplan": "Workplan"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
@@ -17,7 +18,8 @@
     "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence.",
     "results": "Document cases where your project's data informed real decisions and produced measurable outcomes. Add at least 3 results. For each, describe the context and decision gap, explain how your data drove a concrete decision, and describe the resulting impact with quantitative evidence where available.",
     "lessons": "Capture up to five lessons from this reporting period that shaped or will shape project implementation. For each lesson, select a category, describe what your organization learned, and explain what you changed or plan to change as a result.",
-    "external-coverage": "Document how your project's work reached external audiences and stakeholders during this reporting period. For each item, select the type of coverage or engagement, describe what was shared, indicate the reach or uptake, and provide links to supporting materials."
+    "external-coverage": "Document how your project's work reached external audiences and stakeholders during this reporting period. For each item, select the type of coverage or engagement, describe what was shared, indicate the reach or uptake, and provide links to supporting materials.",
+    "workplan": "Review the planned timeline (baseline) for each activity and check off the quarters reflecting the updated timeline for this reporting period. For each activity, select a progress update and add a short comment justifying the status where relevant."
   },
   "assessment": {
     "min": "Not at all",

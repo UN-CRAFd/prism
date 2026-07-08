@@ -45,7 +45,7 @@ interface Risk {
 
 const SECTIONS = [
   { value: "surveys", label: labels.sections.surveys },
-  { value: "risk",    label: labels.sections.risk },
+  { value: "risk", label: labels.sections.risk },
 ];
 
 function toSlug(r: Report) {

@@ -30,12 +30,12 @@ import {
 const SECTIONS = [
   { value: "overview", label: labels.sections.overview },
   { value: "surveys", label: labels.sections.surveys },
-  { value: "risk", label: labels.sections.risk },
   { value: "achievements", label: labels.sections.keyAchievements },
   { value: "partnerships", label: labels.sections.partnerships },
   { value: "results", label: labels.sections.results },
   { value: "lessons", label: labels.sections.lessons },
   { value: "external-coverage", label: labels.sections.externalCoverage },
+  { value: "risk", label: labels.sections.risk },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {

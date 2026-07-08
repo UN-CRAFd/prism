@@ -148,12 +148,12 @@ type Section = "surveys" | "risk" | "achievements" | "partnerships" | "results" 
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: "surveys", label: "Surveys" },
-  { value: "risk", label: "Risk Management" },
   { value: "achievements", label: "Key Achievements" },
   { value: "partnerships", label: "Partnerships" },
   { value: "results", label: "Results" },
   { value: "lessons", label: "Lessons Learned" },
   { value: "external-coverage", label: "External Coverage" },
+  { value: "risk", label: "Risk Management" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────

@@ -14,10 +14,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown, Trash2, Plus, X } from "lucide-react";
+import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanPartnerEditor, type WorkplanHandle } from "@/components/workplan-grid";
+import { SectionTableEditor, SECTION_SPECS, type SectionHandle } from "@/components/section-table-editor";
 import {
   likelihoodLabel,
   impactLabel,
@@ -79,44 +80,6 @@ function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; imp
 
 function Label({ children }: { children: string }) {
   return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
-}
-
-function MultiLinkInput({ links, onAdd, onRemove, onUpdate, placeholder }: {
-  links: string[];
-  onAdd: () => void;
-  onRemove: (index: number) => void;
-  onUpdate: (index: number, value: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      {links.map((link, li) => (
-        <div key={li} className="flex items-center gap-1.5">
-          <Input
-            value={link}
-            onChange={(e) => onUpdate(li, e.target.value)}
-            placeholder={placeholder}
-            className="text-sm"
-          />
-          {links.length > 1 && (
-            <button
-              onClick={() => onRemove(li)}
-              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-              aria-label="Remove link"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
-      ))}
-      <button
-        onClick={onAdd}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors pt-0.5"
-      >
-        <Plus className="size-3" /> Add link
-      </button>
-    </div>
-  );
 }
 
 interface Report {
@@ -187,94 +150,6 @@ interface RiskState {
   dirty: boolean;
 }
 
-interface KeyAchievement {
-  id: number;
-  report_id: number;
-  achievement: string | null;
-  significance: string | null;
-  links: string | null;
-  sort_order: number;
-}
-
-interface KAState {
-  id: number | null;
-  achievement: string;
-  significance: string;
-  links: string[];
-  dirty: boolean;
-}
-
-interface Partnership {
-  id: number;
-  report_id: number;
-  partner_organization: string | null;
-  result: string | null;
-  links: string | null;
-  sort_order: number;
-}
-
-interface PartnershipState {
-  id: number | null;
-  partner_organization: string;
-  result: string;
-  links: string[];
-  dirty: boolean;
-}
-
-interface Result {
-  id: number;
-  report_id: number;
-  context: string | null;
-  data_driven_decision: string | null;
-  resulting_impact: string | null;
-  links: string | null;
-  sort_order: number;
-}
-
-interface ResultState {
-  id: number | null;
-  context: string;
-  data_driven_decision: string;
-  resulting_impact: string;
-  links: string[];
-  dirty: boolean;
-}
-
-interface LessonLearned {
-  id: number;
-  report_id: number;
-  category: string | null;
-  lesson_learned: string | null;
-  adjustment_informed: string | null;
-  sort_order: number;
-}
-
-interface LessonState {
-  id: number | null;
-  category: string;
-  lesson_learned: string;
-  adjustment_informed: string;
-  dirty: boolean;
-}
-
-interface ExternalCoverage {
-  id: number;
-  report_id: number;
-  type: string | null;
-  description: string | null;
-  reach_indicator: string | null;
-  links: string | null;
-  sort_order: number;
-}
-
-interface CoverageState {
-  id: number | null;
-  type: string;
-  description: string;
-  reach_indicator: string;
-  links: string[];
-  dirty: boolean;
-}
 
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
@@ -318,20 +193,13 @@ export default function PartnerReportEditorPage() {
   const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
 
-  const [kaRows, setKARows] = useState<KAState[]>([]);
-  const [loadingKA, setLoadingKA] = useState(false);
-
-  const [partnerRows, setPartnerRows] = useState<PartnershipState[]>([]);
-  const [loadingPartners, setLoadingPartners] = useState(false);
-
-  const [resultRows, setResultRows] = useState<ResultState[]>([]);
-  const [loadingResults, setLoadingResults] = useState(false);
-
-  const [lessonRows, setLessonRows] = useState<LessonState[]>([]);
-  const [loadingLessons, setLoadingLessons] = useState(false);
-
-  const [coverageRows, setCoverageRows] = useState<CoverageState[]>([]);
-  const [loadingCoverage, setLoadingCoverage] = useState(false);
+  // Config-driven list sections (achievements, partnerships, results, lessons,
+  // external-coverage) are handled by <SectionTableEditor>. Each active editor
+  // registers its imperative save() handle and reports its dirty / incomplete
+  // counts up so the shared top-bar Save button and tab badges keep working.
+  const sectionRefs = useRef<Record<string, SectionHandle | null>>({});
+  const [sectionDirty, setSectionDirty] = useState<Record<string, boolean>>({});
+  const [sectionEmpty, setSectionEmpty] = useState<Record<string, number>>({});
 
   const workplanRef = useRef<WorkplanHandle>(null);
   const [workplanDirty, setWorkplanDirty] = useState(false);
@@ -422,125 +290,6 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
-  const loadKeyAchievements = useCallback(async (id: number) => {
-    setLoadingKA(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/achievements?reportId=${id}`);
-      if (!res.ok) throw new Error("Failed to load key achievements");
-      const data: KeyAchievement[] = await res.json();
-      setKARows(data.map((r) => ({
-        id: r.id,
-        achievement: r.achievement ?? "",
-        significance: r.significance ?? "",
-        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
-        dirty: false,
-      })));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingKA(false);
-    }
-  }, []);
-
-  const loadPartnerships = useCallback(async (id: number) => {
-    setLoadingPartners(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/partnerships?reportId=${id}`);
-      if (!res.ok) throw new Error("Failed to load partnerships");
-      const data: Partnership[] = await res.json();
-      setPartnerRows(data.map((r) => ({
-        id: r.id,
-        partner_organization: r.partner_organization ?? "",
-        result: r.result ?? "",
-        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
-        dirty: false,
-      })));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingPartners(false);
-    }
-  }, []);
-
-  const emptyResultRow = (): ResultState => ({
-    id: null, context: "", data_driven_decision: "", resulting_impact: "", links: [""], dirty: false,
-  });
-
-  const loadResults = useCallback(async (id: number) => {
-    setLoadingResults(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/results?reportId=${id}`);
-      if (!res.ok) throw new Error("Failed to load results");
-      const data: Result[] = await res.json();
-      const loaded: ResultState[] = data.map((r) => ({
-        id: r.id,
-        context: r.context ?? "",
-        data_driven_decision: r.data_driven_decision ?? "",
-        resulting_impact: r.resulting_impact ?? "",
-        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
-        dirty: false,
-      }));
-      while (loaded.length < 3) loaded.push(emptyResultRow());
-      setResultRows(loaded);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingResults(false);
-    }
-  }, []);
-
-  const loadLessons = useCallback(async (id: number) => {
-    setLoadingLessons(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/lessons-learned?reportId=${id}`);
-      if (!res.ok) throw new Error("Failed to load lessons");
-      const data: LessonLearned[] = await res.json();
-      setLessonRows(data.map((r) => ({
-        id: r.id,
-        category: r.category ?? "",
-        lesson_learned: r.lesson_learned ?? "",
-        adjustment_informed: r.adjustment_informed ?? "",
-        dirty: false,
-      })));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingLessons(false);
-    }
-  }, []);
-
-  const emptyCoverageRow = (): CoverageState => ({
-    id: null, type: "", description: "", reach_indicator: "", links: [""], dirty: false,
-  });
-
-  const loadCoverage = useCallback(async (id: number) => {
-    setLoadingCoverage(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/external-coverage?reportId=${id}`);
-      if (!res.ok) throw new Error("Failed to load external coverage");
-      const data: ExternalCoverage[] = await res.json();
-      const loaded: CoverageState[] = data.map((r) => ({
-        id: r.id,
-        type: r.type ?? "",
-        description: r.description ?? "",
-        reach_indicator: r.reach_indicator ?? "",
-        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
-        dirty: false,
-      }));
-      while (loaded.length < 3) loaded.push(emptyCoverageRow());
-      setCoverageRows(loaded);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingCoverage(false);
-    }
-  }, []);
-
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -590,12 +339,8 @@ export default function PartnerReportEditorPage() {
     if (params.section === "surveys") loadSurveys(reportId);
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
-    else if (params.section === "achievements") loadKeyAchievements(reportId);
-    else if (params.section === "partnerships") loadPartnerships(reportId);
-    else if (params.section === "results") loadResults(reportId);
-    else if (params.section === "lessons") loadLessons(reportId);
-    else if (params.section === "external-coverage") loadCoverage(reportId);
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships, loadResults, loadLessons, loadCoverage]);
+    // Config-driven list sections load their own data inside <SectionTableEditor>.
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -619,180 +364,20 @@ export default function PartnerReportEditorPage() {
     setRiskStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
   }
 
-  function addKARow() {
-    if (kaRows.length >= 3) return;
-    setSaveSuccess(false);
-    setKARows((prev) => [...prev, { id: null, achievement: "", significance: "", links: [""], dirty: true }]);
-  }
-
-  function updateKARow(index: number, patch: Partial<KAState>) {
-    setSaveSuccess(false);
-    setKARows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
-  }
-
-  function addKALink(rowIndex: number) {
-    setSaveSuccess(false);
-    setKARows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
-    ));
-  }
-
-  function removeKALink(rowIndex: number, linkIndex: number) {
-    setSaveSuccess(false);
-    setKARows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
-    ));
-  }
-
-  function updateKALink(rowIndex: number, linkIndex: number, value: string) {
-    setSaveSuccess(false);
-    setKARows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
-    ));
-  }
-
-  async function deleteKARow(index: number, id: number | null) {
-    if (id !== null) {
-      await fetch(`/api/achievements?id=${id}`, { method: "DELETE" });
-    }
-    setKARows((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function addPartnerRow() {
-    setSaveSuccess(false);
-    setPartnerRows((prev) => [...prev, { id: null, partner_organization: "", result: "", links: [""], dirty: true }]);
-  }
-
-  function updatePartnerRow(index: number, patch: Partial<PartnershipState>) {
-    setSaveSuccess(false);
-    setPartnerRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
-  }
-
-  function addPartnerLink(rowIndex: number) {
-    setSaveSuccess(false);
-    setPartnerRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
-    ));
-  }
-
-  function removePartnerLink(rowIndex: number, linkIndex: number) {
-    setSaveSuccess(false);
-    setPartnerRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
-    ));
-  }
-
-  function updatePartnerLink(rowIndex: number, linkIndex: number, value: string) {
-    setSaveSuccess(false);
-    setPartnerRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
-    ));
-  }
-
-  async function deletePartnerRow(index: number, id: number | null) {
-    if (id !== null) {
-      await fetch(`/api/partnerships?id=${id}`, { method: "DELETE" });
-    }
-    setPartnerRows((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function addResultRow() {
-    setSaveSuccess(false);
-    setResultRows((prev) => [...prev, { id: null, context: "", data_driven_decision: "", resulting_impact: "", links: [""], dirty: true }]);
-  }
-
-  function updateResultRow(index: number, patch: Partial<ResultState>) {
-    setSaveSuccess(false);
-    setResultRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
-  }
-
-  function addResultLink(rowIndex: number) {
-    setSaveSuccess(false);
-    setResultRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
-    ));
-  }
-
-  function removeResultLink(rowIndex: number, linkIndex: number) {
-    setSaveSuccess(false);
-    setResultRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
-    ));
-  }
-
-  function updateResultLink(rowIndex: number, linkIndex: number, value: string) {
-    setSaveSuccess(false);
-    setResultRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
-    ));
-  }
-
-  async function deleteResultRow(index: number, id: number | null) {
-    if (id !== null) {
-      await fetch(`/api/results?id=${id}`, { method: "DELETE" });
-    }
-    setResultRows((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function addLessonRow() {
-    if (lessonRows.length >= 5) return;
-    setSaveSuccess(false);
-    setLessonRows((prev) => [...prev, { id: null, category: "", lesson_learned: "", adjustment_informed: "", dirty: true }]);
-  }
-
-  function updateLessonRow(index: number, patch: Partial<LessonState>) {
-    setSaveSuccess(false);
-    setLessonRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
-  }
-
-  async function deleteLessonRow(index: number, id: number | null) {
-    if (id !== null) {
-      await fetch(`/api/lessons-learned?id=${id}`, { method: "DELETE" });
-    }
-    setLessonRows((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function addCoverageRow() {
-    setSaveSuccess(false);
-    setCoverageRows((prev) => [...prev, { id: null, type: "", description: "", reach_indicator: "", links: [""], dirty: true }]);
-  }
-
-  function updateCoverageRow(index: number, patch: Partial<CoverageState>) {
-    setSaveSuccess(false);
-    setCoverageRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
-  }
-
-  function addCoverageLink(rowIndex: number) {
-    setSaveSuccess(false);
-    setCoverageRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
-    ));
-  }
-
-  function removeCoverageLink(rowIndex: number, linkIndex: number) {
-    setSaveSuccess(false);
-    setCoverageRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
-    ));
-  }
-
-  function updateCoverageLink(rowIndex: number, linkIndex: number, value: string) {
-    setSaveSuccess(false);
-    setCoverageRows((prev) => prev.map((r, i) =>
-      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
-    ));
-  }
-
-  async function deleteCoverageRow(index: number, id: number | null) {
-    if (id !== null) {
-      await fetch(`/api/external-coverage?id=${id}`, { method: "DELETE" });
-    }
-    setCoverageRows((prev) => prev.filter((_, i) => i !== index));
-  }
-
   function toggleCollapse(id: number) {
     setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   }
+
+  // Stable callbacks for <SectionTableEditor>. The equality guard is essential:
+  // the map is an object, so an unconditional spread would re-render forever.
+  const handleSectionDirty = useCallback((dirty: boolean) => {
+    setSectionDirty((prev) => (prev[params.section] === dirty ? prev : { ...prev, [params.section]: dirty }));
+    if (dirty) setSaveSuccess(false);
+  }, [params.section]);
+
+  const handleSectionEmpty = useCallback((count: number) => {
+    setSectionEmpty((prev) => (prev[params.section] === count ? prev : { ...prev, [params.section]: count }));
+  }, [params.section]);
 
   async function saveAll() {
     setSaving(true);
@@ -846,188 +431,8 @@ export default function PartnerReportEditorPage() {
           for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
           return next;
         });
-      } else if (params.section === "achievements" && reportId) {
-        const updated: KAState[] = [];
-        for (const row of kaRows) {
-          if (row.id === null) {
-            const res = await fetch("/api/achievements", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                achievement: row.achievement || null,
-                significance: row.significance || null,
-                links: row.links.filter((l) => l.trim()).join(",") || null,
-              }),
-            });
-            if (!res.ok) throw new Error("Failed to save achievement");
-            const saved: KeyAchievement = await res.json();
-            updated.push({ ...row, id: saved.id, dirty: false });
-          } else if (row.dirty) {
-            const res = await fetch("/api/achievements", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: row.id,
-                achievement: row.achievement || null,
-                significance: row.significance || null,
-                links: row.links.filter((l) => l.trim()).join(",") || null,
-              }),
-            });
-            if (!res.ok) throw new Error(`Failed to save achievement ${row.id}`);
-            updated.push({ ...row, dirty: false });
-          } else {
-            updated.push(row);
-          }
-        }
-        setKARows(updated);
-      } else if (params.section === "partnerships" && reportId) {
-        const updated: PartnershipState[] = [];
-        for (const row of partnerRows) {
-          const linksStr = row.links.filter((l) => l.trim()).join(",") || null;
-          if (row.id === null) {
-            const res = await fetch("/api/partnerships", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                partner_organization: row.partner_organization || null,
-                result: row.result || null,
-                links: linksStr,
-              }),
-            });
-            if (!res.ok) throw new Error("Failed to save partner");
-            const saved: Partnership = await res.json();
-            updated.push({ ...row, id: saved.id, dirty: false });
-          } else if (row.dirty) {
-            const res = await fetch("/api/partnerships", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: row.id,
-                partner_organization: row.partner_organization || null,
-                result: row.result || null,
-                links: linksStr,
-              }),
-            });
-            if (!res.ok) throw new Error(`Failed to save partner ${row.id}`);
-            updated.push({ ...row, dirty: false });
-          } else {
-            updated.push(row);
-          }
-        }
-        setPartnerRows(updated);
-      } else if (params.section === "results" && reportId) {
-        const updated: ResultState[] = [];
-        for (const row of resultRows) {
-          const linksStr = row.links.filter((l) => l.trim()).join(",") || null;
-          if (row.id === null && row.dirty) {
-            const res = await fetch("/api/results", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                context: row.context || null,
-                data_driven_decision: row.data_driven_decision || null,
-                resulting_impact: row.resulting_impact || null,
-                links: linksStr,
-              }),
-            });
-            if (!res.ok) throw new Error("Failed to save result");
-            const saved: Result = await res.json();
-            updated.push({ ...row, id: saved.id, dirty: false });
-          } else if (row.id !== null && row.dirty) {
-            const res = await fetch("/api/results", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: row.id,
-                context: row.context || null,
-                data_driven_decision: row.data_driven_decision || null,
-                resulting_impact: row.resulting_impact || null,
-                links: linksStr,
-              }),
-            });
-            if (!res.ok) throw new Error(`Failed to save result ${row.id}`);
-            updated.push({ ...row, dirty: false });
-          } else {
-            updated.push(row);
-          }
-        }
-        setResultRows(updated);
-      } else if (params.section === "lessons" && reportId) {
-        const updated: LessonState[] = [];
-        for (const row of lessonRows) {
-          if (row.id === null && row.dirty) {
-            const res = await fetch("/api/lessons-learned", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                category: row.category || null,
-                lesson_learned: row.lesson_learned || null,
-                adjustment_informed: row.adjustment_informed || null,
-              }),
-            });
-            if (!res.ok) throw new Error("Failed to save lesson");
-            const saved: LessonLearned = await res.json();
-            updated.push({ ...row, id: saved.id, dirty: false });
-          } else if (row.id !== null && row.dirty) {
-            const res = await fetch("/api/lessons-learned", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: row.id,
-                category: row.category || null,
-                lesson_learned: row.lesson_learned || null,
-                adjustment_informed: row.adjustment_informed || null,
-              }),
-            });
-            if (!res.ok) throw new Error(`Failed to save lesson ${row.id}`);
-            updated.push({ ...row, dirty: false });
-          } else {
-            updated.push(row);
-          }
-        }
-        setLessonRows(updated);
-      } else if (params.section === "external-coverage" && reportId) {
-        const updated: CoverageState[] = [];
-        for (const row of coverageRows) {
-          const linksStr = row.links.filter((l) => l.trim()).join(",") || null;
-          if (row.id === null && row.dirty) {
-            const res = await fetch("/api/external-coverage", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                type: row.type || null,
-                description: row.description || null,
-                reach_indicator: row.reach_indicator || null,
-                links: linksStr,
-              }),
-            });
-            if (!res.ok) throw new Error("Failed to save coverage");
-            const saved: ExternalCoverage = await res.json();
-            updated.push({ ...row, id: saved.id, dirty: false });
-          } else if (row.id !== null && row.dirty) {
-            const res = await fetch("/api/external-coverage", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: row.id,
-                type: row.type || null,
-                description: row.description || null,
-                reach_indicator: row.reach_indicator || null,
-                links: linksStr,
-              }),
-            });
-            if (!res.ok) throw new Error(`Failed to save coverage ${row.id}`);
-            updated.push({ ...row, dirty: false });
-          } else {
-            updated.push(row);
-          }
-        }
-        setCoverageRows(updated);
+      } else if (params.section in SECTION_SPECS) {
+        await sectionRefs.current[params.section]?.save();
       } else if (params.section === "workplan") {
         await workplanRef.current?.save();
       }
@@ -1045,22 +450,13 @@ export default function PartnerReportEditorPage() {
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
-    params.section === "risk" ? loadingRisk :
-    params.section === "achievements" ? loadingKA :
-    params.section === "partnerships" ? loadingPartners :
-    params.section === "results" ? loadingResults :
-    params.section === "lessons" ? loadingLessons :
-    params.section === "external-coverage" ? loadingCoverage : false;
+    params.section === "risk" ? loadingRisk : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
-    params.section === "achievements" ? kaRows.some((r) => r.dirty) :
-    params.section === "partnerships" ? partnerRows.some((r) => r.dirty) :
-    params.section === "results" ? resultRows.some((r) => r.dirty) :
-    params.section === "lessons" ? lessonRows.some((r) => r.dirty) :
-    params.section === "external-coverage" ? coverageRows.some((r) => r.dirty) :
-    params.section === "workplan" ? workplanDirty : false;
+    params.section === "workplan" ? workplanDirty :
+    params.section in SECTION_SPECS ? (sectionDirty[params.section] ?? false) : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -1081,40 +477,11 @@ export default function PartnerReportEditorPage() {
     [risks, riskStates]
   );
 
-  const kaEmptyCount = useMemo(
-    () => kaRows.filter((r) => !r.achievement.trim()).length,
-    [kaRows]
-  );
-
-  const partnersEmptyCount = useMemo(
-    () => partnerRows.filter((r) => !r.partner_organization.trim()).length,
-    [partnerRows]
-  );
-
-  const resultsEmptyCount = useMemo(
-    () => resultRows.filter((r) => !r.context.trim()).length,
-    [resultRows]
-  );
-
-  const lessonsEmptyCount = useMemo(
-    () => lessonRows.filter((r) => !r.lesson_learned.trim()).length,
-    [lessonRows]
-  );
-
-  const coverageEmptyCount = useMemo(
-    () => coverageRows.filter((r) => !r.description.trim()).length,
-    [coverageRows]
-  );
-
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
     if (sec === "risk") return riskEmptyCount;
-    if (sec === "achievements") return kaEmptyCount;
-    if (sec === "partnerships") return partnersEmptyCount;
-    if (sec === "results") return resultsEmptyCount;
-    if (sec === "lessons") return lessonsEmptyCount;
-    if (sec === "external-coverage") return coverageEmptyCount;
+    if (sec in SECTION_SPECS) return sectionEmpty[sec] ?? 0;
     return 0;
   }
 
@@ -1569,413 +936,17 @@ export default function PartnerReportEditorPage() {
             </div>
           )
 
-        ) : params.section === "achievements" ? (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[35%]">{labels.keyAchievements.columns.achievement}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[35%]">{labels.keyAchievements.columns.significance}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-64">{labels.keyAchievements.columns.links}</th>
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-                <tr className="border-b bg-background">
-                  <td />
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.keyAchievements.remarks.achievement}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.keyAchievements.remarks.significance}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.keyAchievements.remarks.links}</td>
-                  <td />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {kaRows.map((row, i) => (
-                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
-                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.achievement}
-                        onChange={(e) => updateKARow(i, { achievement: e.target.value })}
-                        placeholder={labels.placeholders.achievement}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.significance}
-                        onChange={(e) => updateKARow(i, { significance: e.target.value })}
-                        placeholder={labels.placeholders.significance}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <MultiLinkInput
-                        links={row.links}
-                        onAdd={() => addKALink(i)}
-                        onRemove={(li) => removeKALink(i, li)}
-                        onUpdate={(li, val) => updateKALink(i, li, val)}
-                        placeholder={labels.placeholders.achievementLinks}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top text-center">
-                      <button
-                        onClick={() => deleteKARow(i, row.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Delete achievement"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {kaRows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      {labels.partnerEditor.emptyKeyAchievements}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            {kaRows.length < 3 && (
-              <div className="px-4 py-3 border-t">
-                <Button onClick={addKARow} variant="outline" size="sm" className="gap-1.5">
-                  <Plus className="size-3.5" /> {labels.partnerEditor.addAchievement}
-                </Button>
-              </div>
-            )}
-          </div>
-
-        ) : params.section === "partnerships" ? (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[28%]">{labels.partnerships.columns.partnerOrganization}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.partnerships.columns.result}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-64">{labels.partnerships.columns.links}</th>
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-                <tr className="border-b bg-background">
-                  <td />
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.partnerships.remarks.partnerOrganization}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.partnerships.remarks.result}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.partnerships.remarks.links}</td>
-                  <td />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {partnerRows.map((row, i) => (
-                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
-                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                    <td className="px-4 py-3 align-top">
-                      <Input
-                        value={row.partner_organization}
-                        onChange={(e) => updatePartnerRow(i, { partner_organization: e.target.value })}
-                        placeholder={labels.placeholders.partnerOrganization}
-                        className="text-sm"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.result}
-                        onChange={(e) => updatePartnerRow(i, { result: e.target.value })}
-                        placeholder={labels.placeholders.partnershipResult}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <MultiLinkInput
-                        links={row.links}
-                        onAdd={() => addPartnerLink(i)}
-                        onRemove={(li) => removePartnerLink(i, li)}
-                        onUpdate={(li, val) => updatePartnerLink(i, li, val)}
-                        placeholder={labels.placeholders.achievementLinks}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top text-center">
-                      <button
-                        onClick={() => deletePartnerRow(i, row.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Delete partner"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {partnerRows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      {labels.partnerEditor.emptyPartnerships}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            <div className="px-4 py-3 border-t">
-              <Button onClick={addPartnerRow} variant="outline" size="sm" className="gap-1.5">
-                <Plus className="size-3.5" /> {labels.partnerEditor.addPartner}
-              </Button>
-            </div>
-          </div>
-
-        ) : params.section === "results" ? (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[25%]">{labels.results.columns.context}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[25%]">{labels.results.columns.dataDrivenDecision}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[25%]">{labels.results.columns.resultingImpact}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-48">{labels.results.columns.links}</th>
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-                <tr className="border-b bg-background">
-                  <td />
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.context}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.dataDrivenDecision}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.resultingImpact}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.results.remarks.links}</td>
-                  <td />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {resultRows.map((row, i) => (
-                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
-                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.context}
-                        onChange={(e) => updateResultRow(i, { context: e.target.value })}
-                        placeholder={labels.placeholders.resultContext}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.data_driven_decision}
-                        onChange={(e) => updateResultRow(i, { data_driven_decision: e.target.value })}
-                        placeholder={labels.placeholders.dataDrivenDecision}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.resulting_impact}
-                        onChange={(e) => updateResultRow(i, { resulting_impact: e.target.value })}
-                        placeholder={labels.placeholders.resultingImpact}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <MultiLinkInput
-                        links={row.links}
-                        onAdd={() => addResultLink(i)}
-                        onRemove={(li) => removeResultLink(i, li)}
-                        onUpdate={(li, val) => updateResultLink(i, li, val)}
-                        placeholder={labels.placeholders.achievementLinks}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top text-center">
-                      {resultRows.length > 3 && (
-                        <button
-                          onClick={() => deleteResultRow(i, row.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="Delete result"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="px-4 py-3 border-t">
-              <Button onClick={addResultRow} variant="outline" size="sm" className="gap-1.5">
-                <Plus className="size-3.5" /> {labels.partnerEditor.addResult}
-              </Button>
-            </div>
-          </div>
-
-        ) : params.section === "lessons" ? (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{labels.lessons.columns.category}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[38%]">{labels.lessons.columns.lessonLearned}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.lessons.columns.adjustmentInformed}</th>
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-                <tr className="border-b bg-background">
-                  <td />
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.lessons.remarks.category}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.lessons.remarks.lessonLearned}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.lessons.remarks.adjustmentInformed}</td>
-                  <td />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {lessonRows.map((row, i) => (
-                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
-                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                    <td className="px-4 py-3 align-top">
-                      <Select
-                        value={row.category || "none"}
-                        onValueChange={(v) => updateLessonRow(i, { category: v === "none" ? "" : v })}
-                      >
-                        <SelectTrigger className="w-full h-9 text-sm">
-                          {row.category
-                            ? <span>{row.category}</span>
-                            : <span className="text-muted-foreground">Select…</span>}
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                          {labels.lessons.categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.lesson_learned}
-                        onChange={(e) => updateLessonRow(i, { lesson_learned: e.target.value })}
-                        placeholder="Briefly describe what your organization learned…"
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.adjustment_informed}
-                        onChange={(e) => updateLessonRow(i, { adjustment_informed: e.target.value })}
-                        placeholder="Explain what you changed or will change as a result…"
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top text-center">
-                      <button
-                        onClick={() => deleteLessonRow(i, row.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Delete lesson"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {lessonRows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      {labels.partnerEditor.emptyLessons}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            {lessonRows.length < 5 && (
-              <div className="px-4 py-3 border-t">
-                <Button onClick={addLessonRow} variant="outline" size="sm" className="gap-1.5">
-                  <Plus className="size-3.5" /> {labels.partnerEditor.addLesson}
-                </Button>
-              </div>
-            )}
-          </div>
-
-        ) : params.section === "external-coverage" ? (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{labels.externalCoverage.columns.type}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[28%]">{labels.externalCoverage.columns.description}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[20%]">{labels.externalCoverage.columns.reachIndicator}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-52">{labels.externalCoverage.columns.links}</th>
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-                <tr className="border-b bg-background">
-                  <td />
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.type}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.description}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.reachIndicator}</td>
-                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.externalCoverage.remarks.links}</td>
-                  <td />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {coverageRows.map((row, i) => (
-                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
-                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                    <td className="px-4 py-3 align-top">
-                      <Select
-                        value={row.type || "none"}
-                        onValueChange={(v) => updateCoverageRow(i, { type: v === "none" ? "" : v })}
-                      >
-                        <SelectTrigger className="w-full h-9 text-sm">
-                          {row.type
-                            ? <span>{row.type}</span>
-                            : <span className="text-muted-foreground">Select…</span>}
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                          {labels.externalCoverage.types.map((t) => (
-                            <SelectItem key={t} value={t}>{t}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.description}
-                        onChange={(e) => updateCoverageRow(i, { description: e.target.value })}
-                        placeholder={labels.placeholders.coverageDescription}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Textarea
-                        value={row.reach_indicator}
-                        onChange={(e) => updateCoverageRow(i, { reach_indicator: e.target.value })}
-                        placeholder={labels.placeholders.reachIndicator}
-                        className="text-sm min-h-[80px] resize-y"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <MultiLinkInput
-                        links={row.links}
-                        onAdd={() => addCoverageLink(i)}
-                        onRemove={(li) => removeCoverageLink(i, li)}
-                        onUpdate={(li, val) => updateCoverageLink(i, li, val)}
-                        placeholder={labels.placeholders.achievementLinks}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top text-center">
-                      {coverageRows.length > 3 && (
-                        <button
-                          onClick={() => deleteCoverageRow(i, row.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="Delete coverage"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="px-4 py-3 border-t">
-              <Button onClick={addCoverageRow} variant="outline" size="sm" className="gap-1.5">
-                <Plus className="size-3.5" /> {labels.partnerEditor.addCoverage}
-              </Button>
-            </div>
-          </div>
+        ) : params.section in SECTION_SPECS ? (
+          reportId ? (
+            <SectionTableEditor
+              key={params.section}
+              ref={(h) => { sectionRefs.current[params.section] = h; }}
+              reportId={reportId}
+              spec={SECTION_SPECS[params.section]}
+              onDirtyChange={handleSectionDirty}
+              onEmptyCountChange={handleSectionEmpty}
+            />
+          ) : null
 
         ) : params.section === "workplan" ? (
           reportId ? (

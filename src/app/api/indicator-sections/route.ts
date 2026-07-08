@@ -100,7 +100,7 @@ export async function PATCH(request: Request) {
          WHERE id = $4 AND report_id = $5`,
         [row.achieved_value || null, row.status || null, row.comment || null, row.id, report_id]
       );
-      updated += (result as unknown as { rowCount: number }).length >= 0 ? 1 : 0;
+      updated += (result as unknown as { rowCount: number }).rowCount >= 0 ? 1 : 0;
     }
 
     return NextResponse.json({ updated: rows.length });

@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  Printer,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -72,6 +73,29 @@ export function ReportCard({
   onDelete: () => void;
 }) {
   const router = useRouter();
+  const [printing, setPrinting] = useState(false);
+
+  async function handlePrint() {
+    setPrinting(true);
+    try {
+      const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
+      const response = await fetch(`/api/reports/${report.id}/pdf`);
+      if (!response.ok) throw new Error("Failed to generate PDF");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${report.project_short_name || "report"}_${report.year}_report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Print failed:", e);
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   return (
     <Card
@@ -81,14 +105,24 @@ export function ReportCard({
       }}
       className={`group relative flex flex-col gap-3 p-4 cursor-pointer transition-all border ${color.border} ${color.bg} hover:shadow-sm hover:brightness-[0.97]`}
     >
-      {/* Delete */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="absolute right-2.5 top-2.5 rounded p-1 text-muted-foreground/30 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-        title="Delete"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
+      {/* Print & Delete */}
+      <div className="absolute right-2.5 top-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); handlePrint(); }}
+          disabled={printing}
+          className="rounded p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors disabled:opacity-50"
+          title="Print to PDF"
+        >
+          {printing ? <Loader2 className="size-3.5 animate-spin" /> : <Printer className="size-3.5" />}
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="rounded p-1 text-muted-foreground/30 hover:text-destructive transition-colors"
+          title="Delete"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
 
       {/* Partner + type */}
       <div className="flex items-center gap-2 pr-6">

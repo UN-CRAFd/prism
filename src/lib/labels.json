@@ -2,12 +2,14 @@
   "sections": {
     "overview": "Overview",
     "surveys": "Surveys",
-    "risk": "Risk Management"
+    "risk": "Risk Management",
+    "keyAchievements": "Key Achievements"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
     "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
-    "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it."
+    "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
+    "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based."
   },
   "assessment": {
     "min": "Not at all",
@@ -68,6 +70,13 @@
     "implementingPartners": "Implementing Partners",
     "geographicScope": "Geographic Scope"
   },
+  "keyAchievements": {
+    "columns": {
+      "achievement": "Achievement",
+      "significance": "Significance",
+      "links": "Links"
+    }
+  },
   "placeholders": {
     "projectTitle": "Project title…",
     "mptfoProjectNumber": "e.g. MPTFO-2025-001",
@@ -83,7 +92,10 @@
     "approvedMitigation": "Approved mitigation…",
     "newSurveyQuestion": "New survey question…",
     "riskName": "Risk name…",
-    "riskCategories": "Categories (comma-separated)…"
+    "riskCategories": "Categories (comma-separated)…",
+    "achievement": "Describe the key achievement from this reporting period…",
+    "significance": "Explain why this achievement is significant to the project's goals…",
+    "achievementLinks": "https://…"
   },
   "partnerEditor": {
     "eyebrow": "PRISM V.0.1",
@@ -97,6 +109,8 @@
     "saved": "Saved",
     "emptySurveys": "No survey questions found for this report.",
     "emptyRisks": "No risks have been added to this report yet.",
+    "emptyKeyAchievements": "No key achievements added yet. Click below to add your first.",
+    "addAchievement": "Add achievement",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."
   },

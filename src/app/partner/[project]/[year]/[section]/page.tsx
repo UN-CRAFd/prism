@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown, Trash2, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import {
@@ -31,6 +31,7 @@ const SECTIONS = [
   { value: "overview", label: labels.sections.overview },
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
+  { value: "achievements", label: labels.sections.keyAchievements },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -142,6 +143,23 @@ interface RiskState {
   dirty: boolean;
 }
 
+interface KeyAchievement {
+  id: number;
+  report_id: number;
+  achievement: string | null;
+  significance: string | null;
+  links: string | null;
+  sort_order: number;
+}
+
+interface KAState {
+  id: number | null;
+  achievement: string;
+  significance: string;
+  links: string[];
+  dirty: boolean;
+}
+
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
   mptfo_project_number: "",
@@ -183,6 +201,9 @@ export default function PartnerReportEditorPage() {
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
   const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
+
+  const [kaRows, setKARows] = useState<KAState[]>([]);
+  const [loadingKA, setLoadingKA] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -270,6 +291,27 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
+  const loadKeyAchievements = useCallback(async (id: number) => {
+    setLoadingKA(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/achievements?reportId=${id}`);
+      if (!res.ok) throw new Error("Failed to load key achievements");
+      const data: KeyAchievement[] = await res.json();
+      setKARows(data.map((r) => ({
+        id: r.id,
+        achievement: r.achievement ?? "",
+        significance: r.significance ?? "",
+        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
+        dirty: false,
+      })));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoadingKA(false);
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -319,7 +361,8 @@ export default function PartnerReportEditorPage() {
     if (params.section === "surveys") loadSurveys(reportId);
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk]);
+    else if (params.section === "achievements") loadKeyAchievements(reportId);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -341,6 +384,45 @@ export default function PartnerReportEditorPage() {
   function updateRisk(id: number, patch: Partial<RiskState>) {
     setSaveSuccess(false);
     setRiskStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
+  }
+
+  function addKARow() {
+    if (kaRows.length >= 3) return;
+    setSaveSuccess(false);
+    setKARows((prev) => [...prev, { id: null, achievement: "", significance: "", links: [""], dirty: true }]);
+  }
+
+  function updateKARow(index: number, patch: Partial<KAState>) {
+    setSaveSuccess(false);
+    setKARows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
+  }
+
+  function addKALink(rowIndex: number) {
+    setSaveSuccess(false);
+    setKARows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
+    ));
+  }
+
+  function removeKALink(rowIndex: number, linkIndex: number) {
+    setSaveSuccess(false);
+    setKARows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
+    ));
+  }
+
+  function updateKALink(rowIndex: number, linkIndex: number, value: string) {
+    setSaveSuccess(false);
+    setKARows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
+    ));
+  }
+
+  async function deleteKARow(index: number, id: number | null) {
+    if (id !== null) {
+      await fetch(`/api/achievements?id=${id}`, { method: "DELETE" });
+    }
+    setKARows((prev) => prev.filter((_, i) => i !== index));
   }
 
   function toggleCollapse(id: number) {
@@ -399,6 +481,41 @@ export default function PartnerReportEditorPage() {
           for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
           return next;
         });
+      } else if (params.section === "achievements" && reportId) {
+        const updated: KAState[] = [];
+        for (const row of kaRows) {
+          if (row.id === null) {
+            const res = await fetch("/api/achievements", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId,
+                achievement: row.achievement || null,
+                significance: row.significance || null,
+                links: row.links.filter((l) => l.trim()).join(",") || null,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save achievement");
+            const saved: KeyAchievement = await res.json();
+            updated.push({ ...row, id: saved.id, dirty: false });
+          } else if (row.dirty) {
+            const res = await fetch("/api/achievements", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: row.id,
+                achievement: row.achievement || null,
+                significance: row.significance || null,
+                links: row.links.filter((l) => l.trim()).join(",") || null,
+              }),
+            });
+            if (!res.ok) throw new Error(`Failed to save achievement ${row.id}`);
+            updated.push({ ...row, dirty: false });
+          } else {
+            updated.push(row);
+          }
+        }
+        setKARows(updated);
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -414,11 +531,13 @@ export default function PartnerReportEditorPage() {
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
-    params.section === "risk" ? loadingRisk : false;
+    params.section === "risk" ? loadingRisk :
+    params.section === "achievements" ? loadingKA : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
-    params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) : false;
+    params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
+    params.section === "achievements" ? kaRows.some((r) => r.dirty) : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -439,10 +558,16 @@ export default function PartnerReportEditorPage() {
     [risks, riskStates]
   );
 
+  const kaEmptyCount = useMemo(
+    () => kaRows.filter((r) => !r.achievement.trim()).length,
+    [kaRows]
+  );
+
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
     if (sec === "risk") return riskEmptyCount;
+    if (sec === "achievements") return kaEmptyCount;
     return 0;
   }
 
@@ -896,6 +1021,96 @@ export default function PartnerReportEditorPage() {
               </table>
             </div>
           )
+
+        ) : params.section === "achievements" ? (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[35%]">{labels.keyAchievements.columns.achievement}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[35%]">{labels.keyAchievements.columns.significance}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-64">{labels.keyAchievements.columns.links}</th>
+                  <th className="w-10 px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {kaRows.map((row, i) => (
+                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.achievement}
+                        onChange={(e) => updateKARow(i, { achievement: e.target.value })}
+                        placeholder={labels.placeholders.achievement}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.significance}
+                        onChange={(e) => updateKARow(i, { significance: e.target.value })}
+                        placeholder={labels.placeholders.significance}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="space-y-1.5">
+                        {row.links.map((link, li) => (
+                          <div key={li} className="flex items-center gap-1.5">
+                            <Input
+                              value={link}
+                              onChange={(e) => updateKALink(i, li, e.target.value)}
+                              placeholder={labels.placeholders.achievementLinks}
+                              className="text-sm"
+                            />
+                            {row.links.length > 1 && (
+                              <button
+                                onClick={() => removeKALink(i, li)}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                                aria-label="Remove link"
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addKALink(i)}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors pt-0.5"
+                        >
+                          <Plus className="size-3" /> Add link
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-top text-center">
+                      <button
+                        onClick={() => deleteKARow(i, row.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Delete achievement"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {kaRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      {labels.partnerEditor.emptyKeyAchievements}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {kaRows.length < 3 && (
+              <div className="px-4 py-3 border-t">
+                <Button onClick={addKARow} variant="outline" size="sm" className="gap-1.5">
+                  <Plus className="size-3.5" /> {labels.partnerEditor.addAchievement}
+                </Button>
+              </div>
+            )}
+          </div>
 
         ) : (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">

@@ -3,13 +3,15 @@
     "overview": "Overview",
     "surveys": "Surveys",
     "risk": "Risk Management",
-    "keyAchievements": "Key Achievements"
+    "keyAchievements": "Key Achievements",
+    "partnerships": "Partnerships"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
     "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
     "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
-    "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based."
+    "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based.",
+    "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence."
   },
   "assessment": {
     "min": "Not at all",
@@ -82,6 +84,18 @@
       "links": "Provide direct links to reports, tools, dashboards, articles, or other materials that demonstrate or document the achievement."
     }
   },
+  "partnerships": {
+    "columns": {
+      "partnerOrganization": "Partner Organization",
+      "result": "Result of the Partnership",
+      "links": "Links"
+    },
+    "remarks": {
+      "partnerOrganization": "List the organization that contributed as an implementing, counterpart, or ecosystem partner to the project.",
+      "result": "Briefly describe what improved or changed because of the partnership, including concrete outputs or outcomes (e.g. better data, wider access, shared standards). For example: The organization collaborated with two additional data partners to deliver multi-sectoral needs assessments; during the 2026 humanitarian planning cycle, the partners aligned their data collection approaches and developed a standardized implementation package that will be integrated into their API in future iterations, improving consistency and reuse of data.",
+      "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
+    }
+  },
   "placeholders": {
     "projectTitle": "Project title…",
     "mptfoProjectNumber": "e.g. MPTFO-2025-001",
@@ -100,7 +114,9 @@
     "riskCategories": "Categories (comma-separated)…",
     "achievement": "Describe the key achievement from this reporting period…",
     "significance": "Explain why this achievement is significant to the project's goals…",
-    "achievementLinks": "https://…"
+    "achievementLinks": "https://…",
+    "partnerOrganization": "Organization name…",
+    "partnershipResult": "Describe what improved or changed because of the partnership…"
   },
   "partnerEditor": {
     "eyebrow": "PRISM V.0.1",
@@ -116,6 +132,8 @@
     "emptyRisks": "No risks have been added to this report yet.",
     "emptyKeyAchievements": "No key achievements added yet. Click below to add your first.",
     "addAchievement": "Add achievement",
+    "emptyPartnerships": "No partnerships added yet. Click below to add your first.",
+    "addPartner": "Add partner",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."
   },

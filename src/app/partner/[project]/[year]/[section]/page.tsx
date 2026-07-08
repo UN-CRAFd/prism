@@ -32,6 +32,7 @@ const SECTIONS = [
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
   { value: "achievements", label: labels.sections.keyAchievements },
+  { value: "partnerships", label: labels.sections.partnerships },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -73,6 +74,44 @@ function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; imp
 
 function Label({ children }: { children: string }) {
   return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
+}
+
+function MultiLinkInput({ links, onAdd, onRemove, onUpdate, placeholder }: {
+  links: string[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {links.map((link, li) => (
+        <div key={li} className="flex items-center gap-1.5">
+          <Input
+            value={link}
+            onChange={(e) => onUpdate(li, e.target.value)}
+            placeholder={placeholder}
+            className="text-sm"
+          />
+          {links.length > 1 && (
+            <button
+              onClick={() => onRemove(li)}
+              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              aria-label="Remove link"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        onClick={onAdd}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors pt-0.5"
+      >
+        <Plus className="size-3" /> Add link
+      </button>
+    </div>
+  );
 }
 
 interface Report {
@@ -160,6 +199,23 @@ interface KAState {
   dirty: boolean;
 }
 
+interface Partnership {
+  id: number;
+  report_id: number;
+  partner_organization: string | null;
+  result: string | null;
+  links: string | null;
+  sort_order: number;
+}
+
+interface PartnershipState {
+  id: number | null;
+  partner_organization: string;
+  result: string;
+  links: string[];
+  dirty: boolean;
+}
+
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
   mptfo_project_number: "",
@@ -204,6 +260,9 @@ export default function PartnerReportEditorPage() {
 
   const [kaRows, setKARows] = useState<KAState[]>([]);
   const [loadingKA, setLoadingKA] = useState(false);
+
+  const [partnerRows, setPartnerRows] = useState<PartnershipState[]>([]);
+  const [loadingPartners, setLoadingPartners] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -312,6 +371,27 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
+  const loadPartnerships = useCallback(async (id: number) => {
+    setLoadingPartners(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/partnerships?reportId=${id}`);
+      if (!res.ok) throw new Error("Failed to load partnerships");
+      const data: Partnership[] = await res.json();
+      setPartnerRows(data.map((r) => ({
+        id: r.id,
+        partner_organization: r.partner_organization ?? "",
+        result: r.result ?? "",
+        links: r.links ? r.links.split(",").map((l) => l.trim()).filter(Boolean) : [""],
+        dirty: false,
+      })));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoadingPartners(false);
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -362,7 +442,8 @@ export default function PartnerReportEditorPage() {
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
     else if (params.section === "achievements") loadKeyAchievements(reportId);
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements]);
+    else if (params.section === "partnerships") loadPartnerships(reportId);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadKeyAchievements, loadPartnerships]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -423,6 +504,44 @@ export default function PartnerReportEditorPage() {
       await fetch(`/api/achievements?id=${id}`, { method: "DELETE" });
     }
     setKARows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addPartnerRow() {
+    setSaveSuccess(false);
+    setPartnerRows((prev) => [...prev, { id: null, partner_organization: "", result: "", links: [""], dirty: true }]);
+  }
+
+  function updatePartnerRow(index: number, patch: Partial<PartnershipState>) {
+    setSaveSuccess(false);
+    setPartnerRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch, dirty: true } : r));
+  }
+
+  function addPartnerLink(rowIndex: number) {
+    setSaveSuccess(false);
+    setPartnerRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: [...r.links, ""], dirty: true } : r
+    ));
+  }
+
+  function removePartnerLink(rowIndex: number, linkIndex: number) {
+    setSaveSuccess(false);
+    setPartnerRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.filter((_, li) => li !== linkIndex), dirty: true } : r
+    ));
+  }
+
+  function updatePartnerLink(rowIndex: number, linkIndex: number, value: string) {
+    setSaveSuccess(false);
+    setPartnerRows((prev) => prev.map((r, i) =>
+      i === rowIndex ? { ...r, links: r.links.map((l, li) => li === linkIndex ? value : l), dirty: true } : r
+    ));
+  }
+
+  async function deletePartnerRow(index: number, id: number | null) {
+    if (id !== null) {
+      await fetch(`/api/partnerships?id=${id}`, { method: "DELETE" });
+    }
+    setPartnerRows((prev) => prev.filter((_, i) => i !== index));
   }
 
   function toggleCollapse(id: number) {
@@ -516,6 +635,42 @@ export default function PartnerReportEditorPage() {
           }
         }
         setKARows(updated);
+      } else if (params.section === "partnerships" && reportId) {
+        const updated: PartnershipState[] = [];
+        for (const row of partnerRows) {
+          const linksStr = row.links.filter((l) => l.trim()).join(",") || null;
+          if (row.id === null) {
+            const res = await fetch("/api/partnerships", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId,
+                partner_organization: row.partner_organization || null,
+                result: row.result || null,
+                links: linksStr,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save partner");
+            const saved: Partnership = await res.json();
+            updated.push({ ...row, id: saved.id, dirty: false });
+          } else if (row.dirty) {
+            const res = await fetch("/api/partnerships", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: row.id,
+                partner_organization: row.partner_organization || null,
+                result: row.result || null,
+                links: linksStr,
+              }),
+            });
+            if (!res.ok) throw new Error(`Failed to save partner ${row.id}`);
+            updated.push({ ...row, dirty: false });
+          } else {
+            updated.push(row);
+          }
+        }
+        setPartnerRows(updated);
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -532,12 +687,14 @@ export default function PartnerReportEditorPage() {
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
     params.section === "risk" ? loadingRisk :
-    params.section === "achievements" ? loadingKA : false;
+    params.section === "achievements" ? loadingKA :
+    params.section === "partnerships" ? loadingPartners : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
-    params.section === "achievements" ? kaRows.some((r) => r.dirty) : false;
+    params.section === "achievements" ? kaRows.some((r) => r.dirty) :
+    params.section === "partnerships" ? partnerRows.some((r) => r.dirty) : false;
   const notFound = !loadingReports && !selectedReport;
 
   const overviewEmptyCount = useMemo(() => {
@@ -563,11 +720,17 @@ export default function PartnerReportEditorPage() {
     [kaRows]
   );
 
+  const partnersEmptyCount = useMemo(
+    () => partnerRows.filter((r) => !r.partner_organization.trim()).length,
+    [partnerRows]
+  );
+
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
     if (sec === "risk") return riskEmptyCount;
     if (sec === "achievements") return kaEmptyCount;
+    if (sec === "partnerships") return partnersEmptyCount;
     return 0;
   }
 
@@ -1062,33 +1225,13 @@ export default function PartnerReportEditorPage() {
                       />
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="space-y-1.5">
-                        {row.links.map((link, li) => (
-                          <div key={li} className="flex items-center gap-1.5">
-                            <Input
-                              value={link}
-                              onChange={(e) => updateKALink(i, li, e.target.value)}
-                              placeholder={labels.placeholders.achievementLinks}
-                              className="text-sm"
-                            />
-                            {row.links.length > 1 && (
-                              <button
-                                onClick={() => removeKALink(i, li)}
-                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                                aria-label="Remove link"
-                              >
-                                <X className="size-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => addKALink(i)}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors pt-0.5"
-                        >
-                          <Plus className="size-3" /> Add link
-                        </button>
-                      </div>
+                      <MultiLinkInput
+                        links={row.links}
+                        onAdd={() => addKALink(i)}
+                        onRemove={(li) => removeKALink(i, li)}
+                        onUpdate={(li, val) => updateKALink(i, li, val)}
+                        placeholder={labels.placeholders.achievementLinks}
+                      />
                     </td>
                     <td className="px-4 py-3 align-top text-center">
                       <button
@@ -1117,6 +1260,81 @@ export default function PartnerReportEditorPage() {
                 </Button>
               </div>
             )}
+          </div>
+
+        ) : params.section === "partnerships" ? (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-[28%]">{labels.partnerships.columns.partnerOrganization}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.partnerships.columns.result}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-64">{labels.partnerships.columns.links}</th>
+                  <th className="w-10 px-4 py-3" />
+                </tr>
+                <tr className="border-b bg-background">
+                  <td />
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.partnerships.remarks.partnerOrganization}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.partnerships.remarks.result}</td>
+                  <td className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">{labels.partnerships.remarks.links}</td>
+                  <td />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {partnerRows.map((row, i) => (
+                  <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                    <td className="px-4 py-3 align-top">
+                      <Input
+                        value={row.partner_organization}
+                        onChange={(e) => updatePartnerRow(i, { partner_organization: e.target.value })}
+                        placeholder={labels.placeholders.partnerOrganization}
+                        className="text-sm"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Textarea
+                        value={row.result}
+                        onChange={(e) => updatePartnerRow(i, { result: e.target.value })}
+                        placeholder={labels.placeholders.partnershipResult}
+                        className="text-sm min-h-[80px] resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <MultiLinkInput
+                        links={row.links}
+                        onAdd={() => addPartnerLink(i)}
+                        onRemove={(li) => removePartnerLink(i, li)}
+                        onUpdate={(li, val) => updatePartnerLink(i, li, val)}
+                        placeholder={labels.placeholders.achievementLinks}
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top text-center">
+                      <button
+                        onClick={() => deletePartnerRow(i, row.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Delete partner"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {partnerRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      {labels.partnerEditor.emptyPartnerships}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            <div className="px-4 py-3 border-t">
+              <Button onClick={addPartnerRow} variant="outline" size="sm" className="gap-1.5">
+                <Plus className="size-3.5" /> {labels.partnerEditor.addPartner}
+              </Button>
+            </div>
           </div>
 
         ) : (

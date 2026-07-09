@@ -186,7 +186,7 @@ export const ExpenditurePartnerEditor = forwardRef<
     const expT = withIndirect(sumExpTotal, mult);
     const bg = strong ? "bg-neutral-100" : "bg-neutral-50";
     return (
-      <tr className={cn("border-t", strong && "font-semibold")}>
+      <tr className={cn("border-t", bg, strong && "font-semibold")}>
         <td style={fz("cat")} className={cn("px-3 py-2 text-sm border-r border-t", bg)}>{label}</td>
         <td style={fz("app")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={appT} kind="approved" /></td>
         <td style={fz("exp")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
@@ -203,40 +203,36 @@ export const ExpenditurePartnerEditor = forwardRef<
   }
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-t-xl border border-b-0 bg-crafd-yellow/90 px-4 py-2">
-        <p className="text-sm font-bold">Expenditure reporting <span className="font-normal text-neutral-700">[USD]</span></p>
-      </div>
-      <div className="overflow-x-auto rounded-b-xl border -mt-3">
-        <table className="text-sm border-separate border-spacing-0" style={{ minWidth: FROZEN_WIDTH }}>
-          <thead>
-            <tr className="text-xs">
-              <th rowSpan={2} style={fz("cat", 30)} className="text-left px-3 py-2 font-semibold text-muted-foreground border-r border-b bg-neutral-100 align-bottom">Budget categories</th>
-              <th colSpan={3} style={{ position: "sticky", left: FCOL.app.left, zIndex: 30 }} className="px-2 py-2 text-center font-semibold border-b bg-neutral-100">Total</th>
-              {years.map((y) => (
-                <th key={y} colSpan={4} className={cn("px-2 py-2 text-center font-semibold border-l border-b bg-muted/40", y === currentYear && "bg-crafd-yellow/30")}>{y}</th>
-              ))}
-            </tr>
-            <tr className="text-[11px] text-muted-foreground">
-              <th style={fz("app", 30)} className="px-2 py-1.5 text-right font-medium border-b bg-neutral-100">Approved total budget</th>
-              <th style={fz("exp", 30)} className="px-2 py-1.5 text-right font-medium border-b bg-neutral-100">Total expenditure</th>
-              <th style={fz("diff", 30)} className="px-2 py-1.5 text-right font-medium border-r border-b bg-neutral-100">Difference</th>
-              {years.map((y) => (
-                <FragmentYearHead key={y} current={y === currentYear} />
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((c) => {
-              const appT = approvedTotal(c.id);
-              const expT = totalExp(c.id);
-              return (
-                <tr key={c.id}>
-                  <td style={fz("cat")} className="px-3 py-2 border-r border-t bg-white">{c.name}</td>
-                  <td style={fz("app")} className="px-2 py-2 text-right border-t bg-white"><Num value={appT} kind="approved" /></td>
-                  <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-white"><Num value={expT} /></td>
-                  <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-white"><Num value={expT - appT} kind="diff" /></td>
-                  {years.map((y) => {
+    <div className="overflow-x-auto rounded-xl border bg-card">
+      <table className="text-sm border-separate border-spacing-0" style={{ minWidth: FROZEN_WIDTH }}>
+        <thead>
+          <tr className="text-xs">
+            <th rowSpan={2} style={fz("cat", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">Budget categories</th>
+            <th colSpan={3} style={{ position: "sticky", left: FCOL.app.left, zIndex: 30 }} className="px-2 py-2 text-center font-semibold text-muted-foreground border-r border-b bg-neutral-100">Total</th>
+            {years.map((y) => (
+              <th key={y} colSpan={4} className={cn("px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b", y === currentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")}>{y}</th>
+            ))}
+          </tr>
+          <tr className="text-[11px] text-muted-foreground">
+            <th style={fz("app", 30)} className="px-2 py-1.5 text-right font-medium border-b bg-neutral-50">Approved total budget</th>
+            <th style={fz("exp", 30)} className="px-2 py-1.5 text-right font-medium border-b bg-neutral-50">Total expenditure</th>
+            <th style={fz("diff", 30)} className="px-2 py-1.5 text-right font-medium border-r border-b bg-neutral-50">Difference</th>
+            {years.map((y) => (
+              <FragmentYearHead key={y} current={y === currentYear} />
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {categories.map((c) => {
+            const appT = approvedTotal(c.id);
+            const expT = totalExp(c.id);
+            return (
+              <tr key={c.id}>
+                <td style={fz("cat")} className="px-3 py-2 border-r border-t bg-card">{c.name}</td>
+                <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="approved" /></td>
+                <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} /></td>
+                <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={expT - appT} kind="diff" /></td>
+                {years.map((y) => {
                     const editable = y === currentYear;
                     const ap = budFor(y, c.id);
                     const ex = expFor(y, c.id);
@@ -263,7 +259,6 @@ export const ExpenditurePartnerEditor = forwardRef<
           </tbody>
         </table>
       </div>
-    </div>
   );
 });
 
@@ -271,10 +266,10 @@ export const ExpenditurePartnerEditor = forwardRef<
 function FragmentYearHead({ current }: { current: boolean }) {
   return (
     <>
-      <th className={cn("px-2 py-1.5 text-right font-medium border-l border-b min-w-[100px]", current ? "bg-crafd-yellow/20" : "bg-muted/20")}>Approved annual budget</th>
-      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[100px]", current ? "bg-crafd-yellow/20" : "bg-muted/20")}>Annual expenditure</th>
-      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[90px]", current ? "bg-crafd-yellow/20" : "bg-muted/20")}>Difference</th>
-      <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[160px]", current ? "bg-crafd-yellow/20" : "bg-muted/20")}>Comment</th>
+      <th className={cn("px-2 py-1.5 text-right font-medium border-l border-b min-w-[100px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Approved annual budget</th>
+      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[100px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Annual expenditure</th>
+      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[90px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Difference</th>
+      <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[160px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Comment</th>
     </>
   );
 }

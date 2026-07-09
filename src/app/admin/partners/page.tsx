@@ -26,6 +26,21 @@ interface Partner {
   projects: { id: number; project_title: string; short_name: string | null }[];
 }
 
+// -- Sub-components ---------------------------------------------------------
+
+function PartnerLogo({ shortName }: { shortName: string | null }) {
+  const [errored, setErrored] = useState(false);
+  if (!shortName || errored) return <Building2 className="size-10 text-muted-foreground/40" />;
+  return (
+    <img
+      src={`/logos/${shortName.toLowerCase()}.webp`}
+      alt={shortName}
+      className="w-full h-auto object-contain max-h-16"
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
 // -- Page -------------------------------------------------------------------
 
 export default function PartnersPage() {

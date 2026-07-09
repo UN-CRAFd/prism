@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -15,14 +16,16 @@ import {
   CalendarDays,
   Building2,
   Layers,
+  Plus,
 } from "lucide-react";
+import { PageHeader } from "@/components/admin/shared";
 import {
   ReportRow,
   Project,
   GroupMode,
   GROUP_COLORS,
   ReportCard,
-  CreateReportSection,
+  CreateReportForm,
 } from "@/components/admin/report-components";
 
 export default function ReportsPage() {
@@ -31,6 +34,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groupMode, setGroupMode] = useState<GroupMode>("year");
+  const [showForm, setShowForm] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -74,25 +78,22 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold font-qanelas">Reports</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Create and manage reporting periods for projects
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Layers className="size-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Group by</span>
-          <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
-            <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="year">Year</SelectItem>
-              <SelectItem value="organization">Organization</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <PageHeader title="Reports" description="Create and manage reporting periods for projects">
+        <Layers className="size-4 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">Group by</span>
+        <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
+          <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="year">Year</SelectItem>
+            <SelectItem value="organization">Organization</SelectItem>
+          </SelectContent>
+        </Select>
+        {!showForm && (
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="size-3.5" /> Add report
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
         {error && (
@@ -101,16 +102,13 @@ export default function ReportsPage() {
           </div>
         )}
 
-        <CreateReportSection
+        <CreateReportForm
+          open={showForm}
+          onClose={() => setShowForm(false)}
           projects={projects}
           dataType="report"
           onRefresh={loadData}
-          labels={{
-            title: "Add a report",
-            description: "Create a single report for one project, or an annual report for all projects.",
-            individual: "Individual Report",
-            annual: "Annual Report",
-          }}
+          title="New report"
         />
 
         {loading ? (

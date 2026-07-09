@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -15,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus,
   Trash2,
   Loader2,
   CheckCircle2,
@@ -24,6 +21,7 @@ import {
   Printer,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { Field, FormShell } from "@/components/admin/shared";
 
 const YEARS = [2023, 2024, 2025, 2026];
 
@@ -170,21 +168,23 @@ export function ReportCard({
   );
 }
 
-export function CreateReportSection({
+export function CreateReportForm({
+  open,
+  onClose,
   projects,
   dataType,
   onRefresh,
-  labels,
+  title,
 }: {
+  open: boolean;
+  onClose: () => void;
   projects: Project[];
   dataType: "report" | "prodoc";
   onRefresh: () => void;
-  labels?: { individual?: string; annual?: string; title?: string; description?: string };
+  title: string;
 }) {
-  const [mode, setMode] = useState<"individual" | "annual" | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [projectId, setProjectId] = useState<string>("");
   const [year, setYear] = useState<string>(String(YEARS[YEARS.length - 1]));
@@ -192,7 +192,6 @@ export function CreateReportSection({
   const [reportType, setReportType] = useState<string>("annual");
 
   function reset() {
-    setMode(null);
     setProjectId("");
     setYear(String(YEARS[YEARS.length - 1]));
     setSubmissionDate("");
@@ -200,19 +199,25 @@ export function CreateReportSection({
     setFormError(null);
   }
 
+  function handleClose() {
+    reset();
+    onClose();
+  }
+
   async function handleSubmit() {
     setFormError(null);
-    setSuccessMsg(null);
-
+    if (!projectId) { setFormError("Please select a project"); return; }
     if (!year) { setFormError("Year is required"); return; }
-    if (mode === "individual" && !projectId) { setFormError("Please select a project"); return; }
 
     setSaving(true);
     try {
-      const body =
-        mode === "annual"
-          ? { year: Number(year), annual: true, report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType }
-          : { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType };
+      const body = {
+        project_id: Number(projectId),
+        year: Number(year),
+        report_submission_date: submissionDate || null,
+        data_type: dataType,
+        report_type: reportType,
+      };
 
       const res = await fetch("/api/reports", {
         method: "POST",
@@ -225,14 +230,8 @@ export function CreateReportSection({
         throw new Error(data.error || "Failed to create");
       }
 
-      if (mode === "annual") {
-        const data = await res.json();
-        setSuccessMsg(`Created ${data.created}${data.skipped ? `, skipped ${data.skipped} existing` : ""}.`);
-      } else {
-        setSuccessMsg("Created successfully.");
-      }
-
       reset();
+      onClose();
       onRefresh();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Unknown error");
@@ -241,114 +240,71 @@ export function CreateReportSection({
     }
   }
 
-  const individualLabel = labels?.individual ?? "Individual";
-  const annualLabel = labels?.annual ?? "Annual (all projects)";
-  const title = labels?.title ?? "Add a report";
-  const description = labels?.description ?? "Create a single report for one project, or an annual report for all projects.";
+  if (!open) return null;
 
   return (
-    <Card className="p-5">
-      {successMsg && (
-        <div className="mb-4 rounded-md border border-green-500/30 bg-green-500/5 px-3 py-2 text-sm text-green-700">
-          {successMsg}
-        </div>
-      )}
+    <FormShell
+      title={title}
+      onClose={handleClose}
+      error={formError}
+      saving={saving}
+      editMode={false}
+      onCancel={handleClose}
+      onSubmit={handleSubmit}
+    >
+      <div className="space-y-4">
+        <div className={`grid w-full gap-4 ${dataType === "report" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
+          <Field label="Project" required>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger className="w-full [&>span]:truncate [&>span]:block">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.partner_short_name} — {p.project_title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-      {mode === null ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex-1">
-            <p className="text-sm font-semibold">{title}</p>
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setMode("individual"); setSuccessMsg(null); }}>
-              <Plus className="size-4" /> {individualLabel}
-            </Button>
-            <Button
-              onClick={() => { setMode("annual"); setSuccessMsg(null); }}
-              className="bg-crafd-yellow text-black hover:bg-crafd-yellow/90"
-            >
-              <Plus className="size-4" /> {annualLabel}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {formError && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              {formError}
-            </div>
-          )}
-
-          <div className="flex items-end gap-2 w-full">
-            {mode === "individual" && (
-              <div className="space-y-1.5 flex-1 min-w-0">
-                <Label className="text-xs">Project *</Label>
-                <Select value={projectId} onValueChange={setProjectId}>
-                  <SelectTrigger className="w-full [&>span]:truncate [&>span]:block">
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.partner_short_name} — {p.project_title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {mode === "annual" && (
-              <p className="text-xs text-muted-foreground pb-2.5 flex-1">
-                Creates one entry for every project for {year}. Existing ones are skipped.
-              </p>
-            )}
-
-            <div className="space-y-1.5 shrink-0">
-              <Label className="text-xs">Report Type *</Label>
+          {dataType === "report" && (
+            <Field label="Report type" required>
               <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="annual">Annual</SelectItem>
                   <SelectItem value="final">Final</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
+          )}
 
-            <div className="space-y-1.5 shrink-0">
-              <Label className="text-xs">Year *</Label>
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Field label="Year" required>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {YEARS.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <div className="space-y-1.5 shrink-0">
-              <Label className="text-xs">Submission Date</Label>
+          {dataType === "report" && (
+            <Field label="Submission date">
               <Input
                 type="date"
-                className="w-36"
+                className="w-full"
                 placeholder="dd/mm/yyyy"
                 value={submissionDate}
                 onChange={(e) => setSubmissionDate(e.target.value)}
               />
-            </div>
-
-            <div className="flex gap-2 shrink-0 pb-px">
-              <Button variant="outline" onClick={reset} disabled={saving}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={saving}>
-                {saving && <Loader2 className="size-4 animate-spin" />}
-                {mode === "annual" ? `Create All` : "Create"}
-              </Button>
-            </div>
-          </div>
+            </Field>
+          )}
         </div>
-      )}
-    </Card>
+      </div>
+    </FormShell>
   );
 }

@@ -5,8 +5,10 @@ export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Printer, Pencil, Trash2, CalendarDays, CheckCircle2, Circle } from "lucide-react";
-import { ReportRow, Project, CreateReportSection } from "@/components/admin/report-components";
+import { Button } from "@/components/ui/button";
+import { Loader2, Printer, Pencil, Trash2, CalendarDays, CheckCircle2, Circle, Plus } from "lucide-react";
+import { PageHeader } from "@/components/admin/shared";
+import { ReportRow, Project, CreateReportForm } from "@/components/admin/report-components";
 
 function ProDocCard({
   doc,
@@ -75,6 +77,7 @@ export default function ProDocPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -111,12 +114,13 @@ export default function ProDocPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
-        <h1 className="text-2xl font-bold font-qanelas">Project Documents</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Create and manage project documents
-        </p>
-      </div>
+      <PageHeader title="Project Documents" description="Create and manage project documents">
+        {!showForm && (
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="size-3.5" /> Add project document
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
         {error && (
@@ -125,16 +129,13 @@ export default function ProDocPage() {
           </div>
         )}
 
-        <CreateReportSection
+        <CreateReportForm
+          open={showForm}
+          onClose={() => setShowForm(false)}
           projects={projects}
           dataType="prodoc"
           onRefresh={loadData}
-          labels={{
-            title: "Add a project document",
-            description: "Create a project document for one project, or create one for all projects at once.",
-            individual: "Individual Document",
-            annual: "All Projects",
-          }}
+          title="New project document"
         />
 
         {loading ? (

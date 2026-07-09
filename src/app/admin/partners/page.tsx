@@ -9,9 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Building2, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Building2, ExternalLink } from "lucide-react";
 import {
-  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions,
+  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
 
 // -- Types ------------------------------------------------------------------
@@ -122,20 +122,14 @@ export default function PartnersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold font-qanelas">Partners</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage partner organizations</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ViewToggle view={view} onChange={setView} />
-          {!showForm && (
-            <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
-              <Plus className="size-3.5" /> Add partner
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader title="Partners" description="Manage partner organizations">
+        <ViewToggle view={view} onChange={setView} />
+        {!showForm && (
+          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
+            <Plus className="size-3.5" /> Add partner
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="flex-1 overflow-auto px-8 py-6">
         {error && <ErrorBanner message={error} />}
@@ -237,28 +231,7 @@ export default function PartnersPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold leading-snug line-clamp-2">{p.long_name || "—"}</p>
                     </div>
-                    <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEdit(p);
-                        }}
-                        className="p-1.5 hover:bg-accent rounded transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="size-4 text-muted-foreground" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(p.id);
-                        }}
-                        className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-                      </button>
-                    </div>
+                    <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
                   </div>
                   <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
                     {p.organization_website && (

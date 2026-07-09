@@ -171,7 +171,7 @@ function ImportPanel() {
                 className={cn(
                   "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
                   section === s.value
-                    ? "bg-background shadow-sm text-foreground"
+                    ? "bg-background text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >

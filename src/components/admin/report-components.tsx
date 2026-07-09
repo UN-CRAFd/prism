@@ -63,12 +63,12 @@ export const GROUP_COLORS = [
 
 export function ReportCard({
   report,
-  color,
   onDelete,
+  groupMode = "year",
 }: {
   report: ReportRow;
-  color: typeof GROUP_COLORS[number];
   onDelete: () => void;
+  groupMode?: GroupMode;
 }) {
   const router = useRouter();
   const [printing, setPrinting] = useState(false);
@@ -76,7 +76,6 @@ export function ReportCard({
   async function handlePrint() {
     setPrinting(true);
     try {
-      const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
       const response = await fetch(`/api/reports/${report.id}/pdf`);
       if (!response.ok) throw new Error("Failed to generate PDF");
       const blob = await response.blob();
@@ -101,7 +100,7 @@ export function ReportCard({
         const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
         router.push(`/admin/report-editor/${slug}/${report.year}/surveys`);
       }}
-      className={`group relative flex flex-col gap-3 p-4 cursor-pointer transition-all border ${color.border} ${color.bg} hover:shadow-sm hover:brightness-[0.97]`}
+      className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
     >
       {/* Print & Delete */}
       <div className="absolute right-2.5 top-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -122,14 +121,14 @@ export function ReportCard({
         </button>
       </div>
 
-      {/* Partner + type */}
+      {/* Partner/year + type */}
       <div className="flex items-center gap-2 pr-6">
-        <Badge variant="outline" className={`text-[11px] font-semibold border ${color.border} ${color.label} bg-transparent`}>
-          {report.partner_short_name}
+        <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
+          {groupMode === "organization" ? report.year : report.partner_short_name}
         </Badge>
-        <span className="text-[11px] text-muted-foreground capitalize">
+        <Badge variant="secondary" className="text-[11px] font-semibold capitalize">
           {report.report_type ?? "annual"}
-        </span>
+        </Badge>
       </div>
 
       {/* Project title */}
@@ -137,11 +136,6 @@ export function ReportCard({
         <p className="text-sm font-semibold leading-snug line-clamp-2">
           {report.project_title}
         </p>
-        {report.project_short_name && (
-          <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-            {report.project_short_name}
-          </p>
-        )}
       </div>
 
       {/* Footer: status + date + arrow */}

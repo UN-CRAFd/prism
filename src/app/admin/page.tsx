@@ -39,36 +39,40 @@ interface StatsData {
 
 const quickLinks = [
   {
-    href: "/admin/reports",
-    label: "Reports",
-    description: "Manage reporting periods",
-    icon: ClipboardList,
-    card: "bg-blue-50 border-blue-200 text-blue-700",
-    iconClass: "text-blue-500",
-  },
-  {
     href: "/admin/partners",
     label: "Partners",
     description: "Manage partner organizations",
     icon: Building2,
     card: "bg-amber-50 border-amber-200 text-amber-700",
     iconClass: "text-amber-500",
+    countKey: "totalPartners" as const,
   },
   {
     href: "/admin/projects",
     label: "Projects",
     description: "Manage project entries",
     icon: FolderKanban,
-    card: "bg-emerald-50 border-emerald-200 text-emerald-700",
-    iconClass: "text-emerald-500",
+    card: "bg-amber-50 border-amber-200 text-amber-700",
+    iconClass: "text-amber-500",
+    countKey: "totalProjects" as const,
   },
   {
     href: "/admin/prodoc",
     label: "Project Documents",
     description: "Manage project documents",
     icon: FileStack,
-    card: "bg-rose-50 border-rose-200 text-rose-700",
-    iconClass: "text-rose-500",
+    card: "bg-amber-50 border-amber-200 text-amber-700",
+    iconClass: "text-amber-500",
+    countKey: null,
+  },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    description: "Manage reporting periods",
+    icon: ClipboardList,
+    card: "bg-amber-50 border-amber-200 text-amber-700",
+    iconClass: "text-amber-500",
+    countKey: "totalReports" as const,
   },
 ];
 
@@ -162,20 +166,32 @@ export default function AdminHomePage() {
         {/* Quick access */}
         <div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            {quickLinks.map(({ href, label, description, icon: Icon, card, iconClass }) => (
-              <button
-                key={href}
-                onClick={() => router.push(href)}
-                className={`group rounded-xl border p-5 text-left transition-colors hover:bg-opacity-80 cursor-pointer ${card}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <Icon className={`size-5 ${iconClass}`} />
-                  <ArrowRight className="size-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <p className="font-semibold text-sm">{label}</p>
-                <p className="text-xs mt-0.5 opacity-70">{description}</p>
-              </button>
-            ))}
+            {quickLinks.map(({ href, label, description, icon: Icon, card, iconClass, countKey }) => {
+              const count = countKey && stats ? stats[countKey] : null;
+              return (
+                <button
+                  key={href}
+                  onClick={() => router.push(href)}
+                  className={`group rounded-xl border p-5 text-left transition-colors hover:bg-opacity-80 cursor-pointer ${card}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <Icon className={`size-5 ${iconClass}`} />
+                    <ArrowRight className="size-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="flex items-end justify-between gap-2 mt-1">
+                    <div>
+                      <p className="font-semibold text-sm">{label}</p>
+                      <p className="text-xs mt-0.5 opacity-70">{description}</p>
+                    </div>
+                    {count != null && (
+                      <p className="text-3xl font-bold font-qanelas leading-none shrink-0">
+                        {loading ? <span className="inline-block w-8 h-7 bg-current opacity-10 animate-pulse rounded" /> : count}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 

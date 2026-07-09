@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
-import { ArrowRight, FileText, CheckCircle2, Clock, ChevronRight } from "lucide-react";
+import { ArrowRight, FileText, CheckCircle2, Clock, ChevronRight, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import labels from "@/lib/labels.json";
 
@@ -51,6 +51,7 @@ export default function ReportingPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [completion, setCompletion] = useState<Record<number, number>>({}); // reportId → sections started (0-7)
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -78,6 +79,23 @@ export default function ReportingPage() {
     load();
   }, [user]);
 
+  // Load completion data for each report
+  useEffect(() => {
+    if (reports.length === 0) return;
+    Promise.all(
+      reports.map((r) =>
+        fetch(`/api/report-completion?reportId=${r.id}`)
+          .then((res) => res.json())
+          .then((data) => ({ id: r.id, filled: data.sectionsStarted ?? 0 }))
+          .catch(() => ({ id: r.id, filled: 0 }))
+      )
+    ).then((results) => {
+      const c: Record<number, number> = {};
+      for (const { id, filled } of results) c[id] = filled;
+      setCompletion(c);
+    });
+  }, [reports]);
+
   // Group by year, descending
   const byYear = reports.reduce<Record<number, Report[]>>((acc, r) => {
     (acc[r.year] ??= []).push(r);
@@ -104,7 +122,7 @@ export default function ReportingPage() {
         )}
       </div>
 
-      <div className="flex-1 px-8 py-8 max-w-5xl">
+      <div className="flex-1 px-8 py-8">
         {loading && (
           <p className="text-sm text-muted-foreground">{labels.dashboard.loading}</p>
         )}
@@ -203,8 +221,6 @@ export default function ReportingPage() {
                 <div className="flex flex-col gap-3">
                   {previousYears.map((year) => {
                     const yearReports = byYear[year];
-                    const authorized = yearReports.filter((r) => r.authorized).length;
-                    const total = yearReports.length;
                     const done = allAuthorized(yearReports);
                     const partial = anyAuthorized(yearReports);
 
@@ -230,9 +246,22 @@ export default function ReportingPage() {
                           </span>
                         </div>
 
-                        <p className="text-xs text-muted-foreground">
-                          {authorized} of {total} report{total !== 1 ? "s" : ""} authorized
-                        </p>
+                        {(() => {
+                          const started = yearReports.reduce((sum, r) => sum + (completion[r.id] ?? 0), 0);
+                          const total = yearReports.length * 7;
+                          const pct = total > 0 ? Math.min(100, Math.round((started / total) * 100)) : 0;
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-crafd-yellow rounded-full transition-all duration-300"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">{pct}%</span>
+                            </div>
+                          );
+                        })()}
 
                         <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
                           {labels.dashboard.openReports} <ChevronRight className="size-3" />

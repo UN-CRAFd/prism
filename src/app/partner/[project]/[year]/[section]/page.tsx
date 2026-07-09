@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanPartnerEditor, type WorkplanHandle } from "@/components/workplan-grid";
 import { SectionTableEditor, SECTION_SPECS, type SectionHandle } from "@/components/section-table-editor";
+import { ExpenditurePartnerEditor, type ExpenditureHandle } from "@/components/expenditure-grid";
 import {
   likelihoodLabel,
   impactLabel,
@@ -39,6 +40,7 @@ const SECTIONS = [
   { value: "external-coverage", label: labels.sections.externalCoverage },
   { value: "risk", label: labels.sections.risk },
   { value: "workplan", label: labels.sections.workplan },
+  { value: "expenditure", label: labels.sections.expenditure },
 ];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
@@ -203,6 +205,9 @@ export default function PartnerReportEditorPage() {
 
   const workplanRef = useRef<WorkplanHandle>(null);
   const [workplanDirty, setWorkplanDirty] = useState(false);
+
+  const expenditureRef = useRef<ExpenditureHandle>(null);
+  const [expenditureDirty, setExpenditureDirty] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -435,6 +440,8 @@ export default function PartnerReportEditorPage() {
         await sectionRefs.current[params.section]?.save();
       } else if (params.section === "workplan") {
         await workplanRef.current?.save();
+      } else if (params.section === "expenditure") {
+        await expenditureRef.current?.save();
       }
       setSaveSuccess(true);
     } catch (e) {
@@ -456,6 +463,7 @@ export default function PartnerReportEditorPage() {
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
     params.section === "workplan" ? workplanDirty :
+    params.section === "expenditure" ? expenditureDirty :
     params.section in SECTION_SPECS ? (sectionDirty[params.section] ?? false) : false;
   const notFound = !loadingReports && !selectedReport;
 
@@ -963,6 +971,15 @@ export default function PartnerReportEditorPage() {
               ref={workplanRef}
               reportId={reportId}
               onDirtyChange={(d) => { setWorkplanDirty(d); if (d) setSaveSuccess(false); }}
+            />
+          ) : null
+
+        ) : params.section === "expenditure" ? (
+          reportId ? (
+            <ExpenditurePartnerEditor
+              ref={expenditureRef}
+              reportId={reportId}
+              onDirtyChange={(d) => { setExpenditureDirty(d); if (d) setSaveSuccess(false); }}
             />
           ) : null
 

@@ -12,6 +12,7 @@ import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle, Pencil } fro
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
+import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ const SECTIONS = [
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
   { value: "workplan", label: labels.sections.workplan },
+  { value: "expenditure", label: labels.sections.expenditure },
 ];
 
 function toSlug(r: Report) {
@@ -475,6 +477,8 @@ export function ReportEditorView() {
 
         ) : selectedSection === "workplan" ? (
           selectedReport ? <WorkplanAdminEditor projectId={selectedReport.project_id} defaultAgent={selectedReport.partner_short_name} /> : null
+        ) : selectedSection === "expenditure" ? (
+          selectedReport ? <ExpenditureAdminEditor projectId={selectedReport.project_id} /> : null
         ) : null}
       </div>
     </div>

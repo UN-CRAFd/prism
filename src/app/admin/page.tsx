@@ -172,20 +172,17 @@ export default function AdminHomePage() {
                 <button
                   key={href}
                   onClick={() => router.push(href)}
-                  className={`group rounded-xl border p-5 text-left transition-colors hover:bg-opacity-80 cursor-pointer ${card}`}
+                  className={`group rounded-xl border p-4 text-left transition-colors hover:bg-opacity-80 cursor-pointer ${card}`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <Icon className={`size-5 ${iconClass}`} />
-                    <ArrowRight className="size-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="flex items-end justify-between gap-2 mt-1">
-                    <div>
+                  <div className="flex items-center gap-3">
+                    <Icon className={`size-6 shrink-0 ${iconClass}`} />
+                    <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm">{label}</p>
                       <p className="text-xs mt-0.5 opacity-70">{description}</p>
                     </div>
                     {count != null && (
-                      <p className="text-3xl font-bold font-qanelas leading-none shrink-0">
-                        {loading ? <span className="inline-block w-8 h-7 bg-current opacity-10 animate-pulse rounded" /> : count}
+                      <p className="text-2xl font-bold font-qanelas leading-none shrink-0">
+                        {loading ? <span className="inline-block w-6 h-6 bg-current opacity-10 animate-pulse rounded" /> : count}
                       </p>
                     )}
                   </div>

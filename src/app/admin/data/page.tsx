@@ -316,7 +316,7 @@ export default function AdminFullDataPage() {
       {/* Top bar */}
       <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">Full Data</h1>
+          <h1 className="text-2xl font-bold font-qanelas">Full Report Data</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             View all submissions across all reports
           </p>

@@ -50,6 +50,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -204,13 +205,24 @@ export function AppSidebar() {
 
       <div className="p-4">
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-          <Avatar className="size-9">
-            <AvatarFallback className="bg-crafd-yellow text-black text-xs font-bold">
-              {mounted && user?.name ? user.name.charAt(0) : <User className="size-4" />}
-            </AvatarFallback>
-          </Avatar>
+          {mounted && user?.role === "partner" && user.organization && !logoFailed ? (
+            <img
+              src={`/logos/${user.organization.toLowerCase()}.webp`}
+              alt={user.organization}
+              className="w-9 h-9 object-contain bg-muted rounded"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <Avatar className="size-9">
+              <AvatarFallback className="bg-crafd-yellow text-black text-xs font-bold">
+                {mounted && user?.name ? user.name.charAt(0) : <User className="size-4" />}
+              </AvatarFallback>
+            </Avatar>
+          )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{mounted && user?.name ? user.name : ""}</p>
+            <p className="text-sm font-medium truncate">
+              {mounted && user?.role ? (user.role === "admin" ? (user.organization || "CRAF'd") : user.organization) : ""}
+            </p>
             <p className="text-xs text-muted-foreground capitalize">
               {mounted && user?.role ? user.role : ""}
             </p>

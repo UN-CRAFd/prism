@@ -214,8 +214,8 @@ export default function PartnersPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {partners.map((p) => (
               <div key={p.id} className="group rounded-xl border bg-card flex transition-colors hover:bg-muted/30 cursor-pointer overflow-hidden">
-                <div className="bg-muted w-24 flex-shrink-0 flex items-center justify-center">
-                  <Building2 className="size-10 text-muted-foreground/40" />
+                <div className="bg-muted w-24 flex-shrink-0 flex items-center justify-center p-3">
+                  <PartnerLogo shortName={p.short_name} />
                 </div>
                 <div className="flex-1 flex flex-col gap-2 p-5">
                   <div className="flex items-start justify-between gap-2">

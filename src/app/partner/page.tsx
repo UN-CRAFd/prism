@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  ListTodo,
+  Zap,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -130,14 +132,17 @@ export default function PartnerHomePage() {
         <p className="text-neutral-400 text-sm mt-2">Partner Dashboard</p>
       </div>
 
-      <div className="flex-1 px-8 py-8 max-w-5xl">
+      <div className="flex-1 px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
 
           {/* ── To-do ── */}
           <section className="lg:col-span-2 flex flex-col gap-6">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold">To-do</h2>
+                <div className="flex items-center gap-2">
+                  <ListTodo className="size-4 text-muted-foreground" />
+                  <h2 className="text-base font-semibold">To-do</h2>
+                </div>
                 {!loading && pendingReports.length > 0 && (
                   <span className="inline-flex items-center justify-center rounded-full bg-crafd-yellow text-black text-[10px] font-bold w-5 h-5">
                     {pendingReports.length}
@@ -188,7 +193,10 @@ export default function PartnerHomePage() {
 
             {/* ── Quick access ── */}
             <div>
-              <h2 className="text-base font-semibold mb-3">Quick access</h2>
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="size-4 text-muted-foreground" />
+                <h2 className="text-base font-semibold">Quick access</h2>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {quickLinks.map(({ label, description, icon: Icon, href }) => (
                   <button

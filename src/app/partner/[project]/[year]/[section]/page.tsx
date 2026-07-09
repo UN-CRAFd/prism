@@ -43,6 +43,12 @@ const SECTIONS = [
   { value: "expenditure", label: labels.sections.expenditure },
 ];
 
+const FUTURE_SECTIONS = [
+  { value: "indicators", label: "Indicators" },
+  { value: "funding-transfers", label: "Transfers" },
+  { value: "complementary-funding", label: "Complementary" },
+];
+
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
   1: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
   2: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-300" },
@@ -565,7 +571,7 @@ export default function PartnerReportEditorPage() {
       </div>
 
       {/* Section tabs */}
-      <div className="border-b px-8 flex gap-1 shrink-0 bg-background">
+      <div className="border-b px-8 flex gap-1 shrink-0 bg-background overflow-hidden">
         {SECTIONS.map((sec) => {
           const emptyCount = getEmptyCount(sec.value);
           return (
@@ -573,7 +579,7 @@ export default function PartnerReportEditorPage() {
               key={sec.value}
               onClick={() => router.push(`/partner/${params.project}/${params.year}/${sec.value}`)}
               className={cn(
-                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2",
+                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 shrink-0",
                 params.section === sec.value
                   ? "border-foreground text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -588,6 +594,16 @@ export default function PartnerReportEditorPage() {
             </button>
           );
         })}
+        {FUTURE_SECTIONS.map((sec) => (
+          <button
+            key={sec.value}
+            disabled
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px text-muted-foreground/30 cursor-not-allowed shrink-0"
+            title="Coming soon"
+          >
+            {sec.label}
+          </button>
+        ))}
       </div>
 
       {/* Content */}

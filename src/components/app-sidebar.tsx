@@ -19,6 +19,7 @@ import {
   Edit,
   BarChart3,
   UploadCloud,
+  Target,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
+  { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
 ];
 

@@ -9,7 +9,8 @@
     "lessons": "Lessons Learned",
     "externalCoverage": "External Coverage",
     "workplan": "Workplan",
-    "expenditure": "Expenditure"
+    "expenditure": "Expenditure",
+    "indicators": "Indicators"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
@@ -21,7 +22,8 @@
     "lessons": "Capture up to five lessons from this reporting period that shaped or will shape project implementation. For each lesson, select a category, describe what your organization learned, and explain what you changed or plan to change as a result.",
     "external-coverage": "Document how your project's work reached external audiences and stakeholders during this reporting period. For each item, select the type of coverage or engagement, describe what was shared, indicate the reach or uptake, and provide links to supporting materials.",
     "workplan": "Review the planned timeline (baseline) for each activity and check off the quarters reflecting the updated timeline for this reporting period. For each activity, select a progress update and add a short comment justifying the status where relevant.",
-    "expenditure": "Enter the actual expenditure for this reporting year against each budget category, in USD. Approved budgets, differences, sub-totals, indirect support costs and totals are calculated automatically. Add a comment where the expenditure differs meaningfully from the approved budget."
+    "expenditure": "Enter the actual expenditure for this reporting year against each budget category, in USD. Approved budgets, differences, sub-totals, indirect support costs and totals are calculated automatically. Add a comment where the expenditure differs meaningfully from the approved budget.",
+    "indicators": "Report progress against each indicator for this reporting period. For each indicator, enter the value achieved this year, select whether it is on track, and add a short comment explaining the result. Baselines and targets were set when the report was prepared and are shown for reference."
   },
   "assessment": {
     "min": "Not at all",
@@ -148,6 +150,39 @@
       "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
     }
   },
+  "indicators": {
+    "statuses": {
+      "on_track": "On track",
+      "off_track": "Off track",
+      "ahead_of_schedule": "Ahead of schedule"
+    },
+    "cycles": {
+      "yearly": "Yearly",
+      "at_closure": "At closure"
+    },
+    "columns": {
+      "number": "#",
+      "indicator": "Indicator",
+      "category": "Category",
+      "cycle": "Cycle",
+      "meansOfVerification": "Means of Verification",
+      "baseline": "Baseline",
+      "baselineValue": "Baseline Value",
+      "baselineYear": "Baseline Year",
+      "target": "Target",
+      "targetValue": "Target Value",
+      "targetYear": "Target Year",
+      "achievedValue": "Achieved Value",
+      "status": "Status",
+      "comment": "Comment",
+      "actions": "Actions"
+    },
+    "remarks": {
+      "achievedValue": "Enter the value achieved for this indicator during the reporting year.",
+      "status": "Select whether the indicator is on track, off track, or ahead of schedule relative to its target.",
+      "comment": "Briefly explain the result, any deviation from the target, and contributing factors."
+    }
+  },
   "placeholders": {
     "projectTitle": "Project title…",
     "mptfoProjectNumber": "e.g. MPTFO-2025-001",
@@ -173,7 +208,17 @@
     "dataDrivenDecision": "Explain how the project's data or insights informed concrete decisions…",
     "resultingImpact": "Describe the difference this made in practice…",
     "coverageDescription": "Provide the title and a short description of the engagement or coverage…",
-    "reachIndicator": "Provide a quantitative indication of reach or uptake…"
+    "reachIndicator": "Provide a quantitative indication of reach or uptake…",
+    "indicatorSearch": "Search indicators or type a new one…",
+    "indicatorName": "Indicator name…",
+    "indicatorDescription": "Describe what the indicator measures…",
+    "meansOfVerification": "How is this indicator verified?…",
+    "indicatorCategory": "e.g. Investment, Capacity…",
+    "baselineValue": "Baseline…",
+    "targetValue": "Target…",
+    "year": "e.g. 2025",
+    "achievedValue": "Value achieved this year…",
+    "indicatorComment": "Explain the result…"
   },
   "partnerEditor": {
     "eyebrow": "PRISM V.0.1",
@@ -196,6 +241,7 @@
     "addLesson": "Add lesson",
     "emptyCoverage": "No external coverage added yet. Click below to add your first.",
     "addCoverage": "Add coverage",
+    "emptyIndicators": "No indicators have been added to this report yet.",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."
   },
@@ -207,6 +253,9 @@
     "selectToStart": "Select a report to start editing.",
     "emptySurveys": "No survey questions yet.",
     "emptyRisks": "No risks added yet.",
+    "emptyIndicators": "No indicators added to this report yet. Search above to add one.",
+    "addIndicator": "Add indicator",
+    "createIndicator": "Create new indicator",
     "add": "Add",
     "save": "Save",
     "cancel": "Cancel"

@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { cycleLabel } from "@/lib/indicators";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,9 +48,34 @@ interface Risk {
   project_revision: boolean;
 }
 
+interface IndicatorLine {
+  id: number;
+  indicator_id: number;
+  baseline_value: string | null;
+  baseline_year: number | null;
+  target_value: string | null;
+  target_year: number | null;
+  achieved_value: string | null;
+  status: string | null;
+  comment: string | null;
+  indicator_name: string;
+  indicator_description: string | null;
+  means_of_verification: string | null;
+  category: string | null;
+  cycle: string | null;
+  is_standard: boolean;
+}
+
+interface LibraryIndicator {
+  id: number;
+  name: string;
+  is_standard: boolean;
+}
+
 const SECTIONS = [
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
+  { value: "indicators", label: labels.sections.indicators },
   { value: "workplan", label: labels.sections.workplan },
   { value: "expenditure", label: labels.sections.expenditure },
 ];
@@ -90,6 +117,12 @@ export function ReportEditorView() {
   const [editingRiskName, setEditingRiskName] = useState("");
   const [editingRiskCategory, setEditingRiskCategory] = useState("");
   const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
+
+  // Indicators
+  const [indicatorLines, setIndicatorLines] = useState<IndicatorLine[]>([]);
+  const [library, setLibrary] = useState<LibraryIndicator[]>([]);
+  const [loadingIndicators, setLoadingIndicators] = useState(false);
+  const [addingIndicator, setAddingIndicator] = useState(false);
 
   // ── Load reports list & pre-select from URL params ──────────────────────
 
@@ -140,12 +173,30 @@ export function ReportEditorView() {
     finally { setLoadingRisk(false); }
   }, []);
 
+  const loadIndicators = useCallback(async (reportId: string, projectId: number) => {
+    setLoadingIndicators(true); setError(null);
+    try {
+      const [linesRes, libRes] = await Promise.all([
+        fetch(`/api/indicator-data?reportId=${reportId}`),
+        fetch(`/api/indicators?project_id=${projectId}`),
+      ]);
+      if (!linesRes.ok || !libRes.ok) throw new Error("Failed to load indicators");
+      setIndicatorLines(await linesRes.json());
+      setLibrary(await libRes.json());
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setLoadingIndicators(false); }
+  }, []);
+
   useEffect(() => {
     if (!selectedReportId) return;
-    setSurveys([]); setRisks([]);
+    setSurveys([]); setRisks([]); setIndicatorLines([]); setLibrary([]);
     if (selectedSection === "surveys") loadSurveys(selectedReportId);
     else if (selectedSection === "risk") loadRisks(selectedReportId);
-  }, [selectedReportId, selectedSection, loadSurveys, loadRisks]);
+    else if (selectedSection === "indicators") {
+      const report = reports.find((r) => String(r.id) === selectedReportId);
+      if (report) loadIndicators(selectedReportId, report.project_id);
+    }
+  }, [selectedReportId, selectedSection, reports, loadSurveys, loadRisks, loadIndicators]);
 
   // ── Navigation helpers ──────────────────────────────────────────────────
 
@@ -155,14 +206,14 @@ export function ReportEditorView() {
 
   function handleReportChange(val: string) {
     setSelectedReportId(val);
-    setSurveys([]); setRisks([]);
+    setSurveys([]); setRisks([]); setIndicatorLines([]); setLibrary([]);
     const report = reports.find((r) => String(r.id) === val);
     if (report) pushUrl(report, selectedSection);
   }
 
   function handleSectionChange(val: string) {
     setSelectedSection(val);
-    setSurveys([]); setRisks([]);
+    setSurveys([]); setRisks([]); setIndicatorLines([]); setLibrary([]);
     const report = reports.find((r) => String(r.id) === selectedReportId);
     if (report) pushUrl(report, val);
   }
@@ -252,12 +303,83 @@ export function ReportEditorView() {
     finally { setDeletingRiskId(null); }
   }
 
+  // ── Indicators CRUD ───────────────────────────────────────────────────────
+
+  const selectedReportForIndicators = reports.find((r) => String(r.id) === selectedReportId);
+
+  async function addIndicatorLine(indicatorId: number) {
+    if (!selectedReportId) return;
+    const res = await fetch("/api/indicator-data", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reportId: Number(selectedReportId), indicator_id: indicatorId }),
+    });
+    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to add indicator"); return; }
+    const created: IndicatorLine = await res.json();
+    setIndicatorLines((prev) => [...prev, created]);
+  }
+
+  async function handleIndicatorSelect(item: ComboboxItem) {
+    setAddingIndicator(true); setError(null);
+    try { await addIndicatorLine(item.id); }
+    finally { setAddingIndicator(false); }
+  }
+
+  async function handleIndicatorCreate(name: string) {
+    if (!selectedReportForIndicators) return;
+    setAddingIndicator(true); setError(null);
+    try {
+      const res = await fetch("/api/indicators", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, is_standard: false, project_id: selectedReportForIndicators.project_id }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to create indicator"); }
+      const created: LibraryIndicator = await res.json();
+      setLibrary((prev) => [...prev, created]);
+      await addIndicatorLine(created.id);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setAddingIndicator(false); }
+  }
+
+  function updateIndicatorLineLocal(id: number, patch: Partial<IndicatorLine>) {
+    setIndicatorLines((prev) => prev.map((l) => l.id === id ? { ...l, ...patch } : l));
+  }
+
+  async function saveIndicatorLine(id: number) {
+    const line = indicatorLines.find((l) => l.id === id);
+    if (!line) return;
+    setError(null);
+    const res = await fetch("/api/indicator-data", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        baseline_value: line.baseline_value,
+        baseline_year: line.baseline_year,
+        target_value: line.target_value,
+        target_year: line.target_year,
+      }),
+    });
+    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to save"); }
+  }
+
+  async function handleIndicatorDelete(id: number) {
+    if (!confirm("Remove this indicator from the report?")) return;
+    setError(null);
+    const res = await fetch(`/api/indicator-data?id=${id}`, { method: "DELETE" });
+    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to remove"); return; }
+    setIndicatorLines((prev) => prev.filter((l) => l.id !== id));
+  }
+
+  const indicatorComboItems: ComboboxItem[] = library
+    .filter((lib) => !indicatorLines.some((l) => l.indicator_id === lib.id))
+    .map((lib) => ({ id: lib.id, label: lib.name, hint: lib.is_standard ? "Standard" : "Custom" }));
+
   // ── Render ──────────────────────────────────────────────────────────────
 
   const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
   const sectionLoading =
     selectedSection === "surveys" ? loadingSurveys :
-    selectedSection === "risk" ? loadingRisk : false;
+    selectedSection === "risk" ? loadingRisk :
+    selectedSection === "indicators" ? loadingIndicators : false;
 
   return (
     <div className="flex flex-col h-full">
@@ -469,6 +591,97 @@ export function ReportEditorView() {
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+        ) : selectedSection === "indicators" ? (
+          <div className="space-y-4">
+            <div className="max-w-xl">
+              <Combobox
+                items={indicatorComboItems}
+                placeholder={labels.placeholders.indicatorSearch}
+                onSelect={handleIndicatorSelect}
+                onCreate={handleIndicatorCreate}
+                createLabel={labels.adminEditor.createIndicator}
+                busy={addingIndicator}
+              />
+            </div>
+            {indicatorLines.length === 0 ? (
+              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                {labels.adminEditor.emptyIndicators}
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">{labels.indicators.columns.number}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.indicators.columns.indicator}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.baselineValue}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.baselineYear}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.targetValue}</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.targetYear}</th>
+                      <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-16">{labels.indicators.columns.actions}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {indicatorLines.map((line, i) => (
+                      <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
+                        <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium">{line.indicator_name}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
+                            {line.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{line.category}</span>}
+                            {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            value={line.baseline_value ?? ""}
+                            onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_value: e.target.value })}
+                            onBlur={() => saveIndicatorLine(line.id)}
+                            placeholder={labels.placeholders.baselineValue}
+                            className="text-sm h-8"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number" value={line.baseline_year ?? ""}
+                            onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_year: e.target.value ? Number(e.target.value) : null })}
+                            onBlur={() => saveIndicatorLine(line.id)}
+                            placeholder={labels.placeholders.year}
+                            className="text-sm h-8"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            value={line.target_value ?? ""}
+                            onChange={(e) => updateIndicatorLineLocal(line.id, { target_value: e.target.value })}
+                            onBlur={() => saveIndicatorLine(line.id)}
+                            placeholder={labels.placeholders.targetValue}
+                            className="text-sm h-8"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number" value={line.target_year ?? ""}
+                            onChange={(e) => updateIndicatorLineLocal(line.id, { target_year: e.target.value ? Number(e.target.value) : null })}
+                            onBlur={() => saveIndicatorLine(line.id)}
+                            placeholder={labels.placeholders.year}
+                            className="text-sm h-8"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button onClick={() => handleIndicatorDelete(line.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

@@ -71,7 +71,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/reports/[id] — delete a report (indicator_sections cascade)
+// DELETE /api/reports/[id] — delete a report (indicator_data cascade)
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }

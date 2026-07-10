@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -29,6 +29,7 @@ import {
   RISK_LEVEL_COLORS,
   FALLBACK_COLORS,
 } from "@/lib/risk";
+import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
 
 const SECTIONS = [
   { value: "overview", label: labels.sections.overview },
@@ -39,12 +40,12 @@ const SECTIONS = [
   { value: "lessons", label: labels.sections.lessons },
   { value: "external-coverage", label: labels.sections.externalCoverage },
   { value: "risk", label: labels.sections.risk },
+  { value: "indicators", label: labels.sections.indicators },
   { value: "workplan", label: labels.sections.workplan },
   { value: "expenditure", label: labels.sections.expenditure },
 ];
 
 const FUTURE_SECTIONS = [
-  { value: "indicators", label: "Indicators" },
   { value: "funding-transfers", label: "Transfers" },
   { value: "complementary-funding", label: "Complementary" },
 ];
@@ -86,8 +87,32 @@ function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; imp
   return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
 }
 
+function StatusBadge({ value }: { value: IndicatorStatus }) {
+  return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
+}
+
 function Label({ children }: { children: string }) {
   return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
+}
+
+// Frozen left columns for the indicator matrix (name + baseline + target stay put
+// while the per-year columns scroll horizontally — mirrors the expenditure grid).
+const ICOL = {
+  ind:      { left: 0,   w: 300 },
+  baseline: { left: 300, w: 120 },
+  target:   { left: 420, w: 120 },
+} as const;
+const IND_FROZEN_WIDTH = 540;
+
+function ifz(key: keyof typeof ICOL, z = 20): CSSProperties {
+  const c = ICOL[key];
+  return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
+}
+
+// "value (year)" for the baseline / target reference cells.
+function ValueYear({ value, year }: { value: string | null; year: number | null }) {
+  if (!value) return <span className="text-muted-foreground/40">—</span>;
+  return <>{value}{year ? <span className="text-muted-foreground"> ({year})</span> : null}</>;
 }
 
 interface Report {
@@ -158,6 +183,36 @@ interface RiskState {
   dirty: boolean;
 }
 
+interface IndicatorYearCell {
+  id: number;
+  report_id: number;
+  achieved_value: string | null;
+  status: string | null;
+  comment: string | null;
+}
+
+interface IndicatorMatrixRow {
+  indicator_id: number;
+  indicator_name: string;
+  indicator_description: string | null;
+  means_of_verification: string | null;
+  category: string | null;
+  cycle: string | null;
+  baseline_value: string | null;
+  baseline_year: number | null;
+  target_value: string | null;
+  target_year: number | null;
+  currentLineId: number;
+  byYear: Record<number, IndicatorYearCell | undefined>;
+}
+
+interface IndicatorState {
+  achieved_value: string;
+  status: string | null;
+  comment: string;
+  dirty: boolean;
+}
+
 
 const EMPTY_OVERVIEW: OverviewData = {
   project_title: "",
@@ -200,6 +255,12 @@ export default function PartnerReportEditorPage() {
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
   const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
+
+  const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
+  const [indicatorYears, setIndicatorYears] = useState<number[]>([]);
+  const [indicatorCurrentYear, setIndicatorCurrentYear] = useState<number | null>(null);
+  const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
+  const [loadingIndicators, setLoadingIndicators] = useState(false);
 
   // Config-driven list sections (achievements, partnerships, results, lessons,
   // external-coverage) are handled by <SectionTableEditor>. Each active editor
@@ -301,6 +362,34 @@ export default function PartnerReportEditorPage() {
     }
   }, []);
 
+  const loadIndicators = useCallback(async (id: number) => {
+    setLoadingIndicators(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/indicator-data?reportId=${id}&matrix=1`);
+      if (!res.ok) throw new Error("Failed to load indicators");
+      const data: { years: number[]; currentYear: number | null; rows: IndicatorMatrixRow[] } = await res.json();
+      setIndicatorRows(data.rows);
+      setIndicatorYears(data.years);
+      setIndicatorCurrentYear(data.currentYear);
+      const states: Record<number, IndicatorState> = {};
+      for (const row of data.rows) {
+        const cell = data.currentYear != null ? row.byYear[data.currentYear] : undefined;
+        states[row.currentLineId] = {
+          achieved_value: cell?.achieved_value ?? "",
+          status: cell?.status ?? null,
+          comment: cell?.comment ?? "",
+          dirty: false,
+        };
+      }
+      setIndicatorStates(states);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoadingIndicators(false);
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -350,8 +439,9 @@ export default function PartnerReportEditorPage() {
     if (params.section === "surveys") loadSurveys(reportId);
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
+    else if (params.section === "indicators") loadIndicators(reportId);
     // Config-driven list sections load their own data inside <SectionTableEditor>.
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk]);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -377,6 +467,11 @@ export default function PartnerReportEditorPage() {
 
   function toggleCollapse(id: number) {
     setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function updateIndicator(id: number, patch: Partial<IndicatorState>) {
+    setSaveSuccess(false);
+    setIndicatorStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
   }
 
   // Stable callbacks for <SectionTableEditor>. The equality guard is essential:
@@ -442,6 +537,28 @@ export default function PartnerReportEditorPage() {
           for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
           return next;
         });
+      } else if (params.section === "indicators") {
+        const dirtyIds = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty).map((r) => r.currentLineId);
+        await Promise.all(
+          dirtyIds.map((id) => {
+            const state = indicatorStates[id];
+            return fetch("/api/indicator-data", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id,
+                achieved_value: state.achieved_value || null,
+                status: state.status,
+                comment: state.comment || null,
+              }),
+            }).then((r) => { if (!r.ok) throw new Error(`Failed to save indicator ${id}`); });
+          })
+        );
+        setIndicatorStates((prev) => {
+          const next = { ...prev };
+          for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
+          return next;
+        });
       } else if (params.section in SECTION_SPECS) {
         await sectionRefs.current[params.section]?.save();
       } else if (params.section === "workplan") {
@@ -463,11 +580,13 @@ export default function PartnerReportEditorPage() {
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
-    params.section === "risk" ? loadingRisk : false;
+    params.section === "risk" ? loadingRisk :
+    params.section === "indicators" ? loadingIndicators : false;
   const anyDirty =
     params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
+    params.section === "indicators" ? indicatorRows.some((r) => indicatorStates[r.currentLineId]?.dirty) :
     params.section === "workplan" ? workplanDirty :
     params.section === "expenditure" ? expenditureDirty :
     params.section in SECTION_SPECS ? (sectionDirty[params.section] ?? false) : false;
@@ -491,10 +610,16 @@ export default function PartnerReportEditorPage() {
     [risks, riskStates]
   );
 
+  const indicatorEmptyCount = useMemo(
+    () => indicatorRows.filter((r) => !indicatorStates[r.currentLineId]?.achieved_value || !indicatorStates[r.currentLineId]?.status).length,
+    [indicatorRows, indicatorStates]
+  );
+
   function getEmptyCount(sec: string) {
     if (sec === "overview") return overviewEmptyCount;
     if (sec === "surveys") return surveysEmptyCount;
     if (sec === "risk") return riskEmptyCount;
+    if (sec === "indicators") return indicatorEmptyCount;
     if (sec in SECTION_SPECS) return sectionEmpty[sec] ?? 0;
     return 0;
   }
@@ -961,6 +1086,147 @@ export default function PartnerReportEditorPage() {
                             </td>
                           </>
                         )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+
+        ) : params.section === "indicators" ? (
+          indicatorRows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+              <FileQuestion className="size-8 opacity-30" />
+              <p className="text-sm">{labels.partnerEditor.emptyIndicators}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border bg-card">
+              <table className="text-sm border-separate border-spacing-0" style={{ minWidth: IND_FROZEN_WIDTH }}>
+                <thead>
+                  {/* Year-group header */}
+                  <tr className="text-xs">
+                    <th rowSpan={2} style={ifz("ind", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
+                      {labels.indicators.columns.indicator}
+                    </th>
+                    <th rowSpan={2} style={ifz("baseline", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
+                      {labels.indicators.columns.baseline}
+                    </th>
+                    <th rowSpan={2} style={ifz("target", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
+                      {labels.indicators.columns.target}
+                    </th>
+                    {indicatorYears.map((year) => (
+                      <th
+                        key={year}
+                        colSpan={3}
+                        className={cn(
+                          "px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b",
+                          year === indicatorCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100"
+                        )}
+                      >
+                        {year}
+                      </th>
+                    ))}
+                  </tr>
+                  {/* Sub-column header */}
+                  <tr className="text-[11px] text-muted-foreground">
+                    {indicatorYears.map((year) => {
+                      const current = year === indicatorCurrentYear;
+                      const bg = current ? "bg-crafd-yellow/20" : "bg-neutral-50";
+                      return (
+                        <Fragment key={year}>
+                          <th className={cn("px-2 py-1.5 text-left font-medium border-l border-b min-w-[130px]", bg)}>{labels.indicators.columns.achievedValue}</th>
+                          <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[140px]", bg)}>{labels.indicators.columns.status}</th>
+                          <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[200px]", bg)}>{labels.indicators.columns.comment}</th>
+                        </Fragment>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {indicatorRows.map((row) => {
+                    const state = indicatorStates[row.currentLineId];
+                    if (!state) return null;
+                    return (
+                      <tr key={row.indicator_id} className="align-top">
+                        {/* Frozen: indicator name + baseline + target */}
+                        <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
+                          <p className="font-medium leading-snug">{row.indicator_name}</p>
+                          {row.means_of_verification && (
+                            <p className="text-xs text-muted-foreground mt-1">{row.means_of_verification}</p>
+                          )}
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
+                            {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
+                          </div>
+                        </td>
+                        <td style={ifz("baseline")} className={cn("px-3 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
+                          <ValueYear value={row.baseline_value} year={row.baseline_year} />
+                        </td>
+                        <td style={ifz("target")} className={cn("px-3 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
+                          <ValueYear value={row.target_value} year={row.target_year} />
+                        </td>
+
+                        {/* Scrollable per-year cells */}
+                        {indicatorYears.map((year) => {
+                          const current = year === indicatorCurrentYear;
+                          if (current) {
+                            return (
+                              <Fragment key={year}>
+                                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
+                                  <Input
+                                    value={state.achieved_value}
+                                    onChange={(e) => updateIndicator(row.currentLineId, { achieved_value: e.target.value })}
+                                    placeholder={labels.placeholders.achievedValue}
+                                    className="text-sm h-8"
+                                  />
+                                </td>
+                                <td className="px-1 py-1 border-t bg-crafd-yellow/10">
+                                  <Select
+                                    value={state.status ?? "none"}
+                                    onValueChange={(v) => updateIndicator(row.currentLineId, { status: v === "none" ? null : v })}
+                                  >
+                                    <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
+                                      {state.status
+                                        ? <StatusBadge value={state.status as IndicatorStatus} />
+                                        : <span className="text-muted-foreground text-sm px-1">—</span>}
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                      {STATUS_KEYS.map((k) => (
+                                        <SelectItem key={k} value={k}><StatusBadge value={k} /></SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="px-1 py-1 border-t bg-crafd-yellow/10">
+                                  <Textarea
+                                    value={state.comment}
+                                    onChange={(e) => updateIndicator(row.currentLineId, { comment: e.target.value })}
+                                    placeholder={labels.placeholders.indicatorComment}
+                                    className="text-sm min-h-[36px] resize-y"
+                                  />
+                                </td>
+                              </Fragment>
+                            );
+                          }
+                          const cell = row.byYear[year];
+                          return (
+                            <Fragment key={year}>
+                              <td className="px-2 py-2 border-l border-t text-muted-foreground tabular-nums">
+                                {cell?.achieved_value || <span className="text-muted-foreground/40">—</span>}
+                              </td>
+                              <td className="px-2 py-2 border-t">
+                                {cell?.status ? <StatusBadge value={cell.status as IndicatorStatus} /> : <span className="text-muted-foreground/40">—</span>}
+                              </td>
+                              <td className="px-2 py-2 border-t text-muted-foreground">
+                                {cell?.comment
+                                  ? <p className="line-clamp-3 text-xs">{cell.comment}</p>
+                                  : <span className="text-muted-foreground/40">—</span>}
+                              </td>
+                            </Fragment>
+                          );
+                        })}
                       </tr>
                     );
                   })}

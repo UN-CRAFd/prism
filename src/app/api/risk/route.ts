@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { reportId, risk_name, risk_category } = body;
+  const { reportId, risk_name, risk_category, approved_mitigation } = body;
   if (!reportId || !risk_name) {
     return NextResponse.json({ error: "reportId and risk_name required" }, { status: 400 });
   }
@@ -52,9 +52,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const rows = await query(
-      `INSERT INTO reporting_platform.risk_management (report_id, risk_name, risk_category)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [reportId, risk_name, categories]
+      `INSERT INTO reporting_platform.risk_management (report_id, risk_name, risk_category, approved_mitigation)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [reportId, risk_name, categories, (approved_mitigation as string) || null]
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {

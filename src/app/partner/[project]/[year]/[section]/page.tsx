@@ -14,10 +14,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
-import { WorkplanPartnerEditor, type WorkplanHandle } from "@/components/workplan-grid";
+import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { SectionTableEditor, SECTION_SPECS, type SectionHandle } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor, type ExpenditureHandle } from "@/components/expenditure-grid";
 import {
@@ -117,6 +117,7 @@ function ValueYear({ value, year }: { value: string | null; year: number | null 
 
 interface Report {
   id: number;
+  project_id: number;
   year: number;
   report_type: "annual" | "final" | null;
   project_title: string;
@@ -256,6 +257,17 @@ export default function PartnerReportEditorPage() {
   const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
 
+  // Risk CRUD (admin-parity): add / edit core fields / delete, all report-scoped.
+  const [newRiskName, setNewRiskName] = useState("");
+  const [newRiskCategory, setNewRiskCategory] = useState("");
+  const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
+  const [addingRisk, setAddingRisk] = useState(false);
+  const [deletingRiskId, setDeletingRiskId] = useState<number | null>(null);
+  const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
+  const [editingRiskName, setEditingRiskName] = useState("");
+  const [editingRiskCategory, setEditingRiskCategory] = useState("");
+  const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
+
   const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
   const [indicatorYears, setIndicatorYears] = useState<number[]>([]);
   const [indicatorCurrentYear, setIndicatorCurrentYear] = useState<number | null>(null);
@@ -270,9 +282,8 @@ export default function PartnerReportEditorPage() {
   const [sectionDirty, setSectionDirty] = useState<Record<string, boolean>>({});
   const [sectionEmpty, setSectionEmpty] = useState<Record<string, number>>({});
 
-  const workplanRef = useRef<WorkplanHandle>(null);
-  const [workplanDirty, setWorkplanDirty] = useState(false);
-
+  // Workplan (partner) uses the shared admin editor, which auto-saves both the
+  // project structure and this report's progress — no batched save needed here.
   const expenditureRef = useRef<ExpenditureHandle>(null);
   const [expenditureDirty, setExpenditureDirty] = useState(false);
 
@@ -469,6 +480,102 @@ export default function PartnerReportEditorPage() {
     setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
+  async function handleRiskAdd() {
+    if (!newRiskName.trim() || !reportId) return;
+    setAddingRisk(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId,
+          risk_name: newRiskName,
+          risk_category: newRiskCategory,
+          approved_mitigation: newRiskApprovedMitigation || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to add risk");
+      const created: Risk = await res.json();
+      setRisks((prev) => [...prev, created]);
+      setRiskStates((prev) => ({
+        ...prev,
+        [created.id]: {
+          likelihood: created.likelihood,
+          impact: created.impact,
+          approved_mitigation: created.approved_mitigation ?? "",
+          updated_mitigation: created.updated_mitigation ?? "",
+          project_revision: created.project_revision,
+          dirty: false,
+        },
+      }));
+      setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
+      setNewRiskName("");
+      setNewRiskCategory("");
+      setNewRiskApprovedMitigation("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setAddingRisk(false);
+    }
+  }
+
+  function startRiskEdit(risk: Risk) {
+    setEditingRiskId(risk.id);
+    setEditingRiskName(risk.risk_name);
+    setEditingRiskCategory(risk.risk_category?.join(", ") ?? "");
+    setEditingRiskApprovedMitigation(risk.approved_mitigation ?? "");
+  }
+
+  function cancelRiskEdit() {
+    setEditingRiskId(null);
+    setEditingRiskName("");
+    setEditingRiskCategory("");
+    setEditingRiskApprovedMitigation("");
+  }
+
+  async function handleRiskEditSave(id: number) {
+    if (!editingRiskName.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/risk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          risk_name: editingRiskName,
+          risk_category: editingRiskCategory,
+          approved_mitigation: editingRiskApprovedMitigation || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update risk");
+      const updated: Risk = await res.json();
+      setRisks((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      cancelRiskEdit();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    }
+  }
+
+  async function handleRiskDelete(id: number) {
+    setDeletingRiskId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete risk");
+      setRisks((prev) => prev.filter((r) => r.id !== id));
+      setRiskStates((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setDeletingRiskId(null);
+    }
+  }
+
   function updateIndicator(id: number, patch: Partial<IndicatorState>) {
     setSaveSuccess(false);
     setIndicatorStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
@@ -561,8 +668,6 @@ export default function PartnerReportEditorPage() {
         });
       } else if (params.section in SECTION_SPECS) {
         await sectionRefs.current[params.section]?.save();
-      } else if (params.section === "workplan") {
-        await workplanRef.current?.save();
       } else if (params.section === "expenditure") {
         await expenditureRef.current?.save();
       }
@@ -587,7 +692,7 @@ export default function PartnerReportEditorPage() {
     params.section === "overview" ? overviewDirty :
     params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
     params.section === "indicators" ? indicatorRows.some((r) => indicatorStates[r.currentLineId]?.dirty) :
-    params.section === "workplan" ? workplanDirty :
+    params.section === "workplan" ? false :
     params.section === "expenditure" ? expenditureDirty :
     params.section in SECTION_SPECS ? (sectionDirty[params.section] ?? false) : false;
   const notFound = !loadingReports && !selectedReport;
@@ -907,12 +1012,22 @@ export default function PartnerReportEditorPage() {
           </div>
 
         ) : params.section === "risk" ? (
-          risks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-              <FileQuestion className="size-8 opacity-30" />
-              <p className="text-sm">{labels.partnerEditor.emptyRisks}</p>
+          <div className="space-y-4">
+            {/* Add a new risk (report-scoped, same as the admin editor) */}
+            <div className="flex flex-wrap gap-2">
+              <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1 min-w-[200px]" />
+              <Input placeholder={labels.placeholders.riskCategories} value={newRiskCategory} onChange={(e) => setNewRiskCategory(e.target.value)} className="flex-1 min-w-[160px]" />
+              <Input placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="flex-1 min-w-[200px]" />
+              <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
+                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+              </Button>
             </div>
-          ) : (
+
+            {risks.length === 0 ? (
+              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                {labels.partnerEditor.emptyRisks}
+              </div>
+            ) : (
             <div className="overflow-x-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead>
@@ -925,6 +1040,7 @@ export default function PartnerReportEditorPage() {
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.approvedMitigation}</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.updatedMitigation}</th>
                     <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.revision}</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.actions}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -932,6 +1048,26 @@ export default function PartnerReportEditorPage() {
                     const state = riskStates[risk.id];
                     if (!state) return null;
                     const collapsed = collapsedRows[risk.id] ?? true;
+                    if (editingRiskId === risk.id) {
+                      return (
+                        <tr key={risk.id} className="bg-amber-50/40">
+                          <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+                          <td colSpan={6} className="px-4 py-3 align-top">
+                            <div className="flex flex-col gap-2">
+                              <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
+                              <Input value={editingRiskCategory} onChange={(e) => setEditingRiskCategory(e.target.value)} placeholder={labels.placeholders.riskCategories} className="text-sm" />
+                              <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
+                            </div>
+                          </td>
+                          <td colSpan={2} className="px-4 py-3 align-top">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
+                              <Button size="sm" variant="outline" onClick={cancelRiskEdit}>{labels.adminEditor.cancel}</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
                     return (
                       <tr key={risk.id} className={cn("transition-colors", state.dirty && "bg-amber-50/40")}>
                         {/* # + toggle */}
@@ -1021,6 +1157,14 @@ export default function PartnerReportEditorPage() {
                                 className="size-4 rounded"
                               />
                             </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => startRiskEdit(risk)} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Edit risk"><Pencil className="size-3.5" /></button>
+                                <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete risk">
+                                  {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                                </button>
+                              </div>
+                            </td>
                           </>
                         ) : (
                           <>
@@ -1084,6 +1228,14 @@ export default function PartnerReportEditorPage() {
                                 className="size-4 rounded mt-1"
                               />
                             </td>
+                            <td className="px-4 py-3 align-top">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => startRiskEdit(risk)} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Edit risk"><Pencil className="size-3.5" /></button>
+                                <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete risk">
+                                  {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                                </button>
+                              </div>
+                            </td>
                           </>
                         )}
                       </tr>
@@ -1092,7 +1244,8 @@ export default function PartnerReportEditorPage() {
                 </tbody>
               </table>
             </div>
-          )
+            )}
+          </div>
 
         ) : params.section === "indicators" ? (
           indicatorRows.length === 0 ? (
@@ -1248,11 +1401,11 @@ export default function PartnerReportEditorPage() {
           ) : null
 
         ) : params.section === "workplan" ? (
-          reportId ? (
-            <WorkplanPartnerEditor
-              ref={workplanRef}
+          reportId && selectedReport ? (
+            <WorkplanAdminEditor
+              projectId={selectedReport.project_id}
               reportId={reportId}
-              onDirtyChange={(d) => { setWorkplanDirty(d); if (d) setSaveSuccess(false); }}
+              defaultAgent={selectedReport.partner_short_name}
             />
           ) : null
 

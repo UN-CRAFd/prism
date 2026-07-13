@@ -388,17 +388,30 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 const QUARTER_OPTS = [1, 2, 3, 4];
 
 function QuarterPicker({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string) => void }) {
-  const m = value ? /^(\d{4})-Q([1-4])$/.exec(value) : null;
-  const year = m ? m[1] : "";
-  const q = m ? m[2] : "";
-  function emit(y: string, qq: string) {
+  // Hold each field locally so a range can be built from empty — one part at a
+  // time — rather than requiring both to already be set to commit either.
+  const [year, setYear] = useState("");
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    const m = value ? /^(\d{4})-Q([1-4])$/.exec(value) : null;
+    setYear(m ? m[1] : "");
+    setQ(m ? m[2] : "");
+  }, [value]);
+
+  function commit(y: string, qq: string) {
     if (y && qq) onChange(`${y}-Q${qq}`);
   }
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground w-10">{label}</span>
-      <Input type="number" placeholder="Year" value={year} onChange={(e) => emit(e.target.value, q)} className="h-8 w-24 text-sm" />
-      <Select value={q || undefined} onValueChange={(v) => emit(year, v)}>
+      <Input
+        type="number"
+        placeholder="Year"
+        value={year}
+        onChange={(e) => { setYear(e.target.value); commit(e.target.value, q); }}
+        className="h-8 w-24 text-sm"
+      />
+      <Select value={q || undefined} onValueChange={(v) => { setQ(v); commit(year, v); }}>
         <SelectTrigger className="h-8 w-24 text-sm"><span>{q ? `Q${q}` : "Quarter"}</span></SelectTrigger>
         <SelectContent>
           {QUARTER_OPTS.map((n) => (<SelectItem key={n} value={String(n)}>Q{n}</SelectItem>))}
@@ -415,7 +428,18 @@ function AutosaveIndicator({ state }: { state: SaveState }) {
   return <span className="text-sm text-destructive">Save failed — retrying on next change</span>;
 }
 
-export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: number; defaultAgent?: string | null }) {
+// When `reportId` is supplied the editor doubles as the partner view: alongside
+// the (project-level) structure it also renders and auto-saves each report's
+// progress — the updated timeline, status and comment held in workplan_entries.
+interface ProgressState {
+  updated_quarters: string[];
+  status: WorkplanStatus | null;
+  comment: string;
+}
+
+export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { projectId: number; defaultAgent?: string | null; reportId?: number }) {
+  const partnerMode = reportId != null;
+
   const [rows, setRows] = useState<AdminRow[]>([]);
   const [intermediate, setIntermediate] = useState("");
   const [start, setStart] = useState<string | null>(null);
@@ -423,6 +447,14 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  // Per-report progress (partner mode only), keyed by activity id.
+  const [progress, setProgress] = useState<Record<number, ProgressState>>({});
+  const progressRef = useRef<Record<number, ProgressState>>({});
+  const progressDirtyRef = useRef<Set<number>>(new Set());
+  const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushProgressRef = useRef<() => void>(() => {});
+  useEffect(() => { progressRef.current = progress; }, [progress]);
 
   const keyRef = useRef(0);
   const sectionIdRef = useRef(0);
@@ -442,11 +474,28 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/workplan-activities?projectId=${projectId}`);
+      // Partner mode loads via /api/workplan so the response carries both the
+      // project structure and this report's progress entries in one shot.
+      const res = await fetch(
+        partnerMode ? `/api/workplan?reportId=${reportId}` : `/api/workplan-activities?projectId=${projectId}`
+      );
       if (!res.ok) throw new Error("Failed to load workplan structure");
       const data: { range: Range; activities: Activity[] } = await res.json();
       setStart(data.range.start);
       setEnd(data.range.end);
+
+      if (partnerMode) {
+        const prog: Record<number, ProgressState> = {};
+        for (const a of data.activities) {
+          prog[a.id] = {
+            // Default the updated timeline to the baseline until the partner adjusts it.
+            updated_quarters: a.updated_quarters ?? a.planned_quarters ?? [],
+            status: (a.status as WorkplanStatus) ?? null,
+            comment: a.comment ?? "",
+          };
+        }
+        setProgress(prog);
+      }
 
       let sid = 0;
       let prevKey: string | null = null;
@@ -482,11 +531,67 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, partnerMode, reportId]);
 
   useEffect(() => { load(); }, [load]);
 
   const quarters = useMemo(() => quarterRange(start, end), [start, end]);
+
+  // ── Per-report progress auto-save (partner mode) ──────────────────────────
+
+  const flushProgress = useCallback(async () => {
+    if (!partnerMode) return;
+    const ids = Array.from(progressDirtyRef.current);
+    if (!ids.length) return;
+    progressDirtyRef.current.clear();
+    setSaveState("saving");
+    try {
+      await Promise.all(
+        ids.map((activityId) => {
+          const s = progressRef.current[activityId];
+          if (!s) return Promise.resolve();
+          return fetch("/api/workplan", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reportId,
+              activityId,
+              updated_quarters: s.updated_quarters,
+              status: s.status,
+              comment: s.comment || null,
+            }),
+          }).then((r) => { if (!r.ok) throw new Error(`Failed to save progress ${activityId}`); });
+        })
+      );
+      setSaveState("saved");
+    } catch (e) {
+      // Re-queue the failed ids so the next change retries them.
+      ids.forEach((id) => progressDirtyRef.current.add(id));
+      setError(e instanceof Error ? e.message : "Save failed");
+      setSaveState("error");
+    }
+  }, [partnerMode, reportId]);
+  flushProgressRef.current = flushProgress;
+
+  const scheduleProgressFlush = useCallback(() => {
+    setSaveState("saving");
+    if (progressTimerRef.current) clearTimeout(progressTimerRef.current);
+    progressTimerRef.current = setTimeout(() => { flushProgressRef.current(); }, 700);
+  }, []);
+
+  function updateProgress(activityId: number, patch: Partial<ProgressState>) {
+    setProgress((prev) => {
+      const base: ProgressState = prev[activityId] ?? { updated_quarters: [], status: null, comment: "" };
+      return { ...prev, [activityId]: { ...base, ...patch } };
+    });
+    progressDirtyRef.current.add(activityId);
+    scheduleProgressFlush();
+  }
+
+  function toggleUpdatedQuarter(activityId: number, q: string) {
+    const cur = progressRef.current[activityId]?.updated_quarters ?? [];
+    updateProgress(activityId, { updated_quarters: cur.includes(q) ? cur.filter((x) => x !== q) : [...cur, q] });
+  }
 
   // ── Auto-save ─────────────────────────────────────────────────────────────
 
@@ -568,6 +673,8 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (rowsRef.current.some((r) => r.dirty || r.id === null) || rangeDirtyRef.current) flushRef.current();
+      if (progressTimerRef.current) clearTimeout(progressTimerRef.current);
+      if (progressDirtyRef.current.size) flushProgressRef.current();
     };
   }, []);
 
@@ -708,7 +815,9 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
     );
   }
 
-  const totalCols = 1 + quarters.length + 2;
+  // Columns: [activity] (+[timeline label] in partner mode) + quarters + [agent]
+  // (+[status]+[comment] in partner mode) + [delete].
+  const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
 
   return (
     <div className="space-y-5">
@@ -753,10 +862,17 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
           <table className="w-full text-sm border-collapse">
             <QuarterHeader
               quarters={quarters}
-              leadCols={<th rowSpan={2} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>}
+              leadCols={
+                <>
+                  <th rowSpan={2} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>
+                  {partnerMode && <th rowSpan={2} className="text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>}
+                </>
+              }
               trailCols={
                 <>
                   <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
+                  {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[150px] align-bottom">Progress update</th>}
+                  {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>}
                   <th rowSpan={2} className="px-2 py-2 w-10 align-bottom" />
                 </>
               }
@@ -788,9 +904,9 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
                     </td>
                   </tr>
 
-                  {sec.rows.map((row) => (
-                    <tr key={row.key} className={cn("border-t", row.dirty && "bg-amber-50/30")}>
-                      <td className="px-3 py-2 align-top border-r">
+                  {sec.rows.map((row) => {
+                    const activityCell = (
+                      <td rowSpan={partnerMode ? 2 : 1} className="px-3 py-2 align-top border-r">
                         <div className="flex gap-2">
                           <span className="text-xs font-mono text-muted-foreground pt-2 w-10 shrink-0">{row.activity_num}</span>
                           <Textarea
@@ -801,12 +917,9 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
                           />
                         </div>
                       </td>
-                      {quarters.map((q, i) => (
-                        <td key={q} className={cn("px-1 py-2 align-middle", i === 0 && "border-l")}>
-                          <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
-                        </td>
-                      ))}
-                      <td className="px-2 py-2 align-top border-l">
+                    );
+                    const agentCell = (
+                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l">
                         <Input
                           value={row.implementing_agent}
                           onChange={(e) => updateRow(row.key, { implementing_agent: e.target.value })}
@@ -814,7 +927,9 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
                           className="h-8 text-sm"
                         />
                       </td>
-                      <td className="px-2 py-2 align-middle text-center">
+                    );
+                    const deleteCell = (
+                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-middle text-center">
                         <button
                           onClick={() => deleteActivity(row.key)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
@@ -823,8 +938,83 @@ export function WorkplanAdminEditor({ projectId, defaultAgent }: { projectId: nu
                           <Trash2 className="size-3.5" />
                         </button>
                       </td>
-                    </tr>
-                  ))}
+                    );
+
+                    if (!partnerMode) {
+                      return (
+                        <tr key={row.key} className={cn("border-t", row.dirty && "bg-amber-50/30")}>
+                          {activityCell}
+                          {quarters.map((q, i) => (
+                            <td key={q} className={cn("px-1 py-2 align-middle", i === 0 && "border-l")}>
+                              <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
+                            </td>
+                          ))}
+                          {agentCell}
+                          {deleteCell}
+                        </tr>
+                      );
+                    }
+
+                    // Partner mode: two rows — editable baseline (structure) on top,
+                    // per-report updated timeline below, plus status + comment.
+                    const pid = row.id;
+                    const ps = pid != null ? progress[pid] : undefined;
+                    const canProgress = pid != null;
+                    const updatedQuarters = ps?.updated_quarters ?? row.planned_quarters;
+                    return (
+                      <Fragment key={row.key}>
+                        <tr className={cn("border-t", row.dirty && "bg-amber-50/30")}>
+                          {activityCell}
+                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">Baseline</td>
+                          {quarters.map((q, i) => (
+                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                              <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
+                            </td>
+                          ))}
+                          {agentCell}
+                          <td rowSpan={2} className="px-2 py-2 align-middle border-l">
+                            <Select
+                              value={ps?.status ?? "none"}
+                              onValueChange={(v) => canProgress && updateProgress(pid!, { status: v === "none" ? null : (v as WorkplanStatus) })}
+                              disabled={!canProgress}
+                            >
+                              <SelectTrigger className="w-full h-8 px-2">
+                                {ps?.status ? <StatusBadge value={ps.status} /> : <span className="text-muted-foreground text-sm">—</span>}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                {WORKPLAN_STATUSES.map((st) => (
+                                  <SelectItem key={st} value={st}><StatusBadge value={st} /></SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td rowSpan={2} className="px-2 py-2 align-middle border-l">
+                            <Textarea
+                              value={ps?.comment ?? ""}
+                              onChange={(e) => canProgress && updateProgress(pid!, { comment: e.target.value })}
+                              placeholder={canProgress ? "Add a progress note…" : "Save the activity first…"}
+                              className="text-xs min-h-[56px] resize-y"
+                              disabled={!canProgress}
+                            />
+                          </td>
+                          {deleteCell}
+                        </tr>
+                        <tr className={cn("border-b", row.dirty && "bg-amber-50/30")}>
+                          <td className="px-2 py-2 text-[11px] font-medium text-neutral-700 whitespace-nowrap">Updated</td>
+                          {quarters.map((q, i) => (
+                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                              <QuarterCell
+                                checked={updatedQuarters.includes(q)}
+                                variant={canProgress ? "editable" : "baseline"}
+                                onToggle={canProgress ? () => toggleUpdatedQuarter(pid!, q) : undefined}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      </Fragment>
+                    );
+                  })}
                 </Fragment>
               ))}
             </tbody>

@@ -10,7 +10,7 @@ import { query } from "@/lib/db";
 // DELETE ?id=         → delete activity
 
 const ACTIVITY_FIELDS = [
-  "intermediate",
+  "outcome",
   "objective_num",
   "objective_text",
   "activity_num",
@@ -77,13 +77,13 @@ export async function POST(req: NextRequest) {
 
     const rows = await query(
       `INSERT INTO reporting_platform.workplan_activities
-         (project_id, intermediate, objective_num, objective_text,
+         (project_id, outcome, objective_num, objective_text,
           activity_num, activity_text, implementing_agent, planned_quarters, sort_order)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
        RETURNING *`,
       [
         projectId,
-        (body.intermediate as string) || null,
+        (body.outcome as string) || null,
         (body.objective_num as string) || null,
         (body.objective_text as string) || null,
         (body.activity_num as string) || null,

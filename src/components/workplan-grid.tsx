@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, Plus, Trash2, Check, FileQuestion } from "lucide-react";
+import { Loader2, CheckCircle2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   WORKPLAN_STATUSES,
@@ -29,7 +29,7 @@ import {
 
 interface Activity {
   id: number;
-  intermediate: string | null;
+  outcome: string | null;
   objective_num: string | null;
   objective_text: string | null;
   activity_num: string | null;
@@ -258,7 +258,7 @@ export const WorkplanPartnerEditor = forwardRef<
     );
   }
 
-  let lastIntermediate: string | null = null;
+  let lastOutcome: string | null = null;
   let lastObjective: string | null = null;
   const totalCols = 2 + quarters.length + 3;
 
@@ -285,17 +285,17 @@ export const WorkplanPartnerEditor = forwardRef<
           {activities.map((a) => {
             const s = states[a.id];
             if (!s) return null;
-            const showIntermediate = a.intermediate && a.intermediate !== lastIntermediate;
-            if (a.intermediate) lastIntermediate = a.intermediate;
+            const showOutcome = a.outcome && a.outcome !== lastOutcome;
+            if (a.outcome) lastOutcome = a.outcome;
             const objKey = `${a.objective_num ?? ""}|${a.objective_text ?? ""}`;
             const showObjective = objKey.trim() !== "|" && objKey !== lastObjective;
             if (objKey.trim() !== "|") lastObjective = objKey;
 
             return (
               <Fragment key={a.id}>
-                {showIntermediate && (
+                {showOutcome && (
                   <tr className="bg-neutral-100 border-y">
-                    <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700">{a.intermediate}</td>
+                    <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700">{a.outcome}</td>
                   </tr>
                 )}
                 {showObjective && (
@@ -370,8 +370,9 @@ export const WorkplanPartnerEditor = forwardRef<
 interface AdminRow {
   key: number; // stable client id
   id: number | null;
-  sectionId: number; // stable client-side grouping
-  intermediate: string;
+  clusterId: number; // stable client-side grouping for the outcome level
+  sectionId: number; // stable client-side grouping for the objective level
+  outcome: string;
   objective_num: string;
   objective_text: string;
   activity_num: string;
@@ -441,7 +442,8 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
   const partnerMode = reportId != null;
 
   const [rows, setRows] = useState<AdminRow[]>([]);
-  const [intermediate, setIntermediate] = useState("");
+  const [collapsedClusters, setCollapsedClusters] = useState<Record<number, boolean>>({});
+  const [collapsedSections, setCollapsedSections] = useState<Record<number, boolean>>({});
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -458,6 +460,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
 
   const keyRef = useRef(0);
   const sectionIdRef = useRef(0);
+  const clusterIdRef = useRef(0);
   const rowsRef = useRef<AdminRow[]>([]);
   const idByKeyRef = useRef<Map<number, number>>(new Map());
   const rangeDirtyRef = useRef(false);
@@ -497,16 +500,23 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
         setProgress(prog);
       }
 
+      // Group consecutive rows by outcome (cluster) then by
+      // objective (section). A cluster boundary always starts a new section.
       let sid = 0;
-      let prevKey: string | null = null;
+      let cid = 0;
+      let prevObjKey: string | null = null;
+      let prevInter: string | null = null;
       const mapped: AdminRow[] = data.activities.map((a, i) => {
+        const inter = a.outcome ?? "";
+        if (inter !== prevInter) { cid++; prevInter = inter; prevObjKey = null; }
         const gk = `${a.objective_num ?? ""}|${a.objective_text ?? ""}`;
-        if (gk !== prevKey) { sid++; prevKey = gk; }
+        if (gk !== prevObjKey) { sid++; prevObjKey = gk; }
         return {
           key: i + 1,
           id: a.id,
+          clusterId: cid,
           sectionId: sid,
-          intermediate: a.intermediate ?? "",
+          outcome: inter,
           objective_num: a.objective_num ?? "",
           objective_text: a.objective_text ?? "",
           activity_num: a.activity_num ?? "",
@@ -520,8 +530,8 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
       });
       keyRef.current = data.activities.length;
       sectionIdRef.current = sid;
+      clusterIdRef.current = cid;
       idByKeyRef.current = new Map(mapped.filter((r) => r.id != null).map((r) => [r.key, r.id as number]));
-      setIntermediate(mapped[0]?.intermediate ?? "");
       // Reconcile numbering with position; persist any drift from older/manual data.
       const numbered = normalizeRef.current(mapped);
       setRows(numbered);
@@ -616,7 +626,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
         const effectiveId = row.id ?? idByKeyRef.current.get(row.key) ?? null;
         const savedRev = row.rev;
         const payload = {
-          intermediate: row.intermediate || null,
+          outcome: row.outcome || null,
           objective_num: row.objective_num || null,
           objective_text: row.objective_text || null,
           activity_num: row.activity_num || null,
@@ -718,9 +728,10 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
     scheduleFlush();
   }
 
-  function updateIntermediate(v: string) {
-    setIntermediate(v);
-    setRows((prev) => prev.map((r) => ({ ...r, intermediate: v, dirty: true, rev: r.rev + 1 })));
+  // Rename an outcome cluster — the heading is stored on every
+  // activity row in the cluster (workplan_activities.outcome).
+  function updateCluster(clusterId: number, v: string) {
+    setRows((prev) => prev.map((r) => (r.clusterId === clusterId ? { ...r, outcome: v, dirty: true, rev: r.rev + 1 } : r)));
     scheduleFlush();
   }
 
@@ -728,16 +739,16 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
     setRows((prev) => {
       const section = prev.filter((r) => r.sectionId === sectionId);
       const template = section[0];
-      const objNum = template?.objective_num ?? "";
       const lastIdx = prev.map((r) => r.sectionId).lastIndexOf(sectionId);
       const newRow: AdminRow = {
         key: ++keyRef.current,
         id: null,
+        clusterId: template?.clusterId ?? 0,
         sectionId,
-        intermediate,
-        objective_num: objNum,
+        outcome: template?.outcome ?? "",
+        objective_num: template?.objective_num ?? "",
         objective_text: template?.objective_text ?? "",
-        activity_num: objNum ? `${objNum}.${section.length + 1}` : "",
+        activity_num: "",
         activity_text: "",
         implementing_agent: defaultAgent ?? "",
         planned_quarters: [],
@@ -751,18 +762,46 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
     scheduleFlush();
   }
 
-  function addObjective() {
+  // Add a new objective within a specific outcome cluster.
+  function addObjective(clusterId: number) {
     setRows((prev) => {
-      const sectionCount = new Set(prev.map((r) => r.sectionId)).size;
-      const objNum = String(sectionCount + 1);
+      const cluster = prev.filter((r) => r.clusterId === clusterId);
+      const template = cluster[0];
+      const lastIdx = prev.map((r) => r.clusterId).lastIndexOf(clusterId);
       const newRow: AdminRow = {
         key: ++keyRef.current,
         id: null,
+        clusterId,
         sectionId: ++sectionIdRef.current,
-        intermediate,
-        objective_num: objNum,
+        outcome: template?.outcome ?? "",
+        objective_num: "",
         objective_text: "",
-        activity_num: `${objNum}.1`,
+        activity_num: "",
+        activity_text: "",
+        implementing_agent: defaultAgent ?? "",
+        planned_quarters: [],
+        sort_order: 0,
+        dirty: true,
+        rev: 0,
+      };
+      const next = lastIdx >= 0 ? [...prev.slice(0, lastIdx + 1), newRow, ...prev.slice(lastIdx + 1)] : [...prev, newRow];
+      return normalize(next);
+    });
+    scheduleFlush();
+  }
+
+  // Add a new outcome cluster, seeded with one empty objective.
+  function addOutcome() {
+    setRows((prev) => {
+      const newRow: AdminRow = {
+        key: ++keyRef.current,
+        id: null,
+        clusterId: ++clusterIdRef.current,
+        sectionId: ++sectionIdRef.current,
+        outcome: "",
+        objective_num: "",
+        objective_text: "",
+        activity_num: "",
         activity_text: "",
         implementing_agent: defaultAgent ?? "",
         planned_quarters: [],
@@ -789,18 +828,31 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
     scheduleFlush();
   }
 
+  async function deleteCluster(clusterId: number) {
+    const ids = rowsRef.current.filter((r) => r.clusterId === clusterId && r.id != null).map((r) => r.id);
+    await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
+    setRows((prev) => normalize(prev.filter((r) => r.clusterId !== clusterId)));
+    scheduleFlush();
+  }
+
   function setRangeStart(v: string) { setStart(v); rangeDirtyRef.current = true; scheduleFlush(); }
   function setRangeEnd(v: string) { setEnd(v); rangeDirtyRef.current = true; scheduleFlush(); }
 
   // ── Derive sections for render ────────────────────────────────────────────
 
-  const sections = useMemo(() => {
-    const out: { sectionId: number; objective_num: string; objective_text: string; rows: AdminRow[] }[] = [];
+  const clusters = useMemo(() => {
+    type Section = { sectionId: number; objective_num: string; objective_text: string; rows: AdminRow[] };
+    const out: { clusterId: number; outcome: string; sections: Section[] }[] = [];
     for (const r of rows) {
-      let sec = out[out.length - 1];
+      let cluster = out[out.length - 1];
+      if (!cluster || cluster.clusterId !== r.clusterId) {
+        cluster = { clusterId: r.clusterId, outcome: r.outcome, sections: [] };
+        out.push(cluster);
+      }
+      let sec = cluster.sections[cluster.sections.length - 1];
       if (!sec || sec.sectionId !== r.sectionId) {
         sec = { sectionId: r.sectionId, objective_num: r.objective_num, objective_text: r.objective_text, rows: [] };
-        out.push(sec);
+        cluster.sections.push(sec);
       }
       sec.rows.push(r);
     }
@@ -837,25 +889,14 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
         <AutosaveIndicator state={saveState} />
       </div>
 
-      {/* Intermediate outcome */}
-      <div className="rounded-xl border bg-card p-4 space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground">Intermediate outcome</p>
-        <Textarea
-          value={intermediate}
-          onChange={(e) => updateIntermediate(e.target.value)}
-          placeholder="Intermediate outcome heading…"
-          className="text-sm min-h-[48px] resize-y"
-        />
-      </div>
-
-      {/* Objective sections + activity grid */}
+      {/* Outcomes → objectives → activities */}
       {quarters.length === 0 && (
         <p className="text-sm text-muted-foreground">Set the timeline range above to enable quarter selection.</p>
       )}
 
-      {sections.length === 0 ? (
+      {clusters.length === 0 ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-          No objectives yet. Add one to start building the workplan.
+          No outcomes yet. Add one to start building the workplan.
         </div>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
@@ -878,12 +919,54 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
               }
             />
             <tbody>
-              {sections.map((sec) => (
-                <Fragment key={sec.sectionId}>
-                  <tr className="bg-blue-50/60 border-y">
-                    <td colSpan={totalCols} className="px-3 py-2">
+              {clusters.map((cluster, ci) => (
+                <Fragment key={cluster.clusterId}>
+                  {/* Outcome cluster header — top level of the hierarchy */}
+                  <tr className="bg-neutral-800 text-white">
+                    <td colSpan={totalCols} className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-blue-900 shrink-0">Objective {sec.objective_num}</span>
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedClusters((p) => ({ ...p, [cluster.clusterId]: !p[cluster.clusterId] }))}
+                          className="shrink-0 text-white/70 hover:text-white transition-colors"
+                          aria-label={collapsedClusters[cluster.clusterId] ? "Expand outcome" : "Collapse outcome"}
+                        >
+                          {collapsedClusters[cluster.clusterId] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                        </button>
+                        <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0">Outcome {ci + 1}</span>
+                        <Input
+                          value={cluster.outcome}
+                          onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
+                          placeholder="Outcome heading…"
+                          className="h-7 flex-1 text-sm bg-white text-neutral-900 placeholder:text-neutral-400"
+                        />
+                        <Button onClick={() => addObjective(cluster.clusterId)} variant="secondary" size="sm" className="h-7 shrink-0 gap-1">
+                          <Plus className="size-3.5" /> Objective
+                        </Button>
+                        <button
+                          onClick={() => deleteCluster(cluster.clusterId)}
+                          className="text-white/60 hover:text-red-300 transition-colors shrink-0"
+                          aria-label="Delete outcome"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {!collapsedClusters[cluster.clusterId] && cluster.sections.map((sec) => (
+                    <Fragment key={sec.sectionId}>
+                  <tr className="bg-blue-50/70 border-b">
+                    <td colSpan={totalCols} className="py-2 pl-8 pr-3">
+                      <div className="flex items-center gap-2 border-l-2 border-blue-300 pl-3">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedSections((p) => ({ ...p, [sec.sectionId]: !p[sec.sectionId] }))}
+                          className="shrink-0 text-blue-700 hover:text-blue-900 transition-colors"
+                          aria-label={collapsedSections[sec.sectionId] ? "Expand objective" : "Collapse objective"}
+                        >
+                          {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                        </button>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-blue-900 shrink-0">Objective {sec.objective_num}</span>
                         <Input
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}
@@ -904,7 +987,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
                     </td>
                   </tr>
 
-                  {sec.rows.map((row) => {
+                  {!collapsedSections[sec.sectionId] && sec.rows.map((row) => {
                     const activityCell = (
                       <td rowSpan={partnerMode ? 2 : 1} className="px-3 py-2 align-top border-r">
                         <div className="flex gap-2">
@@ -1016,14 +1099,16 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
                     );
                   })}
                 </Fragment>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       )}
 
-      <Button onClick={addObjective} variant="outline" size="sm">
-        <Plus className="size-4 mr-1" /> Add objective
+      <Button onClick={addOutcome} variant="outline" size="sm">
+        <Plus className="size-4 mr-1" /> Add outcome
       </Button>
     </div>
   );

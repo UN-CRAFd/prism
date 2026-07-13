@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     const activities = await query(
       `SELECT
          a.id,
-         a.intermediate,
+         a.outcome,
          a.objective_num,
          a.objective_text,
          a.activity_num,

@@ -20,9 +20,11 @@ export async function POST(request: Request) {
 
   // ── Admin — verified server-side (password never shipped to the client) ──
   if (username.toLowerCase() === "admin") {
-    const adminPassword =
-      process.env.ADMIN_PASSWORD ?? process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "admin";
-    if (password === adminPassword) {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    // No default and no NEXT_PUBLIC_ fallback: if the secret is not configured
+    // server-side, admin login is disabled rather than falling back to a
+    // guessable/client-exposed value.
+    if (adminPassword && password === adminPassword) {
       return NextResponse.json({
         user: { id: "admin", name: "CRAF'd Secretariat", role: "admin" },
       });

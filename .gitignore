@@ -16,6 +16,9 @@ dist/
 .env.test.local
 .env.production.local
 
+# real reporting data — never publish (contains PII / financials)
+public/data/
+
 # misc
 .DS_Store
 *.pem

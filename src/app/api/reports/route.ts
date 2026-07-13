@@ -25,9 +25,9 @@ export async function GET(request: Request) {
         pr.short_name                                   AS project_short_name,
         pr.mptfo_project_number,
         pr.grant_size_usd,
-        pr.project_duration,
         pr.geographic_scope,
         TO_CHAR(pr.project_start_date, 'YYYY-MM-DD')   AS project_start_date,
+        TO_CHAR(pr.project_end_date,   'YYYY-MM-DD')   AS project_end_date,
         p.short_name                                    AS partner_short_name,
         p.long_name                                     AS partner_long_name,
         p.organization_website
@@ -56,8 +56,8 @@ function parseYear(value: unknown): number | null {
 const SEED_OVERVIEW_SQL = `
   INSERT INTO reporting_platform.overview (
     reportid, project_title, mptfo_project_number, organization_name, organization_website,
-    project_duration_months, grant_size_usd, implementing_partners, geographic_scope,
-    report_submission_date, starting_date, end_date, project_lead, authorized
+    grant_size_usd, implementing_partners, geographic_scope,
+    report_submission_date, project_lead, authorized
   )
   SELECT
     r.id,
@@ -65,13 +65,10 @@ const SEED_OVERVIEW_SQL = `
     COALESCE(prev_o.mptfo_project_number,     proj.mptfo_project_number),
     COALESCE(prev_o.organization_name,        part.long_name),
     COALESCE(prev_o.organization_website,     part.organization_website),
-    COALESCE(prev_o.project_duration_months,  NULLIF(REGEXP_REPLACE(proj.project_duration, '[^0-9]', '', 'g'), '')::numeric),
     COALESCE(prev_o.grant_size_usd,           proj.grant_size_usd::numeric),
     prev_o.implementing_partners,
     COALESCE(prev_o.geographic_scope,         proj.geographic_scope),
     COALESCE(prev_o.report_submission_date,   r.report_submission_date),
-    COALESCE(prev_o.starting_date,            proj.project_start_date),
-    prev_o.end_date,
     prev_o.project_lead,
     false
   FROM reporting_platform.reports r

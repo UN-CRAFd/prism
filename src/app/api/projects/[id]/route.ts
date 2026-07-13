@@ -3,7 +3,7 @@ import { query } from "@/lib/db";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name",
-  "mptfo_project_number", "grant_size_usd", "project_start_date", "project_duration", "geographic_scope",
+  "mptfo_project_number", "grant_size_usd", "project_start_date", "project_end_date", "geographic_scope",
   "implementing_partners",
 ];
 

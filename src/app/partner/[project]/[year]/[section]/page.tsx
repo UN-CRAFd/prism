@@ -127,9 +127,9 @@ interface Report {
   report_submission_date: string | null;
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
-  project_duration: number | null;
   geographic_scope: string | null;
   project_start_date: string | null;
+  project_end_date: string | null;
   organization_website: string | null;
 }
 
@@ -152,13 +152,12 @@ interface OverviewData {
   mptfo_project_number: string;
   organization_name: string;
   organization_website: string;
-  project_duration_months: string;
   grant_size_usd: string;
   implementing_partners: string;
   geographic_scope: string;
   report_submission_date: string;
-  starting_date: string;
-  end_date: string;
+  project_start_date: string;
+  project_end_date: string;
   project_lead: string;
   authorized: boolean;
 }
@@ -220,19 +219,27 @@ const EMPTY_OVERVIEW: OverviewData = {
   mptfo_project_number: "",
   organization_name: "",
   organization_website: "",
-  project_duration_months: "",
   grant_size_usd: "",
   implementing_partners: "",
   geographic_scope: "",
   report_submission_date: "",
-  starting_date: "",
-  end_date: "",
+  project_start_date: "",
+  project_end_date: "",
   project_lead: "",
   authorized: false,
 };
 
 function toSlug(r: Report): string {
   return (r.project_short_name ?? r.project_title).toLowerCase();
+}
+
+// Duration is derived (in whole months) from the project start/end dates.
+function durationMonthsLabel(start: string, end: string): string {
+  if (!start || !end) return "—";
+  const s = new Date(start), e = new Date(end);
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return "—";
+  const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  return months > 0 ? `${months} months` : "—";
 }
 
 export default function PartnerReportEditorPage() {
@@ -324,13 +331,12 @@ export default function PartnerReportEditorPage() {
           mptfo_project_number: data.mptfo_project_number ?? "",
           organization_name: data.organization_name ?? "",
           organization_website: data.organization_website ?? "",
-          project_duration_months: data.project_duration_months != null ? String(data.project_duration_months) : "",
           grant_size_usd: data.grant_size_usd != null ? String(data.grant_size_usd) : "",
           implementing_partners: data.implementing_partners ?? "",
           geographic_scope: data.geographic_scope ?? "",
           report_submission_date: data.report_submission_date?.slice(0, 10) ?? "",
-          starting_date: data.starting_date?.slice(0, 10) ?? "",
-          end_date: data.end_date?.slice(0, 10) ?? "",
+          project_start_date: data.project_start_date?.slice(0, 10) ?? "",
+          project_end_date: data.project_end_date?.slice(0, 10) ?? "",
           project_lead: data.project_lead ?? "",
           authorized: data.authorized ?? false,
         });
@@ -427,13 +433,12 @@ export default function PartnerReportEditorPage() {
             mptfo_project_number: match.mptfo_project_number || "",
             organization_name: match.partner_long_name || "",
             organization_website: match.organization_website || "",
-            project_duration_months: match.project_duration != null ? String(match.project_duration) : "",
             grant_size_usd: match.grant_size_usd != null ? String(match.grant_size_usd) : "",
             implementing_partners: "",
             geographic_scope: match.geographic_scope || "",
             report_submission_date: match.report_submission_date?.slice(0, 10) || "",
-            starting_date: match.project_start_date?.slice(0, 10) || "",
-            end_date: "",
+            project_start_date: match.project_start_date?.slice(0, 10) || "",
+            project_end_date: match.project_end_date?.slice(0, 10) || "",
             project_lead: "",
             authorized: false,
           });
@@ -700,7 +705,7 @@ export default function PartnerReportEditorPage() {
   const overviewEmptyCount = useMemo(() => {
     const requiredFields: (keyof OverviewData)[] = [
       "project_title", "mptfo_project_number", "organization_name", "organization_website",
-      "project_duration_months", "grant_size_usd", "geographic_scope", "report_submission_date", "starting_date",
+      "grant_size_usd", "geographic_scope", "report_submission_date", "project_start_date", "project_end_date",
     ];
     return requiredFields.filter((field) => !overview[field]).length;
   }, [overview]);
@@ -951,29 +956,34 @@ export default function PartnerReportEditorPage() {
                   <Input value={overview.project_lead} onChange={(e) => updateOverview({ project_lead: e.target.value })} placeholder={labels.placeholders.projectLead} className="text-sm" />
                 </div>
                 <div>
-                  <Label>{labels.overviewFields.durationMonths}</Label>
-                  <Input type="number" min={0} value={overview.project_duration_months} onChange={(e) => updateOverview({ project_duration_months: e.target.value })} placeholder={labels.placeholders.durationMonths} className="text-sm" />
-                </div>
-                <div>
                   <Label>{labels.overviewFields.grantSizeUsd}</Label>
                   <Input type="number" min={0} value={overview.grant_size_usd} onChange={(e) => updateOverview({ grant_size_usd: e.target.value })} placeholder={labels.placeholders.grantSizeUsd} className="text-sm" />
+                </div>
+                <div>
+                  <Label>{labels.overviewFields.durationMonths}</Label>
+                  <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+                    {durationMonthsLabel(overview.project_start_date, overview.project_end_date)}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>{labels.overviewFields.startDate}</Label>
-                  <Input type="date" value={overview.starting_date} onChange={(e) => updateOverview({ starting_date: e.target.value })} className="text-sm" />
+                  <Input type="date" value={overview.project_start_date} onChange={(e) => updateOverview({ project_start_date: e.target.value })} className="text-sm" />
                 </div>
                 <div>
                   <Label>{labels.overviewFields.endDate}</Label>
-                  <Input type="date" value={overview.end_date} onChange={(e) => updateOverview({ end_date: e.target.value })} className="text-sm" />
+                  <Input type="date" value={overview.project_end_date} onChange={(e) => updateOverview({ project_end_date: e.target.value })} className="text-sm" />
                 </div>
                 <div>
                   <Label>{labels.overviewFields.reportSubmissionDate}</Label>
                   <Input type="date" value={overview.report_submission_date} onChange={(e) => updateOverview({ report_submission_date: e.target.value })} className="text-sm" />
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Start and end dates are project-level — they set the project timeline and drive the workplan quarters.
+              </p>
 
               <div>
                 <Label>{labels.overviewFields.implementingPartners}</Label>

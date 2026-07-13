@@ -386,42 +386,6 @@ interface AdminRow {
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-const QUARTER_OPTS = [1, 2, 3, 4];
-
-function QuarterPicker({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string) => void }) {
-  // Hold each field locally so a range can be built from empty — one part at a
-  // time — rather than requiring both to already be set to commit either.
-  const [year, setYear] = useState("");
-  const [q, setQ] = useState("");
-  useEffect(() => {
-    const m = value ? /^(\d{4})-Q([1-4])$/.exec(value) : null;
-    setYear(m ? m[1] : "");
-    setQ(m ? m[2] : "");
-  }, [value]);
-
-  function commit(y: string, qq: string) {
-    if (y && qq) onChange(`${y}-Q${qq}`);
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground w-10">{label}</span>
-      <Input
-        type="number"
-        placeholder="Year"
-        value={year}
-        onChange={(e) => { setYear(e.target.value); commit(e.target.value, q); }}
-        className="h-8 w-24 text-sm"
-      />
-      <Select value={q || undefined} onValueChange={(v) => { setQ(v); commit(year, v); }}>
-        <SelectTrigger className="h-8 w-24 text-sm"><span>{q ? `Q${q}` : "Quarter"}</span></SelectTrigger>
-        <SelectContent>
-          {QUARTER_OPTS.map((n) => (<SelectItem key={n} value={String(n)}>Q{n}</SelectItem>))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
 function AutosaveIndicator({ state }: { state: SaveState }) {
   if (state === "idle") return null;
   if (state === "saving") return <span className="flex items-center gap-1.5 text-muted-foreground text-sm"><Loader2 className="size-3.5 animate-spin" /> Saving…</span>;
@@ -463,7 +427,6 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
   const clusterIdRef = useRef(0);
   const rowsRef = useRef<AdminRow[]>([]);
   const idByKeyRef = useRef<Map<number, number>>(new Map());
-  const rangeDirtyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const pendingRef = useRef(false);
@@ -610,16 +573,6 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
     savingRef.current = true;
     setSaveState("saving");
     try {
-      if (rangeDirtyRef.current) {
-        rangeDirtyRef.current = false;
-        const res = await fetch("/api/workplan-activities", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId, workplan_quarter_start: start, workplan_quarter_end: end }),
-        });
-        if (!res.ok) throw new Error("Failed to save timeline range");
-      }
-
       for (const row of rowsRef.current) {
         // Prefer an id already minted for this key (a POST that React hasn't committed yet)
         // so a re-entrant flush never creates the same activity twice.
@@ -682,7 +635,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (rowsRef.current.some((r) => r.dirty || r.id === null) || rangeDirtyRef.current) flushRef.current();
+      if (rowsRef.current.some((r) => r.dirty || r.id === null)) flushRef.current();
       if (progressTimerRef.current) clearTimeout(progressTimerRef.current);
       if (progressDirtyRef.current.size) flushProgressRef.current();
     };
@@ -835,8 +788,6 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
     scheduleFlush();
   }
 
-  function setRangeStart(v: string) { setStart(v); rangeDirtyRef.current = true; scheduleFlush(); }
-  function setRangeEnd(v: string) { setEnd(v); rangeDirtyRef.current = true; scheduleFlush(); }
 
   // ── Derive sections for render ────────────────────────────────────────────
 
@@ -877,15 +828,14 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
 
-      {/* Timeline range + autosave status */}
-      <div className="flex items-end justify-between gap-4 rounded-xl border bg-card p-4">
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Workplan timeline (quarter columns)</p>
-          <div className="flex flex-wrap gap-4">
-            <QuarterPicker label="From" value={start} onChange={setRangeStart} />
-            <QuarterPicker label="To" value={end} onChange={setRangeEnd} />
-          </div>
-        </div>
+      {/* Derived timeline + autosave status */}
+      <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-3">
+        <p className="text-xs text-muted-foreground">
+          Timeline is derived from the project start &amp; end dates
+          {quarters.length > 0 && (
+            <span className="ml-1 font-medium text-foreground">({quarters[0]} – {quarters[quarters.length - 1]})</span>
+          )}
+        </p>
         <AutosaveIndicator state={saveState} />
       </div>
 

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { quarterFromDate } from "@/lib/workplan";
 
 // ── Master workplan structure (project-level, admin-owned) ───────────────────
+//
+// The quarter range is derived from the project's start/end dates — not stored.
 //
 // GET    ?projectId=  → { range: {start,end}, activities: [...] }
 // POST   { projectId, ...activityFields }        → create activity
 // PATCH  { id, ...activityFields }               → update one activity
-// PATCH  { projectId, workplan_quarter_start, workplan_quarter_end } → set range
 // DELETE ?id=         → delete activity
 
 const ACTIVITY_FIELDS = [
@@ -25,14 +27,15 @@ function toQuarters(v: unknown): string[] {
 }
 
 async function loadRange(projectId: string | number) {
-  const rows = await query<{ workplan_quarter_start: string | null; workplan_quarter_end: string | null }>(
-    `SELECT workplan_quarter_start, workplan_quarter_end
+  const rows = await query<{ start_date: string | null; end_date: string | null }>(
+    `SELECT TO_CHAR(project_start_date, 'YYYY-MM-DD') AS start_date,
+            TO_CHAR(project_end_date,   'YYYY-MM-DD') AS end_date
        FROM reporting_platform.projects WHERE id = $1`,
     [projectId]
   );
   return {
-    start: rows[0]?.workplan_quarter_start ?? null,
-    end: rows[0]?.workplan_quarter_end ?? null,
+    start: quarterFromDate(rows[0]?.start_date),
+    end: quarterFromDate(rows[0]?.end_date),
   };
 }
 
@@ -106,28 +109,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // Branch 1: set the project-level quarter range.
-  if (!body.id && body.projectId) {
-    try {
-      const rows = await query(
-        `UPDATE reporting_platform.projects
-            SET workplan_quarter_start = $2, workplan_quarter_end = $3
-          WHERE id = $1
-        RETURNING workplan_quarter_start, workplan_quarter_end`,
-        [
-          body.projectId,
-          (body.workplan_quarter_start as string) || null,
-          (body.workplan_quarter_end as string) || null,
-        ]
-      );
-      return NextResponse.json(rows[0] ?? {});
-    } catch (err) {
-      console.error("PATCH /api/workplan-activities (range) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
-    }
-  }
-
-  // Branch 2: update one activity.
+  // Update one activity.
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 

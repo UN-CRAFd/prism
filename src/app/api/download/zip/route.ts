@@ -47,10 +47,9 @@ export async function GET(req: NextRequest) {
           o.organization_name,
           o.organization_website,
           o.project_lead,
-          o.project_duration_months,
           o.grant_size_usd,
-          o.starting_date,
-          o.end_date,
+          TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
+          TO_CHAR(p.project_end_date,   'YYYY-MM-DD') AS project_end_date,
           o.implementing_partners,
           o.geographic_scope,
           o.report_submission_date,
@@ -74,8 +73,8 @@ export async function GET(req: NextRequest) {
 
       const HEADERS = [
         "year", "project_name", "partner", "project_title", "mptfo_project_number",
-        "organization_name", "organization_website", "project_lead", "project_duration_months",
-        "grant_size_usd", "starting_date", "end_date", "implementing_partners",
+        "organization_name", "organization_website", "project_lead",
+        "grant_size_usd", "project_start_date", "project_end_date", "implementing_partners",
         "geographic_scope", "report_submission_date", "authorized",
       ];
       for (const { partner, year, rows: groupRows } of groups.values()) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { quarterFromDate } from "@/lib/workplan";
 
 // ── Per-report workplan progress (partner-owned) ─────────────────────────────
 //
@@ -19,13 +20,15 @@ export async function GET(req: NextRequest) {
   if (!reportId) return NextResponse.json({ error: "reportId required" }, { status: 400 });
 
   try {
-    // Resolve the project + quarter range for this report.
+    // Resolve the project + derive the quarter range from the project dates.
     const projRows = await query<{
       project_id: number;
-      workplan_quarter_start: string | null;
-      workplan_quarter_end: string | null;
+      start_date: string | null;
+      end_date: string | null;
     }>(
-      `SELECT p.id AS project_id, p.workplan_quarter_start, p.workplan_quarter_end
+      `SELECT p.id AS project_id,
+              TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
+              TO_CHAR(p.project_end_date,   'YYYY-MM-DD') AS end_date
          FROM reporting_platform.reports r
          JOIN reporting_platform.projects p ON p.id = r.project_id
         WHERE r.id = $1`,
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
     );
     if (!projRows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
-    const { project_id, workplan_quarter_start, workplan_quarter_end } = projRows[0];
+    const { project_id, start_date, end_date } = projRows[0];
 
     // Activities for the project, LEFT JOINed to this report's entry.
     const activities = await query(
@@ -60,7 +63,7 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({
-      range: { start: workplan_quarter_start, end: workplan_quarter_end },
+      range: { start: quarterFromDate(start_date), end: quarterFromDate(end_date) },
       activities,
     });
   } catch (err) {

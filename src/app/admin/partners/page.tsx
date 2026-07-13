@@ -29,14 +29,24 @@ interface Partner {
 // -- Sub-components ---------------------------------------------------------
 
 function PartnerLogo({ shortName }: { shortName: string | null }) {
-  const [errored, setErrored] = useState(false);
-  if (!shortName || errored) return <Building2 className="size-10 text-muted-foreground/40" />;
+  const [extension, setExtension] = useState<"webp" | "png" | "none">("webp");
+
+  if (!shortName || extension === "none") {
+    return <Building2 className="size-10 text-muted-foreground/40" />;
+  }
+
   return (
     <img
-      src={`/logos/${shortName.toLowerCase()}.webp`}
+      src={`/logos/${shortName.toLowerCase()}.${extension}`}
       alt={shortName}
       className="w-full h-auto object-contain max-h-16"
-      onError={() => setErrored(true)}
+      onError={() => {
+        if (extension === "webp") {
+          setExtension("png");
+        } else {
+          setExtension("none");
+        }
+      }}
     />
   );
 }

@@ -321,9 +321,9 @@ export const WorkplanPartnerEditor = forwardRef<
                     </td>
                   ))}
                   <td rowSpan={2} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
-                  <td rowSpan={2} className="px-2 py-2 align-top border-l">
+                  <td rowSpan={2} className="px-2 py-2 align-top border-l w-[100px]">
                     <Select value={s.status ?? "none"} onValueChange={(v) => update(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
-                      <SelectTrigger className="w-full h-8 px-2">
+                      <SelectTrigger className="h-8 px-1 w-[140px]">
                         {s.status ? <StatusBadge value={s.status} /> : <span className="text-muted-foreground text-sm">—</span>}
                       </SelectTrigger>
                       <SelectContent>
@@ -1005,13 +1005,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
                             </td>
                           ))}
                           {agentCell}
-                          <td rowSpan={2} className="px-2 py-2 align-top border-l">
+                          <td rowSpan={2} className="px-2 py-2 align-top border-l w-[100px]">
                             <Select
                               value={ps?.status ?? "none"}
                               onValueChange={(v) => canProgress && updateProgress(pid!, { status: v === "none" ? null : (v as WorkplanStatus) })}
                               disabled={!canProgress}
                             >
-                              <SelectTrigger className="w-full h-8 px-2">
+                              <SelectTrigger className="h-8 px-1 w-[140px]">
                                 {ps?.status ? <StatusBadge value={ps.status} /> : <span className="text-muted-foreground text-sm">—</span>}
                               </SelectTrigger>
                               <SelectContent>

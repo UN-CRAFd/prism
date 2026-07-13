@@ -275,8 +275,8 @@ export const WorkplanPartnerEditor = forwardRef<
           }
           trailCols={
             <>
-              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[80px] align-bottom">Agent</th>
-              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[150px] align-bottom">Progress update</th>
+              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
+              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>
               <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>
             </>
           }
@@ -320,8 +320,8 @@ export const WorkplanPartnerEditor = forwardRef<
                       <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
                     </td>
                   ))}
-                  <td rowSpan={2} className="px-2 py-2 text-center text-xs align-middle border-l">{a.implementing_agent ?? "—"}</td>
-                  <td rowSpan={2} className="px-2 py-2 align-middle border-l">
+                  <td rowSpan={2} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
+                  <td rowSpan={2} className="px-2 py-2 align-top border-l">
                     <Select value={s.status ?? "none"} onValueChange={(v) => update(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
                       <SelectTrigger className="w-full h-8 px-2">
                         {s.status ? <StatusBadge value={s.status} /> : <span className="text-muted-foreground text-sm">—</span>}
@@ -862,7 +862,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
               trailCols={
                 <>
                   <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
-                  {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[150px] align-bottom">Progress update</th>}
+                  {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>}
                   {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>}
                   <th rowSpan={2} className="px-2 py-2 w-10 align-bottom" />
                 </>
@@ -952,7 +952,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
                       </td>
                     );
                     const agentCell = (
-                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l">
+                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
                         <Input
                           value={row.implementing_agent}
                           onChange={(e) => updateRow(row.key, { implementing_agent: e.target.value })}
@@ -1005,7 +1005,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
                             </td>
                           ))}
                           {agentCell}
-                          <td rowSpan={2} className="px-2 py-2 align-middle border-l">
+                          <td rowSpan={2} className="px-2 py-2 align-top border-l">
                             <Select
                               value={ps?.status ?? "none"}
                               onValueChange={(v) => canProgress && updateProgress(pid!, { status: v === "none" ? null : (v as WorkplanStatus) })}

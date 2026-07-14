@@ -859,7 +859,7 @@ export default function PartnerReportEditorPage() {
       </div>
 
       {/* Section tabs */}
-      <div className="border-b px-8 flex gap-1 shrink-0 bg-background overflow-hidden">
+      <div className="border-b px-8 flex gap-1 shrink-0 bg-background overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         {SECTIONS.map((sec) => {
           const emptyCount = getEmptyCount(sec.value);
           return (

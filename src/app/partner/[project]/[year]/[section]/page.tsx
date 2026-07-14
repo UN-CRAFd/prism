@@ -14,12 +14,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, CheckCircle2, Save, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
+import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
-import { SectionTableEditor, SECTION_SPECS, type SectionHandle } from "@/components/section-table-editor";
-import { ExpenditurePartnerEditor, type ExpenditureHandle } from "@/components/expenditure-grid";
+import { SectionTableEditor, SECTION_SPECS } from "@/components/section-table-editor";
+import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
+import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import {
   likelihoodLabel,
   impactLabel,
@@ -290,20 +291,15 @@ export default function PartnerReportEditorPage() {
   const [addingIndicator, setAddingIndicator] = useState(false);
 
   // Config-driven list sections (achievements, partnerships, results, lessons,
-  // external-coverage) are handled by <SectionTableEditor>. Each active editor
-  // registers its imperative save() handle and reports its dirty / incomplete
-  // counts up so the shared top-bar Save button and tab badges keep working.
-  const sectionRefs = useRef<Record<string, SectionHandle | null>>({});
-  const [sectionDirty, setSectionDirty] = useState<Record<string, boolean>>({});
+  // external-coverage) are handled by <SectionTableEditor>, which autosaves and
+  // reports its incomplete count up for the tab badge.
   const [sectionEmpty, setSectionEmpty] = useState<Record<string, number>>({});
 
-  // Workplan (partner) uses the shared admin editor, which auto-saves both the
-  // project structure and this report's progress — no batched save needed here.
-  const expenditureRef = useRef<ExpenditureHandle>(null);
-  const [expenditureDirty, setExpenditureDirty] = useState(false);
+  // Every section autosaves. The child editors (list sections, expenditure,
+  // workplan) report their save state up via onSaveStateChange; the parent-managed
+  // sections (surveys, overview, risk, indicators) drive the autosave hook below.
+  const [childSaveState, setChildSaveState] = useState<SaveState>("idle");
 
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadSurveys = useCallback(async (id: number) => {
@@ -459,7 +455,7 @@ export default function PartnerReportEditorPage() {
   // Load section data when reportId or section changes
   useEffect(() => {
     if (!reportId) return;
-    setSaveSuccess(false);
+    setChildSaveState("idle");
     if (params.section === "surveys") loadSurveys(reportId);
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
@@ -473,20 +469,84 @@ export default function PartnerReportEditorPage() {
     router.push(`/partner/${toSlug(report)}/${report.year}/${params.section}`);
   }
 
+  // ── Autosave for the parent-managed sections ──────────────────────────────
+  // Saves every dirty item across surveys / overview / risk / indicators, so an
+  // in-flight edit is never dropped when the user switches section before it
+  // fires. A dirty flag is only cleared if the content is unchanged since the
+  // snapshot, so edits made during the network round-trip survive.
+  const overviewRef = useRef<OverviewData>(overview);
+  useEffect(() => { overviewRef.current = overview; }, [overview]);
+
+  const flushParent = async () => {
+    if (!reportId) return;
+    const dirtySurveys = surveys.filter((s) => rowStates[s.id]?.dirty);
+    const surveySnap = new Map(dirtySurveys.map((s) => [s.id, JSON.stringify({ a: rowStates[s.id].assessment, c: rowStates[s.id].context })]));
+    const dirtyRisks = risks.filter((r) => riskStates[r.id]?.dirty);
+    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ l: riskStates[r.id].likelihood, i: riskStates[r.id].impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
+    const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
+    const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify({ v: indicatorStates[r.currentLineId].achieved_value, s: indicatorStates[r.currentLineId].status, c: indicatorStates[r.currentLineId].comment })]));
+    const saveOverview = overviewDirty;
+    const overviewSnap = JSON.stringify(overview);
+
+    const ok = (r: Response) => { if (!r.ok) throw new Error("Save failed"); };
+    try {
+      await Promise.all([
+        ...dirtySurveys.map((s) => {
+          const st = rowStates[s.id];
+          return fetch("/api/surveys", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: s.id, assessment: st.assessment, context: st.context || null }) }).then(ok);
+        }),
+        ...dirtyRisks.map((r) => {
+          const st = riskStates[r.id];
+          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id, likelihood: st.likelihood, impact: st.impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision }) }).then(ok);
+        }),
+        ...dirtyInd.map((r) => {
+          const st = indicatorStates[r.currentLineId];
+          return fetch("/api/indicator-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.currentLineId, achieved_value: st.achieved_value || null, status: st.status, comment: st.comment || null }) }).then(ok);
+        }),
+        ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, ...overview }) }).then(ok)] : []),
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+      throw e;
+    }
+
+    if (dirtySurveys.length) setRowStates((prev) => {
+      const n = { ...prev };
+      for (const s of dirtySurveys) { const cur = prev[s.id]; if (cur && JSON.stringify({ a: cur.assessment, c: cur.context }) === surveySnap.get(s.id)) n[s.id] = { ...cur, dirty: false }; }
+      return n;
+    });
+    if (dirtyRisks.length) setRiskStates((prev) => {
+      const n = { ...prev };
+      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ l: cur.likelihood, i: cur.impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
+      return n;
+    });
+    if (dirtyInd.length) setIndicatorStates((prev) => {
+      const n = { ...prev };
+      for (const r of dirtyInd) { const cur = prev[r.currentLineId]; if (cur && JSON.stringify({ v: cur.achieved_value, s: cur.status, c: cur.comment }) === indSnap.get(r.currentLineId)) n[r.currentLineId] = { ...cur, dirty: false }; }
+      return n;
+    });
+    if (saveOverview && JSON.stringify(overviewRef.current) === overviewSnap) setOverviewDirty(false);
+  };
+
+  const parentAutosave = useAutosave(flushParent);
+
+  // Flush any pending parent-managed edit when navigating away from the editor.
+  useEffect(() => () => { parentAutosave.flushNow(); }, [parentAutosave.flushNow]);
+
   function updateRow(id: number, patch: Partial<RowState>) {
-    setSaveSuccess(false);
     setRowStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
+    parentAutosave.schedule();
   }
 
   function updateOverview(patch: Partial<OverviewData>) {
-    setSaveSuccess(false);
     setOverview((prev) => ({ ...prev, ...patch }));
     setOverviewDirty(true);
+    parentAutosave.schedule();
   }
 
   function updateRisk(id: number, patch: Partial<RiskState>) {
-    setSaveSuccess(false);
     setRiskStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
+    parentAutosave.schedule();
   }
 
   function toggleCollapse(id: number) {
@@ -590,8 +650,8 @@ export default function PartnerReportEditorPage() {
   }
 
   function updateIndicator(id: number, patch: Partial<IndicatorState>) {
-    setSaveSuccess(false);
     setIndicatorStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
+    parentAutosave.schedule();
   }
 
   // Create a partner-defined custom indicator (project-scoped) and attach it to
@@ -639,103 +699,11 @@ export default function PartnerReportEditorPage() {
     }
   }
 
-  // Stable callbacks for <SectionTableEditor>. The equality guard is essential:
-  // the map is an object, so an unconditional spread would re-render forever.
-  const handleSectionDirty = useCallback((dirty: boolean) => {
-    setSectionDirty((prev) => (prev[params.section] === dirty ? prev : { ...prev, [params.section]: dirty }));
-    if (dirty) setSaveSuccess(false);
-  }, [params.section]);
-
+  // Stable callback for <SectionTableEditor>'s tab-badge count. The equality
+  // guard is essential: the map is an object, so an unconditional spread loops.
   const handleSectionEmpty = useCallback((count: number) => {
     setSectionEmpty((prev) => (prev[params.section] === count ? prev : { ...prev, [params.section]: count }));
   }, [params.section]);
-
-  async function saveAll() {
-    setSaving(true);
-    setError(null);
-    try {
-      if (params.section === "surveys") {
-        const dirtyIds = surveys.filter((s) => rowStates[s.id]?.dirty).map((s) => s.id);
-        await Promise.all(
-          dirtyIds.map((id) => {
-            const state = rowStates[id];
-            return fetch("/api/surveys", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id, assessment: state.assessment, context: state.context || null }),
-            }).then((r) => { if (!r.ok) throw new Error(`Failed to save row ${id}`); });
-          })
-        );
-        setRowStates((prev) => {
-          const next = { ...prev };
-          for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
-          return next;
-        });
-      } else if (params.section === "overview" && reportId) {
-        const res = await fetch("/api/overview", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reportId, ...overview }),
-        });
-        if (!res.ok) throw new Error("Failed to save overview");
-        setOverviewDirty(false);
-      } else if (params.section === "risk") {
-        const dirtyIds = risks.filter((r) => riskStates[r.id]?.dirty).map((r) => r.id);
-        await Promise.all(
-          dirtyIds.map((id) => {
-            const state = riskStates[id];
-            return fetch("/api/risk", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id,
-                likelihood: state.likelihood,
-                impact: state.impact,
-                updated_mitigation: state.updated_mitigation || null,
-                project_revision: state.project_revision,
-              }),
-            }).then((r) => { if (!r.ok) throw new Error(`Failed to save risk ${id}`); });
-          })
-        );
-        setRiskStates((prev) => {
-          const next = { ...prev };
-          for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
-          return next;
-        });
-      } else if (params.section === "indicators") {
-        const dirtyIds = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty).map((r) => r.currentLineId);
-        await Promise.all(
-          dirtyIds.map((id) => {
-            const state = indicatorStates[id];
-            return fetch("/api/indicator-data", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id,
-                achieved_value: state.achieved_value || null,
-                status: state.status,
-                comment: state.comment || null,
-              }),
-            }).then((r) => { if (!r.ok) throw new Error(`Failed to save indicator ${id}`); });
-          })
-        );
-        setIndicatorStates((prev) => {
-          const next = { ...prev };
-          for (const id of dirtyIds) next[id] = { ...next[id], dirty: false };
-          return next;
-        });
-      } else if (params.section in SECTION_SPECS) {
-        await sectionRefs.current[params.section]?.save();
-      } else if (params.section === "expenditure") {
-        await expenditureRef.current?.save();
-      }
-      setSaveSuccess(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
@@ -745,15 +713,12 @@ export default function PartnerReportEditorPage() {
     params.section === "overview" ? loadingOverview :
     params.section === "risk" ? loadingRisk :
     params.section === "indicators" ? loadingIndicators : false;
-  const anyDirty =
-    params.section === "surveys" ? surveys.some((s) => rowStates[s.id]?.dirty) :
-    params.section === "overview" ? overviewDirty :
-    params.section === "risk" ? risks.some((r) => riskStates[r.id]?.dirty) :
-    params.section === "indicators" ? indicatorRows.some((r) => indicatorStates[r.currentLineId]?.dirty) :
-    params.section === "workplan" ? false :
-    params.section === "expenditure" ? expenditureDirty :
-    params.section in SECTION_SPECS ? (sectionDirty[params.section] ?? false) : false;
   const notFound = !loadingReports && !selectedReport;
+
+  // The parent-managed sections drive `parentAutosave`; the rest report up via
+  // `childSaveState`. The top-bar indicator shows whichever owns the active tab.
+  const parentManaged = ["surveys", "overview", "risk", "indicators"].includes(params.section);
+  const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
 
   const overviewEmptyCount = useMemo(() => {
     const requiredFields: (keyof OverviewData)[] = [
@@ -837,23 +802,8 @@ export default function PartnerReportEditorPage() {
             </SelectContent>
           </Select>
 
-          {reportId && !sectionLoading && (
-            saveSuccess ? (
-              <span className="flex items-center gap-1.5 text-green-400 text-sm">
-                <CheckCircle2 className="size-4" /> {labels.partnerEditor.saved}
-              </span>
-            ) : (
-              <Button
-                onClick={saveAll}
-                disabled={!anyDirty || saving}
-                size="sm"
-                className="bg-crafd-yellow text-black hover:bg-crafd-yellow/90 disabled:opacity-40"
-              >
-                {saving
-                  ? <><Loader2 className="size-3.5 animate-spin mr-1.5" /> {labels.partnerEditor.saving}</>
-                  : <><Save className="size-3.5 mr-1.5" /> {labels.partnerEditor.saveChanges}</>}
-              </Button>
-            )
+          {reportId && !sectionLoading && !notFound && (
+            <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
           )}
         </div>
       </div>
@@ -1468,11 +1418,10 @@ export default function PartnerReportEditorPage() {
           reportId ? (
             <SectionTableEditor
               key={params.section}
-              ref={(h) => { sectionRefs.current[params.section] = h; }}
               reportId={reportId}
               spec={SECTION_SPECS[params.section]}
-              onDirtyChange={handleSectionDirty}
               onEmptyCountChange={handleSectionEmpty}
+              onSaveStateChange={setChildSaveState}
             />
           ) : null
 
@@ -1482,15 +1431,15 @@ export default function PartnerReportEditorPage() {
               projectId={selectedReport.project_id}
               reportId={reportId}
               defaultAgent={selectedReport.partner_short_name}
+              onSaveStateChange={setChildSaveState}
             />
           ) : null
 
         ) : params.section === "expenditure" ? (
           reportId ? (
             <ExpenditurePartnerEditor
-              ref={expenditureRef}
               reportId={reportId}
-              onDirtyChange={(d) => { setExpenditureDirty(d); if (d) setSaveSuccess(false); }}
+              onSaveStateChange={setChildSaveState}
             />
           ) : null
 

@@ -1,10 +1,8 @@
 "use client";
 
 import {
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -14,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAutosave, type SaveState } from "@/components/autosave";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,10 +31,6 @@ interface ExpenditurePayload {
   years: number[];
   budgets: BudgetRow[];
   expenditure: ExpRow[];
-}
-
-export interface ExpenditureHandle {
-  save: () => Promise<void>;
 }
 
 function parseAmount(s: string): number | null {
@@ -75,14 +70,22 @@ function fz(key: keyof typeof FCOL, z = 20): CSSProperties {
 
 interface EditState { exp: string; comment: string; dirty: boolean }
 
-export const ExpenditurePartnerEditor = forwardRef<
-  ExpenditureHandle,
-  { reportId: number; onDirtyChange?: (dirty: boolean) => void }
->(function ExpenditurePartnerEditor({ reportId, onDirtyChange }, ref) {
+export function ExpenditurePartnerEditor({
+  reportId,
+  onSaveStateChange,
+}: {
+  reportId: number;
+  onSaveStateChange?: (s: SaveState) => void;
+}) {
   const [data, setData] = useState<ExpenditurePayload | null>(null);
   const [edits, setEdits] = useState<Record<number, EditState>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const dataRef = useRef<ExpenditurePayload | null>(null);
+  useEffect(() => { dataRef.current = data; }, [data]);
+  const editsRef = useRef<Record<number, EditState>>({});
+  useEffect(() => { editsRef.current = edits; }, [edits]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,9 +114,6 @@ export const ExpenditurePartnerEditor = forwardRef<
 
   useEffect(() => { load(); }, [load]);
 
-  const anyDirty = useMemo(() => Object.values(edits).some((e) => e.dirty), [edits]);
-  useEffect(() => { onDirtyChange?.(anyDirty); }, [anyDirty, onDirtyChange]);
-
   // Lookup maps.
   const budgetMap = useMemo(() => {
     const m: Record<number, Record<number, number | null>> = {};
@@ -126,34 +126,50 @@ export const ExpenditurePartnerEditor = forwardRef<
     return m;
   }, [data]);
 
+  // Save every dirty category. A category's dirty flag is only cleared if its
+  // value hasn't changed since we snapshotted it, so edits made mid-save survive.
+  const flush = useCallback(async () => {
+    const d = dataRef.current;
+    if (!d) return;
+    const dirty = d.categories.filter((c) => editsRef.current[c.id]?.dirty);
+    const snaps = new Map(dirty.map((c) => {
+      const e = editsRef.current[c.id];
+      return [c.id, JSON.stringify({ exp: e.exp, comment: e.comment })];
+    }));
+    await Promise.all(dirty.map((c) => {
+      const e = editsRef.current[c.id];
+      return fetch("/api/expenditure", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId,
+          categoryId: c.id,
+          annual_expenditure: parseAmount(e.exp),
+          comment: e.comment || null,
+        }),
+      }).then((r) => { if (!r.ok) throw new Error(`Failed to save ${c.name}`); });
+    }));
+    setEdits((prev) => {
+      const n = { ...prev };
+      for (const c of dirty) {
+        const cur = prev[c.id];
+        if (cur && JSON.stringify({ exp: cur.exp, comment: cur.comment }) === snaps.get(c.id)) {
+          n[c.id] = { ...cur, dirty: false };
+        }
+      }
+      return n;
+    });
+  }, [reportId]);
+
+  const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
+
+  // Flush any pending edit on unmount (e.g. switching section tabs).
+  useEffect(() => () => { flushNow(); }, [flushNow]);
+
   function update(catId: number, patch: Partial<EditState>) {
     setEdits((prev) => ({ ...prev, [catId]: { ...prev[catId], ...patch, dirty: true } }));
+    schedule();
   }
-
-  useImperativeHandle(ref, () => ({
-    save: async () => {
-      if (!data) return;
-      const dirty = data.categories.filter((c) => edits[c.id]?.dirty);
-      await Promise.all(dirty.map((c) => {
-        const e = edits[c.id];
-        return fetch("/api/expenditure", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reportId,
-            categoryId: c.id,
-            annual_expenditure: parseAmount(e.exp),
-            comment: e.comment || null,
-          }),
-        }).then((r) => { if (!r.ok) throw new Error(`Failed to save ${c.name}`); });
-      }));
-      setEdits((prev) => {
-        const n = { ...prev };
-        for (const c of dirty) n[c.id] = { ...n[c.id], dirty: false };
-        return n;
-      });
-    },
-  }), [data, edits, reportId]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading…</div>;
@@ -260,7 +276,7 @@ export const ExpenditurePartnerEditor = forwardRef<
         </table>
       </div>
   );
-});
+}
 
 // Header sub-cells for one year (approved / expenditure / difference / comment).
 function FragmentYearHead({ current }: { current: boolean }) {
@@ -330,8 +346,6 @@ function FooterYearCells({ approved, exp, strong }: { approved: number; exp: num
 // ═══════════════════════════════════════════════════════════════════════════
 // Admin editor — approved annual budgets per category × year + indirect rate
 // ═══════════════════════════════════════════════════════════════════════════
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);

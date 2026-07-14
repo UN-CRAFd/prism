@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import {
   WORKPLAN_STATUSES,
   WORKPLAN_STATUS_COLORS,
@@ -384,15 +385,6 @@ interface AdminRow {
   rev: number; // bumped on every edit; guards against clearing dirty over a newer edit
 }
 
-type SaveState = "idle" | "saving" | "saved" | "error";
-
-function AutosaveIndicator({ state }: { state: SaveState }) {
-  if (state === "idle") return null;
-  if (state === "saving") return <span className="flex items-center gap-1.5 text-muted-foreground text-sm"><Loader2 className="size-3.5 animate-spin" /> Saving…</span>;
-  if (state === "saved") return <span className="flex items-center gap-1.5 text-green-600 text-sm"><CheckCircle2 className="size-4" /> All changes saved</span>;
-  return <span className="text-sm text-destructive">Save failed — retrying on next change</span>;
-}
-
 // When `reportId` is supplied the editor doubles as the partner view: alongside
 // the (project-level) structure it also renders and auto-saves each report's
 // progress — the updated timeline, status and comment held in workplan_entries.
@@ -402,7 +394,7 @@ interface ProgressState {
   comment: string;
 }
 
-export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { projectId: number; defaultAgent?: string | null; reportId?: number }) {
+export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void }) {
   const partnerMode = reportId != null;
 
   const [rows, setRows] = useState<AdminRow[]>([]);
@@ -413,6 +405,10 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  // Report the autosave state up so a parent (the partner editor) can render a
+  // single shared indicator instead of the inline one below.
+  useEffect(() => { onSaveStateChange?.(saveState); }, [saveState, onSaveStateChange]);
 
   // Per-report progress (partner mode only), keyed by activity id.
   const [progress, setProgress] = useState<Record<number, ProgressState>>({});
@@ -828,10 +824,12 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
 
-      {/* Autosave status */}
-      <div className="flex justify-end mb-0">
-        <AutosaveIndicator state={saveState} />
-      </div>
+      {/* Autosave status — only when no parent renders a shared indicator */}
+      {!onSaveStateChange && (
+        <div className="flex justify-end mb-0">
+          <AutosaveIndicator state={saveState} />
+        </div>
+      )}
 
       {/* Outcomes → objectives → activities */}
       {quarters.length === 0 && (

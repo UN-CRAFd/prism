@@ -1,11 +1,10 @@
 "use client";
 
 import {
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
@@ -15,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
+import { useAutosave, type SaveState } from "@/components/autosave";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config-driven editor for the repeatable "list of items under a report" sections
 // (key achievements, partnerships, results, lessons learned, external coverage).
 // One component + one spec per section replaces five near-identical table blocks.
-// Save is driven by the parent page's top-bar button via a ref, exactly like the
-// other tabs.
+// Every edit autosaves (debounced); the component reports its save state up via
+// onSaveStateChange so the parent can render a single shared indicator.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SectionFieldType = "input" | "textarea" | "select" | "links";
@@ -46,11 +46,8 @@ export interface SectionSpec {
   max?: number; // cap the number of rows
 }
 
-export interface SectionHandle {
-  save: () => Promise<void>;
-}
-
 interface RowState {
+  key: number; // stable client id (survives reorder/save; drives POST id tracking)
   id: number | null;
   values: Record<string, string>;
   links: Record<string, string[]>;
@@ -92,15 +89,17 @@ function MultiLinkInput({
   );
 }
 
-export const SectionTableEditor = forwardRef<
-  SectionHandle,
-  {
-    reportId: number;
-    spec: SectionSpec;
-    onDirtyChange?: (dirty: boolean) => void;
-    onEmptyCountChange?: (count: number) => void;
-  }
->(function SectionTableEditor({ reportId, spec, onDirtyChange, onEmptyCountChange }, ref) {
+export function SectionTableEditor({
+  reportId,
+  spec,
+  onEmptyCountChange,
+  onSaveStateChange,
+}: {
+  reportId: number;
+  spec: SectionSpec;
+  onEmptyCountChange?: (count: number) => void;
+  onSaveStateChange?: (s: SaveState) => void;
+}) {
   const { endpoint, fields, requiredField, addLabel, emptyText, min, max } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
 
@@ -108,8 +107,16 @@ export const SectionTableEditor = forwardRef<
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const rowsRef = useRef<RowState[]>([]);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+  const keyRef = useRef(0);
+  // Maps a row's stable client key → its server id, so a re-entrant flush never
+  // POSTs the same new row twice before React commits the returned id.
+  const idByKeyRef = useRef<Map<number, number>>(new Map());
+
   const emptyRow = useCallback(
     (dirty: boolean): RowState => ({
+      key: ++keyRef.current,
       id: null,
       values: Object.fromEntries(fields.filter((f) => f.type !== "links").map((f) => [f.key, ""])),
       links: Object.fromEntries(linkKeys.map((k) => [k, [""]])),
@@ -125,19 +132,26 @@ export const SectionTableEditor = forwardRef<
       const res = await fetch(`${endpoint}?reportId=${reportId}`);
       if (!res.ok) throw new Error("Failed to load");
       const data: ApiRow[] = await res.json();
-      const loaded: RowState[] = data.map((r) => ({
-        id: r.id,
-        values: Object.fromEntries(
-          fields.filter((f) => f.type !== "links").map((f) => [f.key, (r[f.key] as string) ?? ""])
-        ),
-        links: Object.fromEntries(
-          linkKeys.map((k) => {
-            const raw = r[k] as string | null;
-            return [k, raw ? raw.split(",").map((l) => l.trim()).filter(Boolean) : [""]];
-          })
-        ),
-        dirty: false,
-      }));
+      keyRef.current = 0;
+      idByKeyRef.current = new Map();
+      const loaded: RowState[] = data.map((r) => {
+        const key = ++keyRef.current;
+        idByKeyRef.current.set(key, r.id);
+        return {
+          key,
+          id: r.id,
+          values: Object.fromEntries(
+            fields.filter((f) => f.type !== "links").map((f) => [f.key, (r[f.key] as string) ?? ""])
+          ),
+          links: Object.fromEntries(
+            linkKeys.map((k) => {
+              const raw = r[k] as string | null;
+              return [k, raw ? raw.split(",").map((l) => l.trim()).filter(Boolean) : [""]];
+            })
+          ),
+          dirty: false,
+        };
+      });
       while (min && loaded.length < min) loaded.push(emptyRow(false));
       setRows(loaded);
     } catch (e) {
@@ -149,16 +163,74 @@ export const SectionTableEditor = forwardRef<
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { onDirtyChange?.(rows.some((r) => r.dirty)); }, [rows, onDirtyChange]);
   useEffect(() => {
     onEmptyCountChange?.(rows.filter((r) => !(r.values[requiredField] ?? "").trim()).length);
   }, [rows, requiredField, onEmptyCountChange]);
 
+  const buildPayload = useCallback((row: RowState) => {
+    const payload: Record<string, string | null> = {};
+    for (const f of fields) {
+      payload[f.key] =
+        f.type === "links"
+          ? row.links[f.key].filter((l) => l.trim()).join(",") || null
+          : row.values[f.key] || null;
+    }
+    return payload;
+  }, [fields]);
+
+  // Save every dirty row. New rows (no id) POST once — tracked by client key so a
+  // re-entrant flush can't double-create — the rest PATCH. A row's dirty flag is
+  // only cleared if its content hasn't changed since we snapshotted it, so edits
+  // made mid-save aren't lost.
+  const flush = useCallback(async () => {
+    for (const row of rowsRef.current) {
+      if (!row.dirty) continue;
+      const effectiveId = row.id ?? idByKeyRef.current.get(row.key) ?? null;
+      // Hold off creating a brand-new row until it has some content (a blank row
+      // added but never typed into shouldn't hit the database).
+      const isEmpty = fields.every((f) =>
+        f.type === "links" ? row.links[f.key].every((l) => !l.trim()) : !(row.values[f.key] ?? "").trim()
+      );
+      if (effectiveId === null && isEmpty) continue;
+      const payload = buildPayload(row);
+      const snapshot = JSON.stringify(payload);
+      const clear = (r: RowState, extra: Partial<RowState>): RowState =>
+        r.key === row.key ? { ...r, ...extra, dirty: JSON.stringify(buildPayload({ ...r, ...extra })) === snapshot ? false : r.dirty } : r;
+
+      if (effectiveId === null) {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reportId, ...payload }),
+        });
+        if (!res.ok) throw new Error("Failed to save row");
+        const saved: { id: number } = await res.json();
+        idByKeyRef.current.set(row.key, saved.id);
+        setRows((prev) => prev.map((r) => clear(r, { id: saved.id })));
+      } else {
+        const res = await fetch(endpoint, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: effectiveId, ...payload }),
+        });
+        if (!res.ok) throw new Error(`Failed to save row ${effectiveId}`);
+        setRows((prev) => prev.map((r) => clear(r, { id: effectiveId })));
+      }
+    }
+  }, [endpoint, reportId, requiredField, buildPayload]);
+
+  const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
+
+  // Flush any pending edit on unmount (e.g. switching section tabs).
+  useEffect(() => () => { flushNow(); }, [flushNow]);
+
   function updateField(i: number, key: string, value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, values: { ...r.values, [key]: value }, dirty: true } : r)));
+    schedule();
   }
   function mutateLinks(i: number, key: string, fn: (arr: string[]) => string[]) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, links: { ...r.links, [key]: fn(r.links[key]) }, dirty: true } : r)));
+    schedule();
   }
   function addRow() {
     if (max !== undefined && rows.length >= max) return;
@@ -166,49 +238,11 @@ export const SectionTableEditor = forwardRef<
   }
   async function deleteRow(i: number) {
     const row = rows[i];
-    if (row.id != null) await fetch(`${endpoint}?id=${row.id}`, { method: "DELETE" });
+    const effectiveId = row.id ?? idByKeyRef.current.get(row.key) ?? null;
+    if (effectiveId != null) await fetch(`${endpoint}?id=${effectiveId}`, { method: "DELETE" });
+    idByKeyRef.current.delete(row.key);
     setRows((prev) => prev.filter((_, idx) => idx !== i));
   }
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      save: async () => {
-        const updated = [...rows];
-        for (let i = 0; i < updated.length; i++) {
-          const row = updated[i];
-          if (!row.dirty) continue;
-          const payload: Record<string, string | null> = {};
-          for (const f of fields) {
-            payload[f.key] =
-              f.type === "links"
-                ? row.links[f.key].filter((l) => l.trim()).join(",") || null
-                : row.values[f.key] || null;
-          }
-          if (row.id === null) {
-            const res = await fetch(endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reportId, ...payload }),
-            });
-            if (!res.ok) throw new Error("Failed to save row");
-            const saved: { id: number } = await res.json();
-            updated[i] = { ...row, id: saved.id, dirty: false };
-          } else {
-            const res = await fetch(endpoint, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: row.id, ...payload }),
-            });
-            if (!res.ok) throw new Error(`Failed to save row ${row.id}`);
-            updated[i] = { ...row, dirty: false };
-          }
-        }
-        setRows(updated);
-      },
-    }),
-    [rows, endpoint, fields, reportId]
-  );
 
   if (loading) {
     return (
@@ -253,7 +287,7 @@ export const SectionTableEditor = forwardRef<
         </thead>
         <tbody className="divide-y">
           {rows.map((row, i) => (
-            <tr key={i} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+            <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
               <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
               {fields.map((f) => (
                 <td key={f.key} className="px-4 py-3 align-top">
@@ -309,7 +343,7 @@ export const SectionTableEditor = forwardRef<
       )}
     </div>
   );
-});
+}
 
 // ── Per-section specs ────────────────────────────────────────────────────────
 

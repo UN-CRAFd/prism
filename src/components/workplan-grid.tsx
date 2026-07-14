@@ -828,14 +828,8 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId }: { pro
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
 
-      {/* Derived timeline + autosave status */}
-      <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-3">
-        <p className="text-xs text-muted-foreground">
-          Timeline is derived from the project start &amp; end dates
-          {quarters.length > 0 && (
-            <span className="ml-1 font-medium text-foreground">({quarters[0]} – {quarters[quarters.length - 1]})</span>
-          )}
-        </p>
+      {/* Autosave status */}
+      <div className="flex justify-end mb-0">
         <AutosaveIndicator state={saveState} />
       </div>
 

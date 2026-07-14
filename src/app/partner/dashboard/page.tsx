@@ -186,12 +186,6 @@ export default function ReportingPage() {
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => router.push(`/partner/${toSlug(report)}/${report.year}/overview`)}
-                        className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {labels.dashboard.open} <ChevronRight className="size-3" />
-                      </button>
                     </div>
                   ))}
                 </div>

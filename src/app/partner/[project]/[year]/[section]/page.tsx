@@ -281,6 +281,14 @@ export default function PartnerReportEditorPage() {
   const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
   const [loadingIndicators, setLoadingIndicators] = useState(false);
 
+  // Custom indicators: partners may define their own (project-scoped) indicators.
+  const [newIndicatorName, setNewIndicatorName] = useState("");
+  const [newIndicatorBaselineValue, setNewIndicatorBaselineValue] = useState("");
+  const [newIndicatorBaselineYear, setNewIndicatorBaselineYear] = useState("");
+  const [newIndicatorTargetValue, setNewIndicatorTargetValue] = useState("");
+  const [newIndicatorTargetYear, setNewIndicatorTargetYear] = useState("");
+  const [addingIndicator, setAddingIndicator] = useState(false);
+
   // Config-driven list sections (achievements, partnerships, results, lessons,
   // external-coverage) are handled by <SectionTableEditor>. Each active editor
   // registers its imperative save() handle and reports its dirty / incomplete
@@ -584,6 +592,51 @@ export default function PartnerReportEditorPage() {
   function updateIndicator(id: number, patch: Partial<IndicatorState>) {
     setSaveSuccess(false);
     setIndicatorStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
+  }
+
+  // Create a partner-defined custom indicator (project-scoped) and attach it to
+  // this report. Partners cannot pick from the standard library — only add their own.
+  async function handleIndicatorAdd() {
+    const projectId = reports.find((r) => r.id === reportId)?.project_id;
+    if (!newIndicatorName.trim() || !reportId || !projectId) return;
+    setAddingIndicator(true);
+    setError(null);
+    try {
+      // 1. Create the custom indicator scoped to this project.
+      const indRes = await fetch("/api/indicators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newIndicatorName.trim(), is_standard: false, project_id: projectId }),
+      });
+      if (!indRes.ok) throw new Error("Failed to create indicator");
+      const indicator = await indRes.json();
+
+      // 2. Add it as a line on this report (partner supplies baseline/target).
+      const lineRes = await fetch("/api/indicator-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId,
+          indicator_id: indicator.id,
+          baseline_value: newIndicatorBaselineValue || null,
+          baseline_year: newIndicatorBaselineYear || null,
+          target_value: newIndicatorTargetValue || null,
+          target_year: newIndicatorTargetYear || null,
+        }),
+      });
+      if (!lineRes.ok) throw new Error("Failed to add indicator to report");
+
+      setNewIndicatorName("");
+      setNewIndicatorBaselineValue("");
+      setNewIndicatorBaselineYear("");
+      setNewIndicatorTargetValue("");
+      setNewIndicatorTargetYear("");
+      await loadIndicators(reportId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setAddingIndicator(false);
+    }
   }
 
   // Stable callbacks for <SectionTableEditor>. The equality guard is essential:
@@ -1258,12 +1311,24 @@ export default function PartnerReportEditorPage() {
           </div>
 
         ) : params.section === "indicators" ? (
-          indicatorRows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-              <FileQuestion className="size-8 opacity-30" />
-              <p className="text-sm">{labels.partnerEditor.emptyIndicators}</p>
+          <div className="space-y-4">
+            {/* Add a custom, partner-defined indicator (project-scoped) */}
+            <div className="flex flex-wrap gap-2">
+              <Input placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newIndicatorName.trim()) handleIndicatorAdd(); }} className="flex-1 min-w-[220px]" />
+              <Input placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="w-32" />
+              <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="w-28" />
+              <Input placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="w-32" />
+              <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="w-28" />
+              <Button onClick={handleIndicatorAdd} disabled={addingIndicator || !newIndicatorName.trim()} size="sm" className="shrink-0">
+                {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+              </Button>
             </div>
-          ) : (
+
+            {indicatorRows.length === 0 ? (
+              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                {labels.partnerEditor.emptyIndicators}
+              </div>
+            ) : (
             <div className="overflow-x-auto rounded-xl border bg-card">
               <table className="text-sm border-separate border-spacing-0" style={{ minWidth: IND_FROZEN_WIDTH }}>
                 <thead>
@@ -1396,7 +1461,8 @@ export default function PartnerReportEditorPage() {
                 </tbody>
               </table>
             </div>
-          )
+            )}
+          </div>
 
         ) : params.section in SECTION_SPECS ? (
           reportId ? (

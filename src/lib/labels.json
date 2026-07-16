@@ -10,7 +10,9 @@
     "externalCoverage": "External Coverage",
     "workplan": "Workplan",
     "expenditure": "Expenditure",
-    "indicators": "Indicators"
+    "indicators": "Indicators",
+    "transfers": "Transfers",
+    "complementary": "Complementary"
   },
   "tabInstructions": {
     "overview": "Complete all required fields. These form the foundation of your annual report.",
@@ -23,7 +25,9 @@
     "external-coverage": "Document how your project's work reached external audiences and stakeholders during this reporting period. For each item, select the type of coverage or engagement, describe what was shared, indicate the reach or uptake, and provide links to supporting materials.",
     "workplan": "Review the planned timeline (baseline) for each activity and check off the quarters reflecting the updated timeline for this reporting period. For each activity, select a progress update and add a short comment justifying the status where relevant.",
     "expenditure": "Enter the actual expenditure for this reporting year against each budget category, in USD. Approved budgets, differences, sub-totals, indirect support costs and totals are calculated automatically. Add a comment where the expenditure differs meaningfully from the approved budget.",
-    "indicators": "Report progress against each indicator for this reporting period. For each indicator, enter the value achieved this year, select whether it is on track, and add a short comment explaining the result. Baselines and targets were set when the report was prepared and are shown for reference."
+    "indicators": "Report progress against each indicator for this reporting period. For each indicator, enter the value achieved this year, select whether it is on track, and add a short comment explaining the result. Baselines and targets were set when the report was prepared and are shown for reference.",
+    "transfers": "List the organizations you transferred funds to during this reporting period. For each organization, provide its name, website and type, then enter the amount transferred this year (USD) and link it to the workplan activity it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
+    "complementary": "List the contributors that provided complementary funding to the project during this reporting period. For each contributor, provide its name, website and funding type (in cash or in kind), then enter the total contribution this year (USD) and link it to the workplan activities it supported. Amounts for previous years are shown for reference; only the currently selected year is editable."
   },
   "assessment": {
     "min": "Not at all",
@@ -183,6 +187,49 @@
       "comment": "Briefly explain the result, any deviation from the target, and contributing factors."
     }
   },
+  "transfers": {
+    "title": "Transfers to implementing partners",
+    "currency": "USD",
+    "partnerTypes": [
+      "United Nations Entities",
+      "Inter-Governmental Organization",
+      "International NGO",
+      "Local NGO",
+      "Academic & Research Institutions",
+      "Private Sector",
+      "Government"
+    ],
+    "columns": {
+      "organizationName": "State organization name",
+      "website": "Share website link",
+      "partnerType": "Select partner type",
+      "amountTransferred": "Mention amount transferred",
+      "linkedActivity": "State linked activity",
+      "subTotal": "Transferred per organization",
+      "total": "Total amount transferred"
+    },
+    "selectPartnerType": "Select organization type",
+    "selectActivity": "Select linked activity",
+    "empty": "No transfers have been added to this report yet."
+  },
+  "complementary": {
+    "title": "Complementary funding for the project",
+    "currency": "USD",
+    "fundingTypes": ["In Cash", "In Kind"],
+    "columns": {
+      "contributorName": "State contributor name",
+      "website": "Share website link",
+      "fundingType": "Select funding type",
+      "contributionAmount": "Mention total contribution",
+      "linkedActivities": "State linked activities",
+      "subTotal": "Transferred per organization",
+      "total": "Total"
+    },
+    "selectFundingType": "Select funding type",
+    "selectActivities": "Select linked activities",
+    "activitiesSelected": "activities selected",
+    "empty": "No complementary funding has been added to this report yet."
+  },
   "placeholders": {
     "projectTitle": "Project title…",
     "mptfoProjectNumber": "e.g. MPTFO-2025-001",
@@ -218,7 +265,13 @@
     "targetValue": "Target…",
     "year": "e.g. 2025",
     "achievedValue": "Value achieved this year…",
-    "indicatorComment": "Explain the result…"
+    "indicatorComment": "Explain the result…",
+    "transferOrganizationName": "Organization name…",
+    "transferWebsite": "https://…",
+    "transferAmount": "e.g. 15000",
+    "complementaryContributorName": "Contributor name…",
+    "complementaryWebsite": "https://…",
+    "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {
     "eyebrow": "PRISM V.0.1",

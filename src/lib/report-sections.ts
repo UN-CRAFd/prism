@@ -4,25 +4,36 @@ import labels from "@/lib/labels.json";
 // bar and the sidebar sub-menu so the two can never drift. `value` is the URL
 // segment used in /partner/[project]/[year]/[section].
 
+export type ReportSectionGroup = "Qualitative" | "Quantitative";
+
 export interface ReportSection {
   value: string;
   label: string;
+  group: ReportSectionGroup;
 }
 
 export const REPORT_SECTIONS: ReportSection[] = [
-  { value: "overview", label: labels.sections.overview },
-  { value: "surveys", label: labels.sections.surveys },
-  { value: "achievements", label: labels.sections.keyAchievements },
-  { value: "partnerships", label: labels.sections.partnerships },
-  { value: "results", label: labels.sections.results },
-  { value: "lessons", label: labels.sections.lessons },
-  { value: "external-coverage", label: labels.sections.externalCoverage },
-  { value: "risk", label: labels.sections.risk },
-  { value: "indicators", label: labels.sections.indicators },
-  { value: "workplan", label: labels.sections.workplan },
-  { value: "expenditure", label: labels.sections.expenditure },
-  { value: "transfers", label: labels.sections.transfers },
-  { value: "complementary", label: labels.sections.complementary },
+  // Qualitative: Overview → External Coverage
+  { value: "overview", label: labels.sections.overview, group: "Qualitative" },
+  { value: "surveys", label: labels.sections.surveys, group: "Qualitative" },
+  { value: "achievements", label: labels.sections.keyAchievements, group: "Qualitative" },
+  { value: "partnerships", label: labels.sections.partnerships, group: "Qualitative" },
+  { value: "results", label: labels.sections.results, group: "Qualitative" },
+  { value: "lessons", label: labels.sections.lessons, group: "Qualitative" },
+  { value: "external-coverage", label: labels.sections.externalCoverage, group: "Qualitative" },
+  // Quantitative: Risk Management → Complementary
+  { value: "risk", label: labels.sections.risk, group: "Quantitative" },
+  { value: "indicators", label: labels.sections.indicators, group: "Quantitative" },
+  { value: "workplan", label: labels.sections.workplan, group: "Quantitative" },
+  { value: "expenditure", label: labels.sections.expenditure, group: "Quantitative" },
+  { value: "transfers", label: labels.sections.transfers, group: "Quantitative" },
+  { value: "complementary", label: labels.sections.complementary, group: "Quantitative" },
+];
+
+// Sections grouped in order, for rendering group headers in the sidebar.
+export const REPORT_SECTION_GROUPS: { label: ReportSectionGroup; sections: ReportSection[] }[] = [
+  { label: "Qualitative", sections: REPORT_SECTIONS.filter((s) => s.group === "Qualitative") },
+  { label: "Quantitative", sections: REPORT_SECTIONS.filter((s) => s.group === "Quantitative") },
 ];
 
 // Given a pathname, return the report context when the user is inside the

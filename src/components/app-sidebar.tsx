@@ -22,6 +22,7 @@ import {
   Target,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { REPORT_SECTIONS, parseReportPath } from "@/lib/report-sections";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -47,18 +48,55 @@ const dataLinks = [
 ];
 
 
+interface SidebarReport {
+  id: number;
+  year: number;
+  report_type: "annual" | "final" | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  partner_long_name: string | null;
+}
+
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [reports, setReports] = useState<SidebarReport[]>([]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const isPartner = user?.role === "partner";
+
+  // Partner reports drive the report-editor sub-menu (level 1 = report, level 2 =
+  // sections). Fetched once; the sidebar persists across section navigation.
+  useEffect(() => {
+    if (!mounted || !isPartner || !user) return;
+    fetch("/api/reports?data_type=report")
+      .then((r) => r.json())
+      .then((all: SidebarReport[]) => {
+        const filtered = Array.isArray(all)
+          ? all.filter(
+              (r) =>
+                r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
+                r.partner_short_name === user.organization
+            )
+          : [];
+        filtered.sort(
+          (a, b) =>
+            (a.project_short_name ?? a.project_title).localeCompare(b.project_short_name ?? b.project_title) ||
+            b.year - a.year
+        );
+        setReports(filtered);
+      })
+      .catch(() => {});
+  }, [mounted, isPartner, user]);
+
+  const reportSlug = (r: SidebarReport) => (r.project_short_name ?? r.project_title).toLowerCase();
 
   return (
     <div className="relative shrink-0">
@@ -104,21 +142,90 @@ export function AppSidebar() {
                 (p.startsWith("/partner/") &&
                   p.split("/").filter(Boolean).length >= 4),
             },
-          ].map(({ href, label, icon: Icon, isActive }) => (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-                isActive(pathname)
-                  ? "bg-crafd-yellow/10 text-crafd-yellow"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              {label}
-            </Link>
-          ))}
+          ].map(({ href, label, icon: Icon, isActive }) => {
+            const active = isActive(pathname);
+            // When inside a report, the Report Editor entry expands into a
+            // sub-menu of every section so the sidebar can navigate the report too.
+            const isEditor = href === "/partner/report-editor";
+            const report = isEditor ? parseReportPath(pathname) : null;
+            return (
+              <div key={href}>
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                    active
+                      ? "bg-crafd-yellow/10 text-crafd-yellow"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-3.5 shrink-0" />
+                  {label}
+                </Link>
+
+                {report && (() => {
+                  // Level 1 = every report the partner can edit; level 2 = the
+                  // sections of the report currently open. Fall back to a synthetic
+                  // entry from the URL until the report list loads.
+                  const items: { slug: string; year: number; primary: string; secondary: string; isActive: boolean }[] =
+                    (reports.length > 0
+                      ? reports.map((r) => ({
+                          slug: reportSlug(r),
+                          year: r.year,
+                          primary: `${r.report_type ?? "annual"} Report ${r.year}`,
+                          secondary: r.project_short_name || r.project_title,
+                          isActive: reportSlug(r) === report.project && String(r.year) === report.year,
+                        }))
+                      : [{ slug: report.project, year: Number(report.year), primary: `Report ${report.year}`, secondary: report.project, isActive: true }]);
+
+                  return (
+                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
+                      {items.map((it) => (
+                        <div key={`${it.slug}-${it.year}`}>
+                          {/* Level 1: report — click to jump, keeping the current section */}
+                          <Link
+                            href={`/partner/${it.slug}/${it.year}/${report.section}`}
+                            className={cn(
+                              "flex flex-col rounded-md px-3 py-1.5 transition-colors",
+                              it.isActive
+                                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            )}
+                          >
+                            <span className="truncate text-[12px] font-medium capitalize">{it.primary}</span>
+                            <span className="truncate text-[10px] opacity-70">{it.secondary}</span>
+                          </Link>
+
+                          {/* Level 2: sections of the open report */}
+                          {it.isActive && (
+                            <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+                              {REPORT_SECTIONS.map((s) => {
+                                const secActive = report.section === s.value;
+                                return (
+                                  <Link
+                                    key={s.value}
+                                    href={`/partner/${it.slug}/${it.year}/${s.value}`}
+                                    className={cn(
+                                      "rounded-md px-3 py-1.5 text-[12px] transition-colors",
+                                      secActive
+                                        ? "bg-crafd-yellow/10 text-crafd-yellow font-medium"
+                                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    )}
+                                  >
+                                    {s.label}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })}
         </nav>
       ) : (
         <nav className="flex-1 space-y-1 px-3 py-4">

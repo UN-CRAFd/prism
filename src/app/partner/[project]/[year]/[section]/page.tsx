@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -40,23 +40,6 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 
-const SECTIONS = [
-  { value: "overview", label: labels.sections.overview },
-  { value: "surveys", label: labels.sections.surveys },
-  { value: "achievements", label: labels.sections.keyAchievements },
-  { value: "partnerships", label: labels.sections.partnerships },
-  { value: "results", label: labels.sections.results },
-  { value: "lessons", label: labels.sections.lessons },
-  { value: "external-coverage", label: labels.sections.externalCoverage },
-  { value: "risk", label: labels.sections.risk },
-  { value: "indicators", label: labels.sections.indicators },
-  { value: "workplan", label: labels.sections.workplan },
-  { value: "expenditure", label: labels.sections.expenditure },
-  { value: "transfers", label: labels.sections.transfers },
-  { value: "complementary", label: labels.sections.complementary },
-];
-
-const FUTURE_SECTIONS: { value: string; label: string }[] = [];
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
   1: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
@@ -403,11 +386,6 @@ export default function PartnerReportEditorPage() {
   const [newComplementaryType, setNewComplementaryType] = useState("");
   const [addingComplementary, setAddingComplementary] = useState(false);
   const [deletingComplementaryId, setDeletingComplementaryId] = useState<number | null>(null);
-
-  // Config-driven list sections (achievements, partnerships, results, lessons,
-  // external-coverage) are handled by <SectionTableEditor>, which autosaves and
-  // reports its incomplete count up for the tab badge.
-  const [sectionEmpty, setSectionEmpty] = useState<Record<string, number>>({});
 
   // Every section autosaves. The child editors (list sections, expenditure,
   // workplan) report their save state up via onSaveStateChange; the parent-managed
@@ -1057,12 +1035,6 @@ export default function PartnerReportEditorPage() {
     }
   }
 
-  // Stable callback for <SectionTableEditor>'s tab-badge count. The equality
-  // guard is essential: the map is an object, so an unconditional spread loops.
-  const handleSectionEmpty = useCallback((count: number) => {
-    setSectionEmpty((prev) => (prev[params.section] === count ? prev : { ...prev, [params.section]: count }));
-  }, [params.section]);
-
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
   );
@@ -1079,56 +1051,6 @@ export default function PartnerReportEditorPage() {
   // `childSaveState`. The top-bar indicator shows whichever owns the active tab.
   const parentManaged = ["surveys", "overview", "risk", "indicators", "transfers", "complementary"].includes(params.section);
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
-
-  const overviewEmptyCount = useMemo(() => {
-    const requiredFields: (keyof OverviewData)[] = [
-      "project_title", "mptfo_project_number", "organization_name", "organization_website",
-      "grant_size_usd", "geographic_scope", "report_submission_date", "project_start_date", "project_end_date",
-    ];
-    return requiredFields.filter((field) => !overview[field]).length;
-  }, [overview]);
-
-  const surveysEmptyCount = useMemo(
-    () => surveys.filter((s) => rowStates[s.id]?.assessment === null).length,
-    [surveys, rowStates]
-  );
-
-  const riskEmptyCount = useMemo(
-    () => risks.filter((r) => riskStates[r.id]?.likelihood === null || riskStates[r.id]?.impact === null).length,
-    [risks, riskStates]
-  );
-
-  const indicatorEmptyCount = useMemo(
-    () => indicatorRows.filter((r) => !indicatorStates[r.currentLineId]?.achieved_value || !indicatorStates[r.currentLineId]?.status).length,
-    [indicatorRows, indicatorStates]
-  );
-
-  const transferEmptyCount = useMemo(
-    () => transferRows.filter((r) => {
-      const st = transferStates[r.transfer_partner_id];
-      return !st?.amount_transferred || st?.linked_activity_id == null;
-    }).length,
-    [transferRows, transferStates]
-  );
-
-  const complementaryEmptyCount = useMemo(
-    () => complementaryRows.filter((r) => {
-      const st = complementaryStates[r.contributor_id];
-      return !st?.contribution_amount || !st?.linked_activity_ids.length;
-    }).length,
-    [complementaryRows, complementaryStates]
-  );
-
-  function getEmptyCount(sec: string) {
-    if (sec === "overview") return overviewEmptyCount;
-    if (sec === "surveys") return surveysEmptyCount;
-    if (sec === "risk") return riskEmptyCount;
-    if (sec === "indicators") return indicatorEmptyCount;
-    if (sec === "transfers") return transferEmptyCount;
-    if (sec === "complementary") return complementaryEmptyCount;
-    if (sec in SECTION_SPECS) return sectionEmpty[sec] ?? 0;
-    return 0;
-  }
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -1184,42 +1106,6 @@ export default function PartnerReportEditorPage() {
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
           )}
         </div>
-      </div>
-
-      {/* Section tabs */}
-      <div className="border-b px-8 flex gap-1 shrink-0 bg-background overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-        {SECTIONS.map((sec) => {
-          const emptyCount = getEmptyCount(sec.value);
-          return (
-            <button
-              key={sec.value}
-              onClick={() => router.push(`/partner/${params.project}/${params.year}/${sec.value}`)}
-              className={cn(
-                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 shrink-0",
-                params.section === sec.value
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {sec.label}
-              {emptyCount > 0 && (
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-neutral-400 text-white text-[10px] font-semibold">
-                  {emptyCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-        {FUTURE_SECTIONS.map((sec) => (
-          <button
-            key={sec.value}
-            disabled
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px text-muted-foreground/30 cursor-not-allowed shrink-0"
-            title="Coming soon"
-          >
-            {sec.label}
-          </button>
-        ))}
       </div>
 
       {/* Content */}
@@ -2223,7 +2109,6 @@ export default function PartnerReportEditorPage() {
               key={params.section}
               reportId={reportId}
               spec={SECTION_SPECS[params.section]}
-              onEmptyCountChange={handleSectionEmpty}
               onSaveStateChange={setChildSaveState}
             />
           ) : null

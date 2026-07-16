@@ -92,12 +92,10 @@ function MultiLinkInput({
 export function SectionTableEditor({
   reportId,
   spec,
-  onEmptyCountChange,
   onSaveStateChange,
 }: {
   reportId: number;
   spec: SectionSpec;
-  onEmptyCountChange?: (count: number) => void;
   onSaveStateChange?: (s: SaveState) => void;
 }) {
   const { endpoint, fields, requiredField, addLabel, emptyText, min, max } = spec;
@@ -162,10 +160,6 @@ export function SectionTableEditor({
   }, [endpoint, reportId, fields, linkKeys, min, emptyRow]);
 
   useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    onEmptyCountChange?.(rows.filter((r) => !(r.values[requiredField] ?? "").trim()).length);
-  }, [rows, requiredField, onEmptyCountChange]);
 
   const buildPayload = useCallback((row: RowState) => {
     const payload: Record<string, string | null> = {};

@@ -14,7 +14,7 @@ export default function Home() {
     } else if (user?.role === "admin") {
       router.replace("/admin");
     } else {
-      router.replace("/partner/dashboard");
+      router.replace("/partner/report-editor");
     }
   }, [isAuthenticated, user, router]);
 

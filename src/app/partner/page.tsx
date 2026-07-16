@@ -106,7 +106,7 @@ export default function PartnerHomePage() {
         label: "Reporting",
         description: "View all your reports",
         icon: FileText,
-        href: "/partner/dashboard",
+        href: "/partner/report-editor",
       },
     ];
     if (pendingReports.length > 0) {

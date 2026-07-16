@@ -128,15 +128,9 @@ export function AppSidebar() {
               isActive: (p: string) => p === "/partner",
             },
             {
-              href: "/partner/dashboard",
-              label: "Reporting",
-              icon: FileText,
-              isActive: (p: string) => p.startsWith("/partner/dashboard"),
-            },
-            {
               href: "/partner/report-editor",
               label: "Report Editor",
-              icon: Edit,
+              icon: FileText,
               isActive: (p: string) =>
                 p.startsWith("/partner/report-editor") ||
                 (p.startsWith("/partner/") &&
@@ -144,10 +138,13 @@ export function AppSidebar() {
             },
           ].map(({ href, label, icon: Icon, isActive }) => {
             const active = isActive(pathname);
-            // When inside a report, the Report Editor entry expands into a
-            // sub-menu of every section so the sidebar can navigate the report too.
+            // The Report Editor entry expands into a sub-menu of the partner's
+            // reports (level 1). While a report is open, that report also expands
+            // into its sections (level 2). The report list also shows on the
+            // report-editor landing page so the reports are visible up front.
             const isEditor = href === "/partner/report-editor";
             const report = isEditor ? parseReportPath(pathname) : null;
+            const showReports = isEditor && (!!report || pathname.startsWith("/partner/report-editor"));
             return (
               <div key={href}>
                 <Link
@@ -163,10 +160,11 @@ export function AppSidebar() {
                   {label}
                 </Link>
 
-                {report && (() => {
+                {showReports && (() => {
                   // Level 1 = every report the partner can edit; level 2 = the
-                  // sections of the report currently open. Fall back to a synthetic
-                  // entry from the URL until the report list loads.
+                  // sections of the report currently open (if any). Fall back to a
+                  // synthetic entry from the URL until the report list loads.
+                  const targetSection = report?.section ?? "overview";
                   const items: { slug: string; year: number; primary: string; secondary: string; isActive: boolean }[] =
                     (reports.length > 0
                       ? reports.map((r) => ({
@@ -174,17 +172,21 @@ export function AppSidebar() {
                           year: r.year,
                           primary: `${r.report_type ?? "annual"} Report ${r.year}`,
                           secondary: r.project_short_name || r.project_title,
-                          isActive: reportSlug(r) === report.project && String(r.year) === report.year,
+                          isActive: !!report && reportSlug(r) === report.project && String(r.year) === report.year,
                         }))
-                      : [{ slug: report.project, year: Number(report.year), primary: `Report ${report.year}`, secondary: report.project, isActive: true }]);
+                      : report
+                      ? [{ slug: report.project, year: Number(report.year), primary: `Report ${report.year}`, secondary: report.project, isActive: true }]
+                      : []);
+
+                  if (items.length === 0) return null;
 
                   return (
-                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
+                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
                       {items.map((it) => (
                         <div key={`${it.slug}-${it.year}`}>
-                          {/* Level 1: report — click to jump, keeping the current section */}
+                          {/* Level 1: report — click to open (keeps the current section) */}
                           <Link
-                            href={`/partner/${it.slug}/${it.year}/${report.section}`}
+                            href={`/partner/${it.slug}/${it.year}/${targetSection}`}
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
@@ -197,7 +199,7 @@ export function AppSidebar() {
                           </Link>
 
                           {/* Level 2: sections of the open report */}
-                          {it.isActive && (
+                          {it.isActive && report && (
                             <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                               {REPORT_SECTIONS.map((s) => {
                                 const secActive = report.section === s.value;

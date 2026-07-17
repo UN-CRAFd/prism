@@ -1445,11 +1445,14 @@ export default function PartnerReportEditorPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                            <SelectItem value="1"><div className="flex items-center gap-2"><AssessmentBadge value={1} /> <span className="text-sm">{labels.assessment.min}</span></div></SelectItem>
-                            <SelectItem value="2"><AssessmentBadge value={2} /></SelectItem>
-                            <SelectItem value="3"><AssessmentBadge value={3} /></SelectItem>
-                            <SelectItem value="4"><AssessmentBadge value={4} /></SelectItem>
-                            <SelectItem value="5"><div className="flex items-center gap-2"><AssessmentBadge value={5} /> <span className="text-sm">{labels.assessment.max}</span></div></SelectItem>
+                            {[1, 2, 3, 4, 5].map((v) => (
+                              <SelectItem key={v} value={String(v)}>
+                                <div className="flex items-center gap-2">
+                                  <AssessmentBadge value={v} />
+                                  <span className="text-sm">{labels.assessment.scale[String(v) as keyof typeof labels.assessment.scale]}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

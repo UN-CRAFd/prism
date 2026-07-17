@@ -31,7 +31,14 @@
   },
   "assessment": {
     "min": "Not at all",
-    "max": "To a very great extent"
+    "max": "To a very great extent",
+    "scale": {
+      "1": "Not at all",
+      "2": "To a small extent",
+      "3": "To a moderate extent",
+      "4": "To a great extent",
+      "5": "To a very great extent"
+    }
   },
   "authorization": {
     "heading": "Authorization",

@@ -1375,8 +1375,8 @@ export default function PartnerReportEditorPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto px-8 py-6">
-        {/* Tab instructions */}
-        {params.section !== "overview" && !sectionLoading && !notFound && (
+        {/* Tab instructions — only while the report is editable */}
+        {params.section !== "overview" && !sectionLoading && !notFound && !readOnly && (
           <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             {labels.tabInstructions[params.section as keyof typeof labels.tabInstructions] || ""}
           </div>

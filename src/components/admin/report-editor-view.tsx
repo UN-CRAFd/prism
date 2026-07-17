@@ -251,6 +251,8 @@ export function ReportEditorView() {
   }
 
   async function handleDelete(id: number) {
+    const survey = surveys.find((s) => s.id === id);
+    if (!confirm(`Delete the question "${survey?.question ?? "this survey question"}"? This cannot be undone.`)) return;
     setDeletingId(id); setError(null);
     try {
       const res = await fetch(`/api/surveys?id=${id}`, { method: "DELETE" });
@@ -294,6 +296,8 @@ export function ReportEditorView() {
   }
 
   async function handleRiskDelete(id: number) {
+    const risk = risks.find((r) => r.id === id);
+    if (!confirm(`Delete risk "${risk?.risk_name ?? "this risk"}"? This cannot be undone.`)) return;
     setDeletingRiskId(id); setError(null);
     try {
       const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });

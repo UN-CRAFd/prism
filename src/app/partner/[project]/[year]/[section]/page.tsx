@@ -846,6 +846,8 @@ export default function PartnerReportEditorPage() {
     const risk = risks.find((r) => r.id === id);
     const state = riskStates[id];
     if (!risk) return;
+    const hasContent = risk.risk_name?.trim() || state?.likelihood != null || state?.impact != null || state?.updated_mitigation?.trim();
+    if (hasContent && !confirm(`Delete risk "${risk.risk_name}"? You can undo this with the Undo button.`)) return;
     setDeletingRiskId(id);
     setError(null);
     try {
@@ -1039,6 +1041,8 @@ export default function PartnerReportEditorPage() {
     const st = transferStates[partnerId];
     const amount = st?.amount_transferred ?? "";
     const activity = st?.linked_activity_id ?? null;
+    const hasContent = amount || activity != null || row.organization_name?.trim();
+    if (hasContent && !confirm(`Delete transfer for "${row.organization_name}"? You can undo this with the Undo button.`)) return;
     setDeletingTransferId(partnerId);
     setError(null);
     try {
@@ -1151,6 +1155,8 @@ export default function PartnerReportEditorPage() {
     const st = complementaryStates[contributorId];
     const amount = st?.contribution_amount ?? "";
     const activityIds = st?.linked_activity_ids ?? [];
+    const hasContent = amount || activityIds.length > 0 || row.contributor_name?.trim();
+    if (hasContent && !confirm(`Delete contribution from "${row.contributor_name}"? You can undo this with the Undo button.`)) return;
     setDeletingComplementaryId(contributorId);
     setError(null);
     try {

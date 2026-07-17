@@ -232,6 +232,8 @@ export function SectionTableEditor({
   }
   async function deleteRow(i: number) {
     const row = rows[i];
+    const hasContent = Object.values(row.values).some((v) => typeof v === "string" ? v.trim() : !!v);
+    if (hasContent && !confirm("Delete this row? All entered data will be lost and this cannot be undone.")) return;
     const effectiveId = row.id ?? idByKeyRef.current.get(row.key) ?? null;
     if (effectiveId != null) await fetch(`${endpoint}?id=${effectiveId}`, { method: "DELETE" });
     idByKeyRef.current.delete(row.key);

@@ -765,20 +765,30 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
   async function deleteActivity(key: number) {
     const row = rowsRef.current.find((r) => r.key === key);
+    const hasContent = row && (row.activity_text?.trim() || row.implementing_agent?.trim());
+    if (hasContent && !confirm("Delete this activity? This cannot be undone.")) return;
     if (row?.id != null) await fetch(`/api/workplan-activities?id=${row.id}`, { method: "DELETE" });
     setRows((prev) => normalize(prev.filter((r) => r.key !== key)));
     scheduleFlush();
   }
 
   async function deleteObjective(sectionId: number) {
-    const ids = rowsRef.current.filter((r) => r.sectionId === sectionId && r.id != null).map((r) => r.id);
+    const activities = rowsRef.current.filter((r) => r.sectionId === sectionId);
+    const count = activities.length;
+    const label = count === 1 ? "1 activity" : `${count} activities`;
+    if (!confirm(`Delete this Objective and its ${label}? This cannot be undone.`)) return;
+    const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.sectionId !== sectionId)));
     scheduleFlush();
   }
 
   async function deleteCluster(clusterId: number) {
-    const ids = rowsRef.current.filter((r) => r.clusterId === clusterId && r.id != null).map((r) => r.id);
+    const activities = rowsRef.current.filter((r) => r.clusterId === clusterId);
+    const count = activities.length;
+    const label = count === 1 ? "1 activity" : `${count} activities`;
+    if (!confirm(`Delete this Outcome and all its Objectives and ${label}? This cannot be undone.`)) return;
+    const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.clusterId !== clusterId)));
     scheduleFlush();

@@ -55,10 +55,19 @@ export default function LoginPage() {
           />
         </div>
 
-       <h1 className="text-2xl text-white mb-1">
+       <h1 className="text-2xl text-white mb-0">
   <span className="font-bold font-qanelas">PRISM</span>{" "}
   <span className="font-normal font-roboto">Administration Platform</span>
 </h1>
+        <p className="text-white text-sm mb-12">
+          <span className="font-bold">P</span>roject{" "}
+          <span className="font-bold">R</span>eporting,{" "}
+          <span className="font-bold">I</span>nformation{" "}
+          <span className="font-bold">S</span>haring{" "}
+          &{" "}
+          <span className="font-bold">M</span>anagement
+        </p>
+
         <p className="text-neutral-400 text-sm mb-8">
           Sign in with your credentials to continue. If you don&apos;t have an account, please contact the CRAF'd Secretariat.
         </p>

@@ -175,7 +175,7 @@ export default function ProjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Field label="Partner" required>
                 <Select value={partnerId} onValueChange={setPartnerId}>
-                  <SelectTrigger><SelectValue placeholder="Select partner" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select partner" /></SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.id} value={String(p.id)}>

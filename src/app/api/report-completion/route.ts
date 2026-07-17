@@ -48,7 +48,6 @@ export async function GET(req: NextRequest) {
               AND o.organization_website IS NOT NULL
               AND o.grant_size_usd IS NOT NULL
               AND o.geographic_scope IS NOT NULL
-              AND o.report_submission_date IS NOT NULL
               AND p.project_start_date IS NOT NULL
               AND p.project_duration_months IS NOT NULL) AS complete
            FROM reporting_platform.overview o

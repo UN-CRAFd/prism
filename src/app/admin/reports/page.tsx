@@ -26,6 +26,7 @@ import {
   Clock,
   Trash2,
   Printer,
+  CircleDot,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
@@ -69,16 +70,23 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const STATUS_ORDER = ["Open", "Pending", "Closed"];
+
   const groups = useMemo(() => {
     const map = new Map<string, ReportRow[]>();
     for (const r of reports) {
-      const key = groupMode === "year" ? String(r.year) : r.partner_long_name || r.partner_short_name;
+      const key =
+        groupMode === "year" ? String(r.year) :
+        groupMode === "organization" ? (r.partner_long_name || r.partner_short_name) :
+        r.status;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
-    return Array.from(map.entries()).sort((a, b) =>
-      groupMode === "year" ? b[0].localeCompare(a[0]) : a[0].localeCompare(b[0])
-    );
+    return Array.from(map.entries()).sort((a, b) => {
+      if (groupMode === "year") return b[0].localeCompare(a[0]);
+      if (groupMode === "status") return STATUS_ORDER.indexOf(a[0]) - STATUS_ORDER.indexOf(b[0]);
+      return a[0].localeCompare(b[0]);
+    });
   }, [reports, groupMode]);
 
   const confirm = useConfirm();
@@ -107,6 +115,7 @@ export default function ReportsPage() {
               <SelectContent>
                 <SelectItem value="year">Year</SelectItem>
                 <SelectItem value="organization">Organization</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
               </SelectContent>
             </Select>
           </>
@@ -152,6 +161,7 @@ export default function ReportsPage() {
                 <TableHead>Year</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Auth</TableHead>
                 <TableHead>Due date</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
@@ -175,6 +185,15 @@ export default function ReportsPage() {
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${
+                      r.status === "Open"    ? "bg-blue-50 text-blue-700 border-blue-200" :
+                      r.status === "Pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                              "bg-zinc-100 text-zinc-500 border-zinc-200"
+                    }`}>
+                      {r.status}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     {r.authorized ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
@@ -211,6 +230,8 @@ export default function ReportsPage() {
                 <div className="flex items-center gap-2">
                   {groupMode === "year" ? (
                     <CalendarDays className="size-4 text-muted-foreground" />
+                  ) : groupMode === "status" ? (
+                    <CircleDot className="size-4 text-muted-foreground" />
                   ) : (
                     <Building2 className="size-4 text-muted-foreground" />
                   )}

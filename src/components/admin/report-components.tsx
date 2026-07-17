@@ -62,6 +62,12 @@ export const GROUP_COLORS = [
   { bg: "bg-teal-50",    border: "border-teal-200",    icon: "text-teal-400",    label: "text-teal-700"   },
 ];
 
+const STATUS_STYLES: Record<string, string> = {
+  Open:    "bg-blue-50 text-blue-700 border-blue-200",
+  Pending: "bg-amber-50 text-amber-700 border-amber-200",
+  Closed:  "bg-zinc-100 text-zinc-500 border-zinc-200",
+};
+
 export function ReportCard({
   report,
   onDelete,
@@ -73,6 +79,7 @@ export function ReportCard({
 }) {
   const router = useRouter();
   const [printing, setPrinting] = useState(false);
+  const [status, setStatus] = useState<ReportRow["status"]>(report.status);
 
   async function handlePrint() {
     setPrinting(true);
@@ -93,6 +100,15 @@ export function ReportCard({
     } finally {
       setPrinting(false);
     }
+  }
+
+  async function handleStatusChange(newStatus: ReportRow["status"]) {
+    setStatus(newStatus);
+    await fetch(`/api/reports/${report.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
   }
 
   return (
@@ -139,7 +155,7 @@ export function ReportCard({
         </p>
       </div>
 
-      {/* Footer: status + date + arrow */}
+      {/* Footer: auth + date + status dropdown + arrow */}
       <div className="flex items-center justify-between gap-2 mt-auto">
         <div className="flex items-center gap-2">
           {report.authorized ? (
@@ -157,7 +173,21 @@ export function ReportCard({
             </span>
           )}
         </div>
-        <ArrowRight className="size-3.5 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
+        <div className="flex items-center gap-1.5">
+          <div onClick={(e) => e.stopPropagation()}>
+            <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
+              <SelectTrigger className={`h-5 px-1.5 text-[10px] font-semibold border rounded gap-1 [&>svg]:size-2.5 ${STATUS_STYLES[status] ?? ""}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <ArrowRight className="size-3.5 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
+        </div>
       </div>
     </Card>
   );

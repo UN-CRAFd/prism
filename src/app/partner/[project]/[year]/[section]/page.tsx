@@ -1481,9 +1481,9 @@ export default function PartnerReportEditorPage() {
                 <div>
                   <Label>{labels.overviewFields.mptfoProjectNumber}</Label>
                   <Input
-                    type="number"
+                    inputMode="numeric"
                     value={overview.mptfo_project_number}
-                    onChange={(e) => updateOverview({ mptfo_project_number: e.target.value })}
+                    onChange={(e) => updateOverview({ mptfo_project_number: e.target.value.replace(/\D/g, "") })}
                     placeholder={labels.placeholders.mptfoProjectNumber}
                     className="text-sm"
                   />

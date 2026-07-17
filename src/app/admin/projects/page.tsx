@@ -197,7 +197,13 @@ export default function ProjectsPage() {
                 <Input value={mptfo} onChange={(e) => setMptfo(e.target.value)} placeholder="00140841" />
               </Field>
               <Field label="Grant size (USD)">
-                <Input value={grantSize} onChange={(e) => setGrantSize(e.target.value)} type="number" placeholder="0" />
+                <Input
+                  value={grantSize}
+                  onChange={(e) => setGrantSize(e.target.value)}
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                />
               </Field>
               <Field label="Start date">
                 <Input value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" />

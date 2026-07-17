@@ -1481,7 +1481,15 @@ export default function PartnerReportEditorPage() {
                 </div>
                 <div>
                   <Label>{labels.overviewFields.grantSizeUsd}</Label>
-                  <Input type="number" min={0} value={overview.grant_size_usd} onChange={(e) => updateOverview({ grant_size_usd: e.target.value })} placeholder={labels.placeholders.grantSizeUsd} className="text-sm" />
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={overview.grant_size_usd}
+                    onChange={(e) => updateOverview({ grant_size_usd: e.target.value })}
+                    placeholder={labels.placeholders.grantSizeUsd}
+                    className="text-sm"
+                  />
                 </div>
                 <div>
                   <Label>{labels.overviewFields.durationMonths}</Label>

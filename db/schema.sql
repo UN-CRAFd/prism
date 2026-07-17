@@ -52,6 +52,7 @@ CREATE TRIGGER partners_updated_at
 CREATE TABLE IF NOT EXISTS partner_contacts (
     id         SERIAL       PRIMARY KEY,
     partner_id INTEGER      NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+    manager_id INTEGER      REFERENCES partner_contacts(id) ON DELETE SET NULL,
     name       TEXT         NOT NULL,
     role       TEXT,
     email      TEXT,
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS partner_contacts (
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS partner_contacts_partner_id_idx ON partner_contacts(partner_id);
+CREATE INDEX IF NOT EXISTS partner_contacts_manager_id_idx ON partner_contacts(manager_id);
 DROP TRIGGER IF EXISTS partner_contacts_updated_at ON partner_contacts;
 CREATE TRIGGER partner_contacts_updated_at
     BEFORE UPDATE ON partner_contacts

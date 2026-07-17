@@ -13,10 +13,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Contact } from "lucide-react";
+import { Plus, Contact, CornerDownRight } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
 } from "@/components/admin/shared";
+import { buildContactTree, flattenTree, descendantIds } from "@/lib/contact-tree";
+
+const NONE = "none";
 
 interface Partner {
   id: number;
@@ -27,6 +30,7 @@ interface Partner {
 interface PartnerContact {
   id: number;
   partner_id: number;
+  manager_id: number | null;
   name: string;
   role: string | null;
   email: string | null;
@@ -49,6 +53,7 @@ export default function ContactsPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
+  const [managerId, setManagerId] = useState(NONE);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,7 +76,7 @@ export default function ContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setPartnerId(""); setName(""); setRole(""); setEmail("");
+    setPartnerId(""); setName(""); setRole(""); setEmail(""); setManagerId(NONE);
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -80,6 +85,7 @@ export default function ContactsPage() {
     setName(c.name);
     setRole(c.role || "");
     setEmail(c.email || "");
+    setManagerId(c.manager_id != null ? String(c.manager_id) : NONE);
     setEditId(c.id); setShowForm(true); setFormError(null);
   }
 
@@ -88,9 +94,10 @@ export default function ContactsPage() {
     if (!name.trim()) { setFormError("Name is required"); return; }
     setSaving(true); setFormError(null);
     try {
+      const manager_id = managerId === NONE ? null : Number(managerId);
       const body = editId
-        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null }
-        : { partner_id: Number(partnerId), name: name.trim(), role: role.trim() || null, email: email.trim() || null };
+        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null, manager_id }
+        : { partner_id: Number(partnerId), name: name.trim(), role: role.trim() || null, email: email.trim() || null, manager_id };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,10 +112,30 @@ export default function ContactsPage() {
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
-    if (!await confirm({ message: "Delete this contact? This cannot be undone." })) return;
+    if (!await confirm({ message: "Delete this contact? People they manage move up to the next level." })) return;
     const res = await fetch(`/api/partner-contacts?id=${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();
+  }
+
+  // Manager picker: same-partner contacts, excluding the contact itself and
+  // anyone it already manages (so you can't create a loop).
+  const samePartner = contacts.filter((c) => String(c.partner_id) === partnerId);
+  const blocked = editId != null ? descendantIds(samePartner, editId) : new Set<number>();
+  const managerOptions = samePartner.filter((c) => c.id !== editId && !blocked.has(c.id));
+
+  // One group per partner (contacts already arrive ordered by partner), each
+  // flattened into a manager → reports list with a depth for indentation.
+  const groups: { partnerId: number; label: string; rows: { node: PartnerContact; depth: number }[] }[] = [];
+  for (const c of contacts) {
+    let g = groups.find((x) => x.partnerId === c.partner_id);
+    if (!g) {
+      g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", rows: [] };
+      groups.push(g);
+    }
+  }
+  for (const g of groups) {
+    g.rows = flattenTree(buildContactTree(contacts.filter((c) => c.partner_id === g.partnerId)));
   }
 
   return (
@@ -156,6 +183,19 @@ export default function ContactsPage() {
               <Field label="Email">
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
               </Field>
+              <Field label="Manager">
+                <Select value={managerId} onValueChange={setManagerId} disabled={!partnerId}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}><span className="text-muted-foreground">— None (top level)</span></SelectItem>
+                    {managerOptions.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        {m.name}{m.role ? ` — ${m.role}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
             </div>
           </FormShell>
         )}
@@ -170,36 +210,45 @@ export default function ContactsPage() {
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Partner</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="w-20" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contacts.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs font-semibold">
-                      {c.partner_short_name || c.partner_long_name || "—"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}
-                  </TableCell>
-                  <TableCell>
-                    <RowActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-8">
+            {groups.map((g) => (
+              <div key={g.partnerId}>
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs font-semibold">{g.label}</Badge>
+                  <span className="text-xs text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead className="w-20" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {g.rows.map(({ node: c, depth }) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">
+                          <span className="flex items-center" style={{ paddingLeft: depth * 22 }}>
+                            {depth > 0 && <CornerDownRight className="size-3.5 mr-1.5 shrink-0 text-muted-foreground/50" />}
+                            {c.name}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}
+                        </TableCell>
+                        <TableCell>
+                          <RowActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -8,14 +8,14 @@ import { query } from "@/lib/db";
 //   PATCH { id, name, role, email }
 //   DELETE ?id=
 
-const FIELDS = ["name", "role", "email"] as const;
+const FIELDS = ["name", "role", "email", "manager_id"] as const;
 
 export async function GET(req: NextRequest) {
   const partnerId = req.nextUrl.searchParams.get("partner_id");
   try {
     if (partnerId) {
       const rows = await query(
-        `SELECT id, partner_id, name, role, email, sort_order
+        `SELECT id, partner_id, manager_id, name, role, email, sort_order
            FROM reporting_platform.partner_contacts
           WHERE partner_id = $1
           ORDER BY sort_order ASC, id ASC`,
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = await query(
-      `SELECT c.id, c.partner_id, c.name, c.role, c.email, c.sort_order,
+      `SELECT c.id, c.partner_id, c.manager_id, c.name, c.role, c.email, c.sort_order,
               p.short_name AS partner_short_name, p.long_name AS partner_long_name
          FROM reporting_platform.partner_contacts c
          JOIN reporting_platform.partners p ON p.id = c.partner_id
@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
     const nextOrder = Number(existing[0].count) + 1;
 
     const rows = await query(
-      `INSERT INTO reporting_platform.partner_contacts (partner_id, name, role, email, sort_order)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO reporting_platform.partner_contacts (partner_id, manager_id, name, role, email, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [partnerId, name, body.role ?? null, body.email ?? null, nextOrder]
+      [partnerId, body.manager_id ?? null, name, body.role ?? null, body.email ?? null, nextOrder]
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
@@ -88,6 +88,7 @@ export async function PATCH(req: NextRequest) {
       typeof body.name === "string" ? body.name.trim() : body.name ?? null,
       body.role ?? null,
       body.email ?? null,
+      body.manager_id ?? null,
       id,
     ];
     const rows = await query(

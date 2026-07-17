@@ -199,3 +199,14 @@ body {
 body::-webkit-scrollbar {
   display: none;
 }
+
+/* Utility class: hide scrollbar on elements while keeping scroll functionality */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

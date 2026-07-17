@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-// The project start/end dates live on the `projects` table (project-level) but
-// are surfaced and edited through the overview form. GET joins them in; PATCH
+// The project start date + duration live on the `projects` table (project-level)
+// but are surfaced and edited through the overview form. GET joins them in; PATCH
 // writes them back to the project.
 
 export async function GET(req: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const existing = await query(
       `SELECT o.*,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
-              TO_CHAR(p.project_end_date,   'YYYY-MM-DD') AS project_end_date
+              p.project_duration_months
          FROM reporting_platform.overview o
          JOIN reporting_platform.reports  r ON r.id = o.reportid
          JOIN reporting_platform.projects p ON p.id = r.project_id
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
          p.mptfo_project_number,
          p.grant_size_usd,
          TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
-         TO_CHAR(p.project_end_date,   'YYYY-MM-DD') AS project_end_date,
+         p.project_duration_months,
          p.geographic_scope,
          pt.long_name                                   AS organization_name,
          pt.organization_website,
@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest) {
     geographic_scope,
     report_submission_date,
     project_start_date,
-    project_end_date,
+    project_duration_months,
     project_lead,
     authorized,
   } = body;
@@ -90,14 +90,14 @@ export async function PATCH(req: NextRequest) {
   };
 
   try {
-    // Project-level start/end dates (edited via the overview form).
-    if ("project_start_date" in body || "project_end_date" in body) {
+    // Project-level start date + duration (edited via the overview form).
+    if ("project_start_date" in body || "project_duration_months" in body) {
       await query(
         `UPDATE reporting_platform.projects p
-            SET project_start_date = $2, project_end_date = $3
+            SET project_start_date = $2, project_duration_months = $3
            FROM reporting_platform.reports r
           WHERE r.id = $1 AND p.id = r.project_id`,
-        [reportId, toDate(project_start_date), toDate(project_end_date)]
+        [reportId, toDate(project_start_date), toNum(project_duration_months)]
       );
     }
 
@@ -135,11 +135,11 @@ export async function PATCH(req: NextRequest) {
       ]
     );
 
-    // Echo the project dates back so the client stays in sync.
+    // Echo the project start date + duration back so the client stays in sync.
     return NextResponse.json({
       ...rows[0],
       project_start_date: toDate(project_start_date),
-      project_end_date: toDate(project_end_date),
+      project_duration_months: toNum(project_duration_months),
     });
   } catch (err) {
     console.error("PATCH /api/overview error:", err);

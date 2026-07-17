@@ -142,7 +142,7 @@ export default function AdminHomePage() {
   return (
     <div className="flex flex-col min-h-full bg-background">
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
-        <p className="text-neutral-400 text-sm mb-1">PRISM V.0.1</p>
+        <p className="text-neutral-400 text-sm mb-1">PRISM V.0.2</p>
         <h1 className="text-3xl font-bold font-qanelas">
           {mounted ? `${greeting}, ${user?.name ?? "Admin"}` : "Good day, Admin"}
         </h1>

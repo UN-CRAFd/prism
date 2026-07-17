@@ -137,7 +137,7 @@ interface Report {
   grant_size_usd: string | null;
   geographic_scope: string | null;
   project_start_date: string | null;
-  project_end_date: string | null;
+  project_duration_months: number | null;
   organization_website: string | null;
 }
 
@@ -165,7 +165,7 @@ interface OverviewData {
   geographic_scope: string;
   report_submission_date: string;
   project_start_date: string;
-  project_end_date: string;
+  project_duration_months: string;
   project_lead: string;
   authorized: boolean;
 }
@@ -297,7 +297,7 @@ const EMPTY_OVERVIEW: OverviewData = {
   geographic_scope: "",
   report_submission_date: "",
   project_start_date: "",
-  project_end_date: "",
+  project_duration_months: "",
   project_lead: "",
   authorized: false,
 };
@@ -312,15 +312,6 @@ function toSlug(r: Report): string {
 interface HistoryCommand {
   undo: () => void;
   redo: () => void;
-}
-
-// Duration is derived (in whole months) from the project start/end dates.
-function durationMonthsLabel(start: string, end: string): string {
-  if (!start || !end) return "—";
-  const s = new Date(start), e = new Date(end);
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return "—";
-  const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
-  return months > 0 ? `${months} months` : "—";
 }
 
 export default function PartnerReportEditorPage() {
@@ -449,7 +440,7 @@ export default function PartnerReportEditorPage() {
           geographic_scope: data.geographic_scope ?? "",
           report_submission_date: data.report_submission_date?.slice(0, 10) ?? "",
           project_start_date: data.project_start_date?.slice(0, 10) ?? "",
-          project_end_date: data.project_end_date?.slice(0, 10) ?? "",
+          project_duration_months: data.project_duration_months != null ? String(data.project_duration_months) : "",
           project_lead: data.project_lead ?? "",
           authorized: data.authorized ?? false,
         });
@@ -615,7 +606,7 @@ export default function PartnerReportEditorPage() {
             geographic_scope: match.geographic_scope || "",
             report_submission_date: match.report_submission_date?.slice(0, 10) || "",
             project_start_date: match.project_start_date?.slice(0, 10) || "",
-            project_end_date: match.project_end_date?.slice(0, 10) || "",
+            project_duration_months: match.project_duration_months != null ? String(match.project_duration_months) : "",
             project_lead: "",
             authorized: false,
           });
@@ -1529,9 +1520,15 @@ export default function PartnerReportEditorPage() {
                 </div>
                 <div>
                   <Label>{labels.overviewFields.durationMonths}</Label>
-                  <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
-                    {durationMonthsLabel(overview.project_start_date, overview.project_end_date)}
-                  </div>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={overview.project_duration_months}
+                    onChange={(e) => updateOverview({ project_duration_months: e.target.value })}
+                    placeholder={labels.placeholders.durationMonths}
+                    className="text-sm"
+                  />
                 </div>
               </div>
 
@@ -1541,16 +1538,12 @@ export default function PartnerReportEditorPage() {
                   <Input type="date" value={overview.project_start_date} onChange={(e) => updateOverview({ project_start_date: e.target.value })} className="text-sm" />
                 </div>
                 <div>
-                  <Label>{labels.overviewFields.endDate}</Label>
-                  <Input type="date" value={overview.project_end_date} onChange={(e) => updateOverview({ project_end_date: e.target.value })} className="text-sm" />
-                </div>
-                <div>
                   <Label>{labels.overviewFields.reportSubmissionDate}</Label>
                   <Input type="date" value={overview.report_submission_date} onChange={(e) => updateOverview({ report_submission_date: e.target.value })} className="text-sm" />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground -mt-2">
-                Start and end dates are project-level — they set the project timeline and drive the workplan quarters.
+                Start date and duration are project-level — they set the project timeline and drive the workplan quarters.
               </p>
 
               <div>

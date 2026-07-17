@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
               AND o.geographic_scope IS NOT NULL
               AND o.report_submission_date IS NOT NULL
               AND p.project_start_date IS NOT NULL
-              AND p.project_end_date IS NOT NULL) AS complete
+              AND p.project_duration_months IS NOT NULL) AS complete
            FROM reporting_platform.overview o
            JOIN reporting_platform.reports  r ON r.id = o.reportid
            JOIN reporting_platform.projects p ON p.id = r.project_id

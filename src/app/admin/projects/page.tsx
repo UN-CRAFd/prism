@@ -36,17 +36,12 @@ interface Project {
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
   project_start_date: string | null;
-  project_end_date: string | null;
+  project_duration_months: number | null;
   geographic_scope: string | null;
 }
 
-// Duration is no longer stored — derive it (in whole months) from the dates.
-function durationLabel(start: string | null, end: string | null): string | null {
-  if (!start || !end) return null;
-  const s = new Date(start), e = new Date(end);
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return null;
-  const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
-  return months > 0 ? `${months} months` : null;
+function durationLabel(months: number | null): string | null {
+  return months && months > 0 ? `${months} months` : null;
 }
 
 function fmtUsd(v: string | null) {
@@ -82,7 +77,7 @@ export default function ProjectsPage() {
   const [mptfo, setMptfo] = useState("");
   const [grantSize, setGrantSize] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [durationMonths, setDurationMonths] = useState("");
   const [scope, setScope] = useState("");
 
   const load = useCallback(async () => {
@@ -104,7 +99,7 @@ export default function ProjectsPage() {
 
   function resetForm() {
     setPartnerId(""); setTitle(""); setShortName("");
-    setMptfo(""); setGrantSize(""); setStartDate(""); setEndDate(""); setScope("");
+    setMptfo(""); setGrantSize(""); setStartDate(""); setDurationMonths(""); setScope("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -115,7 +110,7 @@ export default function ProjectsPage() {
     setMptfo(p.mptfo_project_number || "");
     setGrantSize(p.grant_size_usd || "");
     setStartDate(p.project_start_date || "");
-    setEndDate(p.project_end_date || "");
+    setDurationMonths(p.project_duration_months != null ? String(p.project_duration_months) : "");
     setScope(p.geographic_scope || "");
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
@@ -131,7 +126,7 @@ export default function ProjectsPage() {
         mptfo_project_number: mptfo.trim() || null,
         grant_size_usd: grantSize ? parseFloat(grantSize) : null,
         project_start_date: startDate || null,
-        project_end_date: endDate || null,
+        project_duration_months: durationMonths ? parseInt(durationMonths, 10) : null,
         geographic_scope: scope.trim() || null,
       };
       const res = await fetch(
@@ -211,8 +206,8 @@ export default function ProjectsPage() {
               <Field label="Start date">
                 <Input value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" />
               </Field>
-              <Field label="End date">
-                <Input value={endDate} onChange={(e) => setEndDate(e.target.value)} type="date" />
+              <Field label="Duration (months)">
+                <Input value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} type="number" min={1} step={1} placeholder="e.g. 24" />
               </Field>
               <Field label="Geographic scope">
                 <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Global" />
@@ -258,7 +253,7 @@ export default function ProjectsPage() {
                   <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">{p.mptfo_project_number || <Dash />}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtUsd(p.grant_size_usd)}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_start_date, p.project_end_date) || <Dash />}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
                   <TableCell>
                     <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
@@ -285,10 +280,10 @@ export default function ProjectsPage() {
                       {fmtUsd(p.grant_size_usd)}
                     </span>
                   )}
-                  {durationLabel(p.project_start_date, p.project_end_date) && (
+                  {durationLabel(p.project_duration_months) && (
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="size-3 shrink-0" />
-                      {durationLabel(p.project_start_date, p.project_end_date)}
+                      {durationLabel(p.project_duration_months)}
                     </span>
                   )}
                   {p.mptfo_project_number && (

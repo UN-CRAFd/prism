@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (!reportId) return NextResponse.json({ error: "reportId required" }, { status: 400 });
 
   try {
-    // Resolve the project + derive the quarter range from the project dates.
+    // Resolve the project + derive the quarter range from start + duration.
     const projRows = await query<{
       project_id: number;
       start_date: string | null;
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT p.id AS project_id,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
-              TO_CHAR(p.project_end_date,   'YYYY-MM-DD') AS end_date
+              TO_CHAR((p.project_start_date + (p.project_duration_months * INTERVAL '1 month'))::date, 'YYYY-MM-DD') AS end_date
          FROM reporting_platform.reports r
          JOIN reporting_platform.projects p ON p.id = r.project_id
         WHERE r.id = $1`,

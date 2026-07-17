@@ -83,7 +83,6 @@
     "durationMonths": "Duration (months)",
     "grantSizeUsd": "Grant Size (USD)",
     "startDate": "Start Date",
-    "endDate": "End Date",
     "reportSubmissionDate": "Report Submission Date",
     "implementingPartners": "Implementing Partners",
     "geographicScope": "Geographic Scope"
@@ -274,7 +273,7 @@
     "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {
-    "eyebrow": "PRISM V.0.1",
+    "eyebrow": "PRISM V.0.2",
     "title": "Report Editor",
     "assessmentLabel": "Assessment",
     "contextLabel": "Context",

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
         pr.grant_size_usd,
         pr.geographic_scope,
         TO_CHAR(pr.project_start_date, 'YYYY-MM-DD')   AS project_start_date,
-        TO_CHAR(pr.project_end_date,   'YYYY-MM-DD')   AS project_end_date,
+        pr.project_duration_months,
         p.short_name                                    AS partner_short_name,
         p.long_name                                     AS partner_long_name,
         p.organization_website

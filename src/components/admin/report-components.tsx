@@ -20,6 +20,8 @@ import {
   CircleDot,
   Clock,
   CheckCircle2,
+  Share2,
+  Check,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Field, FormShell } from "@/components/admin/shared";
@@ -87,6 +89,26 @@ export function ReportCard({
   const router = useRouter();
   const [printing, setPrinting] = useState(false);
   const [status, setStatus] = useState<ReportRow["status"]>(report.status);
+  const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
+
+  async function handleShare() {
+    try {
+      const res = await fetch("/api/auth/magic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: report.id }),
+      });
+      if (!res.ok) throw new Error("Failed to create link");
+      const { token } = await res.json();
+      await navigator.clipboard.writeText(`${window.location.origin}/m/${token}`);
+      setShareState("copied");
+    } catch (e) {
+      console.error("Share failed:", e);
+      setShareState("error");
+    } finally {
+      setTimeout(() => setShareState("idle"), 2000);
+    }
+  }
 
   async function handlePrint() {
     setPrinting(true);
@@ -158,8 +180,8 @@ export function ReportCard({
         </p>
       </div>
 
-      {/* Bottom: status | print | open — all equal width */}
-      <div className="grid grid-cols-3 gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+      {/* Bottom: status | share | print | open — all equal width */}
+      <div className="grid grid-cols-4 gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
         {/* 1. Status dropdown */}
         <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
           <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[status] ?? ""}`}>
@@ -175,7 +197,23 @@ export function ReportCard({
           </SelectContent>
         </Select>
 
-        {/* 2. Print */}
+        {/* 2. Share */}
+        <button
+          onClick={handleShare}
+          className={`h-7 flex items-center justify-center gap-1.5 rounded border text-[11px] font-medium transition-colors ${
+            shareState === "copied"
+              ? "border-emerald-200 text-emerald-600"
+              : shareState === "error"
+              ? "border-destructive/30 text-destructive"
+              : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+          title={shareState === "copied" ? "Link copied!" : shareState === "error" ? "Failed to copy" : "Copy share link"}
+        >
+          {shareState === "copied" ? <Check className="size-3" /> : <Share2 className="size-3" />}
+          {shareState === "copied" ? "Copied" : "Share"}
+        </button>
+
+        {/* 3. Print */}
         <button
           onClick={handlePrint}
           disabled={printing}
@@ -186,7 +224,7 @@ export function ReportCard({
           Print
         </button>
 
-        {/* 3. Open report */}
+        {/* 4. Open report */}
         <button
           onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/surveys`)}
           className="h-7 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

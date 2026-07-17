@@ -280,15 +280,15 @@ export const WorkplanPartnerEditor = forwardRef<
           quarters={quarters}
           leadCols={
             <>
-              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
-              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>
+              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
+              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>
             </>
           }
           trailCols={
             <>
-              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
-              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>
-              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>
+              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[120px] align-bottom">Agent</th>
+              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[110px] align-bottom">Progress update</th>
+              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[200px] align-bottom">Comment</th>
             </>
           }
         />

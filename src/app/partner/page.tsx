@@ -43,10 +43,10 @@ interface TimelineEvent {
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 const timelineConfig: Record<TimelineType, { dot: string; label: string }> = {
-  deadline: { dot: "bg-red-500 ring-red-200", label: "text-red-600" },
-  submission: { dot: "bg-green-500 ring-green-200", label: "text-green-700" },
-  feedback: { dot: "bg-blue-500 ring-blue-200", label: "text-blue-600" },
-  info: { dot: "bg-neutral-400 ring-neutral-200", label: "text-neutral-500" },
+  start: { dot: "bg-green-500 ring-green-200", label: "text-green-700" },
+  deadline: { dot: "bg-amber-500 ring-amber-200", label: "text-amber-600" },
+  end: { dot: "bg-blue-500 ring-blue-200", label: "text-blue-600" },
+  now: { dot: "bg-red-500 ring-red-200", label: "text-red-600" },
 };
 
 function toSlug(report: Report): string {
@@ -84,16 +84,62 @@ export default function PartnerHomePage() {
   );
 
   const timeline = useMemo<TimelineEvent[]>(() => {
-    return reports
-      .filter((r) => r.report_submission_date)
-      .map((r) => ({
-        date: formatDate(r.report_submission_date!),
+    const events: TimelineEvent[] = [];
+
+    // Project start & end — one pair per unique project
+    const seenProjects = new Set<number>();
+    for (const r of reports) {
+      if (seenProjects.has(r.project_id)) continue;
+      seenProjects.add(r.project_id);
+      if (!r.project_start_date) continue;
+
+      const start = new Date(r.project_start_date);
+      events.push({
+        date: formatDate(start),
+        label: "Project start",
+        description: r.project_title,
+        type: "start",
+        _dateObj: start,
+      });
+
+      if (r.project_duration_months) {
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + r.project_duration_months);
+        events.push({
+          date: formatDate(end),
+          label: "Project end",
+          description: r.project_title,
+          type: "end",
+          _dateObj: end,
+        });
+      }
+    }
+
+    // Report deadlines
+    for (const r of reports) {
+      if (!r.report_submission_date) continue;
+      events.push({
+        date: formatDate(r.report_submission_date),
         label: `${r.year} report deadline`,
         description: r.project_title,
-        type: "deadline" as const,
-        _dateObj: new Date(r.report_submission_date!),
-      }))
-      .sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
+        type: "deadline",
+        _dateObj: new Date(r.report_submission_date),
+      });
+    }
+
+    if (events.length === 0) return [];
+
+    // "You are here" marker at today's chronological position
+    const now = new Date();
+    events.push({
+      date: formatDate(now),
+      label: "Today",
+      description: "",
+      type: "now",
+      _dateObj: now,
+    });
+
+    return events.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
   }, [reports]);
 
   const greeting = useMemo(() => {
@@ -237,45 +283,45 @@ export default function PartnerHomePage() {
               <ol className="flex flex-col gap-0">
                 {timeline.map((event, i) => {
                   const cfg = timelineConfig[event.type];
-                  const today = new Date();
-                  const isPast = event._dateObj < today;
-                  const isNext =
-                    !isPast &&
-                    timeline.slice(0, i).every((e) => e._dateObj < today);
+                  const isNow = event.type === "now";
+                  const isPast = !isNow && event._dateObj < new Date();
 
                   return (
                     <li key={i} className="relative flex gap-4 pb-6 last:pb-0">
                       <div
                         className={cn(
-                          "absolute -left-4 mt-0.5 size-3.5 rounded-full ring-2 ring-white shrink-0",
-                          isNext
-                            ? cfg.dot
+                          "absolute -left-4 mt-0.5 size-3.5 rounded-full ring-2 shrink-0",
+                          isNow
+                            ? "bg-red-500 ring-red-200 animate-pulse"
                             : isPast
                             ? "bg-neutral-200 ring-white"
-                            : "bg-white border-2 border-neutral-300"
+                            : cn(cfg.dot, "ring-white")
                         )}
                       />
                       <div className="pl-2">
                         <p className={cn(
                           "text-[10px] font-semibold uppercase tracking-wider mb-0.5",
-                          isNext ? cfg.label : "text-muted-foreground"
+                          isNow ? cfg.label : isPast ? "text-muted-foreground" : cfg.label
                         )}>
                           {event.date}
-                          {isNext && (
-                            <span className="ml-1.5 normal-case font-normal text-[9px] bg-crafd-yellow text-black rounded-full px-1.5 py-0.5">
-                              Next
+                          {isNow && (
+                            <span className="ml-1.5 normal-case font-normal text-[9px] bg-red-500 text-white rounded-full px-1.5 py-0.5">
+                              You are here
                             </span>
                           )}
                         </p>
                         <p className={cn(
                           "text-sm font-medium leading-snug",
-                          isPast && !isNext && "text-muted-foreground"
+                          isNow && "text-red-600",
+                          isPast && "text-muted-foreground"
                         )}>
                           {event.label}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                          {event.description}
-                        </p>
+                        {event.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                            {event.description}
+                          </p>
+                        )}
                       </div>
                     </li>
                   );

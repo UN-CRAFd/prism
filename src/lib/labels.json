@@ -92,7 +92,7 @@
     "columns": {
       "achievement": "Achievement",
       "significance": "Significance",
-      "links": "Links"
+      "links": "Links / Materials"
     },
     "remarks": {
       "achievement": "Briefly describe a major result or milestone achieved while implementing the project during this reporting period. For example: The project developed a cloud system that now delivers up-to-date weather and impact feeds.",
@@ -133,7 +133,7 @@
       "context": "Context",
       "dataDrivenDecision": "Data-driven Decision",
       "resultingImpact": "Resulting Impact",
-      "links": "Links"
+      "links": "Links / Materials"
     },
     "remarks": {
       "context": "Briefly describe the problem, risk, or decision gap in a fragile or crisis-affected setting. For example: Repeated intercommunal tensions in Akobo County, South Sudan, were causing cyclical displacement, with limited early warning to prevent escalation before violence occurred.",
@@ -146,7 +146,7 @@
     "columns": {
       "partnerOrganization": "Partner Organization",
       "result": "Result of the Partnership",
-      "links": "Links"
+      "links": "Links / Materials"
     },
     "remarks": {
       "partnerOrganization": "List the organization that contributed as an implementing, counterpart, or ecosystem partner to the project.",

@@ -103,21 +103,24 @@ function QuarterCell({
 // Two-row year/quarter header shared by both grids.
 function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; leadCols: ReactNode; trailCols: ReactNode }) {
   const groups = groupQuartersByYear(quarters);
+  // Sticky two-row header pinned to the page's scroll container: the year row at
+  // the top, the quarter row just below (top-8 = the year row's fixed h-8).
+  // Opaque bg + cell-level borders so body rows never bleed through on scroll.
   return (
     <thead>
-      <tr className="border-b bg-muted/40">
+      <tr>
         {leadCols}
         {groups.map((g) => (
-          <th key={g.year} colSpan={g.quarters.length} className="px-1 py-2 text-center text-xs font-semibold border-l">
+          <th key={g.year} colSpan={g.quarters.length} className="sticky top-0 z-20 h-8 bg-muted px-1 py-2 text-center text-xs font-semibold border-l border-b">
             {g.year}
           </th>
         ))}
         {trailCols}
       </tr>
-      <tr className="border-b bg-muted/20">
+      <tr>
         {groups.map((g) =>
           g.quarters.map((q, i) => (
-            <th key={q.key} className={cn("px-1 py-1 text-center text-[11px] font-medium text-muted-foreground w-9", i === 0 && "border-l")}>
+            <th key={q.key} className={cn("sticky top-8 z-20 bg-muted border-b px-1 py-1 text-center text-[11px] font-medium text-muted-foreground w-9", i === 0 && "border-l")}>
               {q.q}
             </th>
           ))
@@ -271,15 +274,15 @@ export const WorkplanPartnerEditor = forwardRef<
           quarters={quarters}
           leadCols={
             <>
-              <th rowSpan={2} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
-              <th rowSpan={2} className="text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>
+              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
+              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>
             </>
           }
           trailCols={
             <>
-              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
-              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>
-              <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>
+              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
+              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>
+              <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>
             </>
           }
         />
@@ -395,7 +398,7 @@ interface ProgressState {
   comment: string;
 }
 
-export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void }) {
+export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange, fillHeight }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean }) {
   const partnerMode = reportId != null;
   const confirm = useConfirm();
 
@@ -831,7 +834,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
 
   return (
-    <div className="space-y-5">
+    <div className={cn(fillHeight ? "flex flex-col gap-5 flex-1 min-h-0" : "space-y-5")}>
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
@@ -853,22 +856,22 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
           No outcomes yet. Add one to start building the workplan.
         </div>
       ) : (
-        <div className="rounded-xl border bg-card overflow-x-auto">
+        <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
           <table className="w-full text-sm border-collapse">
             <QuarterHeader
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>
-                  {partnerMode && <th rowSpan={2} className="text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>}
+                  <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>
+                  {partnerMode && <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>}
                 </>
               }
               trailCols={
                 <>
-                  <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
-                  {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>}
-                  {partnerMode && <th rowSpan={2} className="px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>}
-                  <th rowSpan={2} className="px-2 py-2 w-10 align-bottom" />
+                  <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
+                  {partnerMode && <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>}
+                  {partnerMode && <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>}
+                  <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 w-10 align-bottom" />
                 </>
               }
             />

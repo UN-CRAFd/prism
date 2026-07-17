@@ -1373,8 +1373,9 @@ export default function PartnerReportEditorPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto px-8 py-6">
+      {/* Content — the workplan fills the leftover height and scrolls inside its
+          own box (single scroller, frozen header); every other tab scrolls here. */}
+      <div className={cn("flex-1 px-8 py-6", params.section === "workplan" ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {/* Tab instructions — only while the report is editable */}
         {params.section !== "overview" && params.section !== "testimonials" && !sectionLoading && !notFound && !readOnly && (
           <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
@@ -1400,7 +1401,7 @@ export default function PartnerReportEditorPage() {
         {/* Disabled fieldset makes the entire section view-only when the report
             is not Open — natively disables every input, select and button inside,
             including the child editors, while keeping scrolling and text selection. */}
-        <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
+        <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", params.section === "workplan" && "flex-1 min-h-0 flex flex-col")}>
         {notFound ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
@@ -2452,6 +2453,7 @@ export default function PartnerReportEditorPage() {
               reportId={reportId}
               defaultAgent={selectedReport.partner_short_name}
               onSaveStateChange={setChildSaveState}
+              fillHeight
             />
           ) : null
 

@@ -70,7 +70,7 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const STATUS_ORDER = ["Open", "Pending", "Closed"];
+  const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
   const groups = useMemo(() => {
     const map = new Map<string, ReportRow[]>();
@@ -187,9 +187,9 @@ export default function ReportsPage() {
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${
-                      r.status === "Open"    ? "bg-blue-50 text-blue-700 border-blue-200" :
-                      r.status === "Pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                              "bg-zinc-100 text-zinc-500 border-zinc-200"
+                      r.status === "Open"          ? "bg-blue-50 text-blue-700 border-blue-200" :
+                      r.status === "Under Review"  ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                                    "bg-zinc-100 text-zinc-500 border-zinc-200"
                     }`}>
                       {r.status}
                     </span>

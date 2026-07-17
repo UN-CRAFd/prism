@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
-const VALID_STATUSES = new Set(["Open", "Closed", "Pending"]);
+const VALID_STATUSES = new Set(["Open", "Closed", "Under Review"]);
 
 // GET /api/reports/[id]
 export async function GET(

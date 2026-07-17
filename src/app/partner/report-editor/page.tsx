@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
-import { ArrowRight, FileText, CheckCircle2, Clock, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight, FileText, ChevronRight } from "lucide-react";
 import labels from "@/lib/labels.json";
 
 interface Report {
   id: number;
   project_id: number;
   year: number;
+  status: "Open" | "Closed" | "Under Review";
   report_submission_date: string | null;
   authorized: boolean;
   created_at: string;
@@ -26,20 +26,20 @@ function toSlug(report: Report): string {
   return (report.project_short_name ?? report.project_title).toLowerCase();
 }
 
-function StatusBadge({ report }: { report: Report }) {
-  if (report.authorized) {
-    return (
-      <Badge variant="outline" className="border-green-300 text-green-700 text-xs">
-        <CheckCircle2 className="size-3 mr-1" />
-        {labels.dashboard.status.authorized}
-      </Badge>
-    );
-  }
+const STATUS_PILL: Record<string, string> = {
+  Open:           "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "Under Review": "bg-amber-50 text-amber-700 border-amber-200",
+  Closed:         "bg-neutral-100 text-neutral-500 border-neutral-200",
+};
+
+function StatusPill({ status }: { status: string }) {
   return (
-    <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs">
-      <Clock className="size-3 mr-1" />
-      {labels.dashboard.status.pending}
-    </Badge>
+    <span className={cn(
+      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border",
+      STATUS_PILL[status] ?? STATUS_PILL.Closed
+    )}>
+      {status}
+    </span>
   );
 }
 
@@ -106,8 +106,7 @@ export default function ReportEditorPage() {
   const latestYear = years[0] ?? null;
   const previousYears = years.slice(1);
 
-  const allAuthorized = (list: Report[]) => list.every((r) => r.authorized);
-  const anyAuthorized = (list: Report[]) => list.some((r) => r.authorized);
+  const allClosed = (list: Report[]) => list.every((r) => r.status === "Closed");
 
   return (
     <div className="flex flex-col min-h-full bg-background">
@@ -148,23 +147,6 @@ export default function ReportEditorPage() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold">
                   {latestYear} {labels.dashboard.annualReport}
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "ml-2 text-xs",
-                      allAuthorized(byYear[latestYear])
-                        ? "border-green-300 text-green-700"
-                        : anyAuthorized(byYear[latestYear])
-                        ? "border-amber-300 text-amber-700"
-                        : "border-neutral-300 text-neutral-500"
-                    )}
-                  >
-                    {allAuthorized(byYear[latestYear])
-                      ? labels.dashboard.status.authorized
-                      : anyAuthorized(byYear[latestYear])
-                      ? labels.dashboard.status.partial
-                      : labels.dashboard.status.pending}
-                  </Badge>
                 </h2>
                 <span className="text-sm text-muted-foreground">
                   {byYear[latestYear].length} project{byYear[latestYear].length !== 1 ? "s" : ""}
@@ -178,7 +160,7 @@ export default function ReportEditorPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{report.project_title}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <StatusBadge report={report} />
+                          <StatusPill status={report.status} />
                           {report.report_submission_date && (
                             <span className="text-xs text-muted-foreground">
                               Submitted {formatDate(report.report_submission_date)}
@@ -193,15 +175,15 @@ export default function ReportEditorPage() {
                 {/* Footer CTA */}
                 <div className="px-6 py-4 border-t bg-muted/20 flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
-                    {allAuthorized(byYear[latestYear])
-                      ? "All reports authorized for " + latestYear
+                    {allClosed(byYear[latestYear])
+                      ? "Reporting for " + latestYear + " is closed"
                       : "Continue filling out your " + latestYear + " annual report"}
                   </p>
                   <button
                     onClick={() => router.push(`/partner/${toSlug(byYear[latestYear][0])}/${latestYear}/overview`)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
                   >
-                    {allAuthorized(byYear[latestYear]) ? labels.dashboard.review : labels.dashboard.openReport}
+                    {allClosed(byYear[latestYear]) ? labels.dashboard.review : labels.dashboard.openReport}
                     <ArrowRight className="size-3.5" />
                   </button>
                 </div>
@@ -215,8 +197,6 @@ export default function ReportEditorPage() {
                 <div className="flex flex-col gap-3">
                   {previousYears.map((year) => {
                     const yearReports = byYear[year];
-                    const done = allAuthorized(yearReports);
-                    const partial = anyAuthorized(yearReports);
 
                     return (
                       <button
@@ -226,18 +206,6 @@ export default function ReportEditorPage() {
                       >
                         <div className="flex items-start justify-between mb-3">
                           <span className="text-2xl font-bold font-qanelas">{year}</span>
-                          <span
-                            className={cn(
-                              "text-xs font-medium rounded-full px-2 py-0.5 border",
-                              done
-                                ? "bg-green-50 text-green-700 border-green-200"
-                                : partial
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-neutral-100 text-neutral-400 border-neutral-200"
-                            )}
-                          >
-                            {done ? labels.dashboard.status.authorized : partial ? labels.dashboard.status.partial : labels.dashboard.status.pending}
-                          </span>
                         </div>
 
                         {(() => {

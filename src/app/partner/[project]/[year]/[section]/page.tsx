@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info } from "lucide-react";
+import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
@@ -126,6 +126,7 @@ interface Report {
   id: number;
   project_id: number;
   year: number;
+  status: "Open" | "Closed" | "Under Review";
   report_type: "annual" | "final" | null;
   project_title: string;
   project_short_name: string | null;
@@ -1274,6 +1275,9 @@ export default function PartnerReportEditorPage() {
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
   );
+  // A report is editable while "Open" or "Under Review"; only a "Closed" report
+  // is rendered view-only via a disabled <fieldset>.
+  const readOnly = !!selectedReport && selectedReport.status === "Closed";
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
@@ -1297,9 +1301,20 @@ export default function PartnerReportEditorPage() {
           <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.title}</p>
           {selectedReport ? (
             <>
-              <h1 className="text-2xl font-bold font-qanelas capitalize">
-                {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold font-qanelas capitalize">
+                  {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
+                </h1>
+                <span className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                  selectedReport.status === "Open"          ? "bg-emerald-500/15 text-emerald-300" :
+                  selectedReport.status === "Under Review"  ? "bg-amber-500/15 text-amber-300" :
+                                                              "bg-neutral-500/20 text-neutral-300"
+                )}>
+                  {readOnly && <Lock className="size-3" />}
+                  {selectedReport.status}
+                </span>
+              </div>
               <p className="text-neutral-400 text-sm mt-0.5">{selectedReport.project_title}</p>
             </>
           ) : (
@@ -1382,6 +1397,19 @@ export default function PartnerReportEditorPage() {
           </div>
         )}
 
+        {readOnly && !sectionLoading && !notFound && (
+          <div className="mb-6 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <Lock className="size-4 shrink-0" />
+            <span>
+              This report is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
+            </span>
+          </div>
+        )}
+
+        {/* Disabled fieldset makes the entire section view-only when the report
+            is not Open — natively disables every input, select and button inside,
+            including the child editors, while keeping scrolling and text selection. */}
+        <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
         {notFound ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
@@ -2420,6 +2448,7 @@ export default function PartnerReportEditorPage() {
             <p className="text-sm">Section not found.</p>
           </div>
         )}
+        </fieldset>
       </div>
     </div>
   );

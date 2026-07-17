@@ -39,7 +39,7 @@ export interface ReportRow {
   year: number;
   report_submission_date: string | null;
   authorized: boolean;
-  status: "Open" | "Closed" | "Pending";
+  status: "Open" | "Closed" | "Under Review";
   created_at: string;
   data_type: "report" | "prodoc";
   report_type: "annual" | "final" | null;
@@ -64,15 +64,15 @@ export const GROUP_COLORS = [
 ];
 
 const STATUS_STYLES: Record<string, string> = {
-  Open:    "bg-blue-50 text-blue-700 border-blue-200",
-  Pending: "bg-amber-50 text-amber-700 border-amber-200",
-  Closed:  "bg-zinc-100 text-zinc-500 border-zinc-200",
+  Open:            "bg-blue-50 text-blue-700 border-blue-200",
+  "Under Review":  "bg-amber-50 text-amber-700 border-amber-200",
+  Closed:          "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  Open:    <CircleDot className="size-3 shrink-0 text-blue-700" />,
-  Pending: <Clock className="size-3 shrink-0 text-amber-700" />,
-  Closed:  <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+  Open:            <CircleDot className="size-3 shrink-0 text-blue-700" />,
+  "Under Review":  <Clock className="size-3 shrink-0 text-amber-700" />,
+  Closed:          <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
 };
 
 export function ReportCard({
@@ -170,7 +170,7 @@ export function ReportCard({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Open">Open</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Under Review">Under Review</SelectItem>
             <SelectItem value="Closed">Closed</SelectItem>
           </SelectContent>
         </Select>

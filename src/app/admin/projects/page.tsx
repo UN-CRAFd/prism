@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -143,8 +144,10 @@ export default function ProjectsPage() {
     finally { setSaving(false); }
   }
 
+  const confirm = useConfirm();
+
   async function handleDelete(id: number) {
-    if (!confirm("Delete this project? This cannot be undone.")) return;
+    if (!await confirm({ message: "Delete this project? This cannot be undone." })) return;
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();

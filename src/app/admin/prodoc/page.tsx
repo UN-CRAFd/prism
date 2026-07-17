@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useState } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,8 +101,10 @@ export default function ProDocPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const confirm = useConfirm();
+
   async function handleDelete(id: number) {
-    if (!confirm("Delete this project document and all its indicator data?")) return;
+    if (!await confirm({ message: "Delete this project document and all its indicator data?" })) return;
     const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
     if (res.ok) loadData();
     else setError("Failed to delete project document");

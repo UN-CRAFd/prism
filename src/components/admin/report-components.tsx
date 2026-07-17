@@ -38,6 +38,7 @@ export interface ReportRow {
   year: number;
   report_submission_date: string | null;
   authorized: boolean;
+  status: "Open" | "Closed" | "Pending";
   created_at: string;
   data_type: "report" | "prodoc";
   report_type: "annual" | "final" | null;
@@ -48,7 +49,7 @@ export interface ReportRow {
   indicator_count: number;
 }
 
-export type GroupMode = "year" | "organization";
+export type GroupMode = "year" | "organization" | "status";
 
 export const GROUP_COLORS = [
   { bg: "bg-blue-50",    border: "border-blue-200",    icon: "text-blue-400",    label: "text-blue-700"   },

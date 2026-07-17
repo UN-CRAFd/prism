@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,7 @@ export function SectionTableEditor({
   const { endpoint, fields, requiredField, addLabel, emptyText, min, max } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
 
+  const confirm = useConfirm();
   const [rows, setRows] = useState<RowState[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -233,7 +235,7 @@ export function SectionTableEditor({
   async function deleteRow(i: number) {
     const row = rows[i];
     const hasContent = Object.values(row.values).some((v) => typeof v === "string" ? v.trim() : !!v);
-    if (hasContent && !confirm("Delete this row? All entered data will be lost and this cannot be undone.")) return;
+    if (hasContent && !await confirm({ message: "Delete this row? All entered data will be lost and this cannot be undone." })) return;
     const effectiveId = row.id ?? idByKeyRef.current.get(row.key) ?? null;
     if (effectiveId != null) await fetch(`${endpoint}?id=${effectiveId}`, { method: "DELETE" });
     idByKeyRef.current.delete(row.key);

@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
@@ -324,6 +325,7 @@ function durationMonthsLabel(start: string, end: string): string {
 export default function PartnerReportEditorPage() {
   const { user } = useAuth();
   const params = useParams<{ project: string; year: string; section: string }>();
+  const confirm = useConfirm();
   const router = useRouter();
 
   const [reports, setReports] = useState<Report[]>([]);
@@ -847,7 +849,7 @@ export default function PartnerReportEditorPage() {
     const state = riskStates[id];
     if (!risk) return;
     const hasContent = risk.risk_name?.trim() || state?.likelihood != null || state?.impact != null || state?.updated_mitigation?.trim();
-    if (hasContent && !confirm(`Delete risk "${risk.risk_name}"? You can undo this with the Undo button.`)) return;
+    if (hasContent && !await confirm({ message: `Delete risk "${risk.risk_name}"? You can undo this with the Undo button.`, confirmLabel: "Delete" })) return;
     setDeletingRiskId(id);
     setError(null);
     try {
@@ -1042,7 +1044,7 @@ export default function PartnerReportEditorPage() {
     const amount = st?.amount_transferred ?? "";
     const activity = st?.linked_activity_id ?? null;
     const hasContent = amount || activity != null || row.organization_name?.trim();
-    if (hasContent && !confirm(`Delete transfer for "${row.organization_name}"? You can undo this with the Undo button.`)) return;
+    if (hasContent && !await confirm({ message: `Delete transfer for "${row.organization_name}"? You can undo this with the Undo button.`, confirmLabel: "Delete" })) return;
     setDeletingTransferId(partnerId);
     setError(null);
     try {
@@ -1156,7 +1158,7 @@ export default function PartnerReportEditorPage() {
     const amount = st?.contribution_amount ?? "";
     const activityIds = st?.linked_activity_ids ?? [];
     const hasContent = amount || activityIds.length > 0 || row.contributor_name?.trim();
-    if (hasContent && !confirm(`Delete contribution from "${row.contributor_name}"? You can undo this with the Undo button.`)) return;
+    if (hasContent && !await confirm({ message: `Delete contribution from "${row.contributor_name}"? You can undo this with the Undo button.`, confirmLabel: "Delete" })) return;
     setDeletingComplementaryId(contributorId);
     setError(null);
     try {

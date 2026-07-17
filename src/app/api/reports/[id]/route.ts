@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized"];
+const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
+const VALID_STATUSES = new Set(["Open", "Closed", "Pending"]);
 
 // GET /api/reports/[id]
 export async function GET(
@@ -13,7 +14,7 @@ export async function GET(
     const rows = await query(
       `SELECT
          r.id, r.project_id, r.year, r.report_type, r.data_type,
-         r.report_submission_date, r.authorized, r.created_at,
+         r.report_submission_date, r.authorized, r.status, r.created_at,
          p.project_title,
          p.short_name   AS project_short_name,
          pt.short_name  AS partner_short_name,
@@ -47,6 +48,9 @@ export async function PUT(
 
     for (const field of ALLOWED_FIELDS) {
       if (body[field] === undefined) continue;
+      if (field === "status" && !VALID_STATUSES.has(body[field] as string)) {
+        return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
+      }
       setClauses.push(`${field} = $${idx++}`);
       values.push(body[field]);
     }

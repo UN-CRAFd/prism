@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, FileQuestion, CheckCircle2, Circle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
@@ -90,6 +91,7 @@ export function ReportEditorView() {
   const router = useRouter();
   const params = useParams<{ project?: string; year?: string; section?: string }>();
 
+  const confirm = useConfirm();
   const [reports, setReports] = useState<Report[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReportId, setSelectedReportId] = useState<string>("");
@@ -252,7 +254,7 @@ export function ReportEditorView() {
 
   async function handleDelete(id: number) {
     const survey = surveys.find((s) => s.id === id);
-    if (!confirm(`Delete the question "${survey?.question ?? "this survey question"}"? This cannot be undone.`)) return;
+    if (!await confirm({ message: `Delete the question "${survey?.question ?? "this survey question"}"? This cannot be undone.` })) return;
     setDeletingId(id); setError(null);
     try {
       const res = await fetch(`/api/surveys?id=${id}`, { method: "DELETE" });
@@ -297,7 +299,7 @@ export function ReportEditorView() {
 
   async function handleRiskDelete(id: number) {
     const risk = risks.find((r) => r.id === id);
-    if (!confirm(`Delete risk "${risk?.risk_name ?? "this risk"}"? This cannot be undone.`)) return;
+    if (!await confirm({ message: `Delete risk "${risk?.risk_name ?? "this risk"}"? This cannot be undone.` })) return;
     setDeletingRiskId(id); setError(null);
     try {
       const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
@@ -366,7 +368,7 @@ export function ReportEditorView() {
   }
 
   async function handleIndicatorDelete(id: number) {
-    if (!confirm("Remove this indicator from the report?")) return;
+    if (!await confirm({ message: "Remove this indicator from the report?", confirmLabel: "Remove", variant: "default" })) return;
     setError(null);
     const res = await fetch(`/api/indicator-data?id=${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to remove"); return; }

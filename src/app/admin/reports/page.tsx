@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -80,8 +81,10 @@ export default function ReportsPage() {
     );
   }, [reports, groupMode]);
 
+  const confirm = useConfirm();
+
   async function handleDelete(id: number) {
-    if (!confirm("Delete this report and all its indicator data?")) return;
+    if (!await confirm({ message: "Delete this report and all its indicator data?" })) return;
     const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
     if (res.ok) loadData();
     else setError("Failed to delete report");

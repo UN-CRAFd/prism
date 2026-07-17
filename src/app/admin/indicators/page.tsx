@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -103,8 +104,10 @@ export default function IndicatorsPage() {
     finally { setSaving(false); }
   }
 
+  const confirm = useConfirm();
+
   async function handleArchive(id: number) {
-    if (!confirm("Archive this indicator? It will be hidden from the library and the report-editor typeahead, but existing report data is kept.")) return;
+    if (!await confirm({ message: "Archive this indicator? It will be hidden from the library and the report-editor typeahead, but existing report data is kept." })) return;
     const res = await fetch(`/api/indicators/${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to archive"); return; }
     load();

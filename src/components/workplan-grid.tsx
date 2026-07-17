@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
@@ -396,6 +397,7 @@ interface ProgressState {
 
 export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void }) {
   const partnerMode = reportId != null;
+  const confirm = useConfirm();
 
   const [rows, setRows] = useState<AdminRow[]>([]);
   const [collapsedClusters, setCollapsedClusters] = useState<Record<number, boolean>>({});
@@ -766,7 +768,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   async function deleteActivity(key: number) {
     const row = rowsRef.current.find((r) => r.key === key);
     const hasContent = row && (row.activity_text?.trim() || row.implementing_agent?.trim());
-    if (hasContent && !confirm("Delete this activity? This cannot be undone.")) return;
+    if (hasContent && !await confirm({ message: "Delete this activity? This cannot be undone." })) return;
     if (row?.id != null) await fetch(`/api/workplan-activities?id=${row.id}`, { method: "DELETE" });
     setRows((prev) => normalize(prev.filter((r) => r.key !== key)));
     scheduleFlush();
@@ -776,7 +778,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const activities = rowsRef.current.filter((r) => r.sectionId === sectionId);
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
-    if (!confirm(`Delete this Objective and its ${label}? This cannot be undone.`)) return;
+    if (!await confirm({ message: `Delete this Objective and its ${label}? This cannot be undone.` })) return;
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.sectionId !== sectionId)));
@@ -787,7 +789,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const activities = rowsRef.current.filter((r) => r.clusterId === clusterId);
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
-    if (!confirm(`Delete this Outcome and all its Objectives and ${label}? This cannot be undone.`)) return;
+    if (!await confirm({ message: `Delete this Outcome and all its Objectives and ${label}? This cannot be undone.` })) return;
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.clusterId !== clusterId)));

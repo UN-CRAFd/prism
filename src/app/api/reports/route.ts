@@ -18,6 +18,7 @@ export async function GET(request: Request) {
         r.year,
         TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date,
         r.authorized,
+        r.status,
         r.created_at,
         r.data_type,
         r.report_type,

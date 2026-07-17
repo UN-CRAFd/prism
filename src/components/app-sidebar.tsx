@@ -21,6 +21,7 @@ import {
   UploadCloud,
   Target,
   Check,
+  Contact,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, parseReportPath } from "@/lib/report-sections";
@@ -31,6 +32,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
+  { href: "/admin/contacts", label: "Contacts", icon: Contact },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
@@ -153,6 +155,12 @@ export function AppSidebar() {
                 p.startsWith("/partner/report-editor") ||
                 (p.startsWith("/partner/") &&
                   p.split("/").filter(Boolean).length >= 4),
+            },
+            {
+              href: "/partner/contacts",
+              label: "Contact Information",
+              icon: Contact,
+              isActive: (p: string) => p.startsWith("/partner/contacts"),
             },
           ].map(({ href, label, icon: Icon, isActive }) => {
             const active = isActive(pathname);

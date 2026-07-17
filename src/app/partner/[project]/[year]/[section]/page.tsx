@@ -369,11 +369,8 @@ export default function PartnerReportEditorPage() {
   const [transferStates, setTransferStates] = useState<Record<number, TransferState>>({});
   const [loadingTransfers, setLoadingTransfers] = useState(false);
 
-  // Add a transfer: partners create the receiving organisation (project-scoped)
-  // and it is attached to the current report as a line.
-  const [newTransferName, setNewTransferName] = useState("");
-  const [newTransferWebsite, setNewTransferWebsite] = useState("");
-  const [newTransferType, setNewTransferType] = useState("");
+  // Add a transfer: partners create a blank receiving-organisation line
+  // (project-scoped) attached to the current report, then fill it in inline.
   const [addingTransfer, setAddingTransfer] = useState(false);
   const [deletingTransferId, setDeletingTransferId] = useState<number | null>(null);
 
@@ -384,9 +381,6 @@ export default function PartnerReportEditorPage() {
   const [complementaryStates, setComplementaryStates] = useState<Record<number, ComplementaryState>>({});
   const [loadingComplementary, setLoadingComplementary] = useState(false);
 
-  const [newComplementaryName, setNewComplementaryName] = useState("");
-  const [newComplementaryWebsite, setNewComplementaryWebsite] = useState("");
-  const [newComplementaryType, setNewComplementaryType] = useState("");
   const [addingComplementary, setAddingComplementary] = useState(false);
   const [deletingComplementaryId, setDeletingComplementaryId] = useState<number | null>(null);
 
@@ -987,23 +981,19 @@ export default function PartnerReportEditorPage() {
     pushMapEdit(setTransferStates, transferStates, partnerId, patch, { cellDirty: true });
   }
 
-  // Create a partner-defined receiving organisation (project-scoped) and attach
-  // it to this report as a transfer line. Mirrors handleIndicatorAdd.
+  // Add a blank transfer entry: create an empty receiving organisation
+  // (project-scoped) and attach it to this report. The partner fills every
+  // field (name, website, type, amount, activity) inline in the row below.
   async function handleTransferAdd() {
     const projectId = reports.find((r) => r.id === reportId)?.project_id;
-    if (!newTransferName.trim() || !reportId || !projectId) return;
+    if (!reportId || !projectId) return;
     setAddingTransfer(true);
     setError(null);
     try {
       const pRes = await fetch("/api/transfer-partners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: projectId,
-          organization_name: newTransferName.trim(),
-          website: newTransferWebsite.trim() || null,
-          partner_type: newTransferType || null,
-        }),
+        body: JSON.stringify({ project_id: projectId }),
       });
       if (!pRes.ok) throw new Error("Failed to create transfer partner");
       const partner = await pRes.json();
@@ -1015,9 +1005,6 @@ export default function PartnerReportEditorPage() {
       });
       if (!lRes.ok) throw new Error("Failed to add transfer to report");
 
-      setNewTransferName("");
-      setNewTransferWebsite("");
-      setNewTransferType("");
       await loadTransfers(reportId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -1105,21 +1092,19 @@ export default function PartnerReportEditorPage() {
     pushMapEdit(setComplementaryStates, complementaryStates, contributorId, { linked_activity_ids }, { cellDirty: true });
   }
 
+  // Add a blank complementary-funding entry: create an empty contributor
+  // (project-scoped) and attach it to this report. The partner fills every
+  // field (name, website, type, amount, activities) inline in the row below.
   async function handleComplementaryAdd() {
     const projectId = reports.find((r) => r.id === reportId)?.project_id;
-    if (!newComplementaryName.trim() || !reportId || !projectId) return;
+    if (!reportId || !projectId) return;
     setAddingComplementary(true);
     setError(null);
     try {
       const cRes = await fetch("/api/complementary-contributors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: projectId,
-          contributor_name: newComplementaryName.trim(),
-          website: newComplementaryWebsite.trim() || null,
-          funding_type: newComplementaryType || null,
-        }),
+        body: JSON.stringify({ project_id: projectId }),
       });
       if (!cRes.ok) throw new Error("Failed to create contributor");
       const contributor = await cRes.json();
@@ -1131,9 +1116,6 @@ export default function PartnerReportEditorPage() {
       });
       if (!lRes.ok) throw new Error("Failed to add contribution to report");
 
-      setNewComplementaryName("");
-      setNewComplementaryWebsite("");
-      setNewComplementaryType("");
       await loadComplementary(reportId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -1993,34 +1975,10 @@ export default function PartnerReportEditorPage() {
 
             return (
               <div className="space-y-4">
-                {/* Add a receiving organisation (project-scoped, created by the partner) */}
-                <div className="flex flex-wrap gap-2">
-                  <Input
-                    placeholder={labels.placeholders.transferOrganizationName}
-                    value={newTransferName}
-                    onChange={(e) => setNewTransferName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && newTransferName.trim()) handleTransferAdd(); }}
-                    className="flex-1 min-w-[220px]"
-                  />
-                  <Input
-                    placeholder={labels.placeholders.transferWebsite}
-                    value={newTransferWebsite}
-                    onChange={(e) => setNewTransferWebsite(e.target.value)}
-                    className="flex-1 min-w-[180px]"
-                  />
-                  <Select value={newTransferType || "none"} onValueChange={(v) => setNewTransferType(v === "none" ? "" : v)}>
-                    <SelectTrigger className="w-[220px] h-9">
-                      {newTransferType
-                        ? <span className="truncate">{newTransferType}</span>
-                        : <span className="text-muted-foreground">{labels.transfers.selectPartnerType}</span>}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none"><span className="text-muted-foreground">{labels.transfers.selectPartnerType}</span></SelectItem>
-                      {PARTNER_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                  <Button onClick={handleTransferAdd} disabled={addingTransfer || !newTransferName.trim()} size="sm" className="shrink-0">
-                    {addingTransfer ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+                {/* Add a blank transfer row — the partner fills every field inline below */}
+                <div>
+                  <Button onClick={handleTransferAdd} disabled={addingTransfer} size="sm">
+                    {addingTransfer ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.transfers.addEntry}</>}
                   </Button>
                 </div>
 
@@ -2196,34 +2154,10 @@ export default function PartnerReportEditorPage() {
 
             return (
               <div className="space-y-4">
-                {/* Add a contributor (project-scoped, created by the partner) */}
-                <div className="flex flex-wrap gap-2">
-                  <Input
-                    placeholder={labels.placeholders.complementaryContributorName}
-                    value={newComplementaryName}
-                    onChange={(e) => setNewComplementaryName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && newComplementaryName.trim()) handleComplementaryAdd(); }}
-                    className="flex-1 min-w-[220px]"
-                  />
-                  <Input
-                    placeholder={labels.placeholders.complementaryWebsite}
-                    value={newComplementaryWebsite}
-                    onChange={(e) => setNewComplementaryWebsite(e.target.value)}
-                    className="flex-1 min-w-[180px]"
-                  />
-                  <Select value={newComplementaryType || "none"} onValueChange={(v) => setNewComplementaryType(v === "none" ? "" : v)}>
-                    <SelectTrigger className="w-[200px] h-9">
-                      {newComplementaryType
-                        ? <Badge colors={FUNDING_TYPE_COLORS[newComplementaryType] ?? FALLBACK_COLORS}>{newComplementaryType}</Badge>
-                        : <span className="text-muted-foreground">{labels.complementary.selectFundingType}</span>}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none"><span className="text-muted-foreground">{labels.complementary.selectFundingType}</span></SelectItem>
-                      {FUNDING_TYPES.map((t) => (<SelectItem key={t} value={t}><Badge colors={FUNDING_TYPE_COLORS[t] ?? FALLBACK_COLORS}>{t}</Badge></SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                  <Button onClick={handleComplementaryAdd} disabled={addingComplementary || !newComplementaryName.trim()} size="sm" className="shrink-0">
-                    {addingComplementary ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+                {/* Add a blank contributor row — the partner fills every field inline below */}
+                <div>
+                  <Button onClick={handleComplementaryAdd} disabled={addingComplementary} size="sm">
+                    {addingComplementary ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.complementary.addEntry}</>}
                   </Button>
                 </div>
 

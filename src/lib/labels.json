@@ -239,6 +239,7 @@
     },
     "selectPartnerType": "Select organization type",
     "selectActivity": "Select linked activity",
+    "addEntry": "Add transfer",
     "empty": "No transfers have been added to this report yet."
   },
   "complementary": {
@@ -257,6 +258,7 @@
     "selectFundingType": "Select funding type",
     "selectActivities": "Select linked activities",
     "activitiesSelected": "activities selected",
+    "addEntry": "Add contributor",
     "empty": "No complementary funding has been added to this report yet."
   },
   "placeholders": {

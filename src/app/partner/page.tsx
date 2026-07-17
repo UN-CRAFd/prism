@@ -290,12 +290,10 @@ export default function PartnerHomePage() {
                     <li key={i} className="relative flex gap-4 pb-6 last:pb-0">
                       <div
                         className={cn(
-                          "absolute -left-4 mt-0.5 size-3.5 rounded-full ring-2 shrink-0",
+                          "absolute -left-4 mt-0.5 size-3.5 rounded-full ring-2 ring-white shrink-0",
                           isNow
                             ? "bg-red-500 ring-red-200 animate-pulse"
-                            : isPast
-                            ? "bg-neutral-200 ring-white"
-                            : cn(cfg.dot, "ring-white")
+                            : cn(cfg.dot, isPast && "opacity-40")
                         )}
                       />
                       <div className="pl-2">

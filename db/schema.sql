@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS partners (
     organization_website TEXT,
     password_hash        TEXT         NOT NULL,          -- scrypt:<salt>:<hash>
     mail_account         TEXT         NOT NULL UNIQUE,
+    password_set_at      TIMESTAMPTZ,                     -- when the partner set their own password via a share link (NULL = not yet)
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

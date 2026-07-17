@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ArrowRight, FileText, ChevronRight } from "lucide-react";
 import labels from "@/lib/labels.json";
 
@@ -161,11 +161,6 @@ export default function ReportEditorPage() {
                         <p className="text-sm font-medium truncate">{report.project_title}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <StatusPill status={report.status} />
-                          {report.report_submission_date && (
-                            <span className="text-xs text-muted-foreground">
-                              Submitted {formatDate(report.report_submission_date)}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>

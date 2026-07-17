@@ -1501,7 +1501,7 @@ export default function PartnerReportEditorPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <div>
                   <Label>{labels.overviewFields.projectLead}</Label>
                   <Input value={overview.project_lead} onChange={(e) => updateOverview({ project_lead: e.target.value })} placeholder={labels.placeholders.projectLead} className="text-sm" />
@@ -1519,6 +1519,10 @@ export default function PartnerReportEditorPage() {
                   />
                 </div>
                 <div>
+                  <Label>{labels.overviewFields.startDate}</Label>
+                  <Input type="date" value={overview.project_start_date} onChange={(e) => updateOverview({ project_start_date: e.target.value })} className="text-sm" />
+                </div>
+                <div>
                   <Label>{labels.overviewFields.durationMonths}</Label>
                   <Input
                     type="number"
@@ -1532,28 +1536,15 @@ export default function PartnerReportEditorPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>{labels.overviewFields.startDate}</Label>
-                  <Input type="date" value={overview.project_start_date} onChange={(e) => updateOverview({ project_start_date: e.target.value })} className="text-sm" />
+                  <Label>{labels.overviewFields.implementingPartners}</Label>
+                  <Input value={overview.implementing_partners} onChange={(e) => updateOverview({ implementing_partners: e.target.value })} placeholder={labels.placeholders.implementingPartners} className="text-sm" />
                 </div>
                 <div>
-                  <Label>{labels.overviewFields.reportSubmissionDate}</Label>
-                  <Input type="date" value={overview.report_submission_date} onChange={(e) => updateOverview({ report_submission_date: e.target.value })} className="text-sm" />
+                  <Label>{labels.overviewFields.geographicScope}</Label>
+                  <Input value={overview.geographic_scope} onChange={(e) => updateOverview({ geographic_scope: e.target.value })} placeholder={labels.placeholders.geographicScope} className="text-sm" />
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground -mt-2">
-                Start date and duration are project-level — they set the project timeline and drive the workplan quarters.
-              </p>
-
-              <div>
-                <Label>{labels.overviewFields.implementingPartners}</Label>
-                <Textarea value={overview.implementing_partners} onChange={(e) => updateOverview({ implementing_partners: e.target.value })} placeholder={labels.placeholders.implementingPartners} className="text-sm min-h-[72px] resize-y" />
-              </div>
-
-              <div>
-                <Label>{labels.overviewFields.geographicScope}</Label>
-                <Textarea value={overview.geographic_scope} onChange={(e) => updateOverview({ geographic_scope: e.target.value })} placeholder={labels.placeholders.geographicScope} className="text-sm min-h-[72px] resize-y" />
               </div>
             </div>
 

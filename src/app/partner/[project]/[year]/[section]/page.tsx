@@ -1452,7 +1452,13 @@ export default function PartnerReportEditorPage() {
                 </div>
                 <div>
                   <Label>{labels.overviewFields.mptfoProjectNumber}</Label>
-                  <Input value={overview.mptfo_project_number} onChange={(e) => updateOverview({ mptfo_project_number: e.target.value })} placeholder={labels.placeholders.mptfoProjectNumber} className="text-sm" />
+                  <Input
+                    type="number"
+                    value={overview.mptfo_project_number}
+                    onChange={(e) => updateOverview({ mptfo_project_number: e.target.value })}
+                    placeholder={labels.placeholders.mptfoProjectNumber}
+                    className="text-sm"
+                  />
                 </div>
               </div>
 

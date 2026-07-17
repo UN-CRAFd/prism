@@ -294,6 +294,28 @@ CREATE TRIGGER external_coverage_updated_at
     BEFORE UPDATE ON external_coverage
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- Testimonials: one leadership quote (kind='leadership') + up to three partner/
+-- user quotes (kind='partner') per report. Per-kind caps enforced in the API.
+CREATE TABLE IF NOT EXISTS testimonials (
+    id            SERIAL       PRIMARY KEY,
+    report_id     INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    kind          TEXT         NOT NULL CHECK (kind IN ('leadership', 'partner')),
+    quote         TEXT,
+    person_name   TEXT,
+    person_title  TEXT,
+    photo_label   TEXT,
+    photo_link    TEXT,
+    photo_credits TEXT,
+    sort_order    SMALLINT     NOT NULL DEFAULT 1,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS testimonials_report_id_idx ON testimonials(report_id);
+DROP TRIGGER IF EXISTS testimonials_updated_at ON testimonials;
+CREATE TRIGGER testimonials_updated_at
+    BEFORE UPDATE ON testimonials
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ── Workplan: project-level activities + per-report progress entries ─────────
 CREATE TABLE IF NOT EXISTS workplan_activities (
     id                 SERIAL       PRIMARY KEY,

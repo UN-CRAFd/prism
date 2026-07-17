@@ -20,7 +20,7 @@ import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Tr
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
-import { SectionTableEditor, SECTION_SPECS } from "@/components/section-table-editor";
+import { SectionTableEditor, SECTION_SPECS, TESTIMONIAL_SPECS } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import {
@@ -1376,7 +1376,7 @@ export default function PartnerReportEditorPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto px-8 py-6">
         {/* Tab instructions — only while the report is editable */}
-        {params.section !== "overview" && !sectionLoading && !notFound && !readOnly && (
+        {params.section !== "overview" && params.section !== "testimonials" && !sectionLoading && !notFound && !readOnly && (
           <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             {labels.tabInstructions[params.section as keyof typeof labels.tabInstructions] || ""}
           </div>
@@ -2400,6 +2400,40 @@ export default function PartnerReportEditorPage() {
               </div>
             );
           })()
+
+        ) : params.section === "testimonials" ? (
+          reportId ? (
+            <div className="space-y-8">
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">{labels.testimonials.leadershipHeading}</h3>
+                {!readOnly && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    {labels.testimonials.leadershipInstruction}
+                  </div>
+                )}
+                <SectionTableEditor
+                  key="testimonials-leadership"
+                  reportId={reportId}
+                  spec={TESTIMONIAL_SPECS.leadership}
+                  onSaveStateChange={setChildSaveState}
+                />
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">{labels.testimonials.partnerHeading}</h3>
+                {!readOnly && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    {labels.testimonials.partnerInstruction}
+                  </div>
+                )}
+                <SectionTableEditor
+                  key="testimonials-partner"
+                  reportId={reportId}
+                  spec={TESTIMONIAL_SPECS.partner}
+                  onSaveStateChange={setChildSaveState}
+                />
+              </div>
+            </div>
+          ) : null
 
         ) : params.section in SECTION_SPECS ? (
           reportId ? (

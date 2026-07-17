@@ -35,6 +35,7 @@ export interface SectionField {
   placeholder?: string;
   options?: readonly string[];
   headClass?: string; // column width utility class
+  maxWords?: number; // optional word limit for textareas (shows counter but allows over-limit)
 }
 
 export interface SectionSpec {
@@ -45,6 +46,7 @@ export interface SectionSpec {
   emptyText?: string; // empty-state row (omitted for sections seeded to `min`)
   min?: number; // seed empty rows up to this many
   max?: number; // cap the number of rows
+  kind?: string; // optional sub-kind filter/tag (e.g. testimonials leadership|partner)
 }
 
 interface RowState {
@@ -57,6 +59,10 @@ interface RowState {
 
 // Row coming back from the API: scalar columns + comma-joined link strings.
 type ApiRow = { id: number } & Record<string, unknown>;
+
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
 
 function MultiLinkInput({
   links,
@@ -99,7 +105,7 @@ export function SectionTableEditor({
   spec: SectionSpec;
   onSaveStateChange?: (s: SaveState) => void;
 }) {
-  const { endpoint, fields, requiredField, addLabel, emptyText, min, max } = spec;
+  const { endpoint, fields, requiredField, addLabel, emptyText, min, max, kind } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
 
   const confirm = useConfirm();
@@ -129,7 +135,7 @@ export function SectionTableEditor({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${endpoint}?reportId=${reportId}`);
+      const res = await fetch(`${endpoint}?reportId=${reportId}${kind ? `&kind=${kind}` : ""}`);
       if (!res.ok) throw new Error("Failed to load");
       const data: ApiRow[] = await res.json();
       keyRef.current = 0;
@@ -159,7 +165,7 @@ export function SectionTableEditor({
     } finally {
       setLoading(false);
     }
-  }, [endpoint, reportId, fields, linkKeys, min, emptyRow]);
+  }, [endpoint, reportId, fields, linkKeys, min, emptyRow, kind]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -197,7 +203,7 @@ export function SectionTableEditor({
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reportId, ...payload }),
+          body: JSON.stringify({ reportId, ...(kind ? { kind } : {}), ...payload }),
         });
         if (!res.ok) throw new Error("Failed to save row");
         const saved: { id: number } = await res.json();
@@ -213,7 +219,7 @@ export function SectionTableEditor({
         setRows((prev) => prev.map((r) => clear(r, { id: effectiveId })));
       }
     }
-  }, [endpoint, reportId, requiredField, buildPayload]);
+  }, [endpoint, reportId, requiredField, buildPayload, kind]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
 
@@ -292,7 +298,19 @@ export function SectionTableEditor({
                   {f.type === "input" ? (
                     <Input value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
                   ) : f.type === "textarea" ? (
-                    <Textarea value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} className="text-sm min-h-[80px] resize-y" />
+                    <div className="space-y-1">
+                      <Textarea value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} className="text-sm min-h-[80px] resize-y" />
+                      {f.maxWords && (
+                        <div className={cn(
+                          "text-[11px] text-right",
+                          countWords(row.values[f.key]) > f.maxWords
+                            ? "text-amber-600 font-medium"
+                            : "text-muted-foreground"
+                        )}>
+                          Words: {countWords(row.values[f.key])}/{f.maxWords}
+                        </div>
+                      )}
+                    </div>
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
                       <SelectTrigger className="w-full h-9 text-sm">
@@ -404,5 +422,38 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
       { key: "reach_indicator", header: labels.externalCoverage.columns.reachIndicator, remark: labels.externalCoverage.remarks.reachIndicator, type: "textarea", placeholder: labels.placeholders.reachIndicator, headClass: "w-[20%]" },
       { key: "links", header: labels.externalCoverage.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.placeholders.achievementLinks, headClass: "w-52" },
     ],
+  },
+};
+
+// Testimonials render two tables in one tab, distinguished by `kind`: one
+// leadership quote (exactly one, 25-word limit) and up to three partner/user
+// quotes (20-word limit). Each has its own field set with the appropriate limit.
+const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
+  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%]", maxWords },
+  { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40" },
+  { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44" },
+  { key: "photo_label", header: labels.testimonials.columns.photoLabel, type: "input", placeholder: labels.testimonials.placeholders.photoLabel, headClass: "w-40" },
+  { key: "photo_link", header: labels.testimonials.columns.photoLink, type: "input", placeholder: labels.testimonials.placeholders.photoLink, headClass: "w-48" },
+  { key: "photo_credits", header: labels.testimonials.columns.photoCredits, type: "input", placeholder: labels.testimonials.placeholders.photoCredits, headClass: "w-40" },
+];
+
+export const TESTIMONIAL_SPECS: Record<"leadership" | "partner", SectionSpec> = {
+  leadership: {
+    endpoint: "/api/testimonials",
+    kind: "leadership",
+    requiredField: "quote",
+    addLabel: labels.partnerEditor.addTestimonial,
+    min: 1,
+    max: 1,
+    fields: TESTIMONIAL_BASE_FIELDS(25),
+  },
+  partner: {
+    endpoint: "/api/testimonials",
+    kind: "partner",
+    requiredField: "quote",
+    addLabel: labels.partnerEditor.addTestimonial,
+    emptyText: labels.partnerEditor.emptyTestimonials,
+    max: 3,
+    fields: TESTIMONIAL_BASE_FIELDS(20),
   },
 };

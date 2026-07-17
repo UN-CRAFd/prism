@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const [
       overview, surveys, risk, indicators, transfers, complementary,
       achievements, partnerships, results, lessons, coverage,
-      workplan, expenditure,
+      workplan, expenditure, testimonials,
     ] = await Promise.all([
       // Overview — all required fields present (project dates live on the project).
       query<Row>(
@@ -117,6 +117,16 @@ export async function GET(req: NextRequest) {
                   WHERE report_id = $1 AND annual_expenditure IS NOT NULL)::int AS filled`,
         [reportId]
       ).then((r) => n(r[0]?.cats) > 0 && n(r[0]?.filled) >= n(r[0]?.cats)),
+
+      // Testimonials — the required leadership quote is present.
+      query<Row>(
+        `SELECT EXISTS (
+           SELECT 1 FROM reporting_platform.testimonials
+            WHERE report_id = $1 AND kind = 'leadership'
+              AND quote IS NOT NULL AND quote <> ''
+         ) AS complete`,
+        [reportId]
+      ).then((r) => r[0]?.complete === true),
     ]);
 
     const sections: Record<string, boolean> = {
@@ -133,6 +143,7 @@ export async function GET(req: NextRequest) {
       expenditure,
       transfers,
       complementary,
+      testimonials,
     };
 
     // Legacy coarse progress: the 7 list/grid sections that have any content.

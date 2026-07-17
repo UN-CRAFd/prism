@@ -21,6 +21,7 @@ export const REPORT_SECTIONS: ReportSection[] = [
   { value: "results", label: labels.sections.results, group: "Qualitative" },
   { value: "lessons", label: labels.sections.lessons, group: "Qualitative" },
   { value: "external-coverage", label: labels.sections.externalCoverage, group: "Qualitative" },
+  { value: "testimonials", label: labels.sections.testimonials, group: "Qualitative" },
   // Quantitative: Risk Management → Complementary
   { value: "risk", label: labels.sections.risk, group: "Quantitative" },
   { value: "indicators", label: labels.sections.indicators, group: "Quantitative" },

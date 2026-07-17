@@ -20,6 +20,7 @@ import {
   BarChart3,
   UploadCloud,
   Target,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, parseReportPath } from "@/lib/report-sections";
@@ -97,6 +98,23 @@ export function AppSidebar() {
   }, [mounted, isPartner, user]);
 
   const reportSlug = (r: SidebarReport) => (r.project_short_name ?? r.project_title).toLowerCase();
+
+  // Per-section completion for the report currently open (drives the checkmarks).
+  // Refetched when the section path changes so a check appears once a section is
+  // filled out and the user navigates on.
+  const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
+  const openReport = isPartner ? parseReportPath(pathname) : null;
+  const activeReportId = openReport
+    ? reports.find((r) => reportSlug(r) === openReport.project && String(r.year) === openReport.year)?.id ?? null
+    : null;
+
+  useEffect(() => {
+    if (activeReportId == null) { setSectionComplete({}); return; }
+    fetch(`/api/report-completion?reportId=${activeReportId}`)
+      .then((r) => r.json())
+      .then((d) => setSectionComplete(d.sections ?? {}))
+      .catch(() => {});
+  }, [activeReportId, pathname]);
 
   return (
     <div className="relative shrink-0">
@@ -214,14 +232,18 @@ export function AppSidebar() {
                                         key={s.value}
                                         href={`/partner/${it.slug}/${it.year}/${s.value}`}
                                         className={cn(
-                                          "rounded-md px-3 py-1.5 text-[12px] transition-colors",
+                                          "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition-colors",
                                           secActive
                                             ? "bg-crafd-yellow/10 text-crafd-yellow font-medium"
                                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                         )}
                                       >
-                                        {s.label}
+                                        <span className="flex-1 truncate">{s.label}</span>
+                                        {sectionComplete[s.value] && (
+                                          <Check className="size-3.5 shrink-0 text-green-600" />
+                                        )}
                                       </Link>
+
                                     );
                                   })}
                                 </div>

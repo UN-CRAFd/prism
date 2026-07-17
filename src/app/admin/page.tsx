@@ -16,17 +16,24 @@ import {
   Users,
   FileStack,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface ReportRow {
   id: number;
   project_title: string;
+  project_short_name: string | null;
   partner_short_name: string;
   year: number;
+  status: "Open" | "Closed" | "Under Review";
   authorized: boolean;
   created_at: string;
 }
+
+const STATUS_STYLES: Record<string, string> = {
+  Open:           "bg-blue-50 text-blue-700 border-blue-200",
+  "Under Review": "bg-amber-50 text-amber-700 border-amber-200",
+  Closed:         "bg-zinc-100 text-zinc-500 border-zinc-200",
+};
 
 interface StatsData {
   totalReports: number;
@@ -226,25 +233,27 @@ export default function AdminHomePage() {
             </div>
           ) : (
             <div className="rounded-xl border bg-card divide-y overflow-hidden">
-              {stats.recentReports.map((r) => (
-                <div key={r.id} className="px-5 py-3.5 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{r.project_title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {r.partner_short_name} &middot; {r.year}
-                    </p>
-                  </div>
-                  {r.authorized ? (
-                    <Badge variant="outline" className="border-green-300 text-green-700 text-xs shrink-0">
-                      <CheckCircle2 className="size-3 mr-1" /> Authorized
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs shrink-0">
-                      <Clock className="size-3 mr-1" /> Pending
-                    </Badge>
-                  )}
-                </div>
-              ))}
+              {stats.recentReports.map((r) => {
+                const slug = (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/surveys`)}
+                    className="group w-full px-5 py-3.5 flex items-center gap-4 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{r.project_title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {r.partner_short_name} &middot; {r.year}
+                      </p>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${STATUS_STYLES[r.status] ?? STATUS_STYLES.Closed}`}>
+                      {r.status}
+                    </span>
+                    <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
+import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
@@ -303,6 +303,14 @@ function toSlug(r: Report): string {
   return (r.project_short_name ?? r.project_title).toLowerCase();
 }
 
+// Undo/redo is command-based: each edit (and each row delete) pushes a command
+// that knows how to reverse and replay itself. Delete commands re-create the row
+// on the server, so an undone deletion is fully restored (not just re-typed).
+interface HistoryCommand {
+  undo: () => void;
+  redo: () => void;
+}
+
 // Duration is derived (in whole months) from the project start/end dates.
 function durationMonthsLabel(start: string, end: string): string {
   if (!start || !end) return "—";
@@ -386,6 +394,11 @@ export default function PartnerReportEditorPage() {
   const [newComplementaryType, setNewComplementaryType] = useState("");
   const [addingComplementary, setAddingComplementary] = useState(false);
   const [deletingComplementaryId, setDeletingComplementaryId] = useState<number | null>(null);
+
+  // Undo / redo over the parent-managed section edits. History is per section
+  // visit (reset below when the section or report changes).
+  const [undoStack, setUndoStack] = useState<HistoryCommand[]>([]);
+  const [redoStack, setRedoStack] = useState<HistoryCommand[]>([]);
 
   // Every section autosaves. The child editors (list sections, expenditure,
   // workplan) report their save state up via onSaveStateChange; the parent-managed
@@ -728,19 +741,23 @@ export default function PartnerReportEditorPage() {
   useEffect(() => () => { parentAutosave.flushNow(); }, [parentAutosave.flushNow]);
 
   function updateRow(id: number, patch: Partial<RowState>) {
-    setRowStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setRowStates, rowStates, id, patch, { dirty: true });
   }
 
   function updateOverview(patch: Partial<OverviewData>) {
-    setOverview((prev) => ({ ...prev, ...patch }));
+    const before = overview;
+    const after = { ...overview, ...patch };
+    setOverview(after);
     setOverviewDirty(true);
+    pushCommand({
+      undo: () => { setOverview(before); setOverviewDirty(true); },
+      redo: () => { setOverview(after); setOverviewDirty(true); },
+    });
     parentAutosave.schedule();
   }
 
   function updateRisk(id: number, patch: Partial<RiskState>) {
-    setRiskStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setRiskStates, riskStates, id, patch, { dirty: true });
   }
 
   function toggleCollapse(id: number) {
@@ -825,6 +842,9 @@ export default function PartnerReportEditorPage() {
   }
 
   async function handleRiskDelete(id: number) {
+    const risk = risks.find((r) => r.id === id);
+    const state = riskStates[id];
+    if (!risk) return;
     setDeletingRiskId(id);
     setError(null);
     try {
@@ -836,6 +856,76 @@ export default function PartnerReportEditorPage() {
         delete next[id];
         return next;
       });
+
+      // Undoable: recreate the risk (with a fresh id) on undo, delete again on redo.
+      let currentId = id;
+      pushCommand({
+        undo: async () => {
+          try {
+            const cRes = await fetch("/api/risk", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId,
+                risk_name: risk.risk_name,
+                risk_category: (risk.risk_category ?? []).join(", "),
+                approved_mitigation: risk.approved_mitigation ?? null,
+              }),
+            });
+            if (!cRes.ok) throw new Error("Failed to restore risk");
+            const created: Risk = await cRes.json();
+            currentId = created.id;
+            await fetch("/api/risk", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: created.id,
+                likelihood: state?.likelihood ?? null,
+                impact: state?.impact ?? null,
+                updated_mitigation: state?.updated_mitigation || null,
+                project_revision: state?.project_revision ?? false,
+              }),
+            });
+            setRisks((prev) => [...prev, {
+              ...risk,
+              id: created.id,
+              likelihood: state?.likelihood ?? null,
+              impact: state?.impact ?? null,
+              updated_mitigation: state?.updated_mitigation ?? null,
+              project_revision: state?.project_revision ?? false,
+            }]);
+            setRiskStates((prev) => ({
+              ...prev,
+              [created.id]: {
+                likelihood: state?.likelihood ?? null,
+                impact: state?.impact ?? null,
+                approved_mitigation: risk.approved_mitigation ?? "",
+                updated_mitigation: state?.updated_mitigation ?? "",
+                project_revision: state?.project_revision ?? false,
+                dirty: false,
+              },
+            }));
+            setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to restore risk");
+          }
+        },
+        redo: async () => {
+          const delId = currentId;
+          try {
+            const r = await fetch(`/api/risk?id=${delId}`, { method: "DELETE" });
+            if (!r.ok) throw new Error("Failed to delete risk");
+            setRisks((prev) => prev.filter((x) => x.id !== delId));
+            setRiskStates((prev) => {
+              const next = { ...prev };
+              delete next[delId];
+              return next;
+            });
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to delete risk");
+          }
+        },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -844,8 +934,7 @@ export default function PartnerReportEditorPage() {
   }
 
   function updateIndicator(id: number, patch: Partial<IndicatorState>) {
-    setIndicatorStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setIndicatorStates, indicatorStates, id, patch, { dirty: true });
   }
 
   // Create a partner-defined custom indicator (project-scoped) and attach it to
@@ -894,13 +983,11 @@ export default function PartnerReportEditorPage() {
   }
 
   function updateTransferMaster(partnerId: number, patch: Partial<Pick<TransferState, "organization_name" | "website" | "partner_type">>) {
-    setTransferStates((prev) => ({ ...prev, [partnerId]: { ...prev[partnerId], ...patch, masterDirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setTransferStates, transferStates, partnerId, patch, { masterDirty: true });
   }
 
   function updateTransferCell(partnerId: number, patch: Partial<Pick<TransferState, "amount_transferred" | "linked_activity_id">>) {
-    setTransferStates((prev) => ({ ...prev, [partnerId]: { ...prev[partnerId], ...patch, cellDirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setTransferStates, transferStates, partnerId, patch, { cellDirty: true });
   }
 
   // Create a partner-defined receiving organisation (project-scoped) and attach
@@ -946,12 +1033,53 @@ export default function PartnerReportEditorPage() {
   // other years are left intact — only this report's line is deleted).
   async function handleTransferDelete(row: TransferMatrixRow) {
     if (!reportId) return;
-    setDeletingTransferId(row.transfer_partner_id);
+    const rid = reportId;
+    const partnerId = row.transfer_partner_id;
+    const st = transferStates[partnerId];
+    const amount = st?.amount_transferred ?? "";
+    const activity = st?.linked_activity_id ?? null;
+    setDeletingTransferId(partnerId);
     setError(null);
     try {
       const res = await fetch(`/api/transfer-data?id=${row.currentLineId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete transfer");
-      await loadTransfers(reportId);
+      await loadTransfers(rid);
+
+      // Undoable: re-create this report's line for the (still-existing) partner.
+      let lineId = row.currentLineId;
+      pushCommand({
+        undo: async () => {
+          try {
+            const cRes = await fetch("/api/transfer-data", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reportId: rid, transfer_partner_id: partnerId }),
+            });
+            if (!cRes.ok) throw new Error("Failed to restore transfer");
+            const created = await cRes.json();
+            lineId = created.id;
+            if (amount || activity != null) {
+              await fetch("/api/transfer-data", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: created.id, amount_transferred: amount || null, linked_activity_id: activity }),
+              });
+            }
+            await loadTransfers(rid);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to restore transfer");
+          }
+        },
+        redo: async () => {
+          try {
+            const r = await fetch(`/api/transfer-data?id=${lineId}`, { method: "DELETE" });
+            if (!r.ok) throw new Error("Failed to delete transfer");
+            await loadTransfers(rid);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to delete transfer");
+          }
+        },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -960,27 +1088,22 @@ export default function PartnerReportEditorPage() {
   }
 
   function updateComplementaryMaster(contributorId: number, patch: Partial<Pick<ComplementaryState, "contributor_name" | "website" | "funding_type">>) {
-    setComplementaryStates((prev) => ({ ...prev, [contributorId]: { ...prev[contributorId], ...patch, masterDirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setComplementaryStates, complementaryStates, contributorId, patch, { masterDirty: true });
   }
 
   function updateComplementaryCell(contributorId: number, patch: Partial<Pick<ComplementaryState, "contribution_amount" | "linked_activity_ids">>) {
-    setComplementaryStates((prev) => ({ ...prev, [contributorId]: { ...prev[contributorId], ...patch, cellDirty: true } }));
-    parentAutosave.schedule();
+    pushMapEdit(setComplementaryStates, complementaryStates, contributorId, patch, { cellDirty: true });
   }
 
   // Toggle a workplan activity in a contribution's multi-select set.
   function toggleComplementaryActivity(contributorId: number, activityId: number) {
-    setComplementaryStates((prev) => {
-      const cur = prev[contributorId];
-      if (!cur) return prev;
-      const has = cur.linked_activity_ids.includes(activityId);
-      const linked_activity_ids = has
-        ? cur.linked_activity_ids.filter((x) => x !== activityId)
-        : [...cur.linked_activity_ids, activityId];
-      return { ...prev, [contributorId]: { ...cur, linked_activity_ids, cellDirty: true } };
-    });
-    parentAutosave.schedule();
+    const cur = complementaryStates[contributorId];
+    if (!cur) return;
+    const has = cur.linked_activity_ids.includes(activityId);
+    const linked_activity_ids = has
+      ? cur.linked_activity_ids.filter((x) => x !== activityId)
+      : [...cur.linked_activity_ids, activityId];
+    pushMapEdit(setComplementaryStates, complementaryStates, contributorId, { linked_activity_ids }, { cellDirty: true });
   }
 
   async function handleComplementaryAdd() {
@@ -1022,18 +1145,122 @@ export default function PartnerReportEditorPage() {
 
   async function handleComplementaryDelete(row: ComplementaryMatrixRow) {
     if (!reportId) return;
-    setDeletingComplementaryId(row.contributor_id);
+    const rid = reportId;
+    const contributorId = row.contributor_id;
+    const st = complementaryStates[contributorId];
+    const amount = st?.contribution_amount ?? "";
+    const activityIds = st?.linked_activity_ids ?? [];
+    setDeletingComplementaryId(contributorId);
     setError(null);
     try {
       const res = await fetch(`/api/complementary-data?id=${row.currentLineId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete contribution");
-      await loadComplementary(reportId);
+      await loadComplementary(rid);
+
+      // Undoable: re-create this report's line for the (still-existing) contributor.
+      let lineId = row.currentLineId;
+      pushCommand({
+        undo: async () => {
+          try {
+            const cRes = await fetch("/api/complementary-data", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reportId: rid, contributor_id: contributorId }),
+            });
+            if (!cRes.ok) throw new Error("Failed to restore contribution");
+            const created = await cRes.json();
+            lineId = created.id;
+            if (amount || activityIds.length) {
+              await fetch("/api/complementary-data", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: created.id, contribution_amount: amount || null, linked_activity_ids: activityIds }),
+              });
+            }
+            await loadComplementary(rid);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to restore contribution");
+          }
+        },
+        redo: async () => {
+          try {
+            const r = await fetch(`/api/complementary-data?id=${lineId}`, { method: "DELETE" });
+            if (!r.ok) throw new Error("Failed to delete contribution");
+            await loadComplementary(rid);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to delete contribution");
+          }
+        },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setDeletingComplementaryId(null);
     }
   }
+
+  // ── Undo / redo (command stack) ────────────────────────────────────────────
+  function pushCommand(cmd: HistoryCommand) {
+    setUndoStack((s) => [...s, cmd].slice(-100));
+    setRedoStack([]);
+  }
+
+  // A single-field edit on a keyed-state map. Captures the before/after values so
+  // undo restores the previous value (re-flagged dirty so autosave persists it)
+  // and redo re-applies. `dirty` is the section's dirty flag(s).
+  function pushMapEdit<T extends object>(
+    setMap: Dispatch<SetStateAction<Record<number, T>>>,
+    current: Record<number, T>,
+    id: number,
+    patch: Partial<T>,
+    dirty: Partial<T>,
+  ) {
+    const before = current[id];
+    const after = { ...before, ...patch, ...dirty } as T;
+    setMap({ ...current, [id]: after });
+    pushCommand({
+      undo: () => setMap((m) => ({ ...m, [id]: { ...before, ...dirty } as T })),
+      redo: () => setMap((m) => ({ ...m, [id]: after })),
+    });
+    parentAutosave.schedule();
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    const cmd = undoStack[undoStack.length - 1];
+    setUndoStack((s) => s.slice(0, -1));
+    setRedoStack((r) => [...r, cmd]);
+    cmd.undo();
+    parentAutosave.schedule();
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    const cmd = redoStack[redoStack.length - 1];
+    setRedoStack((r) => r.slice(0, -1));
+    setUndoStack((s) => [...s, cmd]);
+    cmd.redo();
+    parentAutosave.schedule();
+  }
+
+  // History is scoped to the current section visit — reset it when the section
+  // or report changes.
+  useEffect(() => { setUndoStack([]); setRedoStack([]); }, [reportId, params.section]);
+
+  // Keyboard shortcuts: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z or Ctrl+Y = redo.
+  const undoRef = useRef(undo);
+  const redoRef = useRef(redo);
+  useEffect(() => { undoRef.current = undo; redoRef.current = redo; });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") { e.preventDefault(); if (e.shiftKey) redoRef.current(); else undoRef.current(); }
+      else if (k === "y") { e.preventDefault(); redoRef.current(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
@@ -1072,6 +1299,10 @@ export default function PartnerReportEditorPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {reportId && !sectionLoading && !notFound && (
+            <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
+          )}
+
           <Select
             value={selectedReport ? String(selectedReport.id) : ""}
             onValueChange={handleReportChange}
@@ -1103,7 +1334,26 @@ export default function PartnerReportEditorPage() {
           </Select>
 
           {reportId && !sectionLoading && !notFound && (
-            <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={undo}
+                disabled={undoStack.length === 0}
+                title="Undo (Ctrl+Z)"
+                aria-label="Undo"
+                className="p-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <Undo2 className="size-4" />
+              </button>
+              <button
+                onClick={redo}
+                disabled={redoStack.length === 0}
+                title="Redo (Ctrl+Shift+Z)"
+                aria-label="Redo"
+                className="p-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              >
+                <Redo2 className="size-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>

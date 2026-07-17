@@ -14,7 +14,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
@@ -1849,7 +1850,17 @@ export default function PartnerReportEditorPage() {
                       <tr key={row.indicator_id} className="align-top">
                         {/* Frozen: indicator name + baseline + target */}
                         <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
-                          <p className="font-medium leading-snug">{row.indicator_name}</p>
+                          <div className="flex items-start gap-2">
+                            <p className="font-medium leading-snug flex-1">{row.indicator_name}</p>
+                            {row.indicator_description && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="size-4 text-muted-foreground flex-shrink-0 mt-0.5 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">{row.indicator_description}</TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                           {row.means_of_verification && (
                             <p className="text-xs text-muted-foreground mt-1">{row.means_of_verification}</p>
                           )}

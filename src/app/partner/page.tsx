@@ -19,15 +19,18 @@ import {
 
 interface Report {
   id: number;
+  project_id: number;
   year: number;
   report_submission_date: string | null;
   authorized: boolean;
   project_title: string;
   project_short_name: string;
   partner_short_name: string;
+  project_start_date: string | null;
+  project_duration_months: number | null;
 }
 
-type TimelineType = "deadline" | "submission" | "feedback" | "info";
+type TimelineType = "start" | "deadline" | "end" | "now";
 
 interface TimelineEvent {
   date: string;

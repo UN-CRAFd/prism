@@ -27,6 +27,12 @@ import {
   type WorkplanStatus,
 } from "@/lib/workplan";
 
+// Sticky header edges drawn as inset box-shadow, not CSS borders: with
+// border-collapse the collapsed borders don't travel with a sticky cell and
+// vanish on scroll, whereas a box-shadow is painted with the cell.
+const HEAD_SHADOW = "inset 0 -1px 0 var(--border)"; // bottom
+const HEAD_SHADOW_L = "inset 1px 0 0 var(--border), inset 0 -1px 0 var(--border)"; // left + bottom
+
 // ── Shared types ─────────────────────────────────────────────────────────────
 
 interface Activity {
@@ -111,7 +117,7 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
       <tr>
         {leadCols}
         {groups.map((g) => (
-          <th key={g.year} colSpan={g.quarters.length} className="sticky top-0 z-20 h-8 bg-muted px-1 py-2 text-center text-xs font-semibold border-l border-b">
+          <th key={g.year} colSpan={g.quarters.length} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 h-8 bg-muted px-1 py-2 text-center text-xs font-semibold">
             {g.year}
           </th>
         ))}
@@ -120,7 +126,7 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
       <tr>
         {groups.map((g) =>
           g.quarters.map((q, i) => (
-            <th key={q.key} className={cn("sticky top-8 z-20 bg-muted border-b px-1 py-1 text-center text-[11px] font-medium text-muted-foreground w-9", i === 0 && "border-l")}>
+            <th key={q.key} style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW }} className="sticky top-8 z-20 bg-muted px-1 py-1 text-center text-[11px] font-medium text-muted-foreground w-9">
               {q.q}
             </th>
           ))
@@ -862,16 +868,16 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>
-                  {partnerMode && <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>}
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>}
                 </>
               }
               trailCols={
                 <>
-                  <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[120px] align-bottom">Agent</th>
-                  {partnerMode && <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[110px] align-bottom">Progress update</th>}
-                  {partnerMode && <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 text-xs font-medium text-muted-foreground border-l min-w-[200px] align-bottom">Comment</th>}
-                  <th rowSpan={2} className="sticky top-0 z-20 bg-muted border-b px-2 py-2 w-10 align-bottom" />
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[120px] align-bottom">Agent</th>
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[110px] align-bottom">Progress update</th>}
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[200px] align-bottom">Comment</th>}
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted px-2 py-2 w-10 align-bottom" />
                 </>
               }
             />

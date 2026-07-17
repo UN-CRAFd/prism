@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,10 +15,11 @@ import {
 import {
   Trash2,
   Loader2,
-  CheckCircle2,
-  Clock,
   ArrowRight,
   Printer,
+  CircleDot,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Field, FormShell } from "@/components/admin/shared";
@@ -68,6 +69,12 @@ const STATUS_STYLES: Record<string, string> = {
   Closed:  "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
 
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  Open:    <CircleDot className="size-3 shrink-0 text-blue-700" />,
+  Pending: <Clock className="size-3 shrink-0 text-amber-700" />,
+  Closed:  <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+};
+
 export function ReportCard({
   report,
   onDelete,
@@ -111,24 +118,15 @@ export function ReportCard({
     });
   }
 
+  const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
+
   return (
     <Card
-      onClick={() => {
-        const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
-        router.push(`/admin/report-editor/${slug}/${report.year}/surveys`);
-      }}
+      onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/surveys`)}
       className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
     >
-      {/* Print & Delete */}
-      <div className="absolute right-2.5 top-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); handlePrint(); }}
-          disabled={printing}
-          className="rounded p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors disabled:opacity-50"
-          title="Print to PDF"
-        >
-          {printing ? <Loader2 className="size-3.5 animate-spin" /> : <Printer className="size-3.5" />}
-        </button>
+      {/* Delete — top right on hover */}
+      <div className="absolute right-2.5 top-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="rounded p-1 text-muted-foreground/30 hover:text-destructive transition-colors"
@@ -138,7 +136,7 @@ export function ReportCard({
         </button>
       </div>
 
-      {/* Partner/year + type */}
+      {/* Top line: badges + due date */}
       <div className="flex items-center gap-2 pr-6">
         <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
           {groupMode === "organization" ? report.year : report.partner_short_name}
@@ -146,48 +144,57 @@ export function ReportCard({
         <Badge variant="secondary" className="text-[11px] font-semibold capitalize">
           {report.report_type ?? "annual"}
         </Badge>
+        {report.report_submission_date && (
+          <span className="text-[11px] text-muted-foreground ml-auto">
+            due {formatDate(report.report_submission_date)}
+          </span>
+        )}
       </div>
 
       {/* Project title */}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold leading-snug line-clamp-2">
           {report.project_title}
         </p>
       </div>
 
-      {/* Footer: auth + date + status dropdown + arrow */}
-      <div className="flex items-center justify-between gap-2 mt-auto">
-        <div className="flex items-center gap-2">
-          {report.authorized ? (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
-              <CheckCircle2 className="size-3" /> Authorized
+      {/* Bottom: status | print | open — all equal width */}
+      <div className="grid grid-cols-3 gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+        {/* 1. Status dropdown */}
+        <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
+          <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[status] ?? ""}`}>
+            <span className="flex items-center gap-1.5 min-w-0">
+              {STATUS_ICONS[status]}
+              <SelectValue />
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock className="size-3" /> Pending
-            </span>
-          )}
-          {report.report_submission_date && (
-            <span className="text-[11px] text-muted-foreground">
-              · due {formatDate(report.report_submission_date)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div onClick={(e) => e.stopPropagation()}>
-            <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
-              <SelectTrigger className={`h-5 px-1.5 text-[10px] font-semibold border rounded gap-1 [&>svg]:size-2.5 ${STATUS_STYLES[status] ?? ""}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Open">Open</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <ArrowRight className="size-3.5 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
-        </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Open">Open</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Closed">Closed</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* 2. Print */}
+        <button
+          onClick={handlePrint}
+          disabled={printing}
+          className="h-7 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          title="Print to PDF"
+        >
+          {printing ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
+          Print
+        </button>
+
+        {/* 3. Open report */}
+        <button
+          onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/surveys`)}
+          className="h-7 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="Open report"
+        >
+          Open
+          <ArrowRight className="size-3" />
+        </button>
       </div>
     </Card>
   );

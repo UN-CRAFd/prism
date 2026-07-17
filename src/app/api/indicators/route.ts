@@ -11,20 +11,39 @@ export async function GET(req: NextRequest) {
   try {
     const where: string[] = [];
     const values: unknown[] = [];
-    if (!includeArchived) where.push("archived_at IS NULL");
+    if (!includeArchived) where.push("i.archived_at IS NULL");
     if (projectId) {
       values.push(projectId);
-      where.push(`(is_standard OR project_id = $${values.length})`);
+      where.push(`(i.is_standard OR i.project_id = $${values.length})`);
     } else {
-      where.push("is_standard");
+      where.push("i.is_standard");
     }
 
+    // `usage` = the reports still referencing each indicator. Only needed for the
+    // admin library view (used to show where archived indicators live on); skip
+    // the join for the report-editor typeahead, which passes a project_id.
+    const usageSelect = projectId
+      ? `'[]'::json AS usage`
+      : `COALESCE((
+           SELECT json_agg(json_build_object(
+                    'report_id', r.id,
+                    'year', r.year,
+                    'project_short_name', p.short_name,
+                    'project_title', p.project_title
+                  ) ORDER BY r.year DESC, p.short_name)
+             FROM reporting_platform.indicator_data d
+             JOIN reporting_platform.reports  r ON r.id = d.report_id
+             JOIN reporting_platform.projects p ON p.id = r.project_id
+            WHERE d.indicator_id = i.id
+         ), '[]'::json) AS usage`;
+
     const rows = await query(
-      `SELECT id, name, description, means_of_verification, category, cycle,
-              is_standard, project_id, archived_at, created_at, updated_at
-         FROM reporting_platform.indicators
+      `SELECT i.id, i.name, i.description, i.means_of_verification, i.category, i.cycle,
+              i.is_standard, i.project_id, i.archived_at, i.created_at, i.updated_at,
+              ${usageSelect}
+         FROM reporting_platform.indicators i
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-        ORDER BY is_standard DESC, name`,
+        ORDER BY i.is_standard DESC, i.name`,
       values
     );
     return NextResponse.json(rows);

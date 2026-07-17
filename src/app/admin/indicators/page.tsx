@@ -21,6 +21,13 @@ import {
 import { CYCLE_KEYS, cycleLabel } from "@/lib/indicators";
 import labels from "@/lib/labels.json";
 
+interface IndicatorUsage {
+  report_id: number;
+  year: number;
+  project_short_name: string | null;
+  project_title: string;
+}
+
 interface Indicator {
   id: number;
   name: string;
@@ -31,6 +38,23 @@ interface Indicator {
   is_standard: boolean;
   project_id: number | null;
   archived_at: string | null;
+  usage: IndicatorUsage[];
+}
+
+function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
+  if (usage.length === 0) {
+    return <span className="text-[11px] italic text-muted-foreground">No longer used in any report</span>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-[11px] text-muted-foreground">Still used in:</span>
+      {usage.map((u) => (
+        <Badge key={u.report_id} variant="outline" className="text-[10px] font-normal">
+          {(u.project_short_name || u.project_title)} · {u.year}
+        </Badge>
+      ))}
+    </div>
+  );
 }
 
 const NONE = "none";
@@ -106,10 +130,14 @@ export default function IndicatorsPage() {
 
   const confirm = useConfirm();
 
-  async function handleArchive(id: number) {
-    if (!await confirm({ message: "Archive this indicator? It will be hidden from the library and the report-editor typeahead, but existing report data is kept." })) return;
-    const res = await fetch(`/api/indicators/${id}`, { method: "DELETE" });
-    if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to archive"); return; }
+  async function handleArchive(ind: Indicator) {
+    const used = ind.usage.length > 0;
+    const message = used
+      ? "Archive this indicator? It will be hidden from the library and the report-editor typeahead, but the report data still using it is kept."
+      : "This indicator isn't used in any report. Delete it permanently? This cannot be undone.";
+    if (!await confirm({ message })) return;
+    const res = await fetch(`/api/indicators/${ind.id}`, { method: "DELETE" });
+    if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to remove indicator"); return; }
     load();
   }
 
@@ -204,6 +232,7 @@ export default function IndicatorsPage() {
                     {ind.name}
                     {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
                     {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 line-clamp-2">{ind.description}</p>}
+                    {ind.archived_at && <div className="mt-1"><UsageBadges usage={ind.usage} /></div>}
                   </TableCell>
                   <TableCell>{ind.category ? <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge> : <Dash />}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{ind.cycle ? cycleLabel(ind.cycle) : <Dash />}</TableCell>
@@ -214,7 +243,7 @@ export default function IndicatorsPage() {
                         <ArchiveRestore className="size-3.5" />
                       </Button>
                     ) : (
-                      <RowActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind.id)} />
+                      <RowActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
                     )}
                   </TableCell>
                 </TableRow>
@@ -232,10 +261,11 @@ export default function IndicatorsPage() {
                       <ArchiveRestore className="size-3.5" />
                     </Button>
                   ) : (
-                    <HoverActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind.id)} />
+                    <HoverActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
                   )}
                 </div>
                 {ind.description && <p className="text-xs text-muted-foreground line-clamp-3">{ind.description}</p>}
+                {ind.archived_at && <UsageBadges usage={ind.usage} />}
                 <div className="flex flex-wrap gap-1 mt-auto pt-1">
                   {ind.category && <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge>}
                   {ind.cycle && <Badge variant="outline" className="text-xs font-normal">{cycleLabel(ind.cycle)}</Badge>}

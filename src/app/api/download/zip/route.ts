@@ -42,20 +42,19 @@ export async function GET(req: NextRequest) {
           r.year,
           p.project_title  AS project_name,
           pt.short_name    AS partner,
-          o.project_title,
-          o.mptfo_project_number,
-          o.organization_name,
-          o.organization_website,
-          o.project_lead,
-          o.grant_size_usd,
+          p.project_title,
+          p.mptfo_project_number,
+          pt.long_name     AS organization_name,
+          pt.organization_website,
+          p.project_lead,
+          p.grant_size_usd,
           TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
           p.project_duration_months,
-          o.implementing_partners,
-          o.geographic_scope,
-          o.report_submission_date,
-          o.authorized
-        FROM reporting_platform.overview o
-        JOIN reporting_platform.reports  r  ON r.id  = o.reportid
+          p.implementing_partners,
+          p.geographic_scope,
+          TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date,
+          r.authorized
+        FROM reporting_platform.reports  r
         JOIN reporting_platform.projects p  ON p.id  = r.project_id
         JOIN reporting_platform.partners pt ON pt.id = p.partner_id
         WHERE r.data_type = 'report'

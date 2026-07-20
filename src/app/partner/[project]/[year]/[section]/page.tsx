@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info, Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { SectionTableEditor, SECTION_SPECS, TESTIMONIAL_SPECS } from "@/components/section-table-editor";
@@ -86,6 +86,18 @@ function StatusBadge({ value }: { value: IndicatorStatus }) {
 
 function Label({ children }: { children: string }) {
   return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
+}
+
+// Read-only overview field: label + value (admin-owned project data shown to partners).
+function ReadField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <p className="text-sm">
+        {value != null && value !== "" ? value : <span className="text-muted-foreground/50">—</span>}
+      </p>
+    </div>
+  );
 }
 
 // Frozen left columns for the indicator matrix (name + baseline + target stay put
@@ -687,7 +699,7 @@ export default function PartnerReportEditorPage() {
           const st = complementaryStates[r.contributor_id];
           return fetch("/api/complementary-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.currentLineId, contribution_amount: st.contribution_amount || null, linked_activity_ids: st.linked_activity_ids }) }).then(ok);
         }),
-        ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, ...overview }) }).then(ok)] : []),
+        ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, authorized: overview.authorized }) }).then(ok)] : []),
       ]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -1458,79 +1470,38 @@ export default function PartnerReportEditorPage() {
         ) : params.section === "overview" ? (
           <div className="space-y-5">
             <div className="rounded-xl border bg-card p-6 space-y-5">
+              <p className="text-xs text-muted-foreground">
+                These project details are managed by the CRAF&apos;d Secretariat. Contact them if anything needs updating.
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>{labels.overviewFields.projectTitle}</Label>
-                  <Input value={overview.project_title} onChange={(e) => updateOverview({ project_title: e.target.value })} placeholder={labels.placeholders.projectTitle} className="text-sm" />
-                </div>
-                <div>
-                  <Label>{labels.overviewFields.mptfoProjectNumber}</Label>
-                  <Input
-                    inputMode="numeric"
-                    value={overview.mptfo_project_number}
-                    onChange={(e) => updateOverview({ mptfo_project_number: e.target.value.replace(/\D/g, "") })}
-                    placeholder={labels.placeholders.mptfoProjectNumber}
-                    className="text-sm"
-                  />
-                </div>
+                <ReadField label={labels.overviewFields.projectTitle} value={overview.project_title} />
+                <ReadField label={labels.overviewFields.mptfoProjectNumber} value={overview.mptfo_project_number} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>{labels.overviewFields.organizationName}</Label>
-                  <Input value={overview.organization_name} onChange={(e) => updateOverview({ organization_name: e.target.value })} placeholder={labels.placeholders.organizationName} className="text-sm" />
-                </div>
-                <div>
-                  <Label>{labels.overviewFields.organizationWebsite}</Label>
-                  <Input value={overview.organization_website} onChange={(e) => updateOverview({ organization_website: e.target.value })} placeholder={labels.placeholders.organizationWebsite} className="text-sm" />
-                </div>
+                <ReadField label={labels.overviewFields.organizationName} value={overview.organization_name} />
+                <ReadField
+                  label={labels.overviewFields.organizationWebsite}
+                  value={overview.organization_website ? (
+                    <a href={overview.organization_website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+                      {overview.organization_website}
+                    </a>
+                  ) : null}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <div>
-                  <Label>{labels.overviewFields.projectLead}</Label>
-                  <Input value={overview.project_lead} onChange={(e) => updateOverview({ project_lead: e.target.value })} placeholder={labels.placeholders.projectLead} className="text-sm" />
-                </div>
-                <div>
-                  <Label>{labels.overviewFields.grantSizeUsd}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={overview.grant_size_usd}
-                    onChange={(e) => updateOverview({ grant_size_usd: e.target.value })}
-                    placeholder={labels.placeholders.grantSizeUsd}
-                    className="text-sm"
-                  />
-                </div>
-                <div>
-                  <Label>{labels.overviewFields.startDate}</Label>
-                  <Input type="date" value={overview.project_start_date} onChange={(e) => updateOverview({ project_start_date: e.target.value })} className="text-sm" />
-                </div>
-                <div>
-                  <Label>{labels.overviewFields.durationMonths}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={overview.project_duration_months}
-                    onChange={(e) => updateOverview({ project_duration_months: e.target.value })}
-                    placeholder={labels.placeholders.durationMonths}
-                    className="text-sm"
-                  />
-                </div>
+                <ReadField label={labels.overviewFields.projectLead} value={overview.project_lead} />
+                <ReadField label={labels.overviewFields.grantSizeUsd} value={overview.grant_size_usd ? `$${Number(overview.grant_size_usd).toLocaleString("en-US")}` : null} />
+                <ReadField label={labels.overviewFields.startDate} value={overview.project_start_date ? formatDate(overview.project_start_date) : null} />
+                <ReadField label={labels.overviewFields.durationMonths} value={overview.project_duration_months ? `${overview.project_duration_months} months` : null} />
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>{labels.overviewFields.implementingPartners}</Label>
-                  <Input value={overview.implementing_partners} onChange={(e) => updateOverview({ implementing_partners: e.target.value })} placeholder={labels.placeholders.implementingPartners} className="text-sm" />
-                </div>
-                <div>
-                  <Label>{labels.overviewFields.geographicScope}</Label>
-                  <Input value={overview.geographic_scope} onChange={(e) => updateOverview({ geographic_scope: e.target.value })} placeholder={labels.placeholders.geographicScope} className="text-sm" />
-                </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <ReadField label={labels.overviewFields.implementingPartners} value={overview.implementing_partners} />
+                <ReadField label={labels.overviewFields.geographicScope} value={overview.geographic_scope} />
+                <ReadField label={labels.overviewFields.reportSubmissionDate} value={overview.report_submission_date ? formatDate(overview.report_submission_date) : null} />
               </div>
             </div>
 

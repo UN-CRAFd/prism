@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS projects (
     project_duration_months INTEGER,
     geographic_scope        TEXT,
     implementing_partners   TEXT,
+    project_lead            TEXT,
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -116,28 +117,11 @@ CREATE TRIGGER reports_updated_at
     BEFORE UPDATE ON reports
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
--- ── Overview (one row per report; project dates live on `projects`) ──────────
--- Keyed by `reportid` (no underscore — matches the code + the `surveys` table).
-CREATE TABLE IF NOT EXISTS overview (
-    reportid               INTEGER      PRIMARY KEY REFERENCES reports(id) ON DELETE CASCADE,
-    project_title          TEXT,
-    mptfo_project_number   TEXT,
-    organization_name      TEXT,
-    organization_website   TEXT,
-    grant_size_usd         NUMERIC(15,2),
-    implementing_partners  TEXT,
-    geographic_scope       TEXT,
-    report_submission_date DATE,
-    project_lead           TEXT,
-    authorized             BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-DROP TRIGGER IF EXISTS overview_updated_at ON overview;
-CREATE TRIGGER overview_updated_at
-    BEFORE UPDATE ON overview
-    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+-- Overview is not its own table: the project overview shown to partners is
+-- assembled from `projects` (title, number, grant, dates, scope, implementing
+-- partners, project lead), `partners` (organization name + website) and
+-- `reports` (submission date, authorized). Admins enter it on the project;
+-- partners see it read-only when editing a report.
 
 -- ── Surveys (one row per question per report) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS surveys (

@@ -40,20 +40,21 @@ export async function GET(req: NextRequest) {
       achievements, partnerships, results, lessons, coverage,
       workplan, expenditure, testimonials,
     ] = await Promise.all([
-      // Overview — all required fields present (project dates live on the project).
+      // Overview — admin-owned project/partner fields all present (read-only to
+      // partners; assembled from projects + partners rather than an overview table).
       query<Row>(
-        `SELECT (o.project_title IS NOT NULL
-              AND o.mptfo_project_number IS NOT NULL
-              AND o.organization_name IS NOT NULL
-              AND o.organization_website IS NOT NULL
-              AND o.grant_size_usd IS NOT NULL
-              AND o.geographic_scope IS NOT NULL
+        `SELECT (p.project_title IS NOT NULL
+              AND p.mptfo_project_number IS NOT NULL
+              AND pt.long_name IS NOT NULL
+              AND pt.organization_website IS NOT NULL
+              AND p.grant_size_usd IS NOT NULL
+              AND p.geographic_scope IS NOT NULL
               AND p.project_start_date IS NOT NULL
               AND p.project_duration_months IS NOT NULL) AS complete
-           FROM reporting_platform.overview o
-           JOIN reporting_platform.reports  r ON r.id = o.reportid
-           JOIN reporting_platform.projects p ON p.id = r.project_id
-          WHERE o.reportid = $1`,
+           FROM reporting_platform.reports  r
+           JOIN reporting_platform.projects p  ON p.id  = r.project_id
+           JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+          WHERE r.id = $1`,
         [reportId]
       ).then((r) => r[0]?.complete === true),
 

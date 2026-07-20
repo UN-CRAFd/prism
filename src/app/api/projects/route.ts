@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const {
       partner_id, project_title, short_name,
       mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope,
+      implementing_partners, project_lead,
     } = body;
 
     if (!partner_id || !project_title) {
@@ -33,14 +34,15 @@ export async function POST(request: Request) {
 
     const rows = await query(
       `INSERT INTO reporting_platform.projects
-         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope, implementing_partners, project_lead)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         partner_id, project_title,
         short_name || null,
         mptfo_project_number || null, grant_size_usd || null,
         project_start_date || null, project_duration_months || null, geographic_scope || null,
+        implementing_partners || null, project_lead || null,
       ]
     );
 

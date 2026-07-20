@@ -51,43 +51,6 @@ function parseYear(value: unknown): number | null {
   return year;
 }
 
-// Shared SQL: seed overview rows for a given set of newly inserted report IDs.
-// Uses LATERAL to find the most recent previous overview for the same project.
-// If none exists, falls back to project/partner table data.
-const SEED_OVERVIEW_SQL = `
-  INSERT INTO reporting_platform.overview (
-    reportid, project_title, mptfo_project_number, organization_name, organization_website,
-    grant_size_usd, implementing_partners, geographic_scope,
-    report_submission_date, project_lead, authorized
-  )
-  SELECT
-    r.id,
-    COALESCE(prev_o.project_title,           proj.project_title),
-    COALESCE(prev_o.mptfo_project_number,     proj.mptfo_project_number),
-    COALESCE(prev_o.organization_name,        part.long_name),
-    COALESCE(prev_o.organization_website,     part.organization_website),
-    COALESCE(prev_o.grant_size_usd,           proj.grant_size_usd::numeric),
-    prev_o.implementing_partners,
-    COALESCE(prev_o.geographic_scope,         proj.geographic_scope),
-    COALESCE(prev_o.report_submission_date,   r.report_submission_date),
-    prev_o.project_lead,
-    false
-  FROM reporting_platform.reports r
-  JOIN reporting_platform.projects proj ON proj.id = r.project_id
-  JOIN reporting_platform.partners part ON part.id = proj.partner_id
-  LEFT JOIN LATERAL (
-    SELECT o.*
-    FROM reporting_platform.overview o
-    JOIN reporting_platform.reports old_r ON old_r.id = o.reportid
-    WHERE old_r.project_id = r.project_id
-      AND old_r.id != r.id
-    ORDER BY old_r.year DESC
-    LIMIT 1
-  ) prev_o ON true
-  WHERE r.id = ANY($1::int[])
-  ON CONFLICT (reportid) DO NOTHING
-`;
-
 // POST /api/reports
 // Single report: { project_id, year, report_submission_date? }
 // Annual report (all projects): { year, annual: true, report_submission_date? }
@@ -128,11 +91,6 @@ export async function POST(request: Request) {
         `SELECT COUNT(*)::int AS count FROM reporting_platform.projects`
       );
 
-      if (inserted.rows.length > 0) {
-        const newIds = inserted.rows.map((r) => r.id);
-        await client.query(SEED_OVERVIEW_SQL, [newIds]);
-      }
-
       await client.query("COMMIT");
       return NextResponse.json(
         {
@@ -168,8 +126,6 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-
-    await client.query(SEED_OVERVIEW_SQL, [[inserted.rows[0].id]]);
 
     await client.query("COMMIT");
     return NextResponse.json(inserted.rows[0], { status: 201 });

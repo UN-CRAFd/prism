@@ -14,7 +14,7 @@ import {
   ArrowRight,
   TrendingUp,
   Users,
-  FileStack,
+  Contact,
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,9 @@ interface StatsData {
   pendingReports: number;
   totalPartners: number;
   totalProjects: number;
+  totalContacts: number;
+  resolvedComments: number;
+  totalComments: number;
   recentReports: ReportRow[];
 }
 
@@ -70,15 +73,6 @@ const quickLinks = [
     countKey: "totalProjects" as const,
   },
   {
-    href: "/admin/prodoc",
-    label: "Project Documents",
-    description: "Manage project documents",
-    icon: FileStack,
-    card: "bg-amber-50 border-amber-200 text-amber-700",
-    iconClass: "text-amber-500",
-    countKey: null,
-  },
-  {
     href: "/admin/reports",
     label: "Reports",
     description: "Manage reporting periods",
@@ -86,6 +80,26 @@ const quickLinks = [
     card: "bg-amber-50 border-amber-200 text-amber-700",
     iconClass: "text-amber-500",
     countKey: "totalReports" as const,
+  },
+  {
+    href: "/admin/comments",
+    label: "Comments",
+    description: "Manage resolve Comments",
+    icon: MessageSquare,
+    card: "bg-amber-50 border-amber-200 text-amber-700",
+    iconClass: "text-amber-500",
+    countKey: null,
+    // Shows resolved/total rather than a plain count.
+    ratioKeys: ["resolvedComments", "totalComments"] as const,
+  },
+  {
+    href: "/admin/contacts",
+    label: "Contacts",
+    description: "Manage partner contacts",
+    icon: Contact,
+    card: "bg-amber-50 border-amber-200 text-amber-700",
+    iconClass: "text-amber-500",
+    countKey: "totalContacts" as const,
   },
 ];
 
@@ -104,16 +118,18 @@ export default function AdminHomePage() {
 
     async function loadStats() {
       try {
-        const [rRes, pRes, prRes, aRes, cRes] = await Promise.all([
+        const [rRes, pRes, prRes, ctRes, aRes, cRes] = await Promise.all([
           fetch("/api/reports?data_type=report"),
           fetch("/api/partners"),
           fetch("/api/projects"),
+          fetch("/api/partner-contacts"),
           fetch("/api/reports/activity?limit=6"),
           fetch("/api/comments?scope=admin"),
         ]);
         const reports: ReportRow[] = rRes.ok ? await rRes.json() : [];
         const partners: unknown[] = pRes.ok ? await pRes.json() : [];
         const projects: unknown[] = prRes.ok ? await prRes.json() : [];
+        const contacts: unknown[] = ctRes.ok ? await ctRes.json() : [];
         const activity: ActivityReport[] = aRes.ok ? await aRes.json() : [];
         const allComments: (ReviewComment & { resolved: boolean; partner_addressed: boolean })[] =
           cRes.ok ? await cRes.json() : [];
@@ -133,6 +149,9 @@ export default function AdminHomePage() {
           pendingReports: reports.length - authorized,
           totalPartners: partners.length,
           totalProjects: projects.length,
+          totalContacts: contacts.length,
+          resolvedComments: allComments.filter((c) => c.resolved).length,
+          totalComments: allComments.length,
           recentReports: recent,
         });
         setRecentActivity(activity);
@@ -191,9 +210,13 @@ export default function AdminHomePage() {
 
         {/* Quick access */}
         <div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            {quickLinks.map(({ href, label, description, icon: Icon, card, iconClass, countKey }) => {
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            {quickLinks.map((link) => {
+              const { href, label, description, icon: Icon, card, iconClass, countKey } = link;
+              const ratioKeys = "ratioKeys" in link ? link.ratioKeys : null;
               const count = countKey && stats ? stats[countKey] : null;
+              const ratio = ratioKeys && stats ? `${stats[ratioKeys[0]]}/${stats[ratioKeys[1]]}` : null;
+              const display = ratio ?? (count != null ? String(count) : null);
               return (
                 <button
                   key={href}
@@ -206,9 +229,9 @@ export default function AdminHomePage() {
                       <p className="font-semibold text-sm">{label}</p>
                       <p className="text-xs mt-0.5 opacity-70">{description}</p>
                     </div>
-                    {count != null && (
-                      <p className="text-2xl font-bold font-qanelas leading-none shrink-0">
-                        {loading ? <span className="inline-block w-6 h-6 bg-current opacity-10 animate-pulse rounded" /> : count}
+                    {display != null && (
+                      <p className="text-2xl font-bold font-qanelas leading-none shrink-0 tabular-nums">
+                        {loading ? <span className="inline-block w-6 h-6 bg-current opacity-10 animate-pulse rounded" /> : display}
                       </p>
                     )}
                   </div>

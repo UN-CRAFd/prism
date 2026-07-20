@@ -3,9 +3,11 @@ import { query } from "@/lib/db";
 
 // Admin comments on report items (polymorphic — see migrations/032).
 //   GET ?reportId=<id>                → all comments for a report (editor)
-//   GET ?partnerShortName=<name>      → all comments across that partner's reports
-//                                       with project/year context + a live entry
-//                                       label (partner home feed)
+//   GET ?partnerShortName=<name>      → the partner's OUTSTANDING comments across
+//                                       their reports (resolved ones are hidden —
+//                                       once CRAF'd confirms, the partner is done
+//                                       with it) + project/year context + a live
+//                                       entry label (partner home feed)
 //   POST   { reportId, section, itemId?, body, author? }
 //   PATCH  { id, body?, resolved? }
 //   DELETE ?id=<id>
@@ -128,6 +130,7 @@ export async function GET(req: NextRequest) {
            JOIN reporting_platform.partners pt ON pt.id = p.partner_id
           WHERE r.data_type = 'report'
             AND LOWER(pt.short_name) = LOWER($1)
+            AND c.resolved = FALSE
           ORDER BY c.partner_addressed ASC, c.created_at DESC`,
         [partnerShortName]
       );

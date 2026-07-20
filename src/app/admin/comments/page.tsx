@@ -5,11 +5,12 @@ export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  MessageSquare, ArrowRight, Pencil, Check, X, RotateCcw, Loader2, Send, CheckCircle2, Archive,
+  MessageSquare, ArrowRight, Pencil, Check, X, RotateCcw, Loader2, Send, CheckCircle2, Archive, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared";
 import { CommentContextBadges } from "@/components/comment-context-badges";
 
@@ -36,6 +37,7 @@ function toSlug(c: AdminComment): string {
 
 export default function AdminCommentsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [comments, setComments] = useState<AdminComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +76,21 @@ export default function AdminCommentsPage() {
       setComments((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
     } catch {
       setError("Failed to update the comment. Please try again.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Hard-delete a comment (admin-only). Removes it from every list on success.
+  async function handleDelete(c: AdminComment) {
+    if (!await confirm({ message: "Delete this comment permanently? This cannot be undone." })) return;
+    setBusyId(c.id);
+    try {
+      const res = await fetch(`/api/comments?id=${c.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("failed");
+      setComments((prev) => prev.filter((x) => x.id !== c.id));
+    } catch {
+      setError("Failed to delete the comment. Please try again.");
     } finally {
       setBusyId(null);
     }
@@ -182,6 +199,14 @@ export default function AdminCommentsPage() {
                 title="Open in report editor"
               >
                 <ArrowRight className="size-3.5" />
+              </button>
+              <button
+                onClick={() => handleDelete(c)}
+                disabled={busy}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors disabled:opacity-40"
+                title="Delete comment"
+              >
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
               </button>
             </div>
           )}

@@ -161,12 +161,13 @@ export function ReportCard({
         </p>
       </div>
 
-      {/* Bottom: status | share | print | open — all equal width */}
-      <div className="grid grid-cols-4 gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+      {/* Bottom: status | share | print | open. Status sizes to its label (so
+          "Under Review" never clips); the other three share the rest equally. */}
+      <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
         {/* 1. Status dropdown */}
         <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
           <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(status)}`}>
-            <span className="flex items-center gap-1.5 min-w-0">
+            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
               {STATUS_ICONS[status]}
               <SelectValue />
             </span>

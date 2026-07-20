@@ -8,14 +8,17 @@ import {
   AlertCircle,
   ArrowRight,
   CalendarDays,
+  Check,
   CheckCircle2,
   Clock,
   FileText,
   ListTodo,
   MessageSquare,
+  RotateCcw,
   Zap,
 } from "lucide-react";
-import { REPORT_SECTIONS } from "@/lib/report-sections";
+import { Button } from "@/components/ui/button";
+import { CommentContextBadges } from "@/components/comment-context-badges";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -36,15 +39,14 @@ interface FeedbackComment {
   id: number;
   section: string;
   body: string;
+  item_label: string | null;
   resolved: boolean;
+  partner_addressed: boolean;
   year: number;
+  report_type: "annual" | "final" | null;
   project_title: string;
   project_short_name: string | null;
 }
-
-const SECTION_LABEL: Record<string, string> = Object.fromEntries(
-  REPORT_SECTIONS.map((s) => [s.value, s.label])
-);
 
 type TimelineType = "start" | "deadline" | "end" | "now";
 
@@ -78,6 +80,10 @@ export default function PartnerHomePage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [comments, setComments] = useState<FeedbackComment[]>([]);
   const [loading, setLoading] = useState(true);
+  // The greeting (time-based) and user (client-side auth) only exist on the
+  // client; defer rendering them until mounted so hydration matches the server.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!user) return;
@@ -102,6 +108,21 @@ export default function PartnerHomePage() {
       .then((data: FeedbackComment[]) => setComments(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [user]);
+
+  // Partner-side "addressed" confirmation. Optimistic; reverts on failure.
+  async function toggleAddressed(id: number, next: boolean) {
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, partner_addressed: next } : c)));
+    try {
+      const res = await fetch("/api/comments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, partner_addressed: next }),
+      });
+      if (!res.ok) throw new Error("failed");
+    } catch {
+      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, partner_addressed: !next } : c)));
+    }
+  }
 
   const pendingReports = useMemo(
     () => reports.filter((r) => !r.authorized),
@@ -201,7 +222,7 @@ export default function PartnerHomePage() {
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">PRISM V.0.2</p>
         <h1 className="text-3xl font-bold font-qanelas">
-          {greeting}, {user?.organization ?? user?.name}
+          {mounted ? `${greeting}, ${user?.organization ?? user?.name ?? ""}` : " "}
         </h1>
         <p className="text-neutral-400 text-sm mt-2">Partner Dashboard</p>
       </div>
@@ -298,31 +319,48 @@ export default function PartnerHomePage() {
                     <MessageSquare className="size-4 text-muted-foreground" />
                     <h2 className="text-base font-semibold">Feedback from CRAF&apos;d</h2>
                   </div>
-                  {comments.some((c) => !c.resolved) && (
+                  {comments.some((c) => !c.partner_addressed) && (
                     <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold w-5 h-5">
-                      {comments.filter((c) => !c.resolved).length}
+                      {comments.filter((c) => !c.partner_addressed).length}
                     </span>
                   )}
                 </div>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {comments.map((c) => {
                     const slug = (c.project_short_name ?? c.project_title).toLowerCase();
+                    const done = c.partner_addressed;
                     return (
-                      <button
-                        key={c.id}
-                        onClick={() => router.push(`/partner/${slug}/${c.year}/${c.section}`)}
-                        className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
-                      >
-                        <MessageSquare className={cn("size-4 mt-0.5 shrink-0", c.resolved ? "text-muted-foreground/40" : "text-amber-500")} />
-                        <div className="flex-1 min-w-0">
-                          <p className={cn("text-sm", c.resolved && "line-through text-muted-foreground")}>{c.body}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {c.project_title} · {c.year} · {SECTION_LABEL[c.section] ?? c.section}
-                            {c.resolved && " · resolved"}
-                          </p>
-                        </div>
-                        <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                      </button>
+                      <div key={c.id} className={cn("px-4 py-3 transition-colors", done && "bg-muted/20")}>
+                        <button
+                          onClick={() => router.push(`/partner/${slug}/${c.year}/${c.section}`)}
+                          className="w-full flex items-start gap-3 text-left group"
+                        >
+                          <MessageSquare className={cn("size-4 mt-0.5 shrink-0", done ? "text-muted-foreground/40" : "text-amber-500")} />
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-sm", done && "line-through text-muted-foreground")}>{c.body}</p>
+                            <div className={cn("flex items-center justify-between gap-2 mt-2", done && "opacity-60")}>
+                              <CommentContextBadges
+                                reportType={c.report_type}
+                                year={c.year}
+                                project={c.project_short_name ?? c.project_title}
+                                section={c.section}
+                                itemLabel={c.item_label}
+                                className="!gap-1"
+                              />
+                              {done ? (
+                                <Button size="sm" variant="outline" className="h-6 px-2 gap-1 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); toggleAddressed(c.id, false); }}>
+                                  <RotateCcw className="size-3" /> Undo
+                                </Button>
+                              ) : (
+                                <Button size="sm" className="h-6 px-2 gap-1 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); toggleAddressed(c.id, true); }}>
+                                  <Check className="size-3" /> Confirm
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

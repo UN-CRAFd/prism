@@ -138,7 +138,8 @@ CREATE TABLE IF NOT EXISTS item_comments (
     section    TEXT         NOT NULL,
     item_id    INTEGER,
     body       TEXT         NOT NULL,
-    resolved   BOOLEAN      NOT NULL DEFAULT FALSE,
+    resolved          BOOLEAN NOT NULL DEFAULT FALSE,  -- CRAF'd-side confirmation
+    partner_addressed BOOLEAN NOT NULL DEFAULT FALSE,  -- partner-side confirmation
     author     TEXT,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()

@@ -22,6 +22,7 @@ import {
   Target,
   Check,
   Contact,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, parseReportPath } from "@/lib/report-sections";
@@ -37,6 +38,7 @@ const administrationLinks = [
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },
+  { href: "/admin/comments", label: "Comments", icon: MessageSquare },
 ];
 
 const editorLinks = [

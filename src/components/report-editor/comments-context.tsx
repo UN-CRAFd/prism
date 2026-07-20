@@ -14,6 +14,7 @@ export interface ItemComment {
   item_id: number | null;
   body: string;
   resolved: boolean;
+  partner_addressed: boolean;
   author: string | null;
   created_at: string;
 }

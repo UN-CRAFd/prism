@@ -36,14 +36,14 @@ const administrationLinks = [
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
-  { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },
-  { href: "/admin/comments", label: "Comments", icon: MessageSquare },
 ];
 
 const editorLinks = [
   { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: Edit },
   { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
+  { href: "/admin/indicators", label: "Indicators", icon: Target },
+  { href: "/admin/comments", label: "Comments", icon: MessageSquare },
 ];
 
 const dataLinks = [

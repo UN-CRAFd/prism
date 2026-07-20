@@ -2,14 +2,14 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, TableIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, TableIcon, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   computeRiskLevelKey,
@@ -40,123 +40,52 @@ interface Report {
   project_short_name: string | null;
 }
 
-interface SurveyRow {
+type Section =
+  | "surveys"
+  | "achievements"
+  | "partnerships"
+  | "results"
+  | "lessons"
+  | "external-coverage"
+  | "testimonials"
+  | "risk";
+
+// Every section endpoint returns flat rows with the report's year/project/partner
+// joined in; the extra columns differ per section (typed loosely here).
+type DataRow = {
   id: number;
-  reportid: number;
-  question: string;
-  assessment: number | null;
-  context: string | null;
   year: number;
-  report_type: string | null;
+  report_id?: number;
+  reportid?: number;
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string;
-  partner_long_name: string | null;
+} & Record<string, unknown>;
+
+interface CellCtx {
+  expanded: (key: string) => boolean;
+  toggle: (key: string) => void;
 }
 
-interface RiskRow {
-  id: number;
-  report_id: number;
-  risk_name: string;
-  risk_category: string[] | null;
-  likelihood: number | null;
-  impact: number | null;
-  approved_mitigation: string | null;
-  updated_mitigation: string | null;
-  project_revision: boolean | null;
-  year: number;
-  report_type: string | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
+interface ColumnDef {
+  header: string;
+  headClass?: string;
+  center?: boolean;
+  cell: (row: DataRow, ctx: CellCtx) => ReactNode;
 }
 
-interface AchievementRow {
-  id: number;
-  report_id: number;
-  achievement: string | null;
-  significance: string | null;
-  links: string | null;
-  year: number;
-  report_type: string | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
+interface SectionConfig {
+  value: Section;
+  label: string;
+  endpoint: string;
+  reportIdKey: "report_id" | "reportid";
+  minWidth: number;
+  columns: ColumnDef[];
 }
 
-interface PartnershipRow {
-  id: number;
-  report_id: number;
-  partner_organization: string | null;
-  result: string | null;
-  links: string | null;
-  year: number;
-  report_type: string | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-}
+// ── Shared cell helpers ──────────────────────────────────────────────────────
 
-interface ResultRow {
-  id: number;
-  report_id: number;
-  context: string | null;
-  data_driven_decision: string | null;
-  resulting_impact: string | null;
-  links: string | null;
-  year: number;
-  report_type: string | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-}
-
-interface LessonRow {
-  id: number;
-  report_id: number;
-  category: string | null;
-  lesson_learned: string | null;
-  adjustment_informed: string | null;
-  year: number;
-  report_type: string | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-}
-
-interface CoverageRow {
-  id: number;
-  report_id: number;
-  type: string | null;
-  description: string | null;
-  reach_indicator: string | null;
-  links: string | null;
-  year: number;
-  report_type: string | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-}
-
-type Section = "surveys" | "risk" | "achievements" | "partnerships" | "results" | "lessons" | "external-coverage";
-
-const SECTIONS: { value: Section; label: string }[] = [
-  { value: "surveys", label: "Surveys" },
-  { value: "achievements", label: "Key Achievements" },
-  { value: "partnerships", label: "Partnerships" },
-  { value: "results", label: "Results" },
-  { value: "lessons", label: "Lessons Learned" },
-  { value: "external-coverage", label: "External Coverage" },
-  { value: "risk", label: "Risk Management" },
-];
-
-// ── Shared helpers ─────────────────────────────────────────────────────────
+const DASH = <span className="text-muted-foreground">—</span>;
 
 function ValueBadge({ value, colors }: { value: string; colors: { bg: string; text: string; border: string } }) {
   return (
@@ -166,6 +95,11 @@ function ValueBadge({ value, colors }: { value: string; colors: { bg: string; te
   );
 }
 
+function Tag({ value }: { value: string | null }) {
+  if (!value) return DASH;
+  return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{value}</span>;
+}
+
 function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {
   text: string | null;
   id: string;
@@ -173,7 +107,7 @@ function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {
   onToggle: () => void;
   limit?: number;
 }) {
-  if (!text) return <span className="text-muted-foreground">—</span>;
+  if (!text) return DASH;
   const truncatable = text.length > limit;
   return (
     <div>
@@ -195,19 +129,14 @@ function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {
 }
 
 function LinksList({ raw }: { raw: string | null }) {
-  if (!raw) return <span className="text-muted-foreground">—</span>;
+  if (!raw) return DASH;
   const urls = raw.split(",").map((l) => l.trim()).filter(Boolean);
-  if (!urls.length) return <span className="text-muted-foreground">—</span>;
+  if (!urls.length) return DASH;
   return (
     <ul className="space-y-0.5">
       {urls.map((url, i) => (
         <li key={i}>
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline break-all"
-          >
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline break-all">
             {url}
           </a>
         </li>
@@ -216,25 +145,156 @@ function LinksList({ raw }: { raw: string | null }) {
   );
 }
 
+const trunc = (text: unknown, key: string, ctx: CellCtx) => (
+  <TruncatedCell text={(text as string | null) ?? null} id={key} expanded={ctx.expanded(key)} onToggle={() => ctx.toggle(key)} />
+);
+
+// Flatten a row's primitive values into one lowercase string for keyword search.
+function rowText(row: DataRow): string {
+  const parts: string[] = [];
+  for (const v of Object.values(row)) {
+    if (v == null) continue;
+    if (Array.isArray(v)) parts.push(v.join(" "));
+    else if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") parts.push(String(v));
+  }
+  return parts.join(" ").toLowerCase();
+}
+
+// ── Section configs ──────────────────────────────────────────────────────────
+
+const yearCol: ColumnDef = { header: "Year", headClass: "w-14", cell: (r) => <span className="text-muted-foreground">{r.year}</span> };
+const projectCol: ColumnDef = { header: "Project", headClass: "w-[130px]", cell: (r) => <p className="break-words">{(r.project_short_name as string) || r.project_title}</p> };
+const partnerCol: ColumnDef = { header: "Partner", headClass: "w-[100px]", cell: (r) => <p className="break-words text-muted-foreground">{r.partner_short_name}</p> };
+const leadCols = [yearCol, projectCol, partnerCol];
+
+const SECTION_CONFIGS: SectionConfig[] = [
+  {
+    value: "surveys", label: "Surveys", endpoint: "/api/surveys", reportIdKey: "reportid", minWidth: 860,
+    columns: [
+      ...leadCols,
+      { header: "Question", headClass: "w-[260px]", cell: (r) => <p className="break-words">{r.question as string}</p> },
+      {
+        header: "Assessment", headClass: "w-[100px]", center: true, cell: (r) => {
+          const a = r.assessment as number | null;
+          return <div className="flex justify-center pt-0.5">{a != null ? <ValueBadge value={String(a)} colors={SCALE_COLORS[a] ?? FALLBACK_COLORS} /> : DASH}</div>;
+        },
+      },
+      { header: "Context", cell: (r, ctx) => trunc(r.context, `ctx-${r.id}`, ctx) },
+    ],
+  },
+  {
+    value: "achievements", label: "Key Achievements", endpoint: "/api/achievements", reportIdKey: "report_id", minWidth: 1100,
+    columns: [
+      ...leadCols,
+      { header: "Achievement", headClass: "w-[30%]", cell: (r, ctx) => trunc(r.achievement, `ach-${r.id}`, ctx) },
+      { header: "Significance", headClass: "w-[30%]", cell: (r, ctx) => trunc(r.significance, `sig-${r.id}`, ctx) },
+      { header: "Links", cell: (r) => <LinksList raw={r.links as string | null} /> },
+    ],
+  },
+  {
+    value: "partnerships", label: "Partnerships", endpoint: "/api/partnerships", reportIdKey: "report_id", minWidth: 1000,
+    columns: [
+      ...leadCols,
+      { header: "Partner Organization", headClass: "w-[160px]", cell: (r) => <p className="break-words font-medium">{(r.partner_organization as string) ?? "—"}</p> },
+      { header: "Result of Partnership", headClass: "w-[40%]", cell: (r, ctx) => trunc(r.result, `pres-${r.id}`, ctx) },
+      { header: "Links", cell: (r) => <LinksList raw={r.links as string | null} /> },
+    ],
+  },
+  {
+    value: "results", label: "Results", endpoint: "/api/results", reportIdKey: "report_id", minWidth: 1300,
+    columns: [
+      ...leadCols,
+      { header: "Context", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.context, `rctx-${r.id}`, ctx) },
+      { header: "Data-driven Decision", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.data_driven_decision, `ddd-${r.id}`, ctx) },
+      { header: "Resulting Impact", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.resulting_impact, `ri-${r.id}`, ctx) },
+      { header: "Links", cell: (r) => <LinksList raw={r.links as string | null} /> },
+    ],
+  },
+  {
+    value: "lessons", label: "Lessons Learned", endpoint: "/api/lessons-learned", reportIdKey: "report_id", minWidth: 1000,
+    columns: [
+      ...leadCols,
+      { header: "Category", headClass: "w-[130px]", cell: (r) => <Tag value={r.category as string | null} /> },
+      { header: "Lesson Learned", headClass: "w-[35%]", cell: (r, ctx) => trunc(r.lesson_learned, `ll-${r.id}`, ctx) },
+      { header: "Adjustment Informed", cell: (r, ctx) => trunc(r.adjustment_informed, `ai-${r.id}`, ctx) },
+    ],
+  },
+  {
+    value: "external-coverage", label: "External Coverage", endpoint: "/api/external-coverage", reportIdKey: "report_id", minWidth: 1200,
+    columns: [
+      ...leadCols,
+      { header: "Type", headClass: "w-[140px]", cell: (r) => <Tag value={r.type as string | null} /> },
+      { header: "Description", headClass: "w-[28%]", cell: (r, ctx) => trunc(r.description, `cdesc-${r.id}`, ctx) },
+      { header: "Reach / Indicator", headClass: "w-[20%]", cell: (r, ctx) => trunc(r.reach_indicator, `creach-${r.id}`, ctx) },
+      { header: "Links / Materials", cell: (r) => <LinksList raw={r.links as string | null} /> },
+    ],
+  },
+  {
+    value: "testimonials", label: "Testimonials", endpoint: "/api/testimonials", reportIdKey: "report_id", minWidth: 1200,
+    columns: [
+      ...leadCols,
+      { header: "Kind", headClass: "w-[110px]", cell: (r) => <Tag value={r.kind as string | null} /> },
+      { header: "Quote", headClass: "w-[32%]", cell: (r, ctx) => trunc(r.quote, `quote-${r.id}`, ctx) },
+      { header: "Person", headClass: "w-[140px]", cell: (r) => <p className="break-words font-medium">{(r.person_name as string) || "—"}</p> },
+      { header: "Title", headClass: "w-[160px]", cell: (r) => <p className="break-words text-muted-foreground">{(r.person_title as string) || "—"}</p> },
+      { header: "Photo", cell: (r) => (r.photo_link ? <LinksList raw={r.photo_link as string} /> : <span className="text-muted-foreground">{(r.photo_label as string) || "—"}</span>) },
+    ],
+  },
+  {
+    value: "risk", label: "Risk Management", endpoint: "/api/risk", reportIdKey: "report_id", minWidth: 1300,
+    columns: [
+      ...leadCols,
+      { header: "Risk", headClass: "w-[160px]", cell: (r) => <p className="break-words font-medium">{r.risk_name as string}</p> },
+      {
+        header: "Categories", headClass: "w-[120px]", cell: (r) => {
+          const c = r.risk_category as string[] | null;
+          return c?.length ? <p className="break-words text-muted-foreground">{c.join(", ")}</p> : DASH;
+        },
+      },
+      {
+        header: "Likelihood", headClass: "w-[100px]", center: true, cell: (r) => {
+          const v = r.likelihood as number | null;
+          return <div className="flex justify-center pt-0.5">{v != null ? <ValueBadge value={likelihoodLabel(v)} colors={SCALE_COLORS[v] ?? FALLBACK_COLORS} /> : DASH}</div>;
+        },
+      },
+      {
+        header: "Impact", headClass: "w-[90px]", center: true, cell: (r) => {
+          const v = r.impact as number | null;
+          return <div className="flex justify-center pt-0.5">{v != null ? <ValueBadge value={impactLabel(v)} colors={SCALE_COLORS[v] ?? FALLBACK_COLORS} /> : DASH}</div>;
+        },
+      },
+      {
+        header: "Level", headClass: "w-[90px]", center: true, cell: (r) => {
+          const key = computeRiskLevelKey(r.likelihood as number | null, r.impact as number | null);
+          return <div className="flex justify-center pt-0.5">{key ? <ValueBadge value={riskLevelLabel(key)} colors={RISK_LEVEL_COLORS[key]} /> : DASH}</div>;
+        },
+      },
+      { header: "Approved Mitigation", headClass: "w-[190px]", cell: (r, ctx) => trunc(r.approved_mitigation, `am-${r.id}`, ctx) },
+      { header: "Updated Mitigation", headClass: "w-[190px]", cell: (r, ctx) => trunc(r.updated_mitigation, `um-${r.id}`, ctx) },
+      {
+        header: "Revision", headClass: "w-[68px]", center: true, cell: (r) => {
+          const v = r.project_revision as boolean | null;
+          return <div className="text-center">{v == null ? DASH : v ? <span className="text-green-600 font-medium">Yes</span> : <span className="text-muted-foreground">No</span>}</div>;
+        },
+      },
+    ],
+  },
+];
+
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function AdminFullDataPage() {
   const [section, setSection] = useState<Section>("surveys");
   const [reports, setReports] = useState<Report[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string>("all");
+  const [search, setSearch] = useState("");
 
-  const [surveys, setSurveys] = useState<SurveyRow[]>([]);
-  const [risks, setRisks] = useState<RiskRow[]>([]);
-  const [achievements, setAchievements] = useState<AchievementRow[]>([]);
-  const [partnerships, setPartnerships] = useState<PartnershipRow[]>([]);
-  const [results, setResults] = useState<ResultRow[]>([]);
-  const [lessons, setLessons] = useState<LessonRow[]>([]);
-  const [coverage, setCoverage] = useState<CoverageRow[]>([]);
-
+  const [rows, setRows] = useState<DataRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set());
+
+  const config = SECTION_CONFIGS.find((c) => c.value === section)!;
 
   function toggleCell(key: string) {
     setExpandedCells((prev) => {
@@ -251,77 +311,65 @@ export default function AdminFullDataPage() {
       .catch(() => {});
   }, []);
 
-  const loadData = useCallback(async (sec: Section) => {
+  // Load the selected section's rows (one fetch per section; all endpoints return
+  // the full cross-report listing which we then filter client-side).
+  useEffect(() => {
+    const cfg = SECTION_CONFIGS.find((c) => c.value === section)!;
     setLoading(true);
     setError(null);
-    try {
-      const endpoints: Record<Section, string> = {
-        surveys: "/api/surveys",
-        risk: "/api/risk",
-        achievements: "/api/achievements",
-        partnerships: "/api/partnerships",
-        results: "/api/results",
-        lessons: "/api/lessons-learned",
-        "external-coverage": "/api/external-coverage",
-      };
-      const res = await fetch(endpoints[sec]);
-      if (!res.ok) throw new Error(`Failed to load ${sec}`);
-      const data = await res.json();
-      if (sec === "surveys") setSurveys(data);
-      else if (sec === "risk") setRisks(data);
-      else if (sec === "achievements") setAchievements(data);
-      else if (sec === "partnerships") setPartnerships(data);
-      else if (sec === "results") setResults(data);
-      else if (sec === "lessons") setLessons(data);
-      else if (sec === "external-coverage") setCoverage(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(section); }, [section, loadData]);
+    setExpandedCells(new Set());
+    fetch(cfg.endpoint)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load ${cfg.label}`);
+        return r.json();
+      })
+      .then((d) => setRows(Array.isArray(d) ? d : []))
+      .catch((e) => setError(e instanceof Error ? e.message : "Unknown error"))
+      .finally(() => setLoading(false));
+  }, [section]);
 
   const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
 
-  function filterByReport<T extends { report_id?: number; reportid?: number }>(rows: T[]): T[] {
-    if (selectedReportId === "all") return rows;
-    return rows.filter((r) => String(r.report_id ?? (r as { reportid?: number }).reportid) === selectedReportId);
-  }
+  const filtered = useMemo(() => {
+    let rs = rows;
+    if (selectedReportId !== "all") {
+      rs = rs.filter((r) => String(r[config.reportIdKey] ?? "") === selectedReportId);
+    }
+    const q = search.trim().toLowerCase();
+    if (q) rs = rs.filter((r) => rowText(r).includes(q));
+    return rs;
+  }, [rows, selectedReportId, search, config.reportIdKey]);
 
-  const visibleSurveys = selectedReportId !== "all" ? surveys.filter((s) => String(s.reportid) === selectedReportId) : surveys;
-  const visibleRisks = filterByReport(risks);
-  const visibleAchievements = filterByReport(achievements);
-  const visiblePartnerships = filterByReport(partnerships);
-  const visibleResults = filterByReport(results);
-  const visibleLessons = filterByReport(lessons);
-  const visibleCoverage = filterByReport(coverage);
-
-  const currentRows = {
-    surveys: visibleSurveys,
-    risk: visibleRisks,
-    achievements: visibleAchievements,
-    partnerships: visiblePartnerships,
-    results: visibleResults,
-    lessons: visibleLessons,
-    "external-coverage": visibleCoverage,
-  }[section];
-
-  const isEmpty = currentRows.length === 0;
+  const ctx: CellCtx = { expanded: (k) => expandedCells.has(k), toggle: toggleCell };
 
   return (
     <div className="flex flex-col h-full">
 
-      {/* Top bar */}
-      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
+      {/* Header */}
+      <div className="border-b px-8 h-32 flex items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold font-qanelas">Full Report Data</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            View all submissions across all reports
+            Browse every submission across all reports — filter by report, section and keyword.
           </p>
         </div>
+      </div>
 
+      {/* Filter bar */}
+      <div className="border-b px-8 py-4 flex flex-wrap items-center gap-3 shrink-0">
+        {/* Section */}
+        <Select value={section} onValueChange={(v) => setSection(v as Section)}>
+          <SelectTrigger className="w-[220px] h-9">
+            <span className="truncate">{config.label}</span>
+          </SelectTrigger>
+          <SelectContent>
+            {SECTION_CONFIGS.map((c) => (
+              <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Report */}
         <Select value={selectedReportId} onValueChange={setSelectedReportId}>
           <SelectTrigger className="w-[280px] h-9">
             {selectedReport ? (
@@ -344,24 +392,23 @@ export default function AdminFullDataPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
 
-      {/* Section tabs */}
-      <div className="border-b px-8 flex items-center gap-1 shrink-0">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => { setSection(s.value); setExpandedCells(new Set()); }}
-            className={cn(
-              "px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-              section === s.value
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
+        {/* Keyword search */}
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search keywords…"
+            className="h-9 pl-8"
+          />
+        </div>
+
+        {!loading && (
+          <span className="text-xs text-muted-foreground ml-auto">
+            {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -376,409 +423,38 @@ export default function AdminFullDataPage() {
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
             <Loader2 className="size-4 animate-spin" /> Fetching...
           </div>
-        ) : isEmpty ? (
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
             <TableIcon className="size-8 opacity-30" />
-            <p className="text-sm">No data found.</p>
+            <p className="text-sm">
+              {search.trim() || selectedReportId !== "all" ? "No entries match your filters." : "No data found."}
+            </p>
           </div>
-        ) : section === "surveys" ? (
-
-          <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[860px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[150px]">Project</TableHead>
-                  <TableHead className="w-[110px]">Partner</TableHead>
-                  <TableHead className="w-[260px]">Question</TableHead>
-                  <TableHead className="w-[100px] text-center">Assessment</TableHead>
-                  <TableHead>Context</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleSurveys.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <p className="break-words">{row.project_short_name || row.project_title}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                      <p className="break-words">{row.partner_short_name}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden whitespace-normal">
-                      <p className="break-words">{row.question}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top">
-                      <div className="flex justify-center pt-0.5">
-                        {row.assessment != null
-                          ? <ValueBadge value={String(row.assessment)} colors={SCALE_COLORS[row.assessment] ?? FALLBACK_COLORS} />
-                          : <span className="text-muted-foreground">—</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.context}
-                        id={`ctx-${row.id}`}
-                        expanded={expandedCells.has(`ctx-${row.id}`)}
-                        onToggle={() => toggleCell(`ctx-${row.id}`)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-        ) : section === "risk" ? (
-
-          <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[1300px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[120px]">Project</TableHead>
-                  <TableHead className="w-[90px]">Partner</TableHead>
-                  <TableHead className="w-[160px]">Risk</TableHead>
-                  <TableHead className="w-[120px]">Categories</TableHead>
-                  <TableHead className="w-[100px] text-center">Likelihood</TableHead>
-                  <TableHead className="w-[90px] text-center">Impact</TableHead>
-                  <TableHead className="w-[90px] text-center">Level</TableHead>
-                  <TableHead className="w-[190px]">Approved Mitigation</TableHead>
-                  <TableHead className="w-[190px]">Updated Mitigation</TableHead>
-                  <TableHead className="w-[68px] text-center">Revision</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleRisks.map((row) => {
-                  const levelKey = computeRiskLevelKey(row.likelihood, row.impact);
-                  const levelColors = levelKey ? RISK_LEVEL_COLORS[levelKey] : FALLBACK_COLORS;
-                  const lColors = row.likelihood ? SCALE_COLORS[row.likelihood] : FALLBACK_COLORS;
-                  const iColors = row.impact ? SCALE_COLORS[row.impact] : FALLBACK_COLORS;
-                  return (
-                    <TableRow key={row.id}>
-                      <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                      <TableCell className="text-sm align-top overflow-hidden">
-                        <p className="break-words">{row.project_short_name || row.project_title}</p>
-                      </TableCell>
-                      <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                        <p className="break-words">{row.partner_short_name}</p>
-                      </TableCell>
-                      <TableCell className="text-sm align-top font-medium overflow-hidden whitespace-normal">
-                        <p className="break-words">{row.risk_name}</p>
-                      </TableCell>
-                      <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                        {row.risk_category?.length
-                          ? <p className="break-words">{row.risk_category.join(", ")}</p>
-                          : <span>—</span>}
-                      </TableCell>
-                      <TableCell className="text-sm align-top">
-                        <div className="flex justify-center pt-0.5">
-                          {row.likelihood != null
-                            ? <ValueBadge value={likelihoodLabel(row.likelihood)} colors={lColors} />
-                            : <span className="text-muted-foreground">—</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm align-top">
-                        <div className="flex justify-center pt-0.5">
-                          {row.impact != null
-                            ? <ValueBadge value={impactLabel(row.impact)} colors={iColors} />
-                            : <span className="text-muted-foreground">—</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm align-top">
-                        <div className="flex justify-center pt-0.5">
-                          {levelKey
-                            ? <ValueBadge value={riskLevelLabel(levelKey)} colors={levelColors} />
-                            : <span className="text-muted-foreground">—</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm align-top overflow-hidden">
-                        <TruncatedCell
-                          text={row.approved_mitigation}
-                          id={`am-${row.id}`}
-                          expanded={expandedCells.has(`am-${row.id}`)}
-                          onToggle={() => toggleCell(`am-${row.id}`)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm align-top overflow-hidden">
-                        <TruncatedCell
-                          text={row.updated_mitigation}
-                          id={`um-${row.id}`}
-                          expanded={expandedCells.has(`um-${row.id}`)}
-                          onToggle={() => toggleCell(`um-${row.id}`)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm align-top text-center">
-                        {row.project_revision == null
-                          ? <span className="text-muted-foreground">—</span>
-                          : row.project_revision
-                          ? <span className="text-green-600 font-medium">Yes</span>
-                          : <span className="text-muted-foreground">No</span>}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-
-        ) : section === "achievements" ? (
-
-          <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[1100px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[130px]">Project</TableHead>
-                  <TableHead className="w-[100px]">Partner</TableHead>
-                  <TableHead className="w-[30%]">Achievement</TableHead>
-                  <TableHead className="w-[30%]">Significance</TableHead>
-                  <TableHead>Links</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleAchievements.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <p className="break-words">{row.project_short_name || row.project_title}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                      <p className="break-words">{row.partner_short_name}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.achievement}
-                        id={`ach-${row.id}`}
-                        expanded={expandedCells.has(`ach-${row.id}`)}
-                        onToggle={() => toggleCell(`ach-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.significance}
-                        id={`sig-${row.id}`}
-                        expanded={expandedCells.has(`sig-${row.id}`)}
-                        onToggle={() => toggleCell(`sig-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <LinksList raw={row.links} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-        ) : section === "partnerships" ? (
-
-          <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[1000px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[130px]">Project</TableHead>
-                  <TableHead className="w-[100px]">Partner</TableHead>
-                  <TableHead className="w-[160px]">Partner Organization</TableHead>
-                  <TableHead className="w-[40%]">Result of Partnership</TableHead>
-                  <TableHead>Links</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visiblePartnerships.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <p className="break-words">{row.project_short_name || row.project_title}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                      <p className="break-words">{row.partner_short_name}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top font-medium overflow-hidden">
-                      <p className="break-words">{row.partner_organization ?? "—"}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.result}
-                        id={`pres-${row.id}`}
-                        expanded={expandedCells.has(`pres-${row.id}`)}
-                        onToggle={() => toggleCell(`pres-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <LinksList raw={row.links} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-        ) : section === "results" ? (
-
-          <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[1300px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[120px]">Project</TableHead>
-                  <TableHead className="w-[90px]">Partner</TableHead>
-                  <TableHead className="w-[24%]">Context</TableHead>
-                  <TableHead className="w-[24%]">Data-driven Decision</TableHead>
-                  <TableHead className="w-[24%]">Resulting Impact</TableHead>
-                  <TableHead>Links</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleResults.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <p className="break-words">{row.project_short_name || row.project_title}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                      <p className="break-words">{row.partner_short_name}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.context}
-                        id={`rctx-${row.id}`}
-                        expanded={expandedCells.has(`rctx-${row.id}`)}
-                        onToggle={() => toggleCell(`rctx-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.data_driven_decision}
-                        id={`ddd-${row.id}`}
-                        expanded={expandedCells.has(`ddd-${row.id}`)}
-                        onToggle={() => toggleCell(`ddd-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.resulting_impact}
-                        id={`ri-${row.id}`}
-                        expanded={expandedCells.has(`ri-${row.id}`)}
-                        onToggle={() => toggleCell(`ri-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <LinksList raw={row.links} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-        ) : section === "lessons" ? (
-
-          <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[1000px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[130px]">Project</TableHead>
-                  <TableHead className="w-[100px]">Partner</TableHead>
-                  <TableHead className="w-[130px]">Category</TableHead>
-                  <TableHead className="w-[35%]">Lesson Learned</TableHead>
-                  <TableHead>Adjustment Informed</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleLessons.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <p className="break-words">{row.project_short_name || row.project_title}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                      <p className="break-words">{row.partner_short_name}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top">
-                      {row.category
-                        ? <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{row.category}</span>
-                        : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.lesson_learned}
-                        id={`ll-${row.id}`}
-                        expanded={expandedCells.has(`ll-${row.id}`)}
-                        onToggle={() => toggleCell(`ll-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.adjustment_informed}
-                        id={`ai-${row.id}`}
-                        expanded={expandedCells.has(`ai-${row.id}`)}
-                        onToggle={() => toggleCell(`ai-${row.id}`)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
         ) : (
-
           <div className="rounded-lg border overflow-hidden">
-            <Table className="table-fixed min-w-[1200px]">
+            <Table className="table-fixed" style={{ minWidth: config.minWidth }}>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-14">Year</TableHead>
-                  <TableHead className="w-[120px]">Project</TableHead>
-                  <TableHead className="w-[90px]">Partner</TableHead>
-                  <TableHead className="w-[140px]">Type</TableHead>
-                  <TableHead className="w-[28%]">Description</TableHead>
-                  <TableHead className="w-[20%]">Reach / Indicator</TableHead>
-                  <TableHead>Links / Materials</TableHead>
+                  {config.columns.map((col, i) => (
+                    <TableHead key={i} className={cn(col.headClass, col.center && "text-center")}>
+                      {col.header}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleCoverage.map((row) => (
+                {filtered.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell className="text-sm align-top text-muted-foreground">{row.year}</TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <p className="break-words">{row.project_short_name || row.project_title}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top text-muted-foreground overflow-hidden">
-                      <p className="break-words">{row.partner_short_name}</p>
-                    </TableCell>
-                    <TableCell className="text-sm align-top">
-                      {row.type
-                        ? <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{row.type}</span>
-                        : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.description}
-                        id={`cdesc-${row.id}`}
-                        expanded={expandedCells.has(`cdesc-${row.id}`)}
-                        onToggle={() => toggleCell(`cdesc-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <TruncatedCell
-                        text={row.reach_indicator}
-                        id={`creach-${row.id}`}
-                        expanded={expandedCells.has(`creach-${row.id}`)}
-                        onToggle={() => toggleCell(`creach-${row.id}`)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm align-top overflow-hidden">
-                      <LinksList raw={row.links} />
-                    </TableCell>
+                    {config.columns.map((col, i) => (
+                      <TableCell key={i} className={cn("text-sm align-top overflow-hidden whitespace-normal", col.center && "text-center")}>
+                        {col.cell(row, ctx)}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-
         )}
       </div>
     </div>

@@ -18,9 +18,20 @@ const UPLOAD_SECTIONS = [
 ];
 
 const DOWNLOAD_SECTIONS = [
-  { value: "overview", label: "Overview" },
-  { value: "surveys",  label: "Surveys" },
-  { value: "risk",     label: "Risk Management" },
+  { value: "overview",          label: "Overview" },
+  { value: "surveys",           label: "Surveys" },
+  { value: "achievements",      label: "Key Achievements" },
+  { value: "partnerships",      label: "Partnerships" },
+  { value: "results",           label: "Results" },
+  { value: "lessons",           label: "Lessons Learned" },
+  { value: "external_coverage", label: "External Coverage" },
+  { value: "testimonials",      label: "Testimonials" },
+  { value: "risk",              label: "Risk Management" },
+  { value: "indicators",        label: "Indicators" },
+  { value: "workplan",          label: "Workplan" },
+  { value: "expenditure",       label: "Expenditure" },
+  { value: "transfers",         label: "Transfers" },
+  { value: "complementary",     label: "Complementary Funding" },
 ];
 
 const SCHEMA: Record<string, { required: string; optional?: string }> = {
@@ -237,7 +248,7 @@ function ImportPanel() {
 // ── Download panel ─────────────────────────────────────────────────────────
 
 function ExportPanel() {
-  const [sections, setSections] = useState<string[]>(["overview", "surveys", "risk"]);
+  const [sections, setSections] = useState<string[]>(DOWNLOAD_SECTIONS.map((s) => s.value));
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
@@ -246,6 +257,8 @@ function ExportPanel() {
       prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
     );
   }
+
+  const allSelected = sections.length === DOWNLOAD_SECTIONS.length;
 
   async function handleDownload() {
     if (sections.length === 0) return;
@@ -292,8 +305,16 @@ function ExportPanel() {
       <div className="flex flex-col gap-5 pt-5 flex-1">
         {/* Section toggles */}
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Sections to include</p>
-          <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground">Sections to include</p>
+            <button
+              onClick={() => setSections(allSelected ? [] : DOWNLOAD_SECTIONS.map((s) => s.value))}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {allSelected ? "Clear all" : "Select all"}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             {DOWNLOAD_SECTIONS.map((s) => {
               const active = sections.includes(s.value);
               return (
@@ -301,18 +322,19 @@ function ExportPanel() {
                   key={s.value}
                   onClick={() => toggle(s.value)}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors",
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                     active
                       ? "border-neutral-800 bg-neutral-900 text-white"
                       : "border-border text-muted-foreground hover:border-neutral-400 hover:text-foreground"
                   )}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{s.label}</p>
-                    <p className={cn("text-xs font-mono mt-0.5", active ? "text-neutral-400" : "text-muted-foreground/60")}>
-                      {s.value}_[partner]_[year].csv
-                    </p>
-                  </div>
+                  <span className={cn(
+                    "flex size-4 shrink-0 items-center justify-center rounded border",
+                    active ? "border-white bg-white" : "border-neutral-400"
+                  )}>
+                    {active && <CheckCircle2 className="size-3 text-neutral-900" />}
+                  </span>
+                  <span className="text-sm font-medium truncate">{s.label}</span>
                 </button>
               );
             })}

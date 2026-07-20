@@ -25,6 +25,7 @@ import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { REPORT_SECTION_GROUPS } from "@/lib/report-sections";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
+import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import {
   likelihoodLabel,
   impactLabel,
@@ -1865,48 +1866,21 @@ export function ReportEditor({
                 {labels.partnerEditor.emptyIndicators}
               </div>
             ) : (
-            <div className="overflow-x-auto rounded-xl border bg-card">
-              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: IND_FROZEN_WIDTH }}>
-                <thead>
-                  {/* Year-group header */}
-                  <tr className="text-xs">
-                    <th rowSpan={2} style={ifz("ind", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                      {labels.indicators.columns.indicator}
-                    </th>
-                    <th rowSpan={2} style={ifz("baseline", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                      {labels.indicators.columns.baseline}
-                    </th>
-                    <th rowSpan={2} style={ifz("target", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                      {labels.indicators.columns.target}
-                    </th>
-                    {indicatorYears.map((year) => (
-                      <th
-                        key={year}
-                        colSpan={3}
-                        className={cn(
-                          "px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b",
-                          year === indicatorCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100"
-                        )}
-                      >
-                        {year}
-                      </th>
-                    ))}
-                  </tr>
-                  {/* Sub-column header */}
-                  <tr className="text-[11px] text-muted-foreground">
-                    {indicatorYears.map((year) => {
-                      const current = year === indicatorCurrentYear;
-                      const bg = current ? "bg-crafd-yellow/20" : "bg-neutral-50";
-                      return (
-                        <Fragment key={year}>
-                          <th className={cn("px-2 py-1.5 text-left font-medium border-l border-b min-w-[130px]", bg)}>{labels.indicators.columns.achievedValue}</th>
-                          <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[140px]", bg)}>{labels.indicators.columns.status}</th>
-                          <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[200px]", bg)}>{labels.indicators.columns.comment}</th>
-                        </Fragment>
-                      );
-                    })}
-                  </tr>
-                </thead>
+            <MatrixTableShell
+              minWidth={IND_FROZEN_WIDTH}
+              leadingCols={[
+                { label: labels.indicators.columns.indicator, style: ifz("ind", 30) },
+                { label: labels.indicators.columns.baseline, style: ifz("baseline", 30) },
+                { label: labels.indicators.columns.target, style: ifz("target", 30) },
+              ]}
+              years={indicatorYears}
+              currentYear={indicatorCurrentYear}
+              subCols={[
+                { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[130px]" },
+                { label: labels.indicators.columns.status, minWidth: "min-w-[140px]" },
+                { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
+              ]}
+            >
                 <tbody>
                   {indicatorRows.map((row) => {
                     const state = indicatorStates[row.currentLineId];
@@ -2006,8 +1980,7 @@ export function ReportEditor({
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+            </MatrixTableShell>
             )}
           </div>
 
@@ -2039,51 +2012,24 @@ export function ReportEditor({
                     {labels.transfers.empty}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border bg-card">
-                    <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: TRANSFER_FROZEN_WIDTH }}>
-                      <thead>
-                        {/* Year-group header */}
-                        <tr className="text-xs">
-                          <th rowSpan={2} style={tfz("org", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                            {labels.transfers.columns.organizationName}
-                          </th>
-                          <th rowSpan={2} style={tfz("website", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                            {labels.transfers.columns.website}
-                          </th>
-                          <th rowSpan={2} style={tfz("type", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                            {labels.transfers.columns.partnerType}
-                          </th>
-                          {transferYears.map((year) => (
-                            <th
-                              key={year}
-                              colSpan={2}
-                              className={cn(
-                                "px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b",
-                                year === transferCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100"
-                              )}
-                            >
-                              {year}
-                            </th>
-                          ))}
-                          <th rowSpan={2} className="px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]">
-                            {labels.transfers.columns.subTotal}
-                          </th>
-                          <th rowSpan={2} className="px-2 py-2 border-l border-b bg-neutral-100 w-12" />
-                        </tr>
-                        {/* Sub-column header */}
-                        <tr className="text-[11px] text-muted-foreground">
-                          {transferYears.map((year) => {
-                            const current = year === transferCurrentYear;
-                            const bg = current ? "bg-crafd-yellow/20" : "bg-neutral-50";
-                            return (
-                              <Fragment key={year}>
-                                <th className={cn("px-2 py-1.5 text-left font-medium border-l border-b min-w-[140px]", bg)}>{labels.transfers.columns.amountTransferred}</th>
-                                <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[220px]", bg)}>{labels.transfers.columns.linkedActivity}</th>
-                              </Fragment>
-                            );
-                          })}
-                        </tr>
-                      </thead>
+                  <MatrixTableShell
+                    minWidth={TRANSFER_FROZEN_WIDTH}
+                    leadingCols={[
+                      { label: labels.transfers.columns.organizationName, style: tfz("org", 30) },
+                      { label: labels.transfers.columns.website, style: tfz("website", 30) },
+                      { label: labels.transfers.columns.partnerType, style: tfz("type", 30) },
+                    ]}
+                    years={transferYears}
+                    currentYear={transferCurrentYear}
+                    subCols={[
+                      { label: labels.transfers.columns.amountTransferred, minWidth: "min-w-[140px]" },
+                      { label: labels.transfers.columns.linkedActivity, minWidth: "min-w-[220px]" },
+                    ]}
+                    trailingCols={[
+                      { label: labels.transfers.columns.subTotal, className: "px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]" },
+                      { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
+                    ]}
+                  >
                       <tbody>
                         {transferRows.map((row) => {
                           const state = transferStates[row.transfer_partner_id];
@@ -2186,8 +2132,7 @@ export function ReportEditor({
                           <td className="border-l border-t bg-neutral-100" />
                         </tr>
                       </tfoot>
-                    </table>
-                  </div>
+                  </MatrixTableShell>
                 )}
               </div>
             );
@@ -2221,51 +2166,24 @@ export function ReportEditor({
                     {labels.complementary.empty}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border bg-card">
-                    <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: TRANSFER_FROZEN_WIDTH }}>
-                      <thead>
-                        {/* Year-group header */}
-                        <tr className="text-xs">
-                          <th rowSpan={2} style={tfz("org", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                            {labels.complementary.columns.contributorName}
-                          </th>
-                          <th rowSpan={2} style={tfz("website", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                            {labels.complementary.columns.website}
-                          </th>
-                          <th rowSpan={2} style={tfz("type", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">
-                            {labels.complementary.columns.fundingType}
-                          </th>
-                          {complementaryYears.map((year) => (
-                            <th
-                              key={year}
-                              colSpan={2}
-                              className={cn(
-                                "px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b",
-                                year === complementaryCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100"
-                              )}
-                            >
-                              {year}
-                            </th>
-                          ))}
-                          <th rowSpan={2} className="px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]">
-                            {labels.complementary.columns.subTotal}
-                          </th>
-                          <th rowSpan={2} className="px-2 py-2 border-l border-b bg-neutral-100 w-12" />
-                        </tr>
-                        {/* Sub-column header */}
-                        <tr className="text-[11px] text-muted-foreground">
-                          {complementaryYears.map((year) => {
-                            const current = year === complementaryCurrentYear;
-                            const bg = current ? "bg-crafd-yellow/20" : "bg-neutral-50";
-                            return (
-                              <Fragment key={year}>
-                                <th className={cn("px-2 py-1.5 text-left font-medium border-l border-b min-w-[150px]", bg)}>{labels.complementary.columns.contributionAmount}</th>
-                                <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[240px]", bg)}>{labels.complementary.columns.linkedActivities}</th>
-                              </Fragment>
-                            );
-                          })}
-                        </tr>
-                      </thead>
+                  <MatrixTableShell
+                    minWidth={TRANSFER_FROZEN_WIDTH}
+                    leadingCols={[
+                      { label: labels.complementary.columns.contributorName, style: tfz("org", 30) },
+                      { label: labels.complementary.columns.website, style: tfz("website", 30) },
+                      { label: labels.complementary.columns.fundingType, style: tfz("type", 30) },
+                    ]}
+                    years={complementaryYears}
+                    currentYear={complementaryCurrentYear}
+                    subCols={[
+                      { label: labels.complementary.columns.contributionAmount, minWidth: "min-w-[150px]" },
+                      { label: labels.complementary.columns.linkedActivities, minWidth: "min-w-[240px]" },
+                    ]}
+                    trailingCols={[
+                      { label: labels.complementary.columns.subTotal, className: "px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]" },
+                      { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
+                    ]}
+                  >
                       <tbody>
                         {complementaryRows.map((row) => {
                           const state = complementaryStates[row.contributor_id];
@@ -2387,8 +2305,7 @@ export function ReportEditor({
                           <td className="border-l border-t bg-neutral-100" />
                         </tr>
                       </tfoot>
-                    </table>
-                  </div>
+                  </MatrixTableShell>
                 )}
               </div>
             );

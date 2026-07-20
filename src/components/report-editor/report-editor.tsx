@@ -22,6 +22,7 @@ import { SectionTableEditor, SECTION_SPECS, TESTIMONIAL_SPECS } from "@/componen
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { REPORT_SECTION_GROUPS } from "@/lib/report-sections";
+import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import {
   likelihoodLabel,
   impactLabel,
@@ -1299,6 +1300,7 @@ export function ReportEditor({
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
 
   return (
+    <CommentsProvider reportId={reportId} enabled={mode === "admin"}>
     <div className="flex flex-col h-full bg-background">
 
       {/* Top bar */}
@@ -1465,7 +1467,8 @@ export function ReportEditor({
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-                      <p className="text-sm font-medium leading-snug">{survey.question}</p>
+                      <p className="text-sm font-medium leading-snug flex-1">{survey.question}</p>
+                      <ItemComments section="surveys" itemId={survey.id} />
                     </div>
                     <div className="flex gap-6 items-start pl-8">
                       <div className="shrink-0 space-y-1.5">
@@ -1511,9 +1514,12 @@ export function ReportEditor({
         ) : params.section === "overview" ? (
           <div className="space-y-5">
             <div className="rounded-xl border bg-card p-6 space-y-5">
-              <p className="text-xs text-muted-foreground">
-                These project details are managed by the CRAF&apos;d Secretariat. Contact them if anything needs updating.
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  These project details are managed by the CRAF&apos;d Secretariat. Contact them if anything needs updating.
+                </p>
+                <ItemComments section="overview" itemId={null} />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <ReadField label={labels.overviewFields.projectTitle} value={overview.project_title} />
@@ -1645,14 +1651,19 @@ export function ReportEditor({
 
                         {/* Risk name + categories */}
                         <td className="px-4 py-3 align-middle">
-                          <p className="font-medium text-sm">{risk.risk_name}</p>
-                          {risk.risk_category && risk.risk_category.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {risk.risk_category.map((cat, ci) => (
-                                <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
-                              ))}
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">{risk.risk_name}</p>
+                              {risk.risk_category && risk.risk_category.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  {risk.risk_category.map((cat, ci) => (
+                                    <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
+                            <ItemComments section="risk" itemId={risk.id} />
+                          </div>
                         </td>
 
                         {collapsed ? (
@@ -1886,6 +1897,7 @@ export function ReportEditor({
                                 <TooltipContent className="max-w-xs">{row.indicator_description}</TooltipContent>
                               </Tooltip>
                             )}
+                            <ItemComments section="indicators" itemId={row.currentLineId} />
                           </div>
                           {row.means_of_verification && (
                             <p className="text-xs text-muted-foreground mt-1">{row.means_of_verification}</p>
@@ -2053,7 +2065,10 @@ export function ReportEditor({
                             <tr key={row.transfer_partner_id} className="align-top">
                               {/* Frozen: organisation identity (master, editable anytime) */}
                               <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <Input value={state.organization_name} onChange={(e) => updateTransferMaster(row.transfer_partner_id, { organization_name: e.target.value })} placeholder={labels.placeholders.transferOrganizationName} className="text-sm h-8" />
+                                <div className="flex items-center gap-1">
+                                  <Input value={state.organization_name} onChange={(e) => updateTransferMaster(row.transfer_partner_id, { organization_name: e.target.value })} placeholder={labels.placeholders.transferOrganizationName} className="text-sm h-8 flex-1" />
+                                  <ItemComments section="transfers" itemId={row.transfer_partner_id} />
+                                </div>
                               </td>
                               <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
                                 <Input value={state.website} onChange={(e) => updateTransferMaster(row.transfer_partner_id, { website: e.target.value })} placeholder={labels.placeholders.transferWebsite} className="text-sm h-8" />
@@ -2232,7 +2247,10 @@ export function ReportEditor({
                             <tr key={row.contributor_id} className="align-top">
                               {/* Frozen: contributor identity (master, editable anytime) */}
                               <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <Input value={state.contributor_name} onChange={(e) => updateComplementaryMaster(row.contributor_id, { contributor_name: e.target.value })} placeholder={labels.placeholders.complementaryContributorName} className="text-sm h-8" />
+                                <div className="flex items-center gap-1">
+                                  <Input value={state.contributor_name} onChange={(e) => updateComplementaryMaster(row.contributor_id, { contributor_name: e.target.value })} placeholder={labels.placeholders.complementaryContributorName} className="text-sm h-8 flex-1" />
+                                  <ItemComments section="complementary" itemId={row.contributor_id} />
+                                </div>
                               </td>
                               <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
                                 <Input value={state.website} onChange={(e) => updateComplementaryMaster(row.contributor_id, { website: e.target.value })} placeholder={labels.placeholders.complementaryWebsite} className="text-sm h-8" />
@@ -2363,6 +2381,7 @@ export function ReportEditor({
                   reportId={reportId}
                   spec={TESTIMONIAL_SPECS.leadership}
                   onSaveStateChange={setChildSaveState}
+                  commentSection="testimonials"
                 />
               </div>
               <div className="space-y-3">
@@ -2377,6 +2396,7 @@ export function ReportEditor({
                   reportId={reportId}
                   spec={TESTIMONIAL_SPECS.partner}
                   onSaveStateChange={setChildSaveState}
+                  commentSection="testimonials"
                 />
               </div>
             </div>
@@ -2389,6 +2409,7 @@ export function ReportEditor({
               reportId={reportId}
               spec={SECTION_SPECS[params.section]}
               onSaveStateChange={setChildSaveState}
+              commentSection={params.section}
             />
           ) : null
 
@@ -2418,5 +2439,6 @@ export function ReportEditor({
         </fieldset>
       </div>
     </div>
+    </CommentsProvider>
   );
 }

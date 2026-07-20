@@ -12,8 +12,10 @@ import {
   Clock,
   FileText,
   ListTodo,
+  MessageSquare,
   Zap,
 } from "lucide-react";
+import { REPORT_SECTIONS } from "@/lib/report-sections";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,20 @@ interface Report {
   project_start_date: string | null;
   project_duration_months: number | null;
 }
+
+interface FeedbackComment {
+  id: number;
+  section: string;
+  body: string;
+  resolved: boolean;
+  year: number;
+  project_title: string;
+  project_short_name: string | null;
+}
+
+const SECTION_LABEL: Record<string, string> = Object.fromEntries(
+  REPORT_SECTIONS.map((s) => [s.value, s.label])
+);
 
 type TimelineType = "start" | "deadline" | "end" | "now";
 
@@ -60,6 +76,7 @@ export default function PartnerHomePage() {
   const router = useRouter();
 
   const [reports, setReports] = useState<Report[]>([]);
+  const [comments, setComments] = useState<FeedbackComment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,6 +93,14 @@ export default function PartnerHomePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/comments?partnerShortName=${encodeURIComponent(user.organization || user.id)}`)
+      .then((r) => r.json())
+      .then((data: FeedbackComment[]) => setComments(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, [user]);
 
   const pendingReports = useMemo(
@@ -264,6 +289,45 @@ export default function PartnerHomePage() {
                 ))}
               </div>
             </div>
+
+            {/* ── Feedback from CRAF'd ── */}
+            {comments.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="size-4 text-muted-foreground" />
+                    <h2 className="text-base font-semibold">Feedback from CRAF&apos;d</h2>
+                  </div>
+                  {comments.some((c) => !c.resolved) && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold w-5 h-5">
+                      {comments.filter((c) => !c.resolved).length}
+                    </span>
+                  )}
+                </div>
+                <div className="rounded-xl border bg-card overflow-hidden divide-y">
+                  {comments.map((c) => {
+                    const slug = (c.project_short_name ?? c.project_title).toLowerCase();
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => router.push(`/partner/${slug}/${c.year}/${c.section}`)}
+                        className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
+                      >
+                        <MessageSquare className={cn("size-4 mt-0.5 shrink-0", c.resolved ? "text-muted-foreground/40" : "text-amber-500")} />
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm", c.resolved && "line-through text-muted-foreground")}>{c.body}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {c.project_title} · {c.year} · {SECTION_LABEL[c.section] ?? c.section}
+                            {c.resolved && " · resolved"}
+                          </p>
+                        </div>
+                        <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── Timeline ── */}

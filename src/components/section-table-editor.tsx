@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
+import { ItemComments } from "@/components/report-editor/comments-context";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { useAutosave, type SaveState } from "@/components/autosave";
@@ -100,10 +101,12 @@ export function SectionTableEditor({
   reportId,
   spec,
   onSaveStateChange,
+  commentSection,
 }: {
   reportId: number;
   spec: SectionSpec;
   onSaveStateChange?: (s: SaveState) => void;
+  commentSection?: string;
 }) {
   const { endpoint, fields, requiredField, addLabel, emptyText, min, max, kind } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
@@ -335,11 +338,16 @@ export function SectionTableEditor({
                 </td>
               ))}
               <td className="px-4 py-3 align-top text-center">
-                {rows.length > minRows && (
-                  <button onClick={() => deleteRow(i)} className="text-muted-foreground hover:text-destructive transition-colors" aria-label="Delete row">
-                    <Trash2 className="size-4" />
-                  </button>
-                )}
+                <div className="flex items-center justify-center gap-1.5">
+                  {commentSection && row.id != null && (
+                    <ItemComments section={commentSection} itemId={row.id} />
+                  )}
+                  {rows.length > minRows && (
+                    <button onClick={() => deleteRow(i)} className="text-muted-foreground hover:text-destructive transition-colors" aria-label="Delete row">
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

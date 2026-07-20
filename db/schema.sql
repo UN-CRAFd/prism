@@ -128,6 +128,27 @@ CREATE TRIGGER reports_updated_at
 -- `reports` (submission date, authorized). Admins enter it on the project;
 -- partners see it read-only when editing a report.
 
+-- ── Item comments (admin annotations on any report item) ─────────────────────
+-- Polymorphic: (section, item_id) is a soft FK to any section table's row;
+-- item_id NULL = a section-level comment. report_id has a real FK so comments
+-- cascade with the report and load in one indexed query. Threaded (many per item).
+CREATE TABLE IF NOT EXISTS item_comments (
+    id         SERIAL       PRIMARY KEY,
+    report_id  INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    section    TEXT         NOT NULL,
+    item_id    INTEGER,
+    body       TEXT         NOT NULL,
+    resolved   BOOLEAN      NOT NULL DEFAULT FALSE,
+    author     TEXT,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS item_comments_lookup_idx ON item_comments (report_id, section, item_id);
+DROP TRIGGER IF EXISTS item_comments_updated_at ON item_comments;
+CREATE TRIGGER item_comments_updated_at
+    BEFORE UPDATE ON item_comments
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ── Surveys (one row per question per report) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS surveys (
     id         SERIAL      PRIMARY KEY,

@@ -30,15 +30,15 @@ export function CommentContextBadges({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
-      {partner && <Badge variant="secondary">{partner}</Badge>}
-      <Badge variant="secondary">{reportLabel}</Badge>
-      <Badge variant="outline">{project}</Badge>
-      <Badge variant="outline">{SECTION_LABEL[section] ?? section}</Badge>
       {itemLabel && (
         <Badge className="max-w-[240px] truncate border-blue-200 bg-blue-50 text-blue-700" title={itemLabel}>
           {itemLabel}
         </Badge>
       )}
+      {partner && <Badge variant="secondary">{partner}</Badge>}
+      <Badge variant="secondary">{reportLabel}</Badge>
+      <Badge variant="outline">{project}</Badge>
+      <Badge variant="outline">{SECTION_LABEL[section] ?? section}</Badge>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectGroup, SelectLabel,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -412,14 +412,26 @@ export function ReportEditorView() {
             )}
           </SelectTrigger>
           <SelectContent>
-            {reports.map((r) => (
-              <SelectItem key={r.id} value={String(r.id)}>
-                <div className="flex flex-col">
-                  <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
-                  <span className="text-xs text-muted-foreground">{r.project_short_name || r.project_title}</span>
-                </div>
-              </SelectItem>
-            ))}
+            {Object.entries(
+              reports.reduce((acc, r) => {
+                const key = `${r.partner_short_name}|${r.project_short_name || r.project_title}`;
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(r);
+                return acc;
+              }, {} as Record<string, Report[]>)
+            ).map(([key, grouped]) => {
+              const [partner, project] = key.split("|");
+              return (
+                <SelectGroup key={key}>
+                  <SelectLabel>{partner} | {project}</SelectLabel>
+                  {grouped.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>

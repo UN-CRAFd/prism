@@ -32,11 +32,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
-  { href: "/admin/contacts", label: "Contacts", icon: Contact },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
-  { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
+  { href: "/admin/indicators", label: "Indicators", icon: Target },
+  { href: "/admin/contacts", label: "Contacts", icon: Contact },
 ];
 
 const editorLinks = [

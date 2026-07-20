@@ -2,10 +2,8 @@
 
 import {
   Fragment,
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -55,10 +53,6 @@ interface Activity {
 interface Range {
   start: string | null;
   end: string | null;
-}
-
-export interface WorkplanHandle {
-  save: () => Promise<void>;
 }
 
 // ── Shared bits ────────────────────────────────────────────────────────────
@@ -137,30 +131,59 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Partner editor — check off the timeline + report progress for one report.
-// Save is driven by the parent page's top-bar button via a ref.
+// Partner editor — read-only project structure + baseline (admin-owned), with
+// one progress line per reporting year. Every year is visible so the workplan's
+// evolution across reports is legible; only the currently-selected report's line
+// is editable (its checks, status and comment auto-save).
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface PartnerRowState {
+interface YearEntry {
+  updated_quarters: string[];
+  status: string | null;
+  comment: string | null;
+}
+
+interface MatrixActivity {
+  id: number;
+  outcome: string | null;
+  objective_num: string | null;
+  objective_text: string | null;
+  activity_num: string | null;
+  activity_text: string | null;
+  implementing_agent: string | null;
+  planned_quarters: string[];
+  sort_order: number;
+  byYear: Record<number, YearEntry | undefined>;
+}
+
+interface WorkplanMatrix {
+  range: Range;
+  currentYear: number;
+  years: number[];
+  activities: MatrixActivity[];
+}
+
+interface ProgressState {
   updated_quarters: string[];
   status: WorkplanStatus | null;
   comment: string;
-  dirty: boolean;
 }
 
-export const WorkplanPartnerEditor = forwardRef<
-  WorkplanHandle,
-  {
-    reportId: number;
-    onDirtyChange?: (dirty: boolean) => void;
-    onLoadingChange?: (loading: boolean) => void;
-  }
->(function WorkplanPartnerEditor({ reportId, onDirtyChange, onLoadingChange }, ref) {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [range, setRange] = useState<Range>({ start: null, end: null });
-  const [states, setStates] = useState<Record<number, PartnerRowState>>({});
+export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight }: { reportId: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean }) {
+  const [data, setData] = useState<WorkplanMatrix | null>(null);
+  const [progress, setProgress] = useState<Record<number, ProgressState>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+
+  useEffect(() => { onSaveStateChange?.(saveState); }, [saveState, onSaveStateChange]);
+
+  // Autosave of the current report's progress (the only editable line).
+  const progressRef = useRef<Record<number, ProgressState>>({});
+  const dirtyRef = useRef<Set<number>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushRef = useRef<() => void>(() => {});
+  useEffect(() => { progressRef.current = progress; }, [progress]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,20 +191,19 @@ export const WorkplanPartnerEditor = forwardRef<
     try {
       const res = await fetch(`/api/workplan?reportId=${reportId}`);
       if (!res.ok) throw new Error("Failed to load workplan");
-      const data: { range: Range; activities: Activity[] } = await res.json();
-      setRange(data.range);
-      setActivities(data.activities);
-      const next: Record<number, PartnerRowState> = {};
-      for (const a of data.activities) {
-        next[a.id] = {
-          // Default the updated timeline to the baseline until the partner adjusts it.
-          updated_quarters: a.updated_quarters ?? a.planned_quarters ?? [],
-          status: (a.status as WorkplanStatus) ?? null,
-          comment: a.comment ?? "",
-          dirty: false,
+      const d: WorkplanMatrix = await res.json();
+      setData(d);
+      const prog: Record<number, ProgressState> = {};
+      for (const a of d.activities) {
+        const cur = a.byYear[d.currentYear];
+        prog[a.id] = {
+          // Default this report's timeline to the baseline until the partner adjusts it.
+          updated_quarters: cur?.updated_quarters ?? a.planned_quarters ?? [],
+          status: (cur?.status as WorkplanStatus) ?? null,
+          comment: cur?.comment ?? "",
         };
       }
-      setStates(next);
+      setProgress(prog);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -191,53 +213,65 @@ export const WorkplanPartnerEditor = forwardRef<
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { onLoadingChange?.(loading); }, [loading, onLoadingChange]);
+  const flush = useCallback(async () => {
+    const ids = Array.from(dirtyRef.current);
+    if (!ids.length) return;
+    dirtyRef.current.clear();
+    setSaveState("saving");
+    try {
+      await Promise.all(
+        ids.map((activityId) => {
+          const s = progressRef.current[activityId];
+          if (!s) return Promise.resolve();
+          return fetch("/api/workplan", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reportId,
+              activityId,
+              updated_quarters: s.updated_quarters,
+              status: s.status,
+              comment: s.comment || null,
+            }),
+          }).then((r) => { if (!r.ok) throw new Error(`Failed to save progress ${activityId}`); });
+        })
+      );
+      setSaveState("saved");
+    } catch (e) {
+      ids.forEach((id) => dirtyRef.current.add(id));
+      setError(e instanceof Error ? e.message : "Save failed");
+      setSaveState("error");
+    }
+  }, [reportId]);
+  flushRef.current = flush;
 
-  const quarters = useMemo(() => quarterRange(range.start, range.end), [range]);
-  const anyDirty = useMemo(() => Object.values(states).some((s) => s.dirty), [states]);
+  const schedule = useCallback(() => {
+    setSaveState("saving");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => { flushRef.current(); }, 700);
+  }, []);
 
-  useEffect(() => { onDirtyChange?.(anyDirty); }, [anyDirty, onDirtyChange]);
+  // Flush any pending edit on unmount (e.g. switching section tabs).
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (dirtyRef.current.size) flushRef.current();
+  }, []);
 
-  function update(id: number, patch: Partial<PartnerRowState>) {
-    setStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch, dirty: true } }));
+  function updateProgress(activityId: number, patch: Partial<ProgressState>) {
+    setProgress((prev) => {
+      const base: ProgressState = prev[activityId] ?? { updated_quarters: [], status: null, comment: "" };
+      return { ...prev, [activityId]: { ...base, ...patch } };
+    });
+    dirtyRef.current.add(activityId);
+    schedule();
   }
 
-  function toggleQuarter(id: number, key: string) {
-    const cur = states[id]?.updated_quarters ?? [];
-    const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
-    update(id, { updated_quarters: next });
+  function toggleQuarter(activityId: number, q: string) {
+    const cur = progressRef.current[activityId]?.updated_quarters ?? [];
+    updateProgress(activityId, { updated_quarters: cur.includes(q) ? cur.filter((x) => x !== q) : [...cur, q] });
   }
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      save: async () => {
-        const dirtyIds = activities.filter((a) => states[a.id]?.dirty).map((a) => a.id);
-        await Promise.all(
-          dirtyIds.map((id) => {
-            const s = states[id];
-            return fetch("/api/workplan", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                activityId: id,
-                updated_quarters: s.updated_quarters,
-                status: s.status,
-                comment: s.comment || null,
-              }),
-            }).then((r) => { if (!r.ok) throw new Error(`Failed to save activity ${id}`); });
-          })
-        );
-        setStates((prev) => {
-          const n = { ...prev };
-          for (const id of dirtyIds) n[id] = { ...n[id], dirty: false };
-          return n;
-        });
-      },
-    }),
-    [activities, states, reportId]
-  );
+  const quarters = useMemo(() => quarterRange(data?.range.start ?? null, data?.range.end ?? null), [data]);
 
   if (loading) {
     return (
@@ -260,7 +294,7 @@ export const WorkplanPartnerEditor = forwardRef<
     );
   }
 
-  if (!activities.length) {
+  if (!data || !data.activities.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
         <FileQuestion className="size-8 opacity-30" />
@@ -269,109 +303,147 @@ export const WorkplanPartnerEditor = forwardRef<
     );
   }
 
+  const { activities, years, currentYear } = data;
+  const totalCols = 2 + quarters.length + 3;
   let lastOutcome: string | null = null;
   let lastObjective: string | null = null;
-  const totalCols = 2 + quarters.length + 3;
 
   return (
-    <div className="rounded-xl border bg-card overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <QuarterHeader
-          quarters={quarters}
-          leadCols={
-            <>
-              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
-              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>
-            </>
-          }
-          trailCols={
-            <>
-              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[120px] align-bottom">Agent</th>
-              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[110px] align-bottom">Progress update</th>
-              <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[200px] align-bottom">Comment</th>
-            </>
-          }
-        />
-        <tbody>
-          {activities.map((a) => {
-            const s = states[a.id];
-            if (!s) return null;
-            const showOutcome = a.outcome && a.outcome !== lastOutcome;
-            if (a.outcome) lastOutcome = a.outcome;
-            const objKey = `${a.objective_num ?? ""}|${a.objective_text ?? ""}`;
-            const showObjective = objKey.trim() !== "|" && objKey !== lastObjective;
-            if (objKey.trim() !== "|") lastObjective = objKey;
+    <div className={cn(fillHeight ? "flex flex-col flex-1 min-h-0" : "")}>
+      {!onSaveStateChange && (
+        <div className="flex justify-end mb-3">
+          <AutosaveIndicator state={saveState} />
+        </div>
+      )}
+      <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+        <table className="w-full text-sm border-collapse">
+          <QuarterHeader
+            quarters={quarters}
+            leadCols={
+              <>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[90px] align-bottom">Report</th>
+              </>
+            }
+            trailCols={
+              <>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[120px] align-bottom">Agent</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[110px] align-bottom">Progress update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[200px] align-bottom">Comment</th>
+              </>
+            }
+          />
+          <tbody>
+            {activities.map((a) => {
+              const showOutcome = a.outcome && a.outcome !== lastOutcome;
+              if (a.outcome) lastOutcome = a.outcome;
+              const objKey = `${a.objective_num ?? ""}|${a.objective_text ?? ""}`;
+              const showObjective = objKey.trim() !== "|" && objKey !== lastObjective;
+              if (objKey.trim() !== "|") lastObjective = objKey;
 
-            return (
-              <Fragment key={a.id}>
-                {showOutcome && (
-                  <tr className="bg-neutral-100 border-y">
-                    <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700">{a.outcome}</td>
-                  </tr>
-                )}
-                {showObjective && (
-                  <tr className="bg-blue-50/60 border-y">
-                    <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-blue-900">
-                      {a.objective_num ? `Objective ${a.objective_num}: ` : ""}{a.objective_text}
-                    </td>
-                  </tr>
-                )}
+              const ps = progress[a.id];
+              const rowSpan = 1 + years.length; // baseline + one line per report year
 
-                {/* Baseline row */}
-                <tr className={cn("border-t", s.dirty && "bg-amber-50/40")}>
-                  <td rowSpan={2} className="px-3 py-2 align-top border-r">
-                    <p className="text-sm font-medium leading-snug">
-                      {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
-                      {a.activity_text}
-                    </p>
-                  </td>
-                  <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">Baseline</td>
-                  {quarters.map((q, i) => (
-                    <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
-                      <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
+              return (
+                <Fragment key={a.id}>
+                  {showOutcome && (
+                    <tr className="bg-neutral-100 border-y">
+                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700">{a.outcome}</td>
+                    </tr>
+                  )}
+                  {showObjective && (
+                    <tr className="bg-blue-50/60 border-y">
+                      <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-blue-900">
+                        {a.objective_num ? `Objective ${a.objective_num}: ` : ""}{a.objective_text}
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Baseline row (admin-owned, read-only) */}
+                  <tr className="border-t">
+                    <td rowSpan={rowSpan} className="px-3 py-2 align-top border-r">
+                      <p className="text-sm font-medium leading-snug">
+                        {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
+                        {a.activity_text}
+                      </p>
                     </td>
-                  ))}
-                  <td rowSpan={2} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
-                  <td rowSpan={2} className="px-2 py-2 align-top border-l w-[100px]">
-                    <Select value={s.status ?? "none"} onValueChange={(v) => update(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
-                      <SelectTrigger className="h-8 px-1 w-[140px]">
-                        {s.status ? <StatusBadge value={s.status} /> : <span className="text-muted-foreground text-sm">—</span>}
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                        {WORKPLAN_STATUSES.map((st) => (
-                          <SelectItem key={st} value={st}><StatusBadge value={st} /></SelectItem>
+                    <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">Baseline</td>
+                    {quarters.map((q, i) => (
+                      <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                        <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
+                      </td>
+                    ))}
+                    <td rowSpan={rowSpan} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
+                    <td className="px-2 py-2 border-l text-center text-muted-foreground/40 text-xs">—</td>
+                    <td className="px-2 py-2 border-l text-muted-foreground/40 text-xs">—</td>
+                  </tr>
+
+                  {/* One progress line per report year; only the current one edits */}
+                  {years.map((yr) => {
+                    const isCurrent = yr === currentYear;
+                    const cell = a.byYear[yr];
+                    const checks = isCurrent ? (ps?.updated_quarters ?? []) : (cell?.updated_quarters ?? []);
+                    const status = (isCurrent ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
+                    const comment = isCurrent ? (ps?.comment ?? "") : (cell?.comment ?? "");
+                    return (
+                      <tr key={yr} className={cn("border-t", isCurrent && "bg-crafd-yellow/5")}>
+                        <td className="px-2 py-2 text-[11px] font-medium whitespace-nowrap">
+                          <span className={cn(isCurrent ? "text-neutral-800" : "text-muted-foreground")}>{yr}</span>
+                        </td>
+                        {quarters.map((q, i) => (
+                          <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                            <QuarterCell
+                              checked={checks.includes(q)}
+                              variant={isCurrent ? "editable" : "baseline"}
+                              onToggle={isCurrent ? () => toggleQuarter(a.id, q) : undefined}
+                            />
+                          </td>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td rowSpan={2} className="px-2 py-2 align-middle border-l">
-                    <Textarea
-                      value={s.comment}
-                      onChange={(e) => update(a.id, { comment: e.target.value })}
-                      placeholder="Add a progress note…"
-                      className="text-xs min-h-[56px] resize-y"
-                    />
-                  </td>
-                </tr>
-
-                {/* Updated (editable) row */}
-                <tr className={cn("border-b", s.dirty && "bg-amber-50/40")}>
-                  <td className="px-2 py-2 text-[11px] font-medium text-neutral-700 whitespace-nowrap">Updated</td>
-                  {quarters.map((q, i) => (
-                    <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
-                      <QuarterCell checked={s.updated_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(a.id, q)} />
-                    </td>
-                  ))}
-                </tr>
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+                        <td className="px-2 py-2 align-middle border-l">
+                          {isCurrent ? (
+                            <Select value={status ?? "none"} onValueChange={(v) => updateProgress(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
+                              <SelectTrigger className="h-8 px-1 w-[140px]">
+                                {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground text-sm">—</span>}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                                {WORKPLAN_STATUSES.map((st) => (
+                                  <SelectItem key={st} value={st}><StatusBadge value={st} /></SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : status ? (
+                            <StatusBadge value={status} />
+                          ) : (
+                            <span className="text-muted-foreground/40 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 border-l">
+                          {isCurrent ? (
+                            <Textarea
+                              value={comment}
+                              onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
+                              placeholder="Add a progress note…"
+                              className="text-xs min-h-[32px] resize-none"
+                            />
+                          ) : comment ? (
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{comment}</p>
+                          ) : (
+                            <span className="text-muted-foreground/40 text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
-});
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Admin editor — define the activity hierarchy + baseline timeline.

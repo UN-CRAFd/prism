@@ -19,7 +19,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info, Lock } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import labels from "@/lib/labels.json";
-import { WorkplanAdminEditor } from "@/components/workplan-grid";
+import { WorkplanPartnerEditor } from "@/components/workplan-grid";
 import { SectionTableEditor, SECTION_SPECS, TESTIMONIAL_SPECS } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
@@ -2353,10 +2353,8 @@ export default function PartnerReportEditorPage() {
 
         ) : params.section === "workplan" ? (
           reportId && selectedReport ? (
-            <WorkplanAdminEditor
-              projectId={selectedReport.project_id}
+            <WorkplanPartnerEditor
               reportId={reportId}
-              defaultAgent={selectedReport.partner_short_name}
               onSaveStateChange={setChildSaveState}
               fillHeight
             />

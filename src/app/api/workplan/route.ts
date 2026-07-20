@@ -46,13 +46,15 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Resolve the project + derive the quarter range from start + duration.
+    // Resolve the project + current year + derive the quarter range from
+    // start + duration.
     const projRows = await query<{
       project_id: number;
+      year: number;
       start_date: string | null;
       end_date: string | null;
     }>(
-      `SELECT p.id AS project_id,
+      `SELECT p.id AS project_id, r.year,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
               TO_CHAR((p.project_start_date + (p.project_duration_months * INTERVAL '1 month'))::date, 'YYYY-MM-DD') AS end_date
          FROM reporting_platform.reports r
@@ -62,10 +64,10 @@ export async function GET(req: NextRequest) {
     );
     if (!projRows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
-    const { project_id, start_date, end_date } = projRows[0];
+    const { project_id, year: currentYear, start_date, end_date } = projRows[0];
 
-    // Activities for the project, LEFT JOINed to this report's entry.
-    const activities = await query(
+    // Project structure + baseline (admin-owned; read-only to partners).
+    const activities = await query<Record<string, unknown> & { id: number }>(
       `SELECT
          a.id,
          a.outcome,
@@ -75,22 +77,48 @@ export async function GET(req: NextRequest) {
          a.activity_text,
          a.implementing_agent,
          a.planned_quarters,
-         a.sort_order,
-         e.id               AS entry_id,
-         e.updated_quarters,
-         e.status,
-         e.comment
+         a.sort_order
        FROM reporting_platform.workplan_activities a
-       LEFT JOIN reporting_platform.workplan_entries e
-         ON e.activity_id = a.id AND e.report_id = $2
       WHERE a.project_id = $1
       ORDER BY a.sort_order ASC, a.id ASC`,
-      [project_id, reportId]
+      [project_id]
     );
+
+    // Every reporting year for this project — drives one progress line per report.
+    const yearRows = await query<{ year: number }>(
+      `SELECT DISTINCT year FROM reporting_platform.reports
+        WHERE project_id = $1 AND data_type = 'report' ORDER BY year ASC`,
+      [project_id]
+    );
+    const years = yearRows.map((y) => y.year);
+
+    // Every report's progress entry across the project, pivoted per activity/year.
+    const entryRows = await query<{
+      activity_id: number;
+      year: number;
+      updated_quarters: string[] | null;
+      status: string | null;
+      comment: string | null;
+    }>(
+      `SELECT e.activity_id, r.year, e.updated_quarters, e.status, e.comment
+         FROM reporting_platform.workplan_entries e
+         JOIN reporting_platform.reports r ON r.id = e.report_id
+        WHERE r.project_id = $1 AND r.data_type = 'report'`,
+      [project_id]
+    );
+
+    const byActivity = new Map<number, Record<number, unknown>>();
+    for (const e of entryRows) {
+      let m = byActivity.get(e.activity_id);
+      if (!m) { m = {}; byActivity.set(e.activity_id, m); }
+      m[e.year] = { updated_quarters: e.updated_quarters ?? [], status: e.status, comment: e.comment };
+    }
 
     return NextResponse.json({
       range: { start: quarterFromDate(start_date), end: quarterFromDate(end_date) },
-      activities,
+      currentYear,
+      years,
+      activities: activities.map((a) => ({ ...a, byYear: byActivity.get(a.id) ?? {} })),
     });
   } catch (err) {
     console.error("GET /api/workplan error:", err);

@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Printer, Pencil, CalendarDays, CheckCircle2, Circle } from "lucide-react";
@@ -11,23 +12,26 @@ import { ReportRow } from "@/components/admin/report-components";
 
 function ProDocCard({
   doc,
-  onEdit,
+  onOpen,
 }: {
   doc: ReportRow;
-  onEdit: () => void;
+  onOpen: () => void;
 }) {
   return (
-    <Card className="group relative p-3.5 border bg-card transition-colors hover:bg-muted/50">
+    <Card
+      onClick={onOpen}
+      className="group relative p-3.5 border bg-card cursor-pointer transition-colors hover:bg-muted/50"
+    >
       <div className="absolute right-2.5 top-2.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          onClick={() => window.print()}
+          onClick={(e) => { e.stopPropagation(); window.print(); }}
           className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
           title="Print"
         >
           <Printer className="size-3.5" />
         </button>
         <button
-          onClick={onEdit}
+          onClick={(e) => { e.stopPropagation(); onOpen(); }}
           className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
           title="Edit"
         >
@@ -63,6 +67,7 @@ function ProDocCard({
 }
 
 export default function ProDocPage() {
+  const router = useRouter();
   const [docs, setDocs] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,9 +88,11 @@ export default function ProDocPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  function handleEdit(doc: ReportRow) {
-    // TODO: open edit form
-    console.log("edit", doc.id);
+  // Open a project document in the prodoc editor (project-scoped, defaults to the
+  // first section). Slug matches the editor's toSlug convention.
+  function openDoc(doc: ReportRow) {
+    const slug = (doc.project_short_name ?? doc.project_title).toLowerCase().replace(/\s+/g, "-");
+    router.push(`/admin/prodoc-editor/${slug}/surveys`);
   }
 
   return (
@@ -116,7 +123,7 @@ export default function ProDocPage() {
               <ProDocCard
                 key={doc.id}
                 doc={doc}
-                onEdit={() => handleEdit(doc)}
+                onOpen={() => openDoc(doc)}
               />
             ))}
           </div>

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { reportStatusStyle } from "@/lib/reports";
 import { PageHeader, ViewToggle } from "@/components/admin/shared";
 import {
   ReportRow,
@@ -186,11 +187,7 @@ export default function ReportsPage() {
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${
-                      r.status === "Open"          ? "bg-blue-50 text-blue-700 border-blue-200" :
-                      r.status === "Under Review"  ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                                    "bg-zinc-100 text-zinc-500 border-zinc-200"
-                    }`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${reportStatusStyle(r.status)}`}>
                       {r.status}
                     </span>
                   </TableCell>

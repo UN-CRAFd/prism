@@ -6,21 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { ArrowRight, FileText, ChevronRight } from "lucide-react";
 import labels from "@/lib/labels.json";
-
-interface Report {
-  id: number;
-  project_id: number;
-  year: number;
-  status: "Open" | "Closed" | "Under Review";
-  report_submission_date: string | null;
-  authorized: boolean;
-  created_at: string;
-  project_title: string;
-  project_short_name: string;
-  partner_short_name: string;
-  partner_long_name: string;
-  indicator_count: number;
-}
+import type { Report } from "@/lib/types";
 
 function toSlug(report: Report): string {
   return (report.project_short_name ?? report.project_title).toLowerCase();

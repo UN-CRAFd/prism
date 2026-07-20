@@ -16,21 +16,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CommentContextBadges } from "@/components/comment-context-badges";
+import type { Report } from "@/lib/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface Report {
-  id: number;
-  project_id: number;
-  year: number;
-  report_submission_date: string | null;
-  authorized: boolean;
-  project_title: string;
-  project_short_name: string;
-  partner_short_name: string;
-  project_start_date: string | null;
-  project_duration_months: number | null;
-}
 
 interface FeedbackComment {
   id: number;

@@ -24,6 +24,8 @@ import {
   Check,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { reportStatusStyle } from "@/lib/reports";
+import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
 
 const YEARS = [2023, 2024, 2025, 2026];
@@ -35,22 +37,7 @@ export interface Project {
   partner_long_name: string | null;
 }
 
-export interface ReportRow {
-  id: number;
-  project_id: number;
-  year: number;
-  report_submission_date: string | null;
-  authorized: boolean;
-  status: "Open" | "Closed" | "Under Review";
-  created_at: string;
-  data_type: "report" | "prodoc";
-  report_type: "annual" | "final" | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-  indicator_count: number;
-}
+export type ReportRow = Report;
 
 export type GroupMode = "year" | "organization" | "status";
 
@@ -64,12 +51,6 @@ export const GROUP_COLORS = [
   { bg: "bg-orange-50",  border: "border-orange-200",  icon: "text-orange-400",  label: "text-orange-700" },
   { bg: "bg-teal-50",    border: "border-teal-200",    icon: "text-teal-400",    label: "text-teal-700"   },
 ];
-
-const STATUS_STYLES: Record<string, string> = {
-  Open:            "bg-blue-50 text-blue-700 border-blue-200",
-  "Under Review":  "bg-amber-50 text-amber-700 border-amber-200",
-  Closed:          "bg-zinc-100 text-zinc-500 border-zinc-200",
-};
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
   Open:            <CircleDot className="size-3 shrink-0 text-blue-700" />,
@@ -184,7 +165,7 @@ export function ReportCard({
       <div className="grid grid-cols-4 gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
         {/* 1. Status dropdown */}
         <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
-          <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[status] ?? ""}`}>
+          <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(status)}`}>
             <span className="flex items-center gap-1.5 min-w-0">
               {STATUS_ICONS[status]}
               <SelectValue />

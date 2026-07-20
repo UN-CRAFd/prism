@@ -17,23 +17,10 @@ import {
   FileStack,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportStatusStyle } from "@/lib/reports";
+import type { Report } from "@/lib/types";
 
-interface ReportRow {
-  id: number;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  year: number;
-  status: "Open" | "Closed" | "Under Review";
-  authorized: boolean;
-  created_at: string;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  Open:           "bg-blue-50 text-blue-700 border-blue-200",
-  "Under Review": "bg-amber-50 text-amber-700 border-amber-200",
-  Closed:         "bg-zinc-100 text-zinc-500 border-zinc-200",
-};
+type ReportRow = Report;
 
 interface StatsData {
   totalReports: number;
@@ -247,7 +234,7 @@ export default function AdminHomePage() {
                         {r.partner_short_name} &middot; {r.year}
                       </p>
                     </div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${STATUS_STYLES[r.status] ?? STATUS_STYLES.Closed}`}>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>
                       {r.status}
                     </span>
                     <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />

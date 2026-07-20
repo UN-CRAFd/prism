@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { jsPDF } from "jspdf";
-
-interface Report {
-  id: number;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-  year: number;
-  report_type: string | null;
-}
+import type { Report } from "@/lib/types";
 
 interface SurveyRow {
   question: string;

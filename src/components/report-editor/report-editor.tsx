@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -11,322 +11,38 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Loader2, FileQuestion, ShieldCheck, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Undo2, Redo2, Info, Lock } from "lucide-react";
-import { cn, formatDate } from "@/lib/utils";
+import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
+import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
-import { SectionTableEditor, SECTION_SPECS, TESTIMONIAL_SPECS } from "@/components/section-table-editor";
+import { SectionTableEditor, SECTION_SPECS } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { REPORT_SECTION_GROUPS } from "@/lib/report-sections";
-import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
-import { MatrixTableShell } from "@/components/report-editor/matrix-table";
+import { CommentsProvider } from "@/components/report-editor/comments-context";
+import { reportStatusStyle } from "@/lib/reports";
+import type { Report } from "@/lib/types";
+import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG } from "@/components/report-editor/contributor-matrix";
 import {
-  likelihoodLabel,
-  impactLabel,
-  riskLevelLabel,
-  computeRiskLevelKey,
-  SCALE_COLORS,
-  RISK_LEVEL_COLORS,
-  FALLBACK_COLORS,
-} from "@/lib/risk";
-import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
-import { PARTNER_TYPES, activityLabel, formatAmount } from "@/lib/transfers";
-import { FUNDING_TYPES, FUNDING_TYPE_COLORS } from "@/lib/complementary";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
-
-
-const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
-  2: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-300" },
-  3: { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-300"  },
-  4: { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-300"   },
-  5: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
-};
-
-const AUTHORIZATION_MESSAGES = labels.authorization.messages;
-
-// Shared coloured word-badge used by the assessment + risk cells.
-function Badge({ colors, children }: { colors: { bg: string; text: string; border: string }; children: ReactNode }) {
-  return (
-    <span className={cn("inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", colors.bg, colors.text, colors.border)}>
-      {children}
-    </span>
-  );
-}
-
-function AssessmentBadge({ value }: { value: number }) {
-  return <Badge colors={ASSESSMENT_CONFIG[value] ?? FALLBACK_COLORS}>{value}</Badge>;
-}
-
-function LikelihoodBadge({ value }: { value: number }) {
-  return <Badge colors={SCALE_COLORS[value] ?? FALLBACK_COLORS}>{likelihoodLabel(value)}</Badge>;
-}
-
-function ImpactBadge({ value }: { value: number }) {
-  return <Badge colors={SCALE_COLORS[value] ?? FALLBACK_COLORS}>{impactLabel(value)}</Badge>;
-}
-
-function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
-  const key = computeRiskLevelKey(likelihood, impact);
-  if (!key) return <span className="text-muted-foreground text-sm">—</span>;
-  return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
-}
-
-function StatusBadge({ value }: { value: IndicatorStatus }) {
-  return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
-}
-
-function Label({ children }: { children: string }) {
-  return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
-}
-
-// Read-only overview field: label + value (admin-owned project data shown to partners).
-function ReadField({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      <p className="text-sm">
-        {value != null && value !== "" ? value : <span className="text-muted-foreground/50">—</span>}
-      </p>
-    </div>
-  );
-}
-
-// Frozen left columns for the indicator matrix (name + baseline + target stay put
-// while the per-year columns scroll horizontally — mirrors the expenditure grid).
-const ICOL = {
-  ind:      { left: 0,   w: 300 },
-  baseline: { left: 300, w: 120 },
-  target:   { left: 420, w: 120 },
-} as const;
-const IND_FROZEN_WIDTH = 540;
-
-function ifz(key: keyof typeof ICOL, z = 20): CSSProperties {
-  const c = ICOL[key];
-  return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
-}
-
-// Frozen left columns for the transfers matrix (org identity stays put while the
-// per-year amount/linked-activity columns scroll horizontally).
-const TCOL = {
-  org:     { left: 0,   w: 220 },
-  website: { left: 220, w: 170 },
-  type:    { left: 390, w: 170 },
-} as const;
-const TRANSFER_FROZEN_WIDTH = 560;
-
-function tfz(key: keyof typeof TCOL, z = 20): CSSProperties {
-  const c = TCOL[key];
-  return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
-}
-
-// "value (year)" for the baseline / target reference cells.
-function ValueYear({ value, year }: { value: string | null; year: number | null }) {
-  if (!value) return <span className="text-muted-foreground/40">—</span>;
-  return <>{value}{year ? <span className="text-muted-foreground"> ({year})</span> : null}</>;
-}
-
-interface Report {
-  id: number;
-  project_id: number;
-  year: number;
-  status: "Open" | "Closed" | "Under Review";
-  report_type: "annual" | "final" | null;
-  project_title: string;
-  project_short_name: string | null;
-  partner_short_name: string;
-  partner_long_name: string | null;
-  report_submission_date: string | null;
-  mptfo_project_number: string | null;
-  grant_size_usd: string | null;
-  geographic_scope: string | null;
-  project_start_date: string | null;
-  project_duration_months: number | null;
-  organization_website: string | null;
-}
-
-interface Survey {
-  id: number;
-  reportid: number;
-  question: string;
-  assessment: number | null;
-  context: string | null;
-}
-
-interface RowState {
-  assessment: number | null;
-  context: string;
-  dirty: boolean;
-}
-
-interface OverviewData {
-  project_title: string;
-  mptfo_project_number: string;
-  organization_name: string;
-  organization_website: string;
-  grant_size_usd: string;
-  implementing_partners: string;
-  geographic_scope: string;
-  report_submission_date: string;
-  project_start_date: string;
-  project_duration_months: string;
-  project_lead: string;
-  authorized: boolean;
-}
-
-interface Risk {
-  id: number;
-  report_id: number;
-  risk_name: string;
-  risk_category: string[] | null;
-  likelihood: number | null;
-  impact: number | null;
-  approved_mitigation: string | null;
-  updated_mitigation: string | null;
-  project_revision: boolean;
-}
-
-interface RiskState {
-  likelihood: number | null;
-  impact: number | null;
-  approved_mitigation: string;
-  updated_mitigation: string;
-  project_revision: boolean;
-  dirty: boolean;
-}
-
-interface IndicatorYearCell {
-  id: number;
-  report_id: number;
-  achieved_value: string | null;
-  status: string | null;
-  comment: string | null;
-}
-
-interface IndicatorMatrixRow {
-  indicator_id: number;
-  indicator_name: string;
-  indicator_description: string | null;
-  means_of_verification: string | null;
-  category: string | null;
-  cycle: string | null;
-  baseline_value: string | null;
-  baseline_year: number | null;
-  target_value: string | null;
-  target_year: number | null;
-  currentLineId: number;
-  byYear: Record<number, IndicatorYearCell | undefined>;
-}
-
-interface IndicatorState {
-  achieved_value: string;
-  status: string | null;
-  comment: string;
-  dirty: boolean;
-}
-
-interface TransferActivity {
-  id: number;
-  activity_num: string | null;
-  activity_text: string | null;
-  objective_num: string | null;
-  objective_text: string | null;
-  sort_order: number;
-}
-
-interface TransferYearCell {
-  id: number;
-  report_id: number;
-  amount_transferred: string | null;
-  linked_activity_id: number | null;
-}
-
-interface TransferMatrixRow {
-  transfer_partner_id: number;
-  organization_name: string | null;
-  website: string | null;
-  partner_type: string | null;
-  currentLineId: number;
-  byYear: Record<number, TransferYearCell | undefined>;
-}
-
-// Org identity (name/website/type) is master-level and editable anytime; the
-// amount + linked activity are per-year and only editable for the current report.
-interface TransferState {
-  organization_name: string;
-  website: string;
-  partner_type: string | null;
-  amount_transferred: string;
-  linked_activity_id: number | null;
-  masterDirty: boolean;
-  cellDirty: boolean;
-}
-
-interface ComplementaryYearCell {
-  id: number;
-  report_id: number;
-  contribution_amount: string | null;
-  linked_activity_ids: number[];
-}
-
-interface ComplementaryMatrixRow {
-  contributor_id: number;
-  contributor_name: string | null;
-  website: string | null;
-  funding_type: string | null;
-  currentLineId: number;
-  byYear: Record<number, ComplementaryYearCell | undefined>;
-}
-
-// Same split as transfers: identity (name/website/funding type) is master-level;
-// the amount + linked activities are per-year, only editable for the current report.
-interface ComplementaryState {
-  contributor_name: string;
-  website: string;
-  funding_type: string | null;
-  contribution_amount: string;
-  linked_activity_ids: number[];
-  masterDirty: boolean;
-  cellDirty: boolean;
-}
-
-
-const EMPTY_OVERVIEW: OverviewData = {
-  project_title: "",
-  mptfo_project_number: "",
-  organization_name: "",
-  organization_website: "",
-  grant_size_usd: "",
-  implementing_partners: "",
-  geographic_scope: "",
-  report_submission_date: "",
-  project_start_date: "",
-  project_duration_months: "",
-  project_lead: "",
-  authorized: false,
-};
+  EMPTY_OVERVIEW,
+  type Survey,
+  type RowState,
+  type OverviewData,
+  type Risk,
+  type RiskState,
+  type IndicatorMatrixRow,
+  type IndicatorState,
+  type HistoryCommand,
+} from "@/components/report-editor/types";
+import { OverviewSection } from "@/components/report-editor/sections/overview-section";
+import { SurveysSection } from "@/components/report-editor/sections/surveys-section";
+import { RiskSection } from "@/components/report-editor/sections/risk-section";
+import { IndicatorsSection } from "@/components/report-editor/sections/indicators-section";
+import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
 
 function toSlug(r: Report): string {
   return (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
-}
-
-// Undo/redo is command-based: each edit (and each row delete) pushes a command
-// that knows how to reverse and replay itself. Delete commands re-create the row
-// on the server, so an undone deletion is fully restored (not just re-typed).
-interface HistoryCommand {
-  undo: () => void;
-  redo: () => void;
 }
 
 export interface ReportEditorProps {
@@ -390,28 +106,6 @@ export function ReportEditor({
   const [newIndicatorTargetValue, setNewIndicatorTargetValue] = useState("");
   const [newIndicatorTargetYear, setNewIndicatorTargetYear] = useState("");
   const [addingIndicator, setAddingIndicator] = useState(false);
-
-  const [transferRows, setTransferRows] = useState<TransferMatrixRow[]>([]);
-  const [transferYears, setTransferYears] = useState<number[]>([]);
-  const [transferCurrentYear, setTransferCurrentYear] = useState<number | null>(null);
-  const [transferActivities, setTransferActivities] = useState<TransferActivity[]>([]);
-  const [transferStates, setTransferStates] = useState<Record<number, TransferState>>({});
-  const [loadingTransfers, setLoadingTransfers] = useState(false);
-
-  // Add a transfer: partners create a blank receiving-organisation line
-  // (project-scoped) attached to the current report, then fill it in inline.
-  const [addingTransfer, setAddingTransfer] = useState(false);
-  const [deletingTransferId, setDeletingTransferId] = useState<number | null>(null);
-
-  const [complementaryRows, setComplementaryRows] = useState<ComplementaryMatrixRow[]>([]);
-  const [complementaryYears, setComplementaryYears] = useState<number[]>([]);
-  const [complementaryCurrentYear, setComplementaryCurrentYear] = useState<number | null>(null);
-  const [complementaryActivities, setComplementaryActivities] = useState<TransferActivity[]>([]);
-  const [complementaryStates, setComplementaryStates] = useState<Record<number, ComplementaryState>>({});
-  const [loadingComplementary, setLoadingComplementary] = useState(false);
-
-  const [addingComplementary, setAddingComplementary] = useState(false);
-  const [deletingComplementaryId, setDeletingComplementaryId] = useState<number | null>(null);
 
   // Undo / redo over the parent-managed section edits. History is per section
   // visit (reset below when the section or report changes).
@@ -534,70 +228,6 @@ export function ReportEditor({
     }
   }, []);
 
-  const loadTransfers = useCallback(async (id: number) => {
-    setLoadingTransfers(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/transfer-data?reportId=${id}&matrix=1`);
-      if (!res.ok) throw new Error("Failed to load transfers");
-      const data: { years: number[]; currentYear: number | null; rows: TransferMatrixRow[]; activities: TransferActivity[] } = await res.json();
-      setTransferRows(data.rows);
-      setTransferYears(data.years);
-      setTransferCurrentYear(data.currentYear);
-      setTransferActivities(data.activities);
-      const states: Record<number, TransferState> = {};
-      for (const row of data.rows) {
-        const cell = data.currentYear != null ? row.byYear[data.currentYear] : undefined;
-        states[row.transfer_partner_id] = {
-          organization_name: row.organization_name ?? "",
-          website: row.website ?? "",
-          partner_type: row.partner_type ?? null,
-          amount_transferred: cell?.amount_transferred != null ? String(cell.amount_transferred) : "",
-          linked_activity_id: cell?.linked_activity_id ?? null,
-          masterDirty: false,
-          cellDirty: false,
-        };
-      }
-      setTransferStates(states);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingTransfers(false);
-    }
-  }, []);
-
-  const loadComplementary = useCallback(async (id: number) => {
-    setLoadingComplementary(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/complementary-data?reportId=${id}&matrix=1`);
-      if (!res.ok) throw new Error("Failed to load complementary funding");
-      const data: { years: number[]; currentYear: number | null; rows: ComplementaryMatrixRow[]; activities: TransferActivity[] } = await res.json();
-      setComplementaryRows(data.rows);
-      setComplementaryYears(data.years);
-      setComplementaryCurrentYear(data.currentYear);
-      setComplementaryActivities(data.activities);
-      const states: Record<number, ComplementaryState> = {};
-      for (const row of data.rows) {
-        const cell = data.currentYear != null ? row.byYear[data.currentYear] : undefined;
-        states[row.contributor_id] = {
-          contributor_name: row.contributor_name ?? "",
-          website: row.website ?? "",
-          funding_type: row.funding_type ?? null,
-          contribution_amount: cell?.contribution_amount != null ? String(cell.contribution_amount) : "",
-          linked_activity_ids: cell?.linked_activity_ids ?? [],
-          masterDirty: false,
-          cellDirty: false,
-        };
-      }
-      setComplementaryStates(states);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoadingComplementary(false);
-    }
-  }, []);
-
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -649,10 +279,9 @@ export function ReportEditor({
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
     else if (params.section === "indicators") loadIndicators(reportId);
-    else if (params.section === "transfers") loadTransfers(reportId);
-    else if (params.section === "complementary") loadComplementary(reportId);
-    // Config-driven list sections load their own data inside <SectionTableEditor>.
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators, loadTransfers, loadComplementary]);
+    // Config-driven list sections + the transfer/complementary matrices load their
+    // own data inside <SectionTableEditor> / <ContributorMatrix>.
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -683,14 +312,6 @@ export function ReportEditor({
     const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ l: riskStates[r.id].likelihood, i: riskStates[r.id].impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
     const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
     const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify({ v: indicatorStates[r.currentLineId].achieved_value, s: indicatorStates[r.currentLineId].status, c: indicatorStates[r.currentLineId].comment })]));
-    const dirtyTransferMasters = transferRows.filter((r) => transferStates[r.transfer_partner_id]?.masterDirty);
-    const transferMasterSnap = new Map(dirtyTransferMasters.map((r) => [r.transfer_partner_id, JSON.stringify({ n: transferStates[r.transfer_partner_id].organization_name, w: transferStates[r.transfer_partner_id].website, t: transferStates[r.transfer_partner_id].partner_type })]));
-    const dirtyTransferCells = transferRows.filter((r) => transferStates[r.transfer_partner_id]?.cellDirty);
-    const transferCellSnap = new Map(dirtyTransferCells.map((r) => [r.transfer_partner_id, JSON.stringify({ a: transferStates[r.transfer_partner_id].amount_transferred, l: transferStates[r.transfer_partner_id].linked_activity_id })]));
-    const dirtyCompMasters = complementaryRows.filter((r) => complementaryStates[r.contributor_id]?.masterDirty);
-    const compMasterSnap = new Map(dirtyCompMasters.map((r) => [r.contributor_id, JSON.stringify({ n: complementaryStates[r.contributor_id].contributor_name, w: complementaryStates[r.contributor_id].website, t: complementaryStates[r.contributor_id].funding_type })]));
-    const dirtyCompCells = complementaryRows.filter((r) => complementaryStates[r.contributor_id]?.cellDirty);
-    const compCellSnap = new Map(dirtyCompCells.map((r) => [r.contributor_id, JSON.stringify({ a: complementaryStates[r.contributor_id].contribution_amount, l: complementaryStates[r.contributor_id].linked_activity_ids })]));
     const saveOverview = overviewDirty;
     const overviewSnap = JSON.stringify(overview);
 
@@ -708,22 +329,6 @@ export function ReportEditor({
         ...dirtyInd.map((r) => {
           const st = indicatorStates[r.currentLineId];
           return fetch("/api/indicator-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.currentLineId, achieved_value: st.achieved_value || null, status: st.status, comment: st.comment || null }) }).then(ok);
-        }),
-        ...dirtyTransferMasters.map((r) => {
-          const st = transferStates[r.transfer_partner_id];
-          return fetch("/api/transfer-partners", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.transfer_partner_id, organization_name: st.organization_name || null, website: st.website || null, partner_type: st.partner_type || null }) }).then(ok);
-        }),
-        ...dirtyTransferCells.map((r) => {
-          const st = transferStates[r.transfer_partner_id];
-          return fetch("/api/transfer-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.currentLineId, amount_transferred: st.amount_transferred || null, linked_activity_id: st.linked_activity_id }) }).then(ok);
-        }),
-        ...dirtyCompMasters.map((r) => {
-          const st = complementaryStates[r.contributor_id];
-          return fetch("/api/complementary-contributors", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.contributor_id, contributor_name: st.contributor_name || null, website: st.website || null, funding_type: st.funding_type || null }) }).then(ok);
-        }),
-        ...dirtyCompCells.map((r) => {
-          const st = complementaryStates[r.contributor_id];
-          return fetch("/api/complementary-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.currentLineId, contribution_amount: st.contribution_amount || null, linked_activity_ids: st.linked_activity_ids }) }).then(ok);
         }),
         ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, authorized: overview.authorized }) }).then(ok)] : []),
       ]);
@@ -745,18 +350,6 @@ export function ReportEditor({
     if (dirtyInd.length) setIndicatorStates((prev) => {
       const n = { ...prev };
       for (const r of dirtyInd) { const cur = prev[r.currentLineId]; if (cur && JSON.stringify({ v: cur.achieved_value, s: cur.status, c: cur.comment }) === indSnap.get(r.currentLineId)) n[r.currentLineId] = { ...cur, dirty: false }; }
-      return n;
-    });
-    if (dirtyTransferMasters.length || dirtyTransferCells.length) setTransferStates((prev) => {
-      const n = { ...prev };
-      for (const r of dirtyTransferMasters) { const cur = prev[r.transfer_partner_id]; if (cur && JSON.stringify({ n: cur.organization_name, w: cur.website, t: cur.partner_type }) === transferMasterSnap.get(r.transfer_partner_id)) n[r.transfer_partner_id] = { ...n[r.transfer_partner_id], masterDirty: false }; }
-      for (const r of dirtyTransferCells) { const cur = prev[r.transfer_partner_id]; if (cur && JSON.stringify({ a: cur.amount_transferred, l: cur.linked_activity_id }) === transferCellSnap.get(r.transfer_partner_id)) n[r.transfer_partner_id] = { ...n[r.transfer_partner_id], cellDirty: false }; }
-      return n;
-    });
-    if (dirtyCompMasters.length || dirtyCompCells.length) setComplementaryStates((prev) => {
-      const n = { ...prev };
-      for (const r of dirtyCompMasters) { const cur = prev[r.contributor_id]; if (cur && JSON.stringify({ n: cur.contributor_name, w: cur.website, t: cur.funding_type }) === compMasterSnap.get(r.contributor_id)) n[r.contributor_id] = { ...n[r.contributor_id], masterDirty: false }; }
-      for (const r of dirtyCompCells) { const cur = prev[r.contributor_id]; if (cur && JSON.stringify({ a: cur.contribution_amount, l: cur.linked_activity_ids }) === compCellSnap.get(r.contributor_id)) n[r.contributor_id] = { ...n[r.contributor_id], cellDirty: false }; }
       return n;
     });
     if (saveOverview && JSON.stringify(overviewRef.current) === overviewSnap) setOverviewDirty(false);
@@ -1011,215 +604,6 @@ export function ReportEditor({
     }
   }
 
-  function updateTransferMaster(partnerId: number, patch: Partial<Pick<TransferState, "organization_name" | "website" | "partner_type">>) {
-    pushMapEdit(setTransferStates, transferStates, partnerId, patch, { masterDirty: true });
-  }
-
-  function updateTransferCell(partnerId: number, patch: Partial<Pick<TransferState, "amount_transferred" | "linked_activity_id">>) {
-    pushMapEdit(setTransferStates, transferStates, partnerId, patch, { cellDirty: true });
-  }
-
-  // Add a blank transfer entry: create an empty receiving organisation
-  // (project-scoped) and attach it to this report. The partner fills every
-  // field (name, website, type, amount, activity) inline in the row below.
-  async function handleTransferAdd() {
-    const projectId = reports.find((r) => r.id === reportId)?.project_id;
-    if (!reportId || !projectId) return;
-    setAddingTransfer(true);
-    setError(null);
-    try {
-      const pRes = await fetch("/api/transfer-partners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId }),
-      });
-      if (!pRes.ok) throw new Error("Failed to create transfer partner");
-      const partner = await pRes.json();
-
-      const lRes = await fetch("/api/transfer-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId, transfer_partner_id: partner.id }),
-      });
-      if (!lRes.ok) throw new Error("Failed to add transfer to report");
-
-      await loadTransfers(reportId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setAddingTransfer(false);
-    }
-  }
-
-  // Remove a transfer from this report (the receiving organisation's records for
-  // other years are left intact — only this report's line is deleted).
-  async function handleTransferDelete(row: TransferMatrixRow) {
-    if (!reportId) return;
-    const rid = reportId;
-    const partnerId = row.transfer_partner_id;
-    const st = transferStates[partnerId];
-    const amount = st?.amount_transferred ?? "";
-    const activity = st?.linked_activity_id ?? null;
-    const hasContent = amount || activity != null || row.organization_name?.trim();
-    if (hasContent && !await confirm({ message: `Delete transfer for "${row.organization_name}"? You can undo this with the Undo button.`, confirmLabel: "Delete" })) return;
-    setDeletingTransferId(partnerId);
-    setError(null);
-    try {
-      const res = await fetch(`/api/transfer-data?id=${row.currentLineId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete transfer");
-      await loadTransfers(rid);
-
-      // Undoable: re-create this report's line for the (still-existing) partner.
-      let lineId = row.currentLineId;
-      pushCommand({
-        undo: async () => {
-          try {
-            const cRes = await fetch("/api/transfer-data", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reportId: rid, transfer_partner_id: partnerId }),
-            });
-            if (!cRes.ok) throw new Error("Failed to restore transfer");
-            const created = await cRes.json();
-            lineId = created.id;
-            if (amount || activity != null) {
-              await fetch("/api/transfer-data", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: created.id, amount_transferred: amount || null, linked_activity_id: activity }),
-              });
-            }
-            await loadTransfers(rid);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to restore transfer");
-          }
-        },
-        redo: async () => {
-          try {
-            const r = await fetch(`/api/transfer-data?id=${lineId}`, { method: "DELETE" });
-            if (!r.ok) throw new Error("Failed to delete transfer");
-            await loadTransfers(rid);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to delete transfer");
-          }
-        },
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setDeletingTransferId(null);
-    }
-  }
-
-  function updateComplementaryMaster(contributorId: number, patch: Partial<Pick<ComplementaryState, "contributor_name" | "website" | "funding_type">>) {
-    pushMapEdit(setComplementaryStates, complementaryStates, contributorId, patch, { masterDirty: true });
-  }
-
-  function updateComplementaryCell(contributorId: number, patch: Partial<Pick<ComplementaryState, "contribution_amount" | "linked_activity_ids">>) {
-    pushMapEdit(setComplementaryStates, complementaryStates, contributorId, patch, { cellDirty: true });
-  }
-
-  // Toggle a workplan activity in a contribution's multi-select set.
-  function toggleComplementaryActivity(contributorId: number, activityId: number) {
-    const cur = complementaryStates[contributorId];
-    if (!cur) return;
-    const has = cur.linked_activity_ids.includes(activityId);
-    const linked_activity_ids = has
-      ? cur.linked_activity_ids.filter((x) => x !== activityId)
-      : [...cur.linked_activity_ids, activityId];
-    pushMapEdit(setComplementaryStates, complementaryStates, contributorId, { linked_activity_ids }, { cellDirty: true });
-  }
-
-  // Add a blank complementary-funding entry: create an empty contributor
-  // (project-scoped) and attach it to this report. The partner fills every
-  // field (name, website, type, amount, activities) inline in the row below.
-  async function handleComplementaryAdd() {
-    const projectId = reports.find((r) => r.id === reportId)?.project_id;
-    if (!reportId || !projectId) return;
-    setAddingComplementary(true);
-    setError(null);
-    try {
-      const cRes = await fetch("/api/complementary-contributors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId }),
-      });
-      if (!cRes.ok) throw new Error("Failed to create contributor");
-      const contributor = await cRes.json();
-
-      const lRes = await fetch("/api/complementary-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId, contributor_id: contributor.id }),
-      });
-      if (!lRes.ok) throw new Error("Failed to add contribution to report");
-
-      await loadComplementary(reportId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setAddingComplementary(false);
-    }
-  }
-
-  async function handleComplementaryDelete(row: ComplementaryMatrixRow) {
-    if (!reportId) return;
-    const rid = reportId;
-    const contributorId = row.contributor_id;
-    const st = complementaryStates[contributorId];
-    const amount = st?.contribution_amount ?? "";
-    const activityIds = st?.linked_activity_ids ?? [];
-    const hasContent = amount || activityIds.length > 0 || row.contributor_name?.trim();
-    if (hasContent && !await confirm({ message: `Delete contribution from "${row.contributor_name}"? You can undo this with the Undo button.`, confirmLabel: "Delete" })) return;
-    setDeletingComplementaryId(contributorId);
-    setError(null);
-    try {
-      const res = await fetch(`/api/complementary-data?id=${row.currentLineId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete contribution");
-      await loadComplementary(rid);
-
-      // Undoable: re-create this report's line for the (still-existing) contributor.
-      let lineId = row.currentLineId;
-      pushCommand({
-        undo: async () => {
-          try {
-            const cRes = await fetch("/api/complementary-data", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reportId: rid, contributor_id: contributorId }),
-            });
-            if (!cRes.ok) throw new Error("Failed to restore contribution");
-            const created = await cRes.json();
-            lineId = created.id;
-            if (amount || activityIds.length) {
-              await fetch("/api/complementary-data", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: created.id, contribution_amount: amount || null, linked_activity_ids: activityIds }),
-              });
-            }
-            await loadComplementary(rid);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to restore contribution");
-          }
-        },
-        redo: async () => {
-          try {
-            const r = await fetch(`/api/complementary-data?id=${lineId}`, { method: "DELETE" });
-            if (!r.ok) throw new Error("Failed to delete contribution");
-            await loadComplementary(rid);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to delete contribution");
-          }
-        },
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setDeletingComplementaryId(null);
-    }
-  }
-
   // ── Undo / redo (command stack) ────────────────────────────────────────────
   function pushCommand(cmd: HistoryCommand) {
     setUndoStack((s) => [...s, cmd].slice(-100));
@@ -1294,14 +678,12 @@ export function ReportEditor({
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
     params.section === "risk" ? loadingRisk :
-    params.section === "indicators" ? loadingIndicators :
-    params.section === "transfers" ? loadingTransfers :
-    params.section === "complementary" ? loadingComplementary : false;
+    params.section === "indicators" ? loadingIndicators : false;
   const notFound = !loadingReports && !selectedReport;
 
   // The parent-managed sections drive `parentAutosave`; the rest report up via
   // `childSaveState`. The top-bar indicator shows whichever owns the active tab.
-  const parentManaged = ["surveys", "overview", "risk", "indicators", "transfers", "complementary"].includes(params.section);
+  const parentManaged = ["surveys", "overview", "risk", "indicators"].includes(params.section);
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
 
   return (
@@ -1320,9 +702,7 @@ export function ReportEditor({
                 </h1>
                 <span className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                  selectedReport.status === "Open"          ? "bg-emerald-500/15 text-emerald-300" :
-                  selectedReport.status === "Under Review"  ? "bg-amber-500/15 text-amber-300" :
-                                                              "bg-neutral-500/20 text-neutral-300"
+                  reportStatusStyle(selectedReport.status, "dark")
                 )}>
                   {readOnly && <Lock className="size-3" />}
                   {selectedReport.status}
@@ -1479,872 +859,90 @@ export function ReportEditor({
           </div>
 
         ) : params.section === "surveys" ? (
-          surveys.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-              <FileQuestion className="size-8 opacity-30" />
-              <p className="text-sm">{labels.partnerEditor.emptySurveys}</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {surveys.map((survey, i) => {
-                const state = rowStates[survey.id];
-                if (!state) return null;
-                return (
-                  <div
-                    key={survey.id}
-                    className={cn("rounded-xl border bg-card p-5 space-y-4 transition-colors", state.dirty && "border-amber-200")}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-                      <p className="text-sm font-medium leading-snug flex-1">{survey.question}</p>
-                      <ItemComments section="surveys" itemId={survey.id} />
-                    </div>
-                    <div className="flex gap-6 items-start pl-8">
-                      <div className="shrink-0 space-y-1.5">
-                        <p className="text-xs text-muted-foreground">{labels.partnerEditor.assessmentLabel}</p>
-                        <Select
-                          value={state.assessment != null ? String(state.assessment) : "none"}
-                          onValueChange={(v) => updateRow(survey.id, { assessment: v === "none" ? null : Number(v) })}
-                        >
-                          <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                            {state.assessment != null
-                              ? <AssessmentBadge value={state.assessment} />
-                              : <span className="text-muted-foreground text-sm px-1">—</span>}
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                            {[1, 2, 3, 4, 5].map((v) => (
-                              <SelectItem key={v} value={String(v)}>
-                                <div className="flex items-center gap-2">
-                                  <AssessmentBadge value={v} />
-                                  <span className="text-sm">{labels.assessment.scale[String(v) as keyof typeof labels.assessment.scale]}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        <p className="text-xs text-muted-foreground">{labels.partnerEditor.contextLabel}</p>
-                        <Textarea
-                          value={state.context}
-                          onChange={(e) => updateRow(survey.id, { context: e.target.value })}
-                          placeholder={labels.placeholders.assessmentContext}
-                          className="text-sm min-h-[80px] resize-y"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )
+          <SurveysSection surveys={surveys} rowStates={rowStates} updateRow={updateRow} />
 
         ) : params.section === "overview" ? (
-          <div className="space-y-5">
-            <div className="rounded-xl border bg-card p-6 space-y-5">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-xs text-muted-foreground">
-                  These project details are managed by the CRAF&apos;d Secretariat. Contact them if anything needs updating.
-                </p>
-                <ItemComments section="overview" itemId={null} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <ReadField label={labels.overviewFields.projectTitle} value={overview.project_title} />
-                <ReadField label={labels.overviewFields.mptfoProjectNumber} value={overview.mptfo_project_number} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <ReadField label={labels.overviewFields.organizationName} value={overview.organization_name} />
-                <ReadField
-                  label={labels.overviewFields.organizationWebsite}
-                  value={overview.organization_website ? (
-                    <a href={overview.organization_website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
-                      {overview.organization_website}
-                    </a>
-                  ) : null}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <ReadField label={labels.overviewFields.projectLead} value={overview.project_lead} />
-                <ReadField label={labels.overviewFields.grantSizeUsd} value={overview.grant_size_usd ? `$${Number(overview.grant_size_usd).toLocaleString("en-US")}` : null} />
-                <ReadField label={labels.overviewFields.startDate} value={overview.project_start_date ? formatDate(overview.project_start_date) : null} />
-                <ReadField label={labels.overviewFields.durationMonths} value={overview.project_duration_months ? `${overview.project_duration_months} months` : null} />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <ReadField label={labels.overviewFields.implementingPartners} value={overview.implementing_partners} />
-                <ReadField label={labels.overviewFields.geographicScope} value={overview.geographic_scope} />
-                <ReadField label={labels.overviewFields.reportSubmissionDate} value={overview.report_submission_date ? formatDate(overview.report_submission_date) : null} />
-              </div>
-            </div>
-
-            {/* Authorization */}
-            <div className="rounded-xl border bg-card p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="size-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">{labels.authorization.heading}</h3>
-              </div>
-
-              <div className="space-y-2">
-                {AUTHORIZATION_MESSAGES.map((msg, i) => (
-                  <p key={i} className="text-sm text-muted-foreground leading-relaxed">{msg}</p>
-                ))}
-              </div>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={overview.authorized}
-                  onChange={(e) => updateOverview({ authorized: e.target.checked })}
-                  className="size-4 rounded"
-                />
-                <span className="text-sm font-medium">{labels.authorization.checkbox}</span>
-              </label>
-            </div>
-          </div>
+          <OverviewSection overview={overview} updateOverview={updateOverview} />
 
         ) : params.section === "risk" ? (
-          <div className="space-y-4">
-            {/* Add a new risk (report-scoped, same as the admin editor) */}
-            <div className="flex flex-wrap gap-2">
-              <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1 min-w-[200px]" />
-              <Input placeholder={labels.placeholders.riskCategories} value={newRiskCategory} onChange={(e) => setNewRiskCategory(e.target.value)} className="flex-1 min-w-[160px]" />
-              <Input placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="flex-1 min-w-[200px]" />
-              <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
-                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-              </Button>
-            </div>
-
-            {risks.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                {labels.partnerEditor.emptyRisks}
-              </div>
-            ) : (
-            <div className="overflow-x-auto rounded-xl border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-12">{labels.risk.columns.number}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.risk.columns.risk}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.risk.columns.likelihood}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.risk.columns.impact}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">{labels.risk.columns.riskLevel}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.approvedMitigation}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.updatedMitigation}</th>
-                    <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.revision}</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.actions}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {risks.map((risk, i) => {
-                    const state = riskStates[risk.id];
-                    if (!state) return null;
-                    const collapsed = collapsedRows[risk.id] ?? true;
-                    if (editingRiskId === risk.id) {
-                      return (
-                        <tr key={risk.id} className="bg-amber-50/40">
-                          <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                          <td colSpan={6} className="px-4 py-3 align-top">
-                            <div className="flex flex-col gap-2">
-                              <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
-                              <Input value={editingRiskCategory} onChange={(e) => setEditingRiskCategory(e.target.value)} placeholder={labels.placeholders.riskCategories} className="text-sm" />
-                              <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
-                            </div>
-                          </td>
-                          <td colSpan={2} className="px-4 py-3 align-top">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                              <Button size="sm" variant="outline" onClick={cancelRiskEdit}>{labels.adminEditor.cancel}</Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }
-                    return (
-                      <tr key={risk.id} className={cn("transition-colors", state.dirty && "bg-amber-50/40")}>
-                        {/* # + toggle */}
-                        <td className="px-4 py-3 align-middle">
-                          <button
-                            onClick={() => toggleCollapse(risk.id)}
-                            className="flex items-center gap-0.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {collapsed
-                              ? <ChevronRight className="size-3 shrink-0" />
-                              : <ChevronDown className="size-3 shrink-0" />}
-                            {i + 1}.
-                          </button>
-                        </td>
-
-                        {/* Risk name + categories */}
-                        <td className="px-4 py-3 align-middle">
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm">{risk.risk_name}</p>
-                              {risk.risk_category && risk.risk_category.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1.5">
-                                  {risk.risk_category.map((cat, ci) => (
-                                    <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <ItemComments section="risk" itemId={risk.id} />
-                          </div>
-                        </td>
-
-                        {collapsed ? (
-                          <>
-                            <td className="px-4 py-3 align-middle">
-                              <Select
-                                value={state.likelihood !== null ? String(state.likelihood) : "none"}
-                                onValueChange={(v) => updateRisk(risk.id, { likelihood: v === "none" ? null : Number(v) })}
-                              >
-                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                                  {state.likelihood != null
-                                    ? <LikelihoodBadge value={state.likelihood} />
-                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                  {[1, 2, 3, 4, 5].map((n) => (
-                                    <SelectItem key={n} value={String(n)}><LikelihoodBadge value={n} /></SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <Select
-                                value={state.impact !== null ? String(state.impact) : "none"}
-                                onValueChange={(v) => updateRisk(risk.id, { impact: v === "none" ? null : Number(v) })}
-                              >
-                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                                  {state.impact != null
-                                    ? <ImpactBadge value={state.impact} />
-                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                  {[1, 2, 3, 4, 5].map((n) => (
-                                    <SelectItem key={n} value={String(n)}><ImpactBadge value={n} /></SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <RiskLevelBadge likelihood={state.likelihood} impact={state.impact} />
-                            </td>
-                            <td className="px-4 py-3 align-middle max-w-[288px]">
-                              {risk.approved_mitigation
-                                ? <p className="text-sm text-muted-foreground truncate">{risk.approved_mitigation}</p>
-                                : <span className="text-muted-foreground text-sm">—</span>}
-                            </td>
-                            <td className="px-4 py-3 align-middle max-w-[288px]">
-                              <Textarea
-                                value={state.updated_mitigation}
-                                onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                                placeholder={labels.placeholders.updatedMitigation}
-                                className="text-sm h-8 min-h-0 resize-none overflow-hidden py-1"
-                              />
-                            </td>
-                            <td className="px-4 py-3 align-middle text-center">
-                              <input
-                                type="checkbox"
-                                checked={state.project_revision}
-                                onChange={(e) => updateRisk(risk.id, { project_revision: e.target.checked })}
-                                className="size-4 rounded"
-                              />
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => startRiskEdit(risk)} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Edit risk"><Pencil className="size-3.5" /></button>
-                                <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete risk">
-                                  {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-4 py-3 align-top">
-                              <Select
-                                value={state.likelihood !== null ? String(state.likelihood) : "none"}
-                                onValueChange={(v) => updateRisk(risk.id, { likelihood: v === "none" ? null : Number(v) })}
-                              >
-                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                                  {state.likelihood != null
-                                    ? <LikelihoodBadge value={state.likelihood} />
-                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                  {[1, 2, 3, 4, 5].map((n) => (
-                                    <SelectItem key={n} value={String(n)}><LikelihoodBadge value={n} /></SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-4 py-3 align-top">
-                              <Select
-                                value={state.impact !== null ? String(state.impact) : "none"}
-                                onValueChange={(v) => updateRisk(risk.id, { impact: v === "none" ? null : Number(v) })}
-                              >
-                                <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                                  {state.impact != null
-                                    ? <ImpactBadge value={state.impact} />
-                                    : <span className="text-muted-foreground text-sm px-1">—</span>}
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                  {[1, 2, 3, 4, 5].map((n) => (
-                                    <SelectItem key={n} value={String(n)}><ImpactBadge value={n} /></SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-4 py-3 align-top">
-                              <RiskLevelBadge likelihood={state.likelihood} impact={state.impact} />
-                            </td>
-                            <td className="px-4 py-3 align-top">
-                              {risk.approved_mitigation
-                                ? <p className="text-sm text-muted-foreground leading-relaxed">{risk.approved_mitigation}</p>
-                                : <span className="text-sm text-muted-foreground/40">—</span>}
-                            </td>
-                            <td className="px-4 py-3 align-top">
-                              <Textarea
-                                value={state.updated_mitigation}
-                                onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                                placeholder={labels.placeholders.updatedMitigation}
-                                className="text-sm min-h-[80px] resize-y"
-                              />
-                            </td>
-                            <td className="px-4 py-3 align-top text-center">
-                              <input
-                                type="checkbox"
-                                checked={state.project_revision}
-                                onChange={(e) => updateRisk(risk.id, { project_revision: e.target.checked })}
-                                className="size-4 rounded mt-1"
-                              />
-                            </td>
-                            <td className="px-4 py-3 align-top">
-                              <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => startRiskEdit(risk)} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Edit risk"><Pencil className="size-3.5" /></button>
-                                <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete risk">
-                                  {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            )}
-          </div>
+          <RiskSection
+            risks={risks}
+            riskStates={riskStates}
+            collapsedRows={collapsedRows}
+            newRiskName={newRiskName}
+            setNewRiskName={setNewRiskName}
+            newRiskCategory={newRiskCategory}
+            setNewRiskCategory={setNewRiskCategory}
+            newRiskApprovedMitigation={newRiskApprovedMitigation}
+            setNewRiskApprovedMitigation={setNewRiskApprovedMitigation}
+            addingRisk={addingRisk}
+            handleRiskAdd={handleRiskAdd}
+            editingRiskId={editingRiskId}
+            editingRiskName={editingRiskName}
+            setEditingRiskName={setEditingRiskName}
+            editingRiskCategory={editingRiskCategory}
+            setEditingRiskCategory={setEditingRiskCategory}
+            editingRiskApprovedMitigation={editingRiskApprovedMitigation}
+            setEditingRiskApprovedMitigation={setEditingRiskApprovedMitigation}
+            startRiskEdit={startRiskEdit}
+            cancelRiskEdit={cancelRiskEdit}
+            handleRiskEditSave={handleRiskEditSave}
+            deletingRiskId={deletingRiskId}
+            handleRiskDelete={handleRiskDelete}
+            updateRisk={updateRisk}
+            toggleCollapse={toggleCollapse}
+          />
 
         ) : params.section === "indicators" ? (
-          <div className="space-y-4">
-            {/* Add a custom, partner-defined indicator (project-scoped) */}
-            <div className="flex gap-2">
-              <Input placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newIndicatorName.trim()) handleIndicatorAdd(); }} className="flex-[5]" />
-              <Input placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-              <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1]" />
-              <Input placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-              <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1]" />
-              <Button onClick={handleIndicatorAdd} disabled={addingIndicator || !newIndicatorName.trim()} size="sm" className="shrink-0">
-                {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-              </Button>
-            </div>
-
-            {indicatorRows.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                {labels.partnerEditor.emptyIndicators}
-              </div>
-            ) : (
-            <MatrixTableShell
-              minWidth={IND_FROZEN_WIDTH}
-              leadingCols={[
-                { label: labels.indicators.columns.indicator, style: ifz("ind", 30) },
-                { label: labels.indicators.columns.baseline, style: ifz("baseline", 30) },
-                { label: labels.indicators.columns.target, style: ifz("target", 30) },
-              ]}
-              years={indicatorYears}
-              currentYear={indicatorCurrentYear}
-              subCols={[
-                { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[130px]" },
-                { label: labels.indicators.columns.status, minWidth: "min-w-[140px]" },
-                { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
-              ]}
-            >
-                <tbody>
-                  {indicatorRows.map((row) => {
-                    const state = indicatorStates[row.currentLineId];
-                    if (!state) return null;
-                    return (
-                      <tr key={row.indicator_id} className="align-top">
-                        {/* Frozen: indicator name + baseline + target */}
-                        <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
-                          <div className="flex items-start gap-2">
-                            <p className="font-medium leading-snug flex-1">{row.indicator_name}</p>
-                            {row.indicator_description && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="size-4 text-muted-foreground flex-shrink-0 mt-0.5 cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">{row.indicator_description}</TooltipContent>
-                              </Tooltip>
-                            )}
-                            <ItemComments section="indicators" itemId={row.currentLineId} />
-                          </div>
-                          {row.means_of_verification && (
-                            <p className="text-xs text-muted-foreground mt-1">{row.means_of_verification}</p>
-                          )}
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
-                            {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
-                          </div>
-                        </td>
-                        <td style={ifz("baseline")} className={cn("px-3 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
-                          <ValueYear value={row.baseline_value} year={row.baseline_year} />
-                        </td>
-                        <td style={ifz("target")} className={cn("px-3 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
-                          <ValueYear value={row.target_value} year={row.target_year} />
-                        </td>
-
-                        {/* Scrollable per-year cells */}
-                        {indicatorYears.map((year) => {
-                          const current = year === indicatorCurrentYear;
-                          if (current) {
-                            return (
-                              <Fragment key={year}>
-                                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
-                                  <Input
-                                    value={state.achieved_value}
-                                    onChange={(e) => updateIndicator(row.currentLineId, { achieved_value: e.target.value })}
-                                    placeholder={labels.placeholders.achievedValue}
-                                    className="text-sm h-8"
-                                  />
-                                </td>
-                                <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                                  <Select
-                                    value={state.status ?? "none"}
-                                    onValueChange={(v) => updateIndicator(row.currentLineId, { status: v === "none" ? null : v })}
-                                  >
-                                    <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
-                                      {state.status
-                                        ? <StatusBadge value={state.status as IndicatorStatus} />
-                                        : <span className="text-muted-foreground text-sm px-1">—</span>}
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                      {STATUS_KEYS.map((k) => (
-                                        <SelectItem key={k} value={k}><StatusBadge value={k} /></SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </td>
-                                <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                                  <Textarea
-                                    value={state.comment}
-                                    onChange={(e) => updateIndicator(row.currentLineId, { comment: e.target.value })}
-                                    placeholder={labels.placeholders.indicatorComment}
-                                    className="text-sm min-h-[36px] resize-y"
-                                  />
-                                </td>
-                              </Fragment>
-                            );
-                          }
-                          const cell = row.byYear[year];
-                          return (
-                            <Fragment key={year}>
-                              <td className="px-2 py-2 border-l border-t text-muted-foreground tabular-nums">
-                                {cell?.achieved_value || <span className="text-muted-foreground/40">—</span>}
-                              </td>
-                              <td className="px-2 py-2 border-t">
-                                {cell?.status ? <StatusBadge value={cell.status as IndicatorStatus} /> : <span className="text-muted-foreground/40">—</span>}
-                              </td>
-                              <td className="px-2 py-2 border-t text-muted-foreground">
-                                {cell?.comment
-                                  ? <p className="line-clamp-3 text-xs">{cell.comment}</p>
-                                  : <span className="text-muted-foreground/40">—</span>}
-                              </td>
-                            </Fragment>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-            </MatrixTableShell>
-            )}
-          </div>
+          <IndicatorsSection
+            indicatorRows={indicatorRows}
+            indicatorYears={indicatorYears}
+            indicatorCurrentYear={indicatorCurrentYear}
+            indicatorStates={indicatorStates}
+            newIndicatorName={newIndicatorName}
+            setNewIndicatorName={setNewIndicatorName}
+            newIndicatorBaselineValue={newIndicatorBaselineValue}
+            setNewIndicatorBaselineValue={setNewIndicatorBaselineValue}
+            newIndicatorBaselineYear={newIndicatorBaselineYear}
+            setNewIndicatorBaselineYear={setNewIndicatorBaselineYear}
+            newIndicatorTargetValue={newIndicatorTargetValue}
+            setNewIndicatorTargetValue={setNewIndicatorTargetValue}
+            newIndicatorTargetYear={newIndicatorTargetYear}
+            setNewIndicatorTargetYear={setNewIndicatorTargetYear}
+            addingIndicator={addingIndicator}
+            handleIndicatorAdd={handleIndicatorAdd}
+            updateIndicator={updateIndicator}
+          />
 
         ) : params.section === "transfers" ? (
-          (() => {
-            const activityById = new Map(transferActivities.map((a) => [a.id, a]));
-            const cellAmount = (row: TransferMatrixRow, year: number) => {
-              const raw = year === transferCurrentYear
-                ? transferStates[row.transfer_partner_id]?.amount_transferred
-                : row.byYear[year]?.amount_transferred;
-              const v = Number(raw);
-              return raw == null || raw === "" || Number.isNaN(v) ? 0 : v;
-            };
-            const rowSubtotal = (row: TransferMatrixRow) => transferYears.reduce((s, y) => s + cellAmount(row, y), 0);
-            const yearTotal = (year: number) => transferRows.reduce((s, r) => s + cellAmount(r, year), 0);
-            const grandTotal = transferRows.reduce((s, r) => s + rowSubtotal(r), 0);
-
-            return (
-              <div className="space-y-4">
-                {/* Add a blank transfer row — the partner fills every field inline below */}
-                <div>
-                  <Button onClick={handleTransferAdd} disabled={addingTransfer} size="sm">
-                    {addingTransfer ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.transfers.addEntry}</>}
-                  </Button>
-                </div>
-
-                {transferRows.length === 0 ? (
-                  <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                    {labels.transfers.empty}
-                  </div>
-                ) : (
-                  <MatrixTableShell
-                    minWidth={TRANSFER_FROZEN_WIDTH}
-                    leadingCols={[
-                      { label: labels.transfers.columns.organizationName, style: tfz("org", 30) },
-                      { label: labels.transfers.columns.website, style: tfz("website", 30) },
-                      { label: labels.transfers.columns.partnerType, style: tfz("type", 30) },
-                    ]}
-                    years={transferYears}
-                    currentYear={transferCurrentYear}
-                    subCols={[
-                      { label: labels.transfers.columns.amountTransferred, minWidth: "min-w-[140px]" },
-                      { label: labels.transfers.columns.linkedActivity, minWidth: "min-w-[220px]" },
-                    ]}
-                    trailingCols={[
-                      { label: labels.transfers.columns.subTotal, className: "px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]" },
-                      { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
-                    ]}
-                  >
-                      <tbody>
-                        {transferRows.map((row) => {
-                          const state = transferStates[row.transfer_partner_id];
-                          if (!state) return null;
-                          const dirty = state.masterDirty || state.cellDirty;
-                          return (
-                            <tr key={row.transfer_partner_id} className="align-top">
-                              {/* Frozen: organisation identity (master, editable anytime) */}
-                              <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <div className="flex items-center gap-1">
-                                  <Input value={state.organization_name} onChange={(e) => updateTransferMaster(row.transfer_partner_id, { organization_name: e.target.value })} placeholder={labels.placeholders.transferOrganizationName} className="text-sm h-8 flex-1" />
-                                  <ItemComments section="transfers" itemId={row.transfer_partner_id} />
-                                </div>
-                              </td>
-                              <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <Input value={state.website} onChange={(e) => updateTransferMaster(row.transfer_partner_id, { website: e.target.value })} placeholder={labels.placeholders.transferWebsite} className="text-sm h-8" />
-                              </td>
-                              <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <Select value={state.partner_type || "none"} onValueChange={(v) => updateTransferMaster(row.transfer_partner_id, { partner_type: v === "none" ? null : v })}>
-                                  <SelectTrigger className="w-full h-8 px-2">
-                                    {state.partner_type
-                                      ? <span className="truncate text-left">{state.partner_type}</span>
-                                      : <span className="text-muted-foreground">{labels.transfers.selectPartnerType}</span>}
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none"><span className="text-muted-foreground">{labels.transfers.selectPartnerType}</span></SelectItem>
-                                    {PARTNER_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-                                  </SelectContent>
-                                </Select>
-                              </td>
-
-                              {/* Scrollable per-year cells */}
-                              {transferYears.map((year) => {
-                                const current = year === transferCurrentYear;
-                                if (current) {
-                                  return (
-                                    <Fragment key={year}>
-                                      <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
-                                        <Input type="number" min={0} value={state.amount_transferred} onChange={(e) => updateTransferCell(row.transfer_partner_id, { amount_transferred: e.target.value })} placeholder={labels.placeholders.transferAmount} className="text-sm h-8 text-right tabular-nums" />
-                                      </td>
-                                      <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                                        <Select value={state.linked_activity_id != null ? String(state.linked_activity_id) : "none"} onValueChange={(v) => updateTransferCell(row.transfer_partner_id, { linked_activity_id: v === "none" ? null : Number(v) })}>
-                                          <SelectTrigger className="w-full h-8 px-2">
-                                            {state.linked_activity_id != null
-                                              ? <span className="truncate text-left text-xs">{activityLabel(activityById.get(state.linked_activity_id))}</span>
-                                              : <span className="text-muted-foreground">{labels.transfers.selectActivity}</span>}
-                                          </SelectTrigger>
-                                          <SelectContent className="max-w-[440px]">
-                                            <SelectItem value="none"><span className="text-muted-foreground">{labels.transfers.selectActivity}</span></SelectItem>
-                                            {transferActivities.length === 0 && (
-                                              <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan activities yet.</div>
-                                            )}
-                                            {transferActivities.map((a) => (<SelectItem key={a.id} value={String(a.id)}>{activityLabel(a)}</SelectItem>))}
-                                          </SelectContent>
-                                        </Select>
-                                      </td>
-                                    </Fragment>
-                                  );
-                                }
-                                const cell = row.byYear[year];
-                                return (
-                                  <Fragment key={year}>
-                                    <td className="px-2 py-2 border-l border-t text-muted-foreground text-right tabular-nums">
-                                      {cell?.amount_transferred != null ? formatAmount(cell.amount_transferred) : <span className="text-muted-foreground/40">—</span>}
-                                    </td>
-                                    <td className="px-2 py-2 border-t text-muted-foreground">
-                                      {cell?.linked_activity_id != null
-                                        ? <p className="line-clamp-2 text-xs">{activityLabel(activityById.get(cell.linked_activity_id))}</p>
-                                        : <span className="text-muted-foreground/40">—</span>}
-                                    </td>
-                                  </Fragment>
-                                );
-                              })}
-
-                              {/* Sub-total across all years */}
-                              <td className="px-3 py-2 border-l border-t text-right font-medium tabular-nums bg-muted/20">
-                                {formatAmount(rowSubtotal(row))}
-                              </td>
-                              <td className="px-2 py-2 border-l border-t text-center">
-                                <button onClick={() => handleTransferDelete(row)} disabled={deletingTransferId === row.transfer_partner_id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete transfer">
-                                  {deletingTransferId === row.transfer_partner_id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="text-sm font-semibold">
-                          <td style={tfz("org", 30)} className="px-3 py-3 border-r border-t bg-neutral-100 whitespace-nowrap">{labels.transfers.columns.total}</td>
-                          <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />
-                          <td style={tfz("type", 30)} className="border-r border-t bg-neutral-100" />
-                          {transferYears.map((year) => (
-                            <Fragment key={year}>
-                              <td className={cn("px-2 py-3 border-l border-t text-right tabular-nums", year === transferCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")}>{formatAmount(yearTotal(year))}</td>
-                              <td className={cn("border-t", year === transferCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")} />
-                            </Fragment>
-                          ))}
-                          <td className="px-3 py-3 border-l border-t text-right tabular-nums bg-neutral-100">{formatAmount(grandTotal)}</td>
-                          <td className="border-l border-t bg-neutral-100" />
-                        </tr>
-                      </tfoot>
-                  </MatrixTableShell>
-                )}
-              </div>
-            );
-          })()
+          reportId ? (
+            <ContributorMatrix
+              key="transfers"
+              reportId={reportId}
+              projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
+              config={TRANSFERS_MATRIX_CONFIG}
+              pushCommand={pushCommand}
+              onSaveStateChange={setChildSaveState}
+              onError={setError}
+            />
+          ) : null
 
         ) : params.section === "complementary" ? (
-          (() => {
-            const activityById = new Map(complementaryActivities.map((a) => [a.id, a]));
-            const cellAmount = (row: ComplementaryMatrixRow, year: number) => {
-              const raw = year === complementaryCurrentYear
-                ? complementaryStates[row.contributor_id]?.contribution_amount
-                : row.byYear[year]?.contribution_amount;
-              const v = Number(raw);
-              return raw == null || raw === "" || Number.isNaN(v) ? 0 : v;
-            };
-            const rowSubtotal = (row: ComplementaryMatrixRow) => complementaryYears.reduce((s, y) => s + cellAmount(row, y), 0);
-            const yearTotal = (year: number) => complementaryRows.reduce((s, r) => s + cellAmount(r, year), 0);
-            const grandTotal = complementaryRows.reduce((s, r) => s + rowSubtotal(r), 0);
-
-            return (
-              <div className="space-y-4">
-                {/* Add a blank contributor row — the partner fills every field inline below */}
-                <div>
-                  <Button onClick={handleComplementaryAdd} disabled={addingComplementary} size="sm">
-                    {addingComplementary ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.complementary.addEntry}</>}
-                  </Button>
-                </div>
-
-                {complementaryRows.length === 0 ? (
-                  <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                    {labels.complementary.empty}
-                  </div>
-                ) : (
-                  <MatrixTableShell
-                    minWidth={TRANSFER_FROZEN_WIDTH}
-                    leadingCols={[
-                      { label: labels.complementary.columns.contributorName, style: tfz("org", 30) },
-                      { label: labels.complementary.columns.website, style: tfz("website", 30) },
-                      { label: labels.complementary.columns.fundingType, style: tfz("type", 30) },
-                    ]}
-                    years={complementaryYears}
-                    currentYear={complementaryCurrentYear}
-                    subCols={[
-                      { label: labels.complementary.columns.contributionAmount, minWidth: "min-w-[150px]" },
-                      { label: labels.complementary.columns.linkedActivities, minWidth: "min-w-[240px]" },
-                    ]}
-                    trailingCols={[
-                      { label: labels.complementary.columns.subTotal, className: "px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]" },
-                      { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
-                    ]}
-                  >
-                      <tbody>
-                        {complementaryRows.map((row) => {
-                          const state = complementaryStates[row.contributor_id];
-                          if (!state) return null;
-                          const dirty = state.masterDirty || state.cellDirty;
-                          return (
-                            <tr key={row.contributor_id} className="align-top">
-                              {/* Frozen: contributor identity (master, editable anytime) */}
-                              <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <div className="flex items-center gap-1">
-                                  <Input value={state.contributor_name} onChange={(e) => updateComplementaryMaster(row.contributor_id, { contributor_name: e.target.value })} placeholder={labels.placeholders.complementaryContributorName} className="text-sm h-8 flex-1" />
-                                  <ItemComments section="complementary" itemId={row.contributor_id} />
-                                </div>
-                              </td>
-                              <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <Input value={state.website} onChange={(e) => updateComplementaryMaster(row.contributor_id, { website: e.target.value })} placeholder={labels.placeholders.complementaryWebsite} className="text-sm h-8" />
-                              </td>
-                              <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
-                                <Select value={state.funding_type || "none"} onValueChange={(v) => updateComplementaryMaster(row.contributor_id, { funding_type: v === "none" ? null : v })}>
-                                  <SelectTrigger className="w-full h-8 px-2">
-                                    {state.funding_type
-                                      ? <Badge colors={FUNDING_TYPE_COLORS[state.funding_type] ?? FALLBACK_COLORS}>{state.funding_type}</Badge>
-                                      : <span className="text-muted-foreground">{labels.complementary.selectFundingType}</span>}
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none"><span className="text-muted-foreground">{labels.complementary.selectFundingType}</span></SelectItem>
-                                    {FUNDING_TYPES.map((t) => (<SelectItem key={t} value={t}><Badge colors={FUNDING_TYPE_COLORS[t] ?? FALLBACK_COLORS}>{t}</Badge></SelectItem>))}
-                                  </SelectContent>
-                                </Select>
-                              </td>
-
-                              {/* Scrollable per-year cells */}
-                              {complementaryYears.map((year) => {
-                                const current = year === complementaryCurrentYear;
-                                if (current) {
-                                  return (
-                                    <Fragment key={year}>
-                                      <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
-                                        <Input type="number" min={0} value={state.contribution_amount} onChange={(e) => updateComplementaryCell(row.contributor_id, { contribution_amount: e.target.value })} placeholder={labels.placeholders.complementaryAmount} className="text-sm h-8 text-right tabular-nums" />
-                                      </td>
-                                      <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild>
-                                            <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex flex-col gap-0.5">
-                                              {state.linked_activity_ids.length === 0
-                                                ? <span className="text-muted-foreground py-0.5">{labels.complementary.selectActivities}</span>
-                                                : state.linked_activity_ids.map((aid) => (
-                                                    <span key={aid} className="line-clamp-1 font-medium">{activityLabel(activityById.get(aid))}</span>
-                                                  ))}
-                                            </button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
-                                            {complementaryActivities.length === 0 && (
-                                              <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan activities yet.</div>
-                                            )}
-                                            {complementaryActivities.map((a) => (
-                                              <DropdownMenuCheckboxItem
-                                                key={a.id}
-                                                checked={state.linked_activity_ids.includes(a.id)}
-                                                onCheckedChange={() => toggleComplementaryActivity(row.contributor_id, a.id)}
-                                                onSelect={(e) => e.preventDefault()}
-                                                className="text-xs"
-                                              >
-                                                <span className="line-clamp-2">{activityLabel(a)}</span>
-                                              </DropdownMenuCheckboxItem>
-                                            ))}
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </td>
-                                    </Fragment>
-                                  );
-                                }
-                                const cell = row.byYear[year];
-                                return (
-                                  <Fragment key={year}>
-                                    <td className="px-2 py-2 border-l border-t text-muted-foreground text-right tabular-nums">
-                                      {cell?.contribution_amount != null ? formatAmount(cell.contribution_amount) : <span className="text-muted-foreground/40">—</span>}
-                                    </td>
-                                    <td className="px-2 py-2 border-t text-muted-foreground">
-                                      {cell && cell.linked_activity_ids.length > 0
-                                        ? (
-                                          <div className="flex flex-col gap-0.5">
-                                            {cell.linked_activity_ids.map((aid) => (
-                                              <span key={aid} className="line-clamp-1 text-xs font-medium">{activityLabel(activityById.get(aid))}</span>
-                                            ))}
-                                          </div>
-                                        )
-                                        : <span className="text-muted-foreground/40">—</span>}
-                                    </td>
-                                  </Fragment>
-                                );
-                              })}
-
-                              {/* Sub-total across all years */}
-                              <td className="px-3 py-2 border-l border-t text-right font-medium tabular-nums bg-muted/20">
-                                {formatAmount(rowSubtotal(row))}
-                              </td>
-                              <td className="px-2 py-2 border-l border-t text-center">
-                                <button onClick={() => handleComplementaryDelete(row)} disabled={deletingComplementaryId === row.contributor_id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete contribution">
-                                  {deletingComplementaryId === row.contributor_id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="text-sm font-semibold">
-                          <td style={tfz("org", 30)} className="px-3 py-3 border-r border-t bg-neutral-100 whitespace-nowrap">{labels.complementary.columns.total}</td>
-                          <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />
-                          <td style={tfz("type", 30)} className="border-r border-t bg-neutral-100" />
-                          {complementaryYears.map((year) => (
-                            <Fragment key={year}>
-                              <td className={cn("px-2 py-3 border-l border-t text-right tabular-nums", year === complementaryCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")}>{formatAmount(yearTotal(year))}</td>
-                              <td className={cn("border-t", year === complementaryCurrentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")} />
-                            </Fragment>
-                          ))}
-                          <td className="px-3 py-3 border-l border-t text-right tabular-nums bg-neutral-100">{formatAmount(grandTotal)}</td>
-                          <td className="border-l border-t bg-neutral-100" />
-                        </tr>
-                      </tfoot>
-                  </MatrixTableShell>
-                )}
-              </div>
-            );
-          })()
+          reportId ? (
+            <ContributorMatrix
+              key="complementary"
+              reportId={reportId}
+              projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
+              config={COMPLEMENTARY_MATRIX_CONFIG}
+              pushCommand={pushCommand}
+              onSaveStateChange={setChildSaveState}
+              onError={setError}
+            />
+          ) : null
 
         ) : params.section === "testimonials" ? (
           reportId ? (
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">{labels.testimonials.leadershipHeading}</h3>
-                {!readOnly && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    {labels.testimonials.leadershipInstruction}
-                  </div>
-                )}
-                <SectionTableEditor
-                  key="testimonials-leadership"
-                  reportId={reportId}
-                  spec={TESTIMONIAL_SPECS.leadership}
-                  onSaveStateChange={setChildSaveState}
-                  commentSection="testimonials"
-                />
-              </div>
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">{labels.testimonials.partnerHeading}</h3>
-                {!readOnly && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    {labels.testimonials.partnerInstruction}
-                  </div>
-                )}
-                <SectionTableEditor
-                  key="testimonials-partner"
-                  reportId={reportId}
-                  spec={TESTIMONIAL_SPECS.partner}
-                  onSaveStateChange={setChildSaveState}
-                  commentSection="testimonials"
-                />
-              </div>
-            </div>
+            <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={setChildSaveState} />
           ) : null
 
         ) : params.section in SECTION_SPECS ? (

@@ -32,16 +32,9 @@ import {
 import { formatAmount } from "@/lib/transfers";
 import { statusLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
 import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
+import type { Report } from "@/lib/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface Report {
-  id: number;
-  year: number;
-  report_type: "annual" | "final" | null;
-  project_title: string;
-  project_short_name: string | null;
-}
 
 type Section =
   | "surveys"

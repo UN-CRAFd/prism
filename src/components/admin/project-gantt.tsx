@@ -189,6 +189,20 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
                       {d.project_duration_months} mo
                     </span>
                   </div>
+
+                  {/* Report markers — a tick on the bar per report */}
+                  {(reportsByProject.get(d.id) ?? []).map((r) => {
+                    const rp = pct(reportDate(r).getTime());
+                    if (rp < left || rp > left + width) return null;
+                    return (
+                      <div
+                        key={r.id}
+                        style={{ left: `${rp}%` }}
+                        className="absolute top-1.5 h-6 w-0.5 -translate-x-1/2 bg-white/90 z-30"
+                        title={`${r.report_type ?? "annual"} report ${r.year}${r.report_submission_date ? ` · due ${formatDate(r.report_submission_date)}` : ""}`}
+                      />
+                    );
+                  })}
                 </div>
               );
             })}
@@ -203,6 +217,10 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
               {p}
             </span>
           ))}
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block h-3 w-0.5 bg-neutral-500" />
+            report
+          </span>
         </div>
 
         {skipped > 0 && (

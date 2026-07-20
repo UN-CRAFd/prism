@@ -4,10 +4,11 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared";
-import { ProjectGantt, type GanttProject } from "@/components/admin/project-gantt";
+import { ProjectGantt, type GanttProject, type GanttReport } from "@/components/admin/project-gantt";
 
 export default function DashboardsPage() {
   const [projects, setProjects] = useState<GanttProject[]>([]);
+  const [reports, setReports] = useState<GanttReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,9 +16,14 @@ export default function DashboardsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/projects");
-      if (!res.ok) throw new Error("Failed to load projects");
-      setProjects(await res.json());
+      const [pRes, rRes] = await Promise.all([
+        fetch("/api/projects"),
+        fetch("/api/reports?data_type=report"),
+      ]);
+      if (!pRes.ok) throw new Error("Failed to load projects");
+      if (!rRes.ok) throw new Error("Failed to load reports");
+      setProjects(await pRes.json());
+      setReports(await rRes.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -42,7 +48,7 @@ export default function DashboardsPage() {
               <h2 className="text-sm font-semibold">Project periods</h2>
               <p className="text-xs text-muted-foreground">Start date through end of duration for every project.</p>
             </div>
-            <ProjectGantt projects={projects} />
+            <ProjectGantt projects={projects} reports={reports} />
           </section>
         )}
       </div>

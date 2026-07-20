@@ -330,11 +330,8 @@ export default function PartnerHomePage() {
                     const slug = (c.project_short_name ?? c.project_title).toLowerCase();
                     const done = c.partner_addressed;
                     return (
-                      <div key={c.id} className={cn("px-4 py-3 transition-colors", done && "bg-muted/20")}>
-                        <button
-                          onClick={() => router.push(`/partner/${slug}/${c.year}/${c.section}`)}
-                          className="w-full flex items-start gap-3 text-left group"
-                        >
+                      <div key={c.id} className={cn("px-4 py-3 transition-colors cursor-pointer hover:bg-accent/60", done && "bg-muted/20")} onClick={() => router.push(`/partner/${slug}/${c.year}/${c.section}`)}>
+                        <div className="w-full flex items-start gap-3 text-left">
                           <MessageSquare className={cn("size-4 mt-0.5 shrink-0", done ? "text-muted-foreground/40" : "text-amber-500")} />
                           <div className="flex-1 min-w-0">
                             <p className={cn("text-sm", done && "line-through text-muted-foreground")}>{c.body}</p>
@@ -358,8 +355,8 @@ export default function PartnerHomePage() {
                               )}
                             </div>
                           </div>
-                          <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                        </button>
+                          <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 hover:text-muted-foreground transition-colors" />
+                        </div>
                       </div>
                     );
                   })}

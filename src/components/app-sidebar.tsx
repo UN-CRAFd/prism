@@ -40,8 +40,8 @@ const administrationLinks = [
 ];
 
 const editorLinks = [
-  { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
   { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: Edit },
+  { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
 ];
 
 const dataLinks = [

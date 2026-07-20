@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 import pool, { query } from "@/lib/db";
 
 const MIN_YEAR = 2020;
@@ -51,6 +52,54 @@ function parseYear(value: unknown): number | null {
   return year;
 }
 
+// Seed a freshly-created report from its project's project document (prodoc):
+// copy the baseline lines (survey questions, risk register, indicator lines with
+// their baselines/targets) so the report opens as a snapshot of the prodoc. The
+// partner then fills the per-report actuals (answers, scores, achieved values).
+// Project-level definitions (workplan, expenditure budgets, transfer partners,
+// complementary contributors) are shared by project_id and need no copy.
+//
+// Set-based over a list of new report ids so it serves both the single and the
+// annual paths. Each new report is joined to its project's prodoc.
+async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
+  if (reportIds.length === 0) return;
+
+  await client.query(
+    `INSERT INTO reporting_platform.surveys (reportid, question)
+     SELECT nr.id, s.question
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.reports pd
+         ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
+       JOIN reporting_platform.surveys s ON s.reportid = pd.id
+      WHERE nr.id = ANY($1::int[])`,
+    [reportIds]
+  );
+
+  await client.query(
+    `INSERT INTO reporting_platform.risk_management
+       (report_id, risk_name, risk_category, approved_mitigation)
+     SELECT nr.id, rm.risk_name, rm.risk_category, rm.approved_mitigation
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.reports pd
+         ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
+       JOIN reporting_platform.risk_management rm ON rm.report_id = pd.id
+      WHERE nr.id = ANY($1::int[])`,
+    [reportIds]
+  );
+
+  await client.query(
+    `INSERT INTO reporting_platform.indicator_data
+       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, sort_order)
+     SELECT nr.id, d.indicator_id, d.baseline_value, d.baseline_year, d.target_value, d.target_year, d.sort_order
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.reports pd
+         ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
+       JOIN reporting_platform.indicator_data d ON d.report_id = pd.id
+      WHERE nr.id = ANY($1::int[])`,
+    [reportIds]
+  );
+}
+
 // POST /api/reports
 // Single report: { project_id, year, report_submission_date? }
 // Annual report (all projects): { year, annual: true, report_submission_date? }
@@ -100,6 +149,8 @@ export async function POST(request: Request) {
         `SELECT COUNT(*)::int AS count FROM reporting_platform.projects`
       );
 
+      await copyProdocBaseline(client, inserted.rows.map((r) => r.id));
+
       await client.query("COMMIT");
       return NextResponse.json(
         {
@@ -135,6 +186,8 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
+
+    await copyProdocBaseline(client, [inserted.rows[0].id]);
 
     await client.query("COMMIT");
     return NextResponse.json(inserted.rows[0], { status: 201 });

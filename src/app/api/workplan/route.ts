@@ -15,9 +15,35 @@ function toQuartersOrNull(v: unknown): string[] | null {
   return null;
 }
 
+// Flat cross-report listing (admin "Full Data" view): one row per workplan entry
+// (a report's progress on an activity) — i.e. one row per year-entry.
+const SELECT_ALL = `
+  SELECT e.id, e.report_id, e.activity_id,
+         e.updated_quarters, e.status, e.comment,
+         a.outcome, a.objective_num, a.objective_text,
+         a.activity_num, a.activity_text, a.implementing_agent,
+         a.planned_quarters, a.sort_order,
+         r.year, r.report_type,
+         p.project_title, p.short_name AS project_short_name,
+         pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
+    FROM reporting_platform.workplan_entries e
+    JOIN reporting_platform.workplan_activities a ON a.id = e.activity_id
+    JOIN reporting_platform.reports  r  ON r.id  = e.report_id
+    JOIN reporting_platform.projects p  ON p.id  = r.project_id
+    JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+   WHERE r.data_type = 'report'
+   ORDER BY r.year DESC, pt.short_name, p.project_title, a.sort_order ASC, a.id ASC`;
+
 export async function GET(req: NextRequest) {
   const reportId = req.nextUrl.searchParams.get("reportId");
-  if (!reportId) return NextResponse.json({ error: "reportId required" }, { status: 400 });
+  if (!reportId) {
+    try {
+      return NextResponse.json(await query(SELECT_ALL));
+    } catch (err) {
+      console.error("GET /api/workplan (all) error:", err);
+      return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
+  }
 
   try {
     // Resolve the project + derive the quarter range from start + duration.

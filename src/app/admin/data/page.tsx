@@ -29,6 +29,9 @@ import {
   impactLabel,
   riskLevelLabel,
 } from "@/lib/risk";
+import { formatAmount } from "@/lib/transfers";
+import { statusLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
+import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +51,12 @@ type Section =
   | "lessons"
   | "external-coverage"
   | "testimonials"
-  | "risk";
+  | "risk"
+  | "indicators"
+  | "workplan"
+  | "expenditure"
+  | "transfers"
+  | "complementary";
 
 // Every section endpoint returns flat rows with the report's year/project/partner
 // joined in; the extra columns differ per section (typed loosely here).
@@ -148,6 +156,31 @@ function LinksList({ raw }: { raw: string | null }) {
 const trunc = (text: unknown, key: string, ctx: CellCtx) => (
   <TruncatedCell text={(text as string | null) ?? null} id={key} expanded={ctx.expanded(key)} onToggle={() => ctx.toggle(key)} />
 );
+
+const money = (v: unknown): ReactNode => {
+  const s = formatAmount(v as string | number | null);
+  return s ? <span className="tabular-nums">{s}</span> : DASH;
+};
+
+const quarters = (v: unknown): ReactNode => {
+  if (!Array.isArray(v) || v.length === 0) return DASH;
+  return <span className="text-xs">{(v as string[]).join(", ")}</span>;
+};
+
+const valueYear = (value: unknown, year: unknown): ReactNode => {
+  const v = value as string | null;
+  if (!v) return DASH;
+  const y = year as number | null;
+  return <span className="tabular-nums">{v}{y ? <span className="text-muted-foreground"> ({y})</span> : null}</span>;
+};
+
+// "Activity 3.1: …" from a num + text pair (either may be null).
+const activityText = (num: unknown, text: unknown): string | null => {
+  const n = num as string | null;
+  const t = text as string | null;
+  if (!n && !t) return null;
+  return [n ? `Activity ${n}` : null, t].filter(Boolean).join(": ");
+};
 
 // Flatten a row's primitive values into one lowercase string for keyword search.
 function rowText(row: DataRow): string {
@@ -277,6 +310,73 @@ const SECTION_CONFIGS: SectionConfig[] = [
           return <div className="text-center">{v == null ? DASH : v ? <span className="text-green-600 font-medium">Yes</span> : <span className="text-muted-foreground">No</span>}</div>;
         },
       },
+    ],
+  },
+  {
+    value: "indicators", label: "Indicators", endpoint: "/api/indicator-data", reportIdKey: "report_id", minWidth: 1400,
+    columns: [
+      ...leadCols,
+      { header: "Indicator", headClass: "w-[200px]", cell: (r) => <p className="break-words font-medium">{r.indicator_name as string}</p> },
+      { header: "Category", headClass: "w-[120px]", cell: (r) => <Tag value={r.category as string | null} /> },
+      { header: "Baseline", headClass: "w-[110px]", cell: (r) => valueYear(r.baseline_value, r.baseline_year) },
+      { header: "Target", headClass: "w-[110px]", cell: (r) => valueYear(r.target_value, r.target_year) },
+      { header: "Achieved", headClass: "w-[110px]", cell: (r) => { const v = r.achieved_value as string | null; return v ? <span className="tabular-nums">{v}</span> : DASH; } },
+      {
+        header: "Status", headClass: "w-[130px]", cell: (r) => {
+          const s = r.status as string | null;
+          return s ? <ValueBadge value={statusLabel(s)} colors={STATUS_COLORS[s as IndicatorStatus] ?? FALLBACK_COLORS} /> : DASH;
+        },
+      },
+      { header: "Comment", cell: (r, ctx) => trunc(r.comment, `icom-${r.id}`, ctx) },
+    ],
+  },
+  {
+    value: "workplan", label: "Workplan", endpoint: "/api/workplan", reportIdKey: "report_id", minWidth: 1400,
+    columns: [
+      ...leadCols,
+      { header: "Objective", headClass: "w-[150px]", cell: (r) => { const t = activityText(r.objective_num, r.objective_text); return t ? <p className="break-words text-xs">{t.replace(/^Activity /, "")}</p> : DASH; } },
+      { header: "Activity", headClass: "w-[24%]", cell: (r, ctx) => trunc(activityText(r.activity_num, r.activity_text), `wact-${r.id}`, ctx) },
+      { header: "Planned", headClass: "w-[150px]", cell: (r) => quarters(r.planned_quarters) },
+      { header: "Updated", headClass: "w-[150px]", cell: (r) => quarters(r.updated_quarters) },
+      { header: "Status", headClass: "w-[130px]", cell: (r) => <Tag value={r.status as string | null} /> },
+      { header: "Comment", cell: (r, ctx) => trunc(r.comment, `wcom-${r.id}`, ctx) },
+    ],
+  },
+  {
+    value: "expenditure", label: "Expenditure", endpoint: "/api/expenditure", reportIdKey: "report_id", minWidth: 1000,
+    columns: [
+      ...leadCols,
+      { header: "Category", headClass: "w-[220px]", cell: (r) => <p className="break-words font-medium">{r.category_name as string}</p> },
+      { header: "Approved Budget", headClass: "w-[150px]", cell: (r) => money(r.approved_amount) },
+      { header: "Expenditure", headClass: "w-[150px]", cell: (r) => money(r.annual_expenditure) },
+      { header: "Comment", cell: (r, ctx) => trunc(r.comment, `ecom-${r.id}`, ctx) },
+    ],
+  },
+  {
+    value: "transfers", label: "Transfers", endpoint: "/api/transfer-data", reportIdKey: "report_id", minWidth: 1100,
+    columns: [
+      ...leadCols,
+      { header: "Organization", headClass: "w-[180px]", cell: (r) => <p className="break-words font-medium">{(r.organization_name as string) || "—"}</p> },
+      { header: "Type", headClass: "w-[150px]", cell: (r) => <Tag value={r.partner_type as string | null} /> },
+      { header: "Website", headClass: "w-[160px]", cell: (r) => <LinksList raw={r.website as string | null} /> },
+      { header: "Amount", headClass: "w-[120px]", cell: (r) => money(r.amount_transferred) },
+      { header: "Linked Activity", cell: (r, ctx) => trunc(activityText(r.linked_activity_num, r.linked_activity_text), `tact-${r.id}`, ctx) },
+    ],
+  },
+  {
+    value: "complementary", label: "Complementary Funding", endpoint: "/api/complementary-data", reportIdKey: "report_id", minWidth: 1100,
+    columns: [
+      ...leadCols,
+      { header: "Contributor", headClass: "w-[180px]", cell: (r) => <p className="break-words font-medium">{(r.contributor_name as string) || "—"}</p> },
+      {
+        header: "Funding Type", headClass: "w-[130px]", cell: (r) => {
+          const t = r.funding_type as string | null;
+          return t ? <ValueBadge value={t} colors={FUNDING_TYPE_COLORS[t] ?? FALLBACK_COLORS} /> : DASH;
+        },
+      },
+      { header: "Website", headClass: "w-[160px]", cell: (r) => <LinksList raw={r.website as string | null} /> },
+      { header: "Amount", headClass: "w-[120px]", cell: (r) => money(r.contribution_amount) },
+      { header: "Linked Activities", cell: (r, ctx) => trunc(r.linked_activities, `cact-${r.id}`, ctx) },
     ],
   },
 ];

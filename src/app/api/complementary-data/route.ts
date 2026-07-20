@@ -34,11 +34,37 @@ function toActivityIds(v: unknown): number[] {
   return out;
 }
 
+// Flat cross-report listing (admin "Full Data" view): one row per contribution
+// line per report. `linked_activities` aggregates the JSONB activity-id array
+// into a readable label string; project/partner context is joined in.
+const SELECT_ALL = `
+  SELECT d.id, d.report_id, d.contributor_id,
+         d.contribution_amount, d.linked_activity_ids, d.sort_order,
+         c.contributor_name, c.website, c.funding_type,
+         (SELECT string_agg(COALESCE(a.activity_num, a.activity_text), ', ' ORDER BY a.sort_order)
+            FROM reporting_platform.workplan_activities a
+           WHERE a.id IN (SELECT jsonb_array_elements_text(d.linked_activity_ids)::int)) AS linked_activities,
+         r.year, r.report_type,
+         p.project_title, p.short_name AS project_short_name,
+         pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
+    FROM reporting_platform.complementary_data d
+    JOIN reporting_platform.complementary_contributors c ON c.id = d.contributor_id
+    JOIN reporting_platform.reports  r  ON r.id  = d.report_id
+    JOIN reporting_platform.projects p  ON p.id  = r.project_id
+    JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+   WHERE r.data_type = 'report'
+   ORDER BY r.year DESC, pt.short_name, p.project_title, d.sort_order ASC, d.id ASC`;
+
 export async function GET(req: NextRequest) {
   const reportId = req.nextUrl.searchParams.get("reportId");
   const matrix = req.nextUrl.searchParams.get("matrix");
   if (!reportId) {
-    return NextResponse.json({ error: "reportId is required" }, { status: 400 });
+    try {
+      return NextResponse.json(await query(SELECT_ALL));
+    } catch (err) {
+      console.error("GET /api/complementary-data (all) error:", err);
+      return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
   }
 
   if (matrix) {

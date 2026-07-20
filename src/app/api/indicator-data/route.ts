@@ -28,11 +28,34 @@ const toYear = (v: unknown) => {
   return Number.isNaN(n) ? null : n;
 };
 
+// Flat cross-report listing (admin "Full Data" view): one row per indicator line
+// per report — i.e. one row per year-entry, with project/partner context joined.
+const SELECT_ALL = `
+  SELECT d.id, d.report_id, d.indicator_id,
+         d.baseline_value, d.baseline_year, d.target_value, d.target_year,
+         d.achieved_value, d.status, d.comment, d.sort_order,
+         i.name AS indicator_name, i.category, i.cycle,
+         r.year, r.report_type,
+         p.project_title, p.short_name AS project_short_name,
+         pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
+    FROM reporting_platform.indicator_data d
+    JOIN reporting_platform.indicators i  ON i.id  = d.indicator_id
+    JOIN reporting_platform.reports    r  ON r.id  = d.report_id
+    JOIN reporting_platform.projects   p  ON p.id  = r.project_id
+    JOIN reporting_platform.partners   pt ON pt.id = p.partner_id
+   WHERE r.data_type = 'report'
+   ORDER BY r.year DESC, pt.short_name, p.project_title, d.sort_order ASC, d.id ASC`;
+
 export async function GET(req: NextRequest) {
   const reportId = req.nextUrl.searchParams.get("reportId");
   const matrix = req.nextUrl.searchParams.get("matrix");
   if (!reportId) {
-    return NextResponse.json({ error: "reportId is required" }, { status: 400 });
+    try {
+      return NextResponse.json(await query(SELECT_ALL));
+    } catch (err) {
+      console.error("GET /api/indicator-data (all) error:", err);
+      return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
   }
 
   // Matrix view (partner report): pivot each indicator on the current report across

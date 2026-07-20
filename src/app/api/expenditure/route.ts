@@ -13,9 +13,37 @@ function toAmount(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+// Flat cross-report listing (admin "Full Data" view): one row per expenditure
+// entry (a report's spend in a category) — i.e. one row per year-entry, with the
+// matching approved budget for that category+year joined in.
+const SELECT_ALL = `
+  SELECT e.id, e.report_id, e.category_id,
+         e.annual_expenditure, e.comment,
+         cat.name AS category_name, cat.sort_order,
+         b.approved_amount,
+         r.year, r.report_type,
+         p.project_title, p.short_name AS project_short_name,
+         pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
+    FROM reporting_platform.expenditure_entries e
+    JOIN reporting_platform.expenditure_categories cat ON cat.id = e.category_id
+    JOIN reporting_platform.reports  r  ON r.id  = e.report_id
+    JOIN reporting_platform.projects p  ON p.id  = r.project_id
+    JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+    LEFT JOIN reporting_platform.expenditure_budgets b
+      ON b.project_id = r.project_id AND b.category_id = e.category_id AND b.year = r.year
+   WHERE r.data_type = 'report'
+   ORDER BY r.year DESC, pt.short_name, p.project_title, cat.sort_order ASC, cat.id ASC`;
+
 export async function GET(req: NextRequest) {
   const reportId = req.nextUrl.searchParams.get("reportId");
-  if (!reportId) return NextResponse.json({ error: "reportId required" }, { status: 400 });
+  if (!reportId) {
+    try {
+      return NextResponse.json(await query(SELECT_ALL));
+    } catch (err) {
+      console.error("GET /api/expenditure (all) error:", err);
+      return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
+  }
 
   try {
     const meta = await query<{ project_id: number; year: number; indirect_cost_rate: string }>(

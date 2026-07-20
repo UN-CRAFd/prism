@@ -10,12 +10,9 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  Clock,
-  FileText,
   ListTodo,
   MessageSquare,
   RotateCcw,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CommentContextBadges } from "@/components/comment-context-badges";
@@ -195,26 +192,6 @@ export default function PartnerHomePage() {
     return "Good evening";
   }, []);
 
-  const quickLinks = useMemo(() => {
-    const links = [
-      {
-        label: "Reporting",
-        description: "View all your reports",
-        icon: FileText,
-        href: "/partner/report-editor",
-      },
-    ];
-    if (pendingReports.length > 0) {
-      const r = pendingReports[0];
-      links.push({
-        label: "Current report",
-        description: `Open ${r.year} — ${r.project_title}`,
-        icon: Clock,
-        href: `/partner/${toSlug(r)}/${r.year}/overview`,
-      });
-    }
-    return links;
-  }, [pendingReports]);
 
   return (
     <div className="flex flex-col min-h-full bg-background">
@@ -283,31 +260,6 @@ export default function PartnerHomePage() {
                     </button>
                   ))
                 )}
-              </div>
-            </div>
-
-            {/* ── Quick access ── */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="size-4 text-muted-foreground" />
-                <h2 className="text-base font-semibold">Quick access</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {quickLinks.map(({ label, description, icon: Icon, href }) => (
-                  <button
-                    key={href}
-                    onClick={() => router.push(href)}
-                    className="group rounded-xl border bg-card p-4 text-left hover:border-neutral-300 transition-colors flex items-start gap-3"
-                  >
-                    <div className="rounded-lg bg-muted p-2 shrink-0 group-hover:bg-accent transition-colors">
-                      <Icon className="size-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-                    </div>
-                  </button>
-                ))}
               </div>
             </div>
 

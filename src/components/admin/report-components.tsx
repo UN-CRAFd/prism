@@ -144,7 +144,7 @@ export function ReportCard({
 
   return (
     <Card
-      onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/surveys`)}
+      onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/overview`)}
       className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
     >
       {/* Delete — top right on hover */}
@@ -226,7 +226,7 @@ export function ReportCard({
 
         {/* 4. Open report */}
         <button
-          onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/surveys`)}
+          onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/overview`)}
           className="h-7 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Open report"
         >

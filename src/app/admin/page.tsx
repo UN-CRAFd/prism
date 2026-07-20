@@ -238,7 +238,7 @@ export default function AdminHomePage() {
                 return (
                   <button
                     key={r.id}
-                    onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/surveys`)}
+                    onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/overview`)}
                     className="group w-full px-5 py-3.5 flex items-center gap-4 text-left transition-colors hover:bg-muted/40 cursor-pointer"
                   >
                     <div className="flex-1 min-w-0">

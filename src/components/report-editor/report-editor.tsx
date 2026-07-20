@@ -656,7 +656,9 @@ export function ReportEditor({
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
     if (!report) return;
-    router.push(`${basePath}/${toSlug(report)}/${report.year}/${params.section}`);
+    // Preserve the current section when switching reports, but default to
+    // overview when there is no section yet (e.g. opening from the landing page).
+    router.push(`${basePath}/${toSlug(report)}/${report.year}/${params.section ?? "overview"}`);
   }
 
   function handleSectionChange(section: string) {
@@ -1864,7 +1866,7 @@ export function ReportEditor({
               </div>
             ) : (
             <div className="overflow-x-auto rounded-xl border bg-card">
-              <table className="text-sm border-separate border-spacing-0" style={{ minWidth: IND_FROZEN_WIDTH }}>
+              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: IND_FROZEN_WIDTH }}>
                 <thead>
                   {/* Year-group header */}
                   <tr className="text-xs">
@@ -2038,7 +2040,7 @@ export function ReportEditor({
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border bg-card">
-                    <table className="text-sm border-separate border-spacing-0" style={{ minWidth: TRANSFER_FROZEN_WIDTH }}>
+                    <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: TRANSFER_FROZEN_WIDTH }}>
                       <thead>
                         {/* Year-group header */}
                         <tr className="text-xs">
@@ -2220,7 +2222,7 @@ export function ReportEditor({
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border bg-card">
-                    <table className="text-sm border-separate border-spacing-0" style={{ minWidth: TRANSFER_FROZEN_WIDTH }}>
+                    <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: TRANSFER_FROZEN_WIDTH }}>
                       <thead>
                         {/* Year-group header */}
                         <tr className="text-xs">

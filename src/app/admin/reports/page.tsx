@@ -100,7 +100,7 @@ export default function ReportsPage() {
 
   function navigateToReport(r: ReportRow) {
     const slug = (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
-    router.push(`/admin/report-editor/${slug}/${r.year}/surveys`);
+    router.push(`/admin/report-editor/${slug}/${r.year}/overview`);
   }
 
   return (

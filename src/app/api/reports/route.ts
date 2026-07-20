@@ -73,6 +73,15 @@ export async function POST(request: Request) {
   const dataType = body.data_type === "prodoc" ? "prodoc" : "report";
   const reportType = body.report_type === "final" ? "final" : "annual";
 
+  // Project documents are created automatically with their project (exactly one
+  // per project), so they can't be added by hand here.
+  if (dataType === "prodoc") {
+    return NextResponse.json(
+      { error: "Project documents are created automatically with their project." },
+      { status: 400 }
+    );
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -122,7 +131,7 @@ export async function POST(request: Request) {
     if (inserted.rows.length === 0) {
       await client.query("ROLLBACK");
       return NextResponse.json(
-        { error: `A ${dataType === "prodoc" ? "project document" : "report"} already exists for this project and year` },
+        { error: "A report already exists for this project and year" },
         { status: 409 }
       );
     }

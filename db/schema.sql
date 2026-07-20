@@ -112,6 +112,11 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE INDEX IF NOT EXISTS reports_project_id_idx ON reports(project_id);
 
+-- Exactly one project document (data_type='prodoc') per project; auto-created
+-- alongside the project. Reporting-year rows (data_type='report') are unbounded.
+CREATE UNIQUE INDEX IF NOT EXISTS reports_one_prodoc_per_project
+    ON reports (project_id) WHERE data_type = 'prodoc';
+
 DROP TRIGGER IF EXISTS reports_updated_at ON reports;
 CREATE TRIGGER reports_updated_at
     BEFORE UPDATE ON reports

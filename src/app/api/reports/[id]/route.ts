@@ -82,11 +82,24 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const rows = await query(
-      `DELETE FROM reporting_platform.reports WHERE id = $1 RETURNING id`,
+    // A project always keeps exactly one project document, so prodocs can't be
+    // deleted — only reporting-year rows can.
+    const rows = await query<{ id: number }>(
+      `DELETE FROM reporting_platform.reports
+        WHERE id = $1 AND data_type <> 'prodoc' RETURNING id`,
       [id]
     );
     if (rows.length === 0) {
+      const existing = await query<{ data_type: string }>(
+        `SELECT data_type FROM reporting_platform.reports WHERE id = $1`,
+        [id]
+      );
+      if (existing.length && existing[0].data_type === "prodoc") {
+        return NextResponse.json(
+          { error: "Project documents cannot be deleted; each project keeps exactly one." },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
     return NextResponse.json({ deleted: id });

@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useRef, useState } from "react";
 import {
   UploadCloud, FileSpreadsheet, X,
-  CheckCircle2, Download, ArrowUpFromLine, ArrowDownToLine,
+  Download, ArrowUpFromLine, ArrowDownToLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -92,9 +92,7 @@ function FileDropzone({
 
       {file ? (
         <>
-          {state === "success"
-            ? <CheckCircle2 className="size-7 text-green-500" />
-            : <FileSpreadsheet className="size-7 text-muted-foreground" />}
+          <FileSpreadsheet className="size-7 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium">{file.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
@@ -322,19 +320,13 @@ function ExportPanel() {
                   key={s.value}
                   onClick={() => toggle(s.value)}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
+                    "flex items-center justify-center rounded-lg border px-3 py-2 text-left transition-colors font-medium text-sm",
                     active
                       ? "border-neutral-800 bg-neutral-900 text-white"
                       : "border-border text-muted-foreground hover:border-neutral-400 hover:text-foreground"
                   )}
                 >
-                  <span className={cn(
-                    "flex size-4 shrink-0 items-center justify-center rounded border",
-                    active ? "border-white bg-white" : "border-neutral-400"
-                  )}>
-                    {active && <CheckCircle2 className="size-3 text-neutral-900" />}
-                  </span>
-                  <span className="text-sm font-medium truncate">{s.label}</span>
+                  {s.label}
                 </button>
               );
             })}

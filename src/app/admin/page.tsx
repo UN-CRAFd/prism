@@ -15,12 +15,31 @@ import {
   TrendingUp,
   Users,
   FileStack,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportStatusStyle } from "@/lib/reports";
+import { timeAgo } from "@/lib/utils";
+import { CommentContextBadges } from "@/components/comment-context-badges";
 import type { Report } from "@/lib/types";
 
 type ReportRow = Report;
+
+// A report augmented with the most recent partner-edit time (from /api/reports/activity).
+type ActivityReport = ReportRow & { last_activity: string };
+
+// Admin-scoped comment awaiting CRAF'd review (partner marked it addressed).
+interface ReviewComment {
+  id: number;
+  section: string;
+  body: string;
+  year: number;
+  report_type: "annual" | "final" | null;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string | null;
+  item_label: string | null;
+}
 
 interface StatsData {
   totalReports: number;
@@ -74,6 +93,8 @@ export default function AdminHomePage() {
   const { user } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [recentActivity, setRecentActivity] = useState<ActivityReport[]>([]);
+  const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState("Good day");
   const [mounted, setMounted] = useState(false);
@@ -83,19 +104,28 @@ export default function AdminHomePage() {
 
     async function loadStats() {
       try {
-        const [rRes, pRes, prRes] = await Promise.all([
+        const [rRes, pRes, prRes, aRes, cRes] = await Promise.all([
           fetch("/api/reports?data_type=report"),
           fetch("/api/partners"),
           fetch("/api/projects"),
+          fetch("/api/reports/activity?limit=6"),
+          fetch("/api/comments?scope=admin"),
         ]);
         const reports: ReportRow[] = rRes.ok ? await rRes.json() : [];
         const partners: unknown[] = pRes.ok ? await pRes.json() : [];
         const projects: unknown[] = prRes.ok ? await prRes.json() : [];
+        const activity: ActivityReport[] = aRes.ok ? await aRes.json() : [];
+        const allComments: (ReviewComment & { resolved: boolean; partner_addressed: boolean })[] =
+          cRes.ok ? await cRes.json() : [];
 
         const authorized = reports.filter((r) => r.authorized).length;
         const recent = [...reports]
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 5);
+
+        // Comments the partner has marked addressed but CRAF'd hasn't confirmed yet
+        // — mirrors the "Completed by partner" bucket on the Comments tab.
+        const toReview = allComments.filter((c) => c.partner_addressed && !c.resolved);
 
         setStats({
           totalReports: reports.length,
@@ -105,6 +135,8 @@ export default function AdminHomePage() {
           totalProjects: projects.length,
           recentReports: recent,
         });
+        setRecentActivity(activity);
+        setReviewComments(toReview);
       } catch {
         // silently fail
       } finally {
@@ -186,63 +218,120 @@ export default function AdminHomePage() {
           </div>
         </div>
 
-        {/* Recent reports */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold flex items-center gap-2">
-              <TrendingUp className="size-4 text-muted-foreground" />
-              Recent Reports
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => router.push("/admin/reports")}
-            >
-              View all <ArrowRight className="size-3 ml-1" />
-            </Button>
+        {/* Two columns: recent partner activity (left) · comments to review (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* ── Left: reports by most recent partner edit ── */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <TrendingUp className="size-4 text-muted-foreground" />
+                Recently Edited
+              </h2>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push("/admin/reports")}>
+                View all <ArrowRight className="size-3 ml-1" />
+              </Button>
+            </div>
+
+            {loading ? (
+              <div className="rounded-xl border bg-card divide-y">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="px-5 py-3.5 flex items-center gap-4">
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3.5 w-48 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+                No reports yet.
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-card divide-y overflow-hidden">
+                {recentActivity.map((r) => {
+                  const slug = (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/overview`)}
+                      className="group w-full px-5 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{r.project_title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {r.partner_short_name} &middot; {r.year}
+                        </p>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                        {mounted ? timeAgo(r.last_activity) : ""}
+                      </span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>
+                        {r.status}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="rounded-xl border bg-card divide-y">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="px-5 py-3.5 flex items-center gap-4">
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3.5 w-48 bg-muted animate-pulse rounded" />
-                    <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+          {/* ── Right: comments the partner addressed, awaiting CRAF'd review ── */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <MessageSquare className="size-4 text-muted-foreground" />
+                Awaiting Your Review
+              </h2>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push("/admin/comments")}>
+                View all <ArrowRight className="size-3 ml-1" />
+              </Button>
+            </div>
+
+            {loading ? (
+              <div className="rounded-xl border bg-card divide-y">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="px-5 py-3.5 space-y-1.5">
+                    <div className="h-3.5 w-56 bg-muted animate-pulse rounded" />
+                    <div className="h-3 w-40 bg-muted animate-pulse rounded" />
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : !stats || stats.recentReports.length === 0 ? (
-            <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-              No reports yet.
-            </div>
-          ) : (
-            <div className="rounded-xl border bg-card divide-y overflow-hidden">
-              {stats.recentReports.map((r) => {
-                const slug = (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/overview`)}
-                    className="group w-full px-5 py-3.5 flex items-center gap-4 text-left transition-colors hover:bg-muted/40 cursor-pointer"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{r.project_title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {r.partner_short_name} &middot; {r.year}
-                      </p>
-                    </div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>
-                      {r.status}
-                    </span>
-                    <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            ) : reviewComments.length === 0 ? (
+              <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+                Nothing awaiting your review.
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-card divide-y overflow-hidden">
+                {reviewComments.map((c) => {
+                  const slug = (c.project_short_name ?? c.project_title).toLowerCase().replace(/\s+/g, "-");
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => router.push(`/admin/report-editor/${slug}/${c.year}/${c.section}`)}
+                      className="group w-full px-5 py-3.5 flex items-start gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+                    >
+                      <MessageSquare className="size-4 mt-0.5 shrink-0 text-amber-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm line-clamp-2">{c.body}</p>
+                        <CommentContextBadges
+                          partner={c.partner_short_name}
+                          reportType={c.report_type}
+                          year={c.year}
+                          project={c.project_short_name ?? c.project_title}
+                          section={c.section}
+                          itemLabel={c.item_label}
+                          className="!gap-1 mt-1.5"
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>

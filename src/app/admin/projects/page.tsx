@@ -291,6 +291,7 @@ export default function ProjectsPage() {
                 <TableHead className="text-right">Grant size</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Scope</TableHead>
+                <TableHead className="w-40">ProDoc</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
@@ -310,6 +311,27 @@ export default function ProjectsPage() {
                   <TableCell className="text-right tabular-nums">{fmtUsd(p.grant_size_usd)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => printProdoc(p)}
+                        disabled={printingId === p.id || !prodocByProject[p.id]}
+                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                        title="Print the project document to PDF"
+                      >
+                        {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
+                        Print
+                      </button>
+                      <button
+                        onClick={() => openProdoc(p)}
+                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        title="Open the project document"
+                      >
+                        Open
+                        <ArrowRight className="size-3" />
+                      </button>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
                   </TableCell>

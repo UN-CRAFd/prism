@@ -13,6 +13,7 @@ import {
   Home,
   Building2,
   FolderKanban,
+  FileStack,
   ChevronLeft,
   ChevronRight,
   Edit,
@@ -154,7 +155,15 @@ export function AppSidebar() {
               isActive: (p: string) =>
                 p.startsWith("/partner/report-editor") ||
                 (p.startsWith("/partner/") &&
+                  !p.startsWith("/partner/prodoc-editor") &&
+                  !p.startsWith("/partner/contacts") &&
                   p.split("/").filter(Boolean).length >= 4),
+            },
+            {
+              href: "/partner/prodoc-editor",
+              label: "Project Document",
+              icon: FileStack,
+              isActive: (p: string) => p.startsWith("/partner/prodoc-editor"),
             },
             {
               href: "/partner/contacts",

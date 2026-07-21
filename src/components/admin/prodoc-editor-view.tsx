@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, FileQuestion, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
@@ -78,23 +79,31 @@ interface LibraryIndicator {
   is_standard: boolean;
 }
 
-const SECTIONS = [
+// Surveys sits last and is muted — it's an admin-only baseline concern, so
+// partners never see it (filtered out in partner mode).
+const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean }[] = [
   { value: "general", label: labels.sections.general },
   { value: "narratives", label: labels.sections.narratives },
-  { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
   { value: "indicators", label: labels.sections.indicators },
   { value: "workplan", label: labels.sections.workplan },
   { value: "expenditure", label: labels.sections.expenditure },
+  { value: "surveys", label: labels.sections.surveys, muted: true, adminOnly: true },
 ];
 
 function toSlug(d: Prodoc) {
   return (d.project_short_name ?? d.project_title).toLowerCase().replace(/\s+/g, "-");
 }
 
-export function ProdocEditorView() {
+export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner" }) {
   const router = useRouter();
   const params = useParams<{ project?: string; section?: string }>();
+  const { user } = useAuth();
+
+  const isPartner = mode === "partner";
+  const routeBase = isPartner ? "/partner/prodoc-editor" : "/admin/prodoc-editor";
+  // Partners never see the admin-only Surveys tab.
+  const sections = isPartner ? SECTIONS.filter((s) => !s.adminOnly) : SECTIONS;
 
   const confirm = useConfirm();
   const [docs, setDocs] = useState<Prodoc[]>([]);
@@ -135,20 +144,31 @@ export function ProdocEditorView() {
   // ── Load project documents & pre-select from URL params ─────────────────
 
   useEffect(() => {
+    if (isPartner && !user) return; // wait for auth before filtering to the org
     fetch("/api/reports?data_type=prodoc")
       .then((r) => r.json())
       .then((data: Prodoc[]) => {
-        const list = Array.isArray(data) ? data : [];
+        let list = Array.isArray(data) ? data : [];
+        if (isPartner && user) {
+          list = list.filter(
+            (d) =>
+              d.partner_short_name?.toLowerCase() === user.id.toLowerCase() ||
+              d.partner_short_name === user.organization
+          );
+        }
         setDocs(list);
         if (params.project) {
           const match = list.find((d) => toSlug(d) === params.project);
           if (match) setSelectedProdocId(String(match.id));
+        } else if (isPartner && list.length > 0) {
+          // No project in the URL — partners have no dropdown, so open the first.
+          setSelectedProdocId(String(list[0].id));
         }
       })
       .catch(() => setError("Failed to load project documents"))
       .finally(() => setLoadingDocs(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPartner, user]);
 
   useEffect(() => {
     if (params.section) setSelectedSection(params.section);
@@ -204,7 +224,7 @@ export function ProdocEditorView() {
   // ── Navigation ────────────────────────────────────────────────────────
 
   function pushUrl(doc: Prodoc, section: string) {
-    router.push(`/admin/prodoc-editor/${toSlug(doc)}/${section}`);
+    router.push(`${routeBase}/${toSlug(doc)}/${section}`);
   }
 
   function handleDocChange(val: string) {
@@ -393,8 +413,14 @@ export function ProdocEditorView() {
       {/* Header */}
       <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">Project Document Editor</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Define the baseline: survey questions, risks, indicators, workplan and expenditure plan. New reports copy these.</p>
+          <h1 className="text-2xl font-bold font-qanelas">Project Document{isPartner ? "" : " Editor"}</h1>
+          {isPartner ? (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {selectedDoc ? (selectedDoc.project_short_name || selectedDoc.project_title) : "Your project document baseline."}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-0.5">Define the baseline: survey questions, risks, indicators, workplan and expenditure plan. New reports copy these.</p>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -402,57 +428,64 @@ export function ProdocEditorView() {
             <AutosaveIndicator state={editorSaveState} idleAsSaved />
           )}
 
-          <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
-          <SelectTrigger className="w-[320px] h-9">
-            {loadingDocs ? (
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" /> Loading…
-              </span>
-            ) : selectedDoc ? (
-              <span className="truncate">{selectedDoc.project_short_name || selectedDoc.project_title}</span>
-            ) : (
-              <span className="text-muted-foreground">Select a project</span>
-            )}
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(
-              docs.reduce((acc, d) => {
-                const key = d.partner_short_name;
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(d);
-                return acc;
-              }, {} as Record<string, Prodoc[]>)
-            ).map(([partner, grouped]) => (
-              <SelectGroup key={partner}>
-                <SelectLabel>{partner}</SelectLabel>
-                {grouped.map((d) => (
-                  <SelectItem key={d.id} value={String(d.id)}>
-                    {d.project_short_name || d.project_title}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+          {(!isPartner || docs.length > 1) && (
+            <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
+            <SelectTrigger className="w-[320px] h-9">
+              {loadingDocs ? (
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" /> Loading…
+                </span>
+              ) : selectedDoc ? (
+                <span className="truncate">{selectedDoc.project_short_name || selectedDoc.project_title}</span>
+              ) : (
+                <span className="text-muted-foreground">Select a project</span>
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(
+                docs.reduce((acc, d) => {
+                  const key = d.partner_short_name;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(d);
+                  return acc;
+                }, {} as Record<string, Prodoc[]>)
+              ).map(([partner, grouped]) => (
+                <SelectGroup key={partner}>
+                  <SelectLabel>{partner}</SelectLabel>
+                  {grouped.map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.project_short_name || d.project_title}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+          )}
         </div>
       </div>
 
       {/* Section tabs */}
       <div className="border-b px-8 flex gap-1 shrink-0">
-        {SECTIONS.map((sec) => (
-          <button
-            key={sec.value}
-            onClick={() => handleSectionChange(sec.value)}
-            className={cn(
-              "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-              selectedSection === sec.value
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {sec.label}
-          </button>
-        ))}
+        {sections.map((sec) => {
+          const active = selectedSection === sec.value;
+          return (
+            <button
+              key={sec.value}
+              onClick={() => handleSectionChange(sec.value)}
+              className={cn(
+                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                active
+                  ? "border-foreground text-foreground"
+                  : sec.muted
+                    ? "border-transparent text-muted-foreground/40 hover:text-muted-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {sec.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}
@@ -466,7 +499,13 @@ export function ProdocEditorView() {
         {!selectedProdocId ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">Select a project to edit its project document.</p>
+            <p className="text-sm">
+              {loadingDocs
+                ? labels.partnerEditor.loading
+                : isPartner
+                  ? "No project document is available for your organization yet."
+                  : "Select a project to edit its project document."}
+            </p>
           </div>
 
         ) : sectionLoading ? (

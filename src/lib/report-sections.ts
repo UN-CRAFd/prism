@@ -42,5 +42,8 @@ export const REPORT_SECTION_GROUPS: { label: ReportSectionGroup; sections: Repor
 export function parseReportPath(pathname: string): { project: string; year: string; section: string } | null {
   const parts = pathname.split("/").filter(Boolean); // ["partner", project, year, section]
   if (parts[0] !== "partner" || parts.length < 4) return null;
+  // A report path always has a 4-digit year in the third slot; this excludes
+  // sibling partner routes like /partner/prodoc-editor/<slug>/<section>.
+  if (!/^\d{4}$/.test(parts[2])) return null;
   return { project: parts[1], year: parts[2], section: parts[3] };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectGroup, SelectLabel,
@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, FileQuestion, Pencil } from "lucide-react";
+import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
@@ -402,6 +402,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   // ── Render ──────────────────────────────────────────────────────────────
 
+  // Group indicators by category (must be at top level, not in conditional)
+  const groupedIndicators = useMemo(() => {
+    if (indicatorLines.length === 0) return [];
+    const map = new Map<string, typeof indicatorLines>();
+    for (const line of indicatorLines) {
+      const cat = line.category || "(No category)";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(line);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [indicatorLines]);
+
   const sectionLoading =
     selectedSection === "surveys" ? loadingSurveys :
     selectedSection === "risk" ? loadingRisk :
@@ -672,76 +684,92 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
               </div>
             ) : (
               <div className="rounded-xl border bg-card overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">{labels.indicators.columns.number}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.indicators.columns.indicator}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.baselineValue}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.baselineYear}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.targetValue}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.targetYear}</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-16">{labels.indicators.columns.actions}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {indicatorLines.map((line, i) => (
-                      <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
-                        <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-medium">{line.indicator_name}</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
-                            {line.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{line.category}</span>}
-                            {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            value={line.baseline_value ?? ""}
-                            onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_value: e.target.value })}
-                            onBlur={() => saveIndicatorLine(line.id)}
-                            placeholder={labels.placeholders.baselineValue}
-                            className="text-sm h-8"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            type="number" value={line.baseline_year ?? ""}
-                            onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_year: e.target.value ? Number(e.target.value) : null })}
-                            onBlur={() => saveIndicatorLine(line.id)}
-                            placeholder={labels.placeholders.year}
-                            className="text-sm h-8"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            value={line.target_value ?? ""}
-                            onChange={(e) => updateIndicatorLineLocal(line.id, { target_value: e.target.value })}
-                            onBlur={() => saveIndicatorLine(line.id)}
-                            placeholder={labels.placeholders.targetValue}
-                            className="text-sm h-8"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            type="number" value={line.target_year ?? ""}
-                            onChange={(e) => updateIndicatorLineLocal(line.id, { target_year: e.target.value ? Number(e.target.value) : null })}
-                            onBlur={() => saveIndicatorLine(line.id)}
-                            placeholder={labels.placeholders.year}
-                            className="text-sm h-8"
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button onClick={() => handleIndicatorDelete(line.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </td>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">{labels.indicators.columns.number}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.indicators.columns.indicator}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.baselineValue}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.baselineYear}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.targetValue}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.targetYear}</th>
+                        <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-16">{labels.indicators.columns.actions}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y">
+                      {groupedIndicators.map(([category, lines]) => {
+                        let rowNum = 1;
+                        return [
+                          <tr key={`cat-${category}`} className="bg-muted/40">
+                            <td colSpan={7} className="px-4 py-2.5">
+                              <div className="flex items-center gap-2 font-semibold text-sm">
+                                <Layers className="size-3.5 text-muted-foreground" />
+                                {category}
+                                <span className="text-xs text-muted-foreground font-normal">({lines.length})</span>
+                              </div>
+                            </td>
+                          </tr>,
+                          ...lines.map((line) => {
+                            const num = rowNum++;
+                            return (
+                              <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
+                                <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{num}.</td>
+                              <td className="px-4 py-3">
+                                <p className="text-sm font-medium">{line.indicator_name}</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
+                                  {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Input
+                                  value={line.baseline_value ?? ""}
+                                  onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_value: e.target.value })}
+                                  onBlur={() => saveIndicatorLine(line.id)}
+                                  placeholder={labels.placeholders.baselineValue}
+                                  className="text-sm h-8"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <Input
+                                  type="number" value={line.baseline_year ?? ""}
+                                  onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_year: e.target.value ? Number(e.target.value) : null })}
+                                  onBlur={() => saveIndicatorLine(line.id)}
+                                  placeholder={labels.placeholders.year}
+                                  className="text-sm h-8"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <Input
+                                  value={line.target_value ?? ""}
+                                  onChange={(e) => updateIndicatorLineLocal(line.id, { target_value: e.target.value })}
+                                  onBlur={() => saveIndicatorLine(line.id)}
+                                  placeholder={labels.placeholders.targetValue}
+                                  className="text-sm h-8"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <Input
+                                  type="number" value={line.target_year ?? ""}
+                                  onChange={(e) => updateIndicatorLineLocal(line.id, { target_year: e.target.value ? Number(e.target.value) : null })}
+                                  onBlur={() => saveIndicatorLine(line.id)}
+                                  placeholder={labels.placeholders.year}
+                                  className="text-sm h-8"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button onClick={() => handleIndicatorDelete(line.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                            );
+                          }),
+                        ].flat();
+                      })}
+                    </tbody>
+                  </table>
+                </div>
             )}
           </div>
 

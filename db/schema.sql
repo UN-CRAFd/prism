@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS indicators (
     name                  TEXT        NOT NULL,
     description           TEXT,
     means_of_verification TEXT,
-    category              TEXT,
+    category              TEXT        CHECK (category IN ('Data Outputs & Quality', 'Analytics Products', 'Access & Usage', 'Reach & Influence', 'Capacity & Partnerships')),
     cycle                 TEXT        CHECK (cycle IN ('yearly', 'at_closure')),
     is_standard           BOOLEAN     NOT NULL DEFAULT TRUE,
     project_id            INTEGER     REFERENCES projects(id) ON DELETE CASCADE,

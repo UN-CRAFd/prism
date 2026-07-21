@@ -64,6 +64,14 @@ function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
 
 const NONE = "none";
 
+const INDICATOR_CATEGORIES = [
+  "Data Outputs & Quality",
+  "Analytics Products",
+  "Access & Usage",
+  "Reach & Influence",
+  "Capacity & Partnerships",
+] as const;
+
 export default function IndicatorsPage() {
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +137,7 @@ export default function IndicatorsPage() {
     try {
       const body = {
         name: name.trim(),
-        category: category.trim() || null,
+        category: category === NONE ? null : category,
         cycle: cycle === NONE ? null : cycle,
         description: description.trim() || null,
         means_of_verification: mov.trim() || null,
@@ -196,7 +204,17 @@ export default function IndicatorsPage() {
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={labels.placeholders.indicatorName} />
               </Field>
               <Field label={labels.indicators.columns.category}>
-                <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={labels.placeholders.indicatorCategory} />
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}><span className="text-muted-foreground">—</span></SelectItem>
+                    {INDICATOR_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label={labels.indicators.columns.cycle}>
                 <Select value={cycle} onValueChange={setCycle}>

@@ -347,25 +347,24 @@ function FooterYearCells({ approved, exp, strong }: { approved: number; exp: num
 // Admin editor — approved annual budgets per category × year + indirect rate
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
+export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectId: number; isAdmin?: boolean }) {
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);
   const [years, setYears] = useState<number[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({}); // `${catId}-${year}` → string
-  const [ratePct, setRatePct] = useState<string>("7");
+  // Read-only here: the rate is project-level data, edited in the General
+  // Information tab (admin only). We just load it to compute indirect costs.
+  const [rate, setRate] = useState(0.07);
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
 
   const dirtyRef = useRef<Set<string>>(new Set());
-  const rateDirtyRef = useRef(false);
   const amountsRef = useRef<Record<string, string>>({});
-  const rateRef = useRef("7");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const flushRef = useRef<() => void>(() => {});
 
   useEffect(() => { amountsRef.current = amounts; }, [amounts]);
-  useEffect(() => { rateRef.current = ratePct; }, [ratePct]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -380,7 +379,7 @@ export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
       const bud: { indirectRate: number; years: number[]; budgets: BudgetRow[] } = await budRes.json();
       setCategories(cats);
       setYears(bud.years);
-      setRatePct(String(Math.round(bud.indirectRate * 100 * 100) / 100));
+      setRate(bud.indirectRate);
       const m: Record<string, string> = {};
       for (const b of bud.budgets) {
         if (b.approved_amount != null) m[`${b.category_id}-${b.year}`] = String(b.approved_amount);
@@ -400,16 +399,6 @@ export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
     savingRef.current = true;
     setSaveState("saving");
     try {
-      if (rateDirtyRef.current) {
-        rateDirtyRef.current = false;
-        const rate = (parseAmount(rateRef.current) ?? 7) / 100;
-        const res = await fetch("/api/expenditure-budgets", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId, indirect_cost_rate: rate }),
-        });
-        if (!res.ok) throw new Error("Failed to save indirect rate");
-      }
       const keys = Array.from(dirtyRef.current);
       dirtyRef.current.clear();
       for (const key of keys) {
@@ -427,7 +416,7 @@ export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
       setSaveState("error");
     } finally {
       savingRef.current = false;
-      if (dirtyRef.current.size || rateDirtyRef.current) flushRef.current();
+      if (dirtyRef.current.size) flushRef.current();
     }
   };
   flushRef.current = flush;
@@ -440,7 +429,7 @@ export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (dirtyRef.current.size || rateDirtyRef.current) flushRef.current();
+    if (dirtyRef.current.size) flushRef.current();
   }, []);
 
   function setAmount(catId: number, year: number, v: string) {
@@ -449,13 +438,7 @@ export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
     dirtyRef.current.add(key);
     scheduleFlush();
   }
-  function setRate(v: string) {
-    setRatePct(v);
-    rateDirtyRef.current = true;
-    scheduleFlush();
-  }
 
-  const rate = (parseAmount(ratePct) ?? 7) / 100;
   const amt = (catId: number, year: number) => parseAmount(amounts[`${catId}-${year}`] ?? "");
   const catTotal = (catId: number) => years.reduce((a, y) => a + num(amt(catId, y)), 0);
   const yearSub = (year: number) => categories.reduce((a, c) => a + num(amt(c.id, year)), 0);
@@ -470,13 +453,13 @@ export function ExpenditureAdminEditor({ projectId }: { projectId: number }) {
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
       <div className="flex items-end justify-between gap-4 rounded-xl border bg-card p-4">
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Indirect support cost rate</p>
-          <div className="flex items-center gap-1.5">
-            <Input value={ratePct} onChange={(e) => setRate(e.target.value)} inputMode="decimal" className="h-8 w-20 text-sm text-right" />
-            <span className="text-sm text-muted-foreground">%</span>
+        {isAdmin ? (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Indirect support cost rate</p>
+            <p className="text-sm font-medium">{Math.round(rate * 100 * 100) / 100}%</p>
+            <p className="text-[11px] text-muted-foreground">Set in the General Information tab.</p>
           </div>
-        </div>
+        ) : <div />}
         {saveState === "saving" ? (
           <span className="flex items-center gap-1.5 text-muted-foreground text-sm"><Loader2 className="size-3.5 animate-spin" /> Saving…</span>
         ) : saveState === "saved" ? (

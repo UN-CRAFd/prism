@@ -4,7 +4,7 @@ import pool, { query } from "@/lib/db";
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
   "mptfo_project_number", "grant_size_usd", "project_start_date", "project_duration_months", "geographic_scope",
-  "implementing_partners", "project_lead",
+  "implementing_partners", "project_lead", "indirect_cost_rate",
 ];
 
 export async function GET(

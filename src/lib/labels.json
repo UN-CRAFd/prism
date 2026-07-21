@@ -44,6 +44,7 @@
       "grantSize": "Funding amount (USD)",
       "startDate": "Start date",
       "durationMonths": "Duration (months)",
+      "indirectCostRate": "Indirect support cost rate (%)",
       "description": "Description"
     },
     "placeholders": {
@@ -51,6 +52,7 @@
       "mptfoNumber": "e.g. 00012345",
       "grantSize": "0.00",
       "durationMonths": "e.g. 24",
+      "indirectCostRate": "7",
       "description": "Describe the project…"
     },
     "statusOptions": ["Idea", "Ongoing", "Operationally Closed", "Financially Closed", "Project Closed"],

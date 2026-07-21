@@ -514,7 +514,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "general" ? (
-          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} /> : null
+          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} isAdmin={!isPartner} /> : null
 
         ) : selectedSection === "surveys" ? (
           <div className="space-y-4">
@@ -751,7 +751,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         ) : selectedSection === "workplan" ? (
           selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} /> : null
         ) : selectedSection === "expenditure" ? (
-          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} /> : null
+          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} /> : null
         ) : null}
       </div>
     </div>

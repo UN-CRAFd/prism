@@ -381,14 +381,14 @@ export default function ContactsPage() {
                 <button
                   type="button"
                   onClick={() => toggleGroup(g.partnerId)}
-                  className="mb-2 flex items-center gap-2 w-full text-left rounded-md py-1 hover:bg-muted/40 transition-colors"
+                  className="mb-2 flex items-center gap-3 w-full text-left rounded-md py-1 hover:bg-muted/40 transition-colors"
                 >
                   {isCollapsed
                     ? <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                     : <ChevronDown className="size-4 text-muted-foreground shrink-0" />}
                   <PartnerLogo shortName={g.shortName} />
-                  <Badge variant="outline" className="text-xs font-semibold">{g.label}</Badge>
-                  <span className="text-xs text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
+                  <h3 className="text-lg font-bold flex-1">{g.label}</h3>
+                  <span className="text-sm text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
                 </button>
                 {!isCollapsed && (
                 <Table className="table-fixed">

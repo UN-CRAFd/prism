@@ -27,12 +27,13 @@ npm install
 Create a `.env.local` file in the project root (it is git-ignored):
 
 ```bash
-# PostgreSQL connection
+# PostgreSQL connection — MUST be the least-privilege application role
+# (prism_app), NOT a database admin/owner. See "Database" below.
 AZURE_POSTGRES_HOST=your-db-host
 AZURE_POSTGRES_PORT=5432
 AZURE_POSTGRES_DB=your-db-name
-AZURE_POSTGRES_USER=your-db-user
-AZURE_POSTGRES_PASSWORD=your-db-password
+AZURE_POSTGRES_USER=prism_app
+AZURE_POSTGRES_PASSWORD=the-prism_app-password
 
 # Admin login password (required for the "admin" account).
 # There is no default — if this is unset, admin login is disabled.
@@ -44,8 +45,34 @@ ADMIN_PASSWORD=choose-a-strong-secret
 
 ### Database
 
-Apply the SQL files in [`db/`](db/) then [`migrations/`](migrations/) in
-numerical order to provision the `reporting_platform` schema.
+The database uses **two roles**, so the running app never holds admin rights:
+
+- an **owner/admin** account — creates the schema and runs migrations (DDL);
+- **`prism_app`** — the least-privilege role the app connects as. It can only
+  run DML (SELECT/INSERT/UPDATE/DELETE) inside the `reporting_platform` schema:
+  no DDL, no other schemas, not a superuser, cannot create roles or databases.
+
+Provision, as the **owner/admin** account:
+
+1. Apply the SQL files in [`db/`](db/) then [`migrations/`](migrations/) in
+   numerical order to create the `reporting_platform` schema.
+2. Create and grant the application role. First set the password in
+   [`db/roles.sql`](db/roles.sql) (the `\set app_password '…'` line), then:
+
+   ```bash
+   psql "<ADMIN connection string>" -f db/roles.sql
+   ```
+
+   It is idempotent — re-run it after adding migrations to pick up new tables
+   (default privileges also cover future objects automatically). Run it and all
+   migrations under the same owner account.
+
+   > The password lives in the file once filled in, so treat `db/roles.sql` as a
+   > secret — do not commit the real value (or rotate it afterwards).
+
+Then set `AZURE_POSTGRES_USER=prism_app` (and its password) for the app. Keep
+the admin credentials out of the app's environment; use them only to run
+migrations.
 
 ### Run
 

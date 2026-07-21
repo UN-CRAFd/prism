@@ -7,6 +7,11 @@ import { Pool, types } from "pg";
 // and breaking <input type="date"> (which needs a bare YYYY-MM-DD value).
 types.setTypeParser(1082, (v) => v);
 
+// The app connects with the least-privilege `prism_app` role — DML only, scoped
+// to the reporting_platform schema, never superuser/owner (see db/roles.sql).
+// AZURE_POSTGRES_USER / AZURE_POSTGRES_PASSWORD MUST point at that role, not a
+// database admin. Schema creation and migrations use a separate admin account
+// and never go through this pool (the app performs no DDL at runtime).
 const pool = new Pool({
   host: process.env.AZURE_POSTGRES_HOST,
   port: Number(process.env.AZURE_POSTGRES_PORT) || 5432,
@@ -15,6 +20,8 @@ const pool = new Pool({
   password: process.env.AZURE_POSTGRES_PASSWORD,
   ssl: { rejectUnauthorized: false },
   max: 5,
+  // Labels connections in pg_stat_activity / audit logs as the app.
+  application_name: "crafd-reporting-app",
 });
 
 export async function query<T extends Record<string, unknown> = Record<string, unknown>>(

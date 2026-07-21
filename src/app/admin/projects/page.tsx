@@ -40,7 +40,6 @@ interface Project {
   project_duration_months: number | null;
   geographic_scope: string | null;
   implementing_partners: string | null;
-  project_lead: string | null;
 }
 
 function durationLabel(months: number | null): string | null {
@@ -87,7 +86,6 @@ export default function ProjectsPage() {
   const [durationMonths, setDurationMonths] = useState("");
   const [scope, setScope] = useState("");
   const [implementingPartners, setImplementingPartners] = useState("");
-  const [projectLead, setProjectLead] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,7 +113,7 @@ export default function ProjectsPage() {
   function resetForm() {
     setPartnerId(""); setTitle(""); setShortName("");
     setMptfo(""); setGrantSize(""); setStartDate(""); setDurationMonths(""); setScope("");
-    setImplementingPartners(""); setProjectLead("");
+    setImplementingPartners("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -129,7 +127,6 @@ export default function ProjectsPage() {
     setDurationMonths(p.project_duration_months != null ? String(p.project_duration_months) : "");
     setScope(p.geographic_scope || "");
     setImplementingPartners(p.implementing_partners || "");
-    setProjectLead(p.project_lead || "");
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
@@ -147,7 +144,6 @@ export default function ProjectsPage() {
         project_duration_months: durationMonths ? parseInt(durationMonths, 10) : null,
         geographic_scope: scope.trim() || null,
         implementing_partners: implementingPartners.trim() || null,
-        project_lead: projectLead.trim() || null,
       };
       const res = await fetch(
         editId ? `/api/projects/${editId}` : "/api/projects",
@@ -238,7 +234,7 @@ export default function ProjectsPage() {
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Project title" />
               </Field>
               <Field label="Short name">
-                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Short name" />
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value.replace(/\s/g, ""))} placeholder="ShortName" />
               </Field>
               <Field label="MPTFO project number">
                 <Input value={mptfo} onChange={(e) => setMptfo(e.target.value.replace(/\D/g, ""))} placeholder="00140841" inputMode="numeric" />
@@ -260,9 +256,6 @@ export default function ProjectsPage() {
               </Field>
               <Field label="Geographic scope">
                 <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Global" />
-              </Field>
-              <Field label="Project lead">
-                <Input value={projectLead} onChange={(e) => setProjectLead(e.target.value)} placeholder="Name of project lead" />
               </Field>
               <Field label="Implementing partners">
                 <Input value={implementingPartners} onChange={(e) => setImplementingPartners(e.target.value)} placeholder="Implementing partners" />

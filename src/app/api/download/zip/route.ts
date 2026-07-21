@@ -73,7 +73,7 @@ const EXPORTS: Record<string, SectionExport> = {
   overview: {
     headers: [
       "year", "project_name", "partner", "project_title", "mptfo_project_number",
-      "organization_name", "organization_website", "project_lead",
+      "organization_name", "organization_website",
       "grant_size_usd", "project_start_date", "project_duration_months", "implementing_partners",
       "geographic_scope", "report_submission_date", "authorized",
     ],
@@ -86,7 +86,6 @@ const EXPORTS: Record<string, SectionExport> = {
         p.mptfo_project_number,
         pt.long_name     AS organization_name,
         pt.organization_website,
-        p.project_lead,
         p.grant_size_usd,
         TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
         p.project_duration_months,

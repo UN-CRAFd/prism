@@ -27,7 +27,6 @@ export interface OverviewData {
   report_submission_date: string;
   project_start_date: string;
   project_duration_months: string;
-  project_lead: string;
   authorized: boolean;
 }
 
@@ -42,7 +41,6 @@ export const EMPTY_OVERVIEW: OverviewData = {
   report_submission_date: "",
   project_start_date: "",
   project_duration_months: "",
-  project_lead: "",
   authorized: false,
 };
 

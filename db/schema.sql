@@ -82,7 +82,6 @@ CREATE TABLE IF NOT EXISTS projects (
     project_duration_months INTEGER,
     geographic_scope        TEXT,
     implementing_partners   TEXT,
-    project_lead            TEXT,
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW()

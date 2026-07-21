@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
          p.grant_size_usd,
          p.implementing_partners,
          p.geographic_scope,
-         p.project_lead,
          TO_CHAR(p.project_start_date, 'YYYY-MM-DD')     AS project_start_date,
          p.project_duration_months,
          pt.long_name                                    AS organization_name,

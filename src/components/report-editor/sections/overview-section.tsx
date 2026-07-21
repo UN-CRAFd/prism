@@ -59,7 +59,6 @@ export function OverviewSection({ overview, updateOverview }: OverviewSectionPro
         </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <ReadField label={labels.overviewFields.projectLead} value={overview.project_lead} />
           <ReadField label={labels.overviewFields.grantSizeUsd} value={overview.grant_size_usd ? `$${Number(overview.grant_size_usd).toLocaleString("en-US")}` : null} />
           <ReadField label={labels.overviewFields.startDate} value={overview.project_start_date ? formatDate(overview.project_start_date) : null} />
           <ReadField label={labels.overviewFields.durationMonths} value={overview.project_duration_months ? `${overview.project_duration_months} months` : null} />

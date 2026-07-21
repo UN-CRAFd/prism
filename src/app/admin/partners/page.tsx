@@ -159,7 +159,7 @@ export default function PartnersPage() {
           >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <Field label="Short name" required>
-                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Acronym" />
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value.replace(/\s/g, ""))} placeholder="Acronym" />
               </Field>
               <Field label="Long name">
                 <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full organization name" />

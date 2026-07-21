@@ -158,7 +158,6 @@ export function ReportEditor({
           report_submission_date: data.report_submission_date?.slice(0, 10) ?? "",
           project_start_date: data.project_start_date?.slice(0, 10) ?? "",
           project_duration_months: data.project_duration_months != null ? String(data.project_duration_months) : "",
-          project_lead: data.project_lead ?? "",
           authorized: data.authorized ?? false,
         });
       }
@@ -262,7 +261,6 @@ export function ReportEditor({
             report_submission_date: match.report_submission_date?.slice(0, 10) || "",
             project_start_date: match.project_start_date?.slice(0, 10) || "",
             project_duration_months: match.project_duration_months != null ? String(match.project_duration_months) : "",
-            project_lead: "",
             authorized: false,
           });
         }

@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2 } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2 } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
@@ -27,6 +27,13 @@ interface Partner {
   long_name: string | null;
 }
 
+type ProjectStatus =
+  | "Idea"
+  | "Ongoing"
+  | "Operationally Closed"
+  | "Financially Closed"
+  | "Project Closed";
+
 interface Project {
   id: number;
   partner_id: number;
@@ -34,6 +41,7 @@ interface Project {
   partner_long_name: string | null;
   project_title: string;
   short_name: string | null;
+  status: ProjectStatus;
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
   project_start_date: string | null;
@@ -41,6 +49,31 @@ interface Project {
   geographic_scope: string | null;
   implementing_partners: string | null;
 }
+
+// Project STATUS presentation — matches the CHECK constraint in db/schema.sql.
+const PROJECT_STATUSES: ProjectStatus[] = [
+  "Idea",
+  "Ongoing",
+  "Operationally Closed",
+  "Financially Closed",
+  "Project Closed",
+];
+
+const STATUS_STYLES: Record<ProjectStatus, string> = {
+  Idea:                   "bg-violet-50 text-violet-700 border-violet-200",
+  Ongoing:                "bg-blue-50 text-blue-700 border-blue-200",
+  "Operationally Closed": "bg-amber-50 text-amber-700 border-amber-200",
+  "Financially Closed":   "bg-orange-50 text-orange-700 border-orange-200",
+  "Project Closed":       "bg-zinc-100 text-zinc-500 border-zinc-200",
+};
+
+const STATUS_ICONS: Record<ProjectStatus, ReactNode> = {
+  Idea:                   <Lightbulb className="size-3 shrink-0 text-violet-700" />,
+  Ongoing:                <CircleDot className="size-3 shrink-0 text-blue-700" />,
+  "Operationally Closed": <PauseCircle className="size-3 shrink-0 text-amber-700" />,
+  "Financially Closed":   <Banknote className="size-3 shrink-0 text-orange-700" />,
+  "Project Closed":       <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+};
 
 function durationLabel(months: number | null): string | null {
   return months && months > 0 ? `${months} months` : null;
@@ -153,6 +186,18 @@ export default function ProjectsPage() {
       resetForm(); load();
     } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setSaving(false); }
+  }
+
+  async function handleStatusChange(id: number, newStatus: ProjectStatus) {
+    // Optimistic: reflect the change immediately, roll back on failure.
+    const prev = projects;
+    setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
+    const res = await fetch(`/api/projects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) setProjects(prev);
   }
 
   const confirm = useConfirm();
@@ -280,6 +325,7 @@ export default function ProjectsPage() {
                 <TableHead>Partner</TableHead>
                 <TableHead>Short</TableHead>
                 <TableHead>Project title</TableHead>
+                <TableHead className="w-48">Status</TableHead>
                 <TableHead>MPTFO #</TableHead>
                 <TableHead className="text-right">Grant size</TableHead>
                 <TableHead>Duration</TableHead>
@@ -300,6 +346,21 @@ export default function ProjectsPage() {
                     {p.short_name || <Dash />}
                   </TableCell>
                   <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
+                  <TableCell>
+                    <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+                      <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
+                        <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                          {STATUS_ICONS[p.status]}
+                          <SelectValue />
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROJECT_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">{p.mptfo_project_number || <Dash />}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtUsd(p.grant_size_usd)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
@@ -369,8 +430,21 @@ export default function ProjectsPage() {
                   )}
                 </div>
 
-                {/* ProDoc actions */}
+                {/* Status + ProDoc actions */}
                 <div className="flex gap-1.5 mt-auto pt-1">
+                  <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+                    <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
+                      <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                        {STATUS_ICONS[p.status]}
+                        <SelectValue />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PROJECT_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <button
                     onClick={() => printProdoc(p)}
                     disabled={printingId === p.id || !prodocByProject[p.id]}

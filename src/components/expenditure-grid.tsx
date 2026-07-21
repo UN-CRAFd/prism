@@ -351,9 +351,11 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);
   const [years, setYears] = useState<number[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({}); // `${catId}-${year}` → string
-  // Read-only here: the rate is project-level data, edited in the General
-  // Information tab (admin only). We just load it to compute indirect costs.
+  // The indirect support cost rate is project-level admin data, edited here.
+  // `rate` is the persisted fraction (0.07); `rateInput` is the editable
+  // percentage string shown in the field.
   const [rate, setRate] = useState(0.07);
+  const [rateInput, setRateInput] = useState("7");
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -380,6 +382,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
       setCategories(cats);
       setYears(bud.years);
       setRate(bud.indirectRate);
+      setRateInput(String(Math.round(bud.indirectRate * 100 * 100) / 100));
       const m: Record<string, string> = {};
       for (const b of bud.budgets) {
         if (b.approved_amount != null) m[`${b.category_id}-${b.year}`] = String(b.approved_amount);
@@ -439,6 +442,29 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
     scheduleFlush();
   }
 
+  // Persist the indirect rate on blur/change. Percentage in the field → stored
+  // as a fraction. Empty input falls back to the 7% default.
+  async function commitRate() {
+    const pct = rateInput.trim() === "" ? 7 : Number(rateInput);
+    if (isNaN(pct)) { setRateInput(String(Math.round(rate * 100 * 100) / 100)); return; }
+    const fraction = pct / 100;
+    if (fraction === rate) return;
+    setRate(fraction);
+    setSaveState("saving");
+    try {
+      const res = await fetch("/api/expenditure-budgets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, indirect_cost_rate: fraction }),
+      });
+      if (!res.ok) throw new Error("Failed to save rate");
+      setSaveState("saved");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+      setSaveState("error");
+    }
+  }
+
   const amt = (catId: number, year: number) => parseAmount(amounts[`${catId}-${year}`] ?? "");
   const catTotal = (catId: number) => years.reduce((a, y) => a + num(amt(catId, y)), 0);
   const yearSub = (year: number) => categories.reduce((a, c) => a + num(amt(c.id, year)), 0);
@@ -454,10 +480,18 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
 
       <div className="flex items-end justify-between gap-4 rounded-xl border bg-card p-4">
         {isAdmin ? (
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">Indirect support cost rate</p>
-            <p className="text-sm font-medium">{Math.round(rate * 100 * 100) / 100}%</p>
-            <p className="text-[11px] text-muted-foreground">Set in the General Information tab.</p>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Indirect support cost rate</label>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number" min="0" max="100" step="0.01"
+                value={rateInput}
+                onChange={(e) => setRateInput(e.target.value)}
+                onBlur={commitRate}
+                className="h-8 w-24 text-sm text-right tabular-nums"
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+            </div>
           </div>
         ) : <div />}
         {saveState === "saving" ? (

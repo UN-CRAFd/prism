@@ -419,7 +419,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
               {selectedDoc ? (selectedDoc.project_short_name || selectedDoc.project_title) : "Your project document baseline."}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground mt-0.5">Detailed Project Information for approvalprod</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Detailed Project Information for approval</p>
           )}
         </div>
 

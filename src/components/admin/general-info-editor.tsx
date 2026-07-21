@@ -24,14 +24,14 @@ const RELATIONSHIP_NONE = "__none__";
 // Editable project columns, kept as strings in local form state.
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
-  "grant_size_usd", "project_start_date", "project_duration_months", "indirect_cost_rate", "description",
+  "grant_size_usd", "project_start_date", "project_duration_months", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
 
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
-  grant_size_usd: "", project_start_date: "", project_duration_months: "", indirect_cost_rate: "7", description: "",
+  grant_size_usd: "", project_start_date: "", project_duration_months: "", description: "",
 };
 
 interface ProjectContact {
@@ -50,7 +50,6 @@ function coerce(key: FieldKey, value: string): unknown {
   switch (key) {
     case "grant_size_usd": return value.trim() === "" ? null : Number(value);
     case "project_duration_months": return value.trim() === "" ? null : Number(value);
-    case "indirect_cost_rate": return value.trim() === "" ? 0.07 : Number(value) / 100; // stored as a fraction
     case "project_start_date":
     case "mptfo_project_number":
     case "description": return value.trim() === "" ? null : value;
@@ -61,10 +60,11 @@ function coerce(key: FieldKey, value: string): unknown {
 export function GeneralInfoAdminEditor({
   projectId,
   onSaveStateChange,
-  isAdmin = true,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
+  // isAdmin retained on the type for callers; the rate (the only admin-gated
+  // field) now lives in the Expenditure tab, so nothing here branches on it.
   isAdmin?: boolean;
 }) {
   const confirm = useConfirm();
@@ -97,7 +97,6 @@ export function GeneralInfoAdminEditor({
           grant_size_usd: p.grant_size_usd != null ? String(p.grant_size_usd) : "",
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
-          indirect_cost_rate: p.indirect_cost_rate != null ? String(Math.round(p.indirect_cost_rate * 100 * 100) / 100) : "7",
           description: p.description ?? "",
         };
         setForm(loaded);
@@ -293,22 +292,6 @@ export function GeneralInfoAdminEditor({
             />
           </div>
 
-          {/* Admin-only: the indirect support cost rate is internal project data. */}
-          {isAdmin && (
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.indirectCostRate}</label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number" min="0" max="100" step="0.01"
-                  value={form.indirect_cost_rate}
-                  onChange={(e) => setField("indirect_cost_rate", e.target.value)}
-                  placeholder={g.placeholders.indirectCostRate}
-                  className="text-sm"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="space-y-1.5">

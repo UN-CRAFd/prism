@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2 } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
@@ -62,8 +63,12 @@ function fmtUsd(v: string | null) {
 // -- Page -------------------------------------------------------------------
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  // project_id → its prodoc report id (for Print / Open ProDoc).
+  const [prodocByProject, setProdocByProject] = useState<Record<number, number>>({});
+  const [printingId, setPrintingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("grid");
@@ -88,10 +93,16 @@ export default function ProjectsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [pRes, prRes] = await Promise.all([fetch("/api/partners"), fetch("/api/projects")]);
-      if (!pRes.ok || !prRes.ok) throw new Error("Failed to fetch data");
+      const [pRes, prRes, pdRes] = await Promise.all([
+        fetch("/api/partners"),
+        fetch("/api/projects"),
+        fetch("/api/reports?data_type=prodoc"),
+      ]);
+      if (!pRes.ok || !prRes.ok || !pdRes.ok) throw new Error("Failed to fetch data");
       setPartners(await pRes.json());
       setProjects(await prRes.json());
+      const prodocs: { id: number; project_id: number }[] = await pdRes.json();
+      setProdocByProject(Object.fromEntries(prodocs.map((d) => [d.project_id, d.id])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -155,6 +166,35 @@ export default function ProjectsPage() {
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();
+  }
+
+  // ── Project document (prodoc) actions ─────────────────────────────────────
+  function openProdoc(p: Project) {
+    const slug = (p.short_name ?? p.project_title).toLowerCase().replace(/\s+/g, "-");
+    router.push(`/admin/prodoc-editor/${slug}/general`);
+  }
+
+  async function printProdoc(p: Project) {
+    const prodocId = prodocByProject[p.id];
+    if (!prodocId) return;
+    setPrintingId(p.id);
+    try {
+      const response = await fetch(`/api/reports/${prodocId}/pdf`);
+      if (!response.ok) throw new Error("Failed to generate PDF");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${p.short_name || "prodoc"}_prodoc.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Print failed:", e);
+    } finally {
+      setPrintingId(null);
+    }
   }
 
   return (
@@ -280,7 +320,7 @@ export default function ProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map((p) => (
-              <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer">
+              <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
@@ -312,6 +352,27 @@ export default function ProjectsPage() {
                       {p.mptfo_project_number}
                     </a>
                   )}
+                </div>
+
+                {/* ProDoc actions */}
+                <div className="flex gap-1.5 mt-auto pt-1">
+                  <button
+                    onClick={() => printProdoc(p)}
+                    disabled={printingId === p.id || !prodocByProject[p.id]}
+                    className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                    title="Print the project document to PDF"
+                  >
+                    {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
+                    Print ProDoc
+                  </button>
+                  <button
+                    onClick={() => openProdoc(p)}
+                    className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Open the project document"
+                  >
+                    Open ProDoc
+                    <ArrowRight className="size-3" />
+                  </button>
                 </div>
               </div>
             ))}

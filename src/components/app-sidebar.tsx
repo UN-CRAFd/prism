@@ -15,7 +15,6 @@ import {
   FolderKanban,
   ChevronLeft,
   ChevronRight,
-  FileStack,
   Edit,
   BarChart3,
   UploadCloud,
@@ -34,7 +33,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
-  { href: "/admin/prodoc", label: "Project Documents", icon: FileStack },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },
 ];

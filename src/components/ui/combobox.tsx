@@ -89,7 +89,7 @@ export function Combobox({
             <button
               key={it.id}
               type="button"
-              onClick={() => choose(it)}
+              onMouseDown={(e) => { e.preventDefault(); choose(it); }}
               className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
             >
               <span className="flex-1">{it.label}</span>
@@ -99,7 +99,7 @@ export function Combobox({
           {canCreate && (
             <button
               type="button"
-              onClick={create}
+              onMouseDown={(e) => { e.preventDefault(); create(); }}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors",
                 filtered.length > 0 && "border-t"

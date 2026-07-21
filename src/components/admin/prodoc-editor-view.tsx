@@ -14,6 +14,8 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
+import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
+import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { cycleLabel } from "@/lib/indicators";
 
@@ -76,6 +78,7 @@ interface LibraryIndicator {
 }
 
 const SECTIONS = [
+  { value: "narratives", label: labels.sections.narratives },
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
   { value: "indicators", label: labels.sections.indicators },
@@ -95,8 +98,9 @@ export function ProdocEditorView() {
   const [docs, setDocs] = useState<Prodoc[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [selectedProdocId, setSelectedProdocId] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "surveys");
+  const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "narratives");
   const [error, setError] = useState<string | null>(null);
+  const [narrativesSaveState, setNarrativesSaveState] = useState<SaveState>("idle");
 
   // Surveys
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -391,7 +395,12 @@ export function ProdocEditorView() {
           <p className="text-sm text-muted-foreground mt-0.5">Define the baseline: survey questions, risks, indicators, workplan and expenditure plan. New reports copy these.</p>
         </div>
 
-        <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
+        <div className="flex items-center gap-3">
+          {selectedProdocId && selectedSection === "narratives" && (
+            <AutosaveIndicator state={narrativesSaveState} idleAsSaved />
+          )}
+
+          <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
           <SelectTrigger className="w-[320px] h-9">
             {loadingDocs ? (
               <span className="flex items-center gap-2 text-muted-foreground">
@@ -423,6 +432,7 @@ export function ProdocEditorView() {
             ))}
           </SelectContent>
         </Select>
+        </div>
       </div>
 
       {/* Section tabs */}
@@ -690,6 +700,9 @@ export function ProdocEditorView() {
               </div>
             )}
           </div>
+
+        ) : selectedSection === "narratives" ? (
+          selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setNarrativesSaveState} /> : null
 
         ) : selectedSection === "workplan" ? (
           selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} /> : null

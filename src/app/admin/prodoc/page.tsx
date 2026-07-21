@@ -92,7 +92,7 @@ export default function ProDocPage() {
   // first section). Slug matches the editor's toSlug convention.
   function openDoc(doc: ReportRow) {
     const slug = (doc.project_short_name ?? doc.project_title).toLowerCase().replace(/\s+/g, "-");
-    router.push(`/admin/prodoc-editor/${slug}/surveys`);
+    router.push(`/admin/prodoc-editor/${slug}/narratives`);
   }
 
   return (

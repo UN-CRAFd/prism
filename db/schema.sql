@@ -498,6 +498,26 @@ CREATE TRIGGER complementary_data_updated_at
     BEFORE UPDATE ON complementary_data
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Project narratives ───────────────────────────────────────────────────────
+-- Project-level proposal narratives (Background & Relevance, Theory of Change,
+-- CRAF'd Principles, Methodology, …). One row per (project, narrative_key); the
+-- question label for each key lives in labels.json so the set can evolve in code.
+CREATE TABLE IF NOT EXISTS project_narratives (
+    id            SERIAL       PRIMARY KEY,
+    project_id    INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    narrative_key TEXT         NOT NULL,
+    answer        TEXT,
+    comment       TEXT,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (project_id, narrative_key)
+);
+CREATE INDEX IF NOT EXISTS project_narratives_project_idx ON project_narratives(project_id);
+DROP TRIGGER IF EXISTS project_narratives_updated_at ON project_narratives;
+CREATE TRIGGER project_narratives_updated_at
+    BEFORE UPDATE ON project_narratives
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data
 -- ─────────────────────────────────────────────────────────────────────────────

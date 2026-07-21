@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import pool, { query } from "@/lib/db";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
@@ -72,27 +72,47 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
+  const { id } = await params;
 
-    const reports = await query(
-      `SELECT id FROM reporting_platform.reports WHERE project_id = $1 LIMIT 1`,
+  // The prodoc (data_type='prodoc') is an inseparable part of the project and is
+  // deleted with it. Real reporting-year rows (data_type='report') still block —
+  // those carry submitted data and must be removed deliberately first.
+  const client = await pool.connect();
+  try {
+    const realReports = await client.query(
+      `SELECT id FROM reporting_platform.reports WHERE project_id = $1 AND data_type = 'report' LIMIT 1`,
       [id]
     );
-    if (reports.length > 0) {
+    if (realReports.rows.length > 0) {
       return NextResponse.json(
         { error: "Cannot delete project with existing reports. Remove reports first." },
         { status: 409 }
       );
     }
 
-    const rows = await query(`DELETE FROM reporting_platform.projects WHERE id = $1 RETURNING id`, [id]);
-    if (rows.length === 0) {
+    await client.query("BEGIN");
+    // Drop the prodoc first (reports.project_id is ON DELETE RESTRICT); its
+    // section data cascades via report_id. Project-level children cascade with
+    // the project itself.
+    await client.query(
+      `DELETE FROM reporting_platform.reports WHERE project_id = $1 AND data_type = 'prodoc'`,
+      [id]
+    );
+    const deleted = await client.query(
+      `DELETE FROM reporting_platform.projects WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if (deleted.rows.length === 0) {
+      await client.query("ROLLBACK");
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
+    await client.query("COMMIT");
     return NextResponse.json({ deleted: true });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("DELETE /api/projects/[id] error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
+  } finally {
+    client.release();
   }
 }

@@ -13,7 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Contact, CornerDownRight, Trash2 } from "lucide-react";
+import { Plus, Contact, CornerDownRight, Trash2, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
 } from "@/components/admin/shared";
@@ -48,6 +48,23 @@ interface ProjectLink {
   project_short_name: string | null;
 }
 
+// Small partner logo, served from /logos/<short_name>.<webp|png>; falls back to
+// a generic building icon when no logo file exists.
+function PartnerLogo({ shortName }: { shortName: string | null }) {
+  const [extension, setExtension] = useState<"webp" | "png" | "none">("webp");
+  if (!shortName || extension === "none") {
+    return <Building2 className="size-5 text-muted-foreground/40 shrink-0" />;
+  }
+  return (
+    <img
+      src={`/logos/${shortName.toLowerCase()}.${extension}`}
+      alt={shortName}
+      className="h-6 w-auto max-w-24 object-contain shrink-0"
+      onError={() => setExtension(extension === "webp" ? "png" : "none")}
+    />
+  );
+}
+
 interface PartnerContact {
   id: number;
   partner_id: number;
@@ -67,6 +84,15 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingLink, setAddingLink] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+
+  function toggleGroup(partnerId: number) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(partnerId)) next.delete(partnerId); else next.add(partnerId);
+      return next;
+    });
+  }
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -194,11 +220,11 @@ export default function ContactsPage() {
 
   // One group per partner (contacts already arrive ordered by partner), each
   // flattened into a manager → reports list with a depth for indentation.
-  const groups: { partnerId: number; label: string; rows: { node: PartnerContact; depth: number }[] }[] = [];
+  const groups: { partnerId: number; label: string; shortName: string | null; rows: { node: PartnerContact; depth: number }[] }[] = [];
   for (const c of contacts) {
     let g = groups.find((x) => x.partnerId === c.partner_id);
     if (!g) {
-      g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", rows: [] };
+      g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", shortName: c.partner_short_name, rows: [] };
       groups.push(g);
     }
   }
@@ -348,12 +374,23 @@ export default function ContactsPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {groups.map((g) => (
+            {groups.map((g) => {
+              const isCollapsed = collapsed.has(g.partnerId);
+              return (
               <div key={g.partnerId}>
-                <div className="mb-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.partnerId)}
+                  className="mb-2 flex items-center gap-2 w-full text-left rounded-md py-1 hover:bg-muted/40 transition-colors"
+                >
+                  {isCollapsed
+                    ? <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                    : <ChevronDown className="size-4 text-muted-foreground shrink-0" />}
+                  <PartnerLogo shortName={g.shortName} />
                   <Badge variant="outline" className="text-xs font-semibold">{g.label}</Badge>
                   <span className="text-xs text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
-                </div>
+                </button>
+                {!isCollapsed && (
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
@@ -400,8 +437,10 @@ export default function ContactsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

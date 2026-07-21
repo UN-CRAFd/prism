@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Target, ArchiveRestore } from "lucide-react";
+import { Plus, Target, ArchiveRestore, Layers } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
@@ -39,6 +39,11 @@ interface Indicator {
   project_id: number | null;
   archived_at: string | null;
   usage: IndicatorUsage[];
+}
+
+function truncateText(text: string | null, maxChars: number): string {
+  if (!text) return "";
+  return text.length > maxChars ? text.slice(0, maxChars) + "…" : text;
 }
 
 function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
@@ -92,6 +97,17 @@ export default function IndicatorsPage() {
   }, [showArchived]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Group indicators by category, sorted alphabetically.
+  const grouped = useMemo(() => {
+    const map = new Map<string, Indicator[]>();
+    for (const ind of indicators) {
+      const cat = ind.category || "(No category)";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(ind);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [indicators]);
 
   function resetForm() {
     setName(""); setCategory(""); setCycle(NONE); setDescription(""); setMov("");
@@ -219,35 +235,44 @@ export default function IndicatorsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>{labels.indicators.columns.indicator}</TableHead>
-                <TableHead className="w-32">{labels.indicators.columns.category}</TableHead>
                 <TableHead className="w-28">{labels.indicators.columns.cycle}</TableHead>
-                <TableHead>{labels.indicators.columns.meansOfVerification}</TableHead>
+                <TableHead className="w-20">{labels.indicators.columns.meansOfVerification}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {indicators.map((ind) => (
-                <TableRow key={ind.id} className={ind.archived_at ? "opacity-50" : ""}>
-                  <TableCell className="font-medium">
-                    {ind.name}
-                    {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
-                    {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 line-clamp-2">{ind.description}</p>}
-                    {ind.archived_at && <div className="mt-1"><UsageBadges usage={ind.usage} /></div>}
+              {grouped.map(([category, catIndicators]) => [
+                <TableRow key={`cat-${category}`} className="bg-muted/40">
+                  <TableCell colSpan={4} className="font-semibold py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Layers className="size-3.5 text-muted-foreground" />
+                      {category}
+                      <span className="text-xs text-muted-foreground font-normal">({catIndicators.length})</span>
+                    </div>
                   </TableCell>
-                  <TableCell>{ind.category ? <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge> : <Dash />}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{ind.cycle ? cycleLabel(ind.cycle) : <Dash />}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{ind.means_of_verification || <Dash />}</TableCell>
-                  <TableCell>
-                    {ind.archived_at ? (
-                      <Button variant="ghost" size="icon" className="size-7" title="Restore" onClick={() => handleRestore(ind.id)}>
-                        <ArchiveRestore className="size-3.5" />
-                      </Button>
-                    ) : (
-                      <RowActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                </TableRow>,
+                ...catIndicators.map((ind) => (
+                  <TableRow key={ind.id} className={ind.archived_at ? "opacity-50" : ""}>
+                    <TableCell className="font-medium">
+                      {ind.name}
+                      {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
+                      {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 truncate" style={{ minWidth: 0 }} title={ind.description}>{truncateText(ind.description, 170)}</p>}
+                      {ind.archived_at && <div className="mt-1"><UsageBadges usage={ind.usage} /></div>}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{ind.cycle ? cycleLabel(ind.cycle) : <Dash />}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground truncate" title={ind.means_of_verification || undefined} style={{ minWidth: 0, maxWidth: '150px' }}>{ind.means_of_verification || <Dash />}</TableCell>
+                    <TableCell>
+                      {ind.archived_at ? (
+                        <Button variant="ghost" size="icon" className="size-7" title="Restore" onClick={() => handleRestore(ind.id)}>
+                          <ArchiveRestore className="size-3.5" />
+                        </Button>
+                      ) : (
+                        <RowActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )),
+              ]).flat()}
             </TableBody>
           </Table>
         ) : (

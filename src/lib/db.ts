@@ -1,4 +1,11 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+// Return DATE (OID 1082) columns as the raw "YYYY-MM-DD" string instead of a JS
+// Date. pg would otherwise parse a DATE into a Date at the server's local
+// midnight, which JSON-serializes to a UTC timestamp and shifts the day when the
+// server isn't UTC — corrupting project_start_date / report dates on round-trip
+// and breaking <input type="date"> (which needs a bare YYYY-MM-DD value).
+types.setTypeParser(1082, (v) => v);
 
 const pool = new Pool({
   host: process.env.AZURE_POSTGRES_HOST,

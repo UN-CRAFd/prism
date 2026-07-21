@@ -15,6 +15,7 @@ import labels from "@/lib/labels.json";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
+import { GeneralInfoAdminEditor } from "@/components/admin/general-info-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { cycleLabel } from "@/lib/indicators";
@@ -78,6 +79,7 @@ interface LibraryIndicator {
 }
 
 const SECTIONS = [
+  { value: "general", label: labels.sections.general },
   { value: "narratives", label: labels.sections.narratives },
   { value: "surveys", label: labels.sections.surveys },
   { value: "risk", label: labels.sections.risk },
@@ -98,9 +100,9 @@ export function ProdocEditorView() {
   const [docs, setDocs] = useState<Prodoc[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [selectedProdocId, setSelectedProdocId] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "narratives");
+  const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
   const [error, setError] = useState<string | null>(null);
-  const [narrativesSaveState, setNarrativesSaveState] = useState<SaveState>("idle");
+  const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
 
   // Surveys
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -396,8 +398,8 @@ export function ProdocEditorView() {
         </div>
 
         <div className="flex items-center gap-3">
-          {selectedProdocId && selectedSection === "narratives" && (
-            <AutosaveIndicator state={narrativesSaveState} idleAsSaved />
+          {selectedProdocId && (selectedSection === "general" || selectedSection === "narratives") && (
+            <AutosaveIndicator state={editorSaveState} idleAsSaved />
           )}
 
           <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
@@ -471,6 +473,9 @@ export function ProdocEditorView() {
           <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
           </div>
+
+        ) : selectedSection === "general" ? (
+          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} /> : null
 
         ) : selectedSection === "surveys" ? (
           <div className="space-y-4">
@@ -702,7 +707,7 @@ export function ProdocEditorView() {
           </div>
 
         ) : selectedSection === "narratives" ? (
-          selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setNarrativesSaveState} /> : null
+          selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} /> : null
 
         ) : selectedSection === "workplan" ? (
           selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} /> : null

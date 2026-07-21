@@ -1,5 +1,6 @@
 {
   "sections": {
+    "general": "General Information",
     "overview": "Overview",
     "surveys": "Surveys",
     "risk": "Risk Management",
@@ -17,6 +18,7 @@
     "narratives": "Narratives"
   },
   "tabInstructions": {
+    "general": "Edit the core project data, lifecycle status and description. Link the organization's applicants and the project contacts (focal points and project managers) below. Changes save automatically.",
     "overview": "Complete all required fields. These form the foundation of your annual report.",
     "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
     "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
@@ -31,6 +33,39 @@
     "transfers": "List the organizations you transferred funds to during this reporting period. For each organization, provide its name, website and type, then enter the amount transferred this year (USD) and link it to the workplan activity it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "complementary": "List the contributors that provided complementary funding to the project during this reporting period. For each contributor, provide its name, website and funding type (in cash or in kind), then enter the total contribution this year (USD) and link it to the workplan activities it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "narratives": "Enter the written narrative texts that make up the project document. Each field captures one narrative section from the proposal. Changes save automatically when you leave a field."
+  },
+  "generalInfo": {
+    "detailsHeading": "Project data",
+    "contactsHeading": "Contacts",
+    "fields": {
+      "projectTitle": "Project name",
+      "mptfoNumber": "MPTFO project number",
+      "status": "Status",
+      "grantSize": "Funding amount (USD)",
+      "startDate": "Start date",
+      "durationMonths": "Duration (months)",
+      "description": "Description"
+    },
+    "placeholders": {
+      "projectTitle": "Project name",
+      "mptfoNumber": "e.g. 00012345",
+      "grantSize": "0.00",
+      "durationMonths": "e.g. 24",
+      "description": "Describe the project…"
+    },
+    "statusOptions": ["Idea", "Ongoing", "Operationally Closed", "Financially Closed", "Project Closed"],
+    "relationshipOptions": ["Focal Point", "Project Manager"],
+    "relationshipNone": "— No role —",
+    "applicantLabel": "Applicant",
+    "contactSearchPlaceholder": "Link an existing contact or type a new name…",
+    "createContact": "Add contact",
+    "emptyContacts": "No contacts linked yet. Search above to link or add one.",
+    "columns": {
+      "contact": "Contact",
+      "relationship": "Relationship",
+      "applicant": "Applicant",
+      "actions": ""
+    }
   },
   "narratives": {
     "questions": [

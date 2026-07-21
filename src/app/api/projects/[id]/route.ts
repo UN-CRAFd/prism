@@ -2,10 +2,33 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 const ALLOWED_FIELDS = [
-  "partner_id", "project_title", "short_name",
+  "partner_id", "project_title", "short_name", "description", "status",
   "mptfo_project_number", "grant_size_usd", "project_start_date", "project_duration_months", "geographic_scope",
   "implementing_partners", "project_lead",
 ];
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const rows = await query(
+      `SELECT p.*, pr.short_name AS partner_short_name, pr.long_name AS partner_long_name
+         FROM reporting_platform.projects p
+         JOIN reporting_platform.partners pr ON pr.id = p.partner_id
+        WHERE p.id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    console.error("GET /api/projects/[id] error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
 
 export async function PUT(
   request: Request,

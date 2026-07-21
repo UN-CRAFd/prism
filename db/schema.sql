@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS projects (
     partner_id              INTEGER       NOT NULL REFERENCES partners(id) ON DELETE RESTRICT,
     project_title           TEXT          NOT NULL,
     short_name              TEXT,
+    description             TEXT,
+    status                  TEXT          NOT NULL DEFAULT 'Ongoing'
+        CHECK (status IN ('Idea', 'Ongoing', 'Operationally Closed', 'Financially Closed', 'Project Closed')),
     mptfo_project_number    TEXT,
     grant_size_usd          NUMERIC(15,2),
     project_start_date      DATE,
@@ -90,6 +93,27 @@ CREATE INDEX IF NOT EXISTS projects_partner_id_idx ON projects(partner_id);
 DROP TRIGGER IF EXISTS projects_updated_at ON projects;
 CREATE TRIGGER projects_updated_at
     BEFORE UPDATE ON projects
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- ── Project contacts ─────────────────────────────────────────────────────────
+-- Links a project to its partner-org contacts (applicants + project contacts),
+-- with the nature of the relationship and an applicant flag. One row per pair.
+CREATE TABLE IF NOT EXISTS project_contacts (
+    id           SERIAL       PRIMARY KEY,
+    project_id   INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    contact_id   INTEGER      NOT NULL REFERENCES partner_contacts(id) ON DELETE CASCADE,
+    relationship TEXT         CHECK (relationship IN ('Focal Point', 'Project Manager')),
+    is_applicant BOOLEAN      NOT NULL DEFAULT FALSE,
+    sort_order   INTEGER      NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (project_id, contact_id)
+);
+CREATE INDEX IF NOT EXISTS project_contacts_project_idx ON project_contacts(project_id);
+CREATE INDEX IF NOT EXISTS project_contacts_contact_idx ON project_contacts(contact_id);
+DROP TRIGGER IF EXISTS project_contacts_updated_at ON project_contacts;
+CREATE TRIGGER project_contacts_updated_at
+    BEFORE UPDATE ON project_contacts
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- ── Reports ──────────────────────────────────────────────────────────────────

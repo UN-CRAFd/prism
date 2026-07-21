@@ -13,18 +13,39 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Contact, CornerDownRight } from "lucide-react";
+import { Plus, Contact, CornerDownRight, Trash2 } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
 } from "@/components/admin/shared";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { buildContactTree, flattenTree, descendantIds } from "@/lib/contact-tree";
+import labels from "@/lib/labels.json";
 
 const NONE = "none";
+const RELATIONSHIP_NONE = "__none__";
+const g = labels.generalInfo;
 
 interface Partner {
   id: number;
   short_name: string | null;
   long_name: string | null;
+}
+
+interface Project {
+  id: number;
+  partner_id: number;
+  project_title: string;
+  short_name: string | null;
+}
+
+interface ProjectLink {
+  id: number;
+  project_id: number;
+  contact_id: number;
+  relationship: string | null;
+  is_applicant: boolean;
+  project_title: string;
+  project_short_name: string | null;
 }
 
 interface PartnerContact {
@@ -41,8 +62,11 @@ interface PartnerContact {
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<PartnerContact[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [links, setLinks] = useState<ProjectLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingLink, setAddingLink] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -59,13 +83,17 @@ export default function ContactsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [cRes, pRes] = await Promise.all([
+      const [cRes, pRes, prRes, lRes] = await Promise.all([
         fetch("/api/partner-contacts"),
         fetch("/api/partners"),
+        fetch("/api/projects"),
+        fetch("/api/project-contacts"),
       ]);
-      if (!cRes.ok || !pRes.ok) throw new Error("Failed to fetch data");
+      if (!cRes.ok || !pRes.ok || !prRes.ok || !lRes.ok) throw new Error("Failed to fetch data");
       setContacts(await cRes.json());
       setPartners(await pRes.json());
+      setProjects(await prRes.json());
+      setLinks(await lRes.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -118,11 +146,51 @@ export default function ContactsPage() {
     load();
   }
 
+  // ── Project links (per contact, saved immediately) ────────────────────────
+  async function addProjectLink(projectId: number) {
+    if (!editId) return;
+    setAddingLink(true); setFormError(null);
+    try {
+      const res = await fetch("/api/project-contacts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, contact_id: editId }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to link project"); }
+      const created: ProjectLink = await res.json();
+      setLinks((prev) => [...prev, created]);
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setAddingLink(false); }
+  }
+
+  async function patchProjectLink(id: number, patch: Partial<Pick<ProjectLink, "relationship" | "is_applicant">>) {
+    setLinks((prev) => prev.map((l) => l.id === id ? { ...l, ...patch } : l));
+    const res = await fetch("/api/project-contacts", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setFormError(err.error || "Failed to update link"); }
+  }
+
+  async function removeProjectLink(id: number) {
+    const res = await fetch(`/api/project-contacts?id=${id}`, { method: "DELETE" });
+    if (!res.ok) { setFormError("Failed to remove link"); return; }
+    setLinks((prev) => prev.filter((l) => l.id !== id));
+  }
+
   // Manager picker: same-partner contacts, excluding the contact itself and
   // anyone it already manages (so you can't create a loop).
   const samePartner = contacts.filter((c) => String(c.partner_id) === partnerId);
   const blocked = editId != null ? descendantIds(samePartner, editId) : new Set<number>();
   const managerOptions = samePartner.filter((c) => c.id !== editId && !blocked.has(c.id));
+
+  // Project links for the contact being edited, and the projects available to
+  // link (same partner org, not already linked).
+  const editLinks = editId != null ? links.filter((l) => l.contact_id === editId) : [];
+  const editPartnerId = partnerId ? Number(partnerId) : null;
+  const projectComboItems: ComboboxItem[] = projects
+    .filter((p) => editPartnerId == null || p.partner_id === editPartnerId)
+    .filter((p) => !editLinks.some((l) => l.project_id === p.id))
+    .map((p) => ({ id: p.id, label: p.short_name || p.project_title }));
 
   // One group per partner (contacts already arrive ordered by partner), each
   // flattened into a manager → reports list with a depth for indentation.
@@ -161,7 +229,7 @@ export default function ContactsPage() {
             onCancel={resetForm}
             onSubmit={handleSubmit}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <Field label="Partner" required>
                 <Select value={partnerId} onValueChange={setPartnerId} disabled={!!editId}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select partner" /></SelectTrigger>
@@ -197,6 +265,75 @@ export default function ContactsPage() {
                 </Select>
               </Field>
             </div>
+
+            {editId != null && (
+              <div className="mt-6 border-t pt-5 space-y-3">
+                <h4 className="text-sm font-semibold">Linked projects</h4>
+                <div className="max-w-xl">
+                  <Combobox
+                    items={projectComboItems}
+                    placeholder="Link a project…"
+                    onSelect={(it) => addProjectLink(it.id)}
+                    busy={addingLink}
+                  />
+                </div>
+                {editLinks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Not linked to any projects yet.</p>
+                ) : (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Project</TableHead>
+                          <TableHead className="w-56">{g.columns.relationship}</TableHead>
+                          <TableHead className="w-28 text-center">{g.columns.applicant}</TableHead>
+                          <TableHead className="w-12" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {editLinks.map((l) => (
+                          <TableRow key={l.id}>
+                            <TableCell className="font-medium">{l.project_short_name || l.project_title}</TableCell>
+                            <TableCell>
+                              <Select
+                                value={l.relationship ?? RELATIONSHIP_NONE}
+                                onValueChange={(v) => patchProjectLink(l.id, { relationship: v === RELATIONSHIP_NONE ? null : v })}
+                              >
+                                <SelectTrigger className="w-full h-8 text-sm"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
+                                  {g.relationshipOptions.map((r) => (
+                                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <input
+                                type="checkbox"
+                                checked={l.is_applicant}
+                                onChange={(e) => patchProjectLink(l.id, { is_applicant: e.target.checked })}
+                                className="size-4 accent-foreground cursor-pointer"
+                                aria-label={g.applicantLabel}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <button
+                                onClick={() => removeProjectLink(l.id)}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                aria-label="Remove project link"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
           </FormShell>
         )}
 
@@ -217,12 +354,13 @@ export default function ContactsPage() {
                   <Badge variant="outline" className="text-xs font-semibold">{g.label}</Badge>
                   <span className="text-xs text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
                 </div>
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Email</TableHead>
+                      <TableHead className="w-[22%]">Name</TableHead>
+                      <TableHead className="w-[14%]">Role</TableHead>
+                      <TableHead className="w-[22%]">Email</TableHead>
+                      <TableHead>Projects</TableHead>
                       <TableHead className="w-20" />
                     </TableRow>
                   </TableHeader>
@@ -236,8 +374,24 @@ export default function ContactsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">
+                        <TableCell className="text-muted-foreground text-xs break-all">
                           {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const cl = links.filter((l) => l.contact_id === c.id);
+                            if (cl.length === 0) return <Dash />;
+                            return (
+                              <div className="flex flex-wrap gap-1">
+                                {cl.map((l) => (
+                                  <Badge key={l.id} variant="outline" className="text-xs font-normal" title={l.relationship ?? undefined}>
+                                    {l.project_short_name || l.project_title}
+                                    {l.is_applicant && <span className="ml-1 text-blue-600">•</span>}
+                                  </Badge>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <RowActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />

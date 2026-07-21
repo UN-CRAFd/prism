@@ -10,13 +10,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Loader2,
   CalendarDays,
   Building2,
@@ -27,11 +20,12 @@ import {
   Trash2,
   Printer,
   CircleDot,
+  FolderKanban,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
-import { PageHeader, ViewToggle } from "@/components/admin/shared";
+import { PageHeader, ViewToggle, FilterBar, FilterSelect, ALL } from "@/components/admin/shared";
 import {
   ReportRow,
   Project,
@@ -49,6 +43,11 @@ export default function ReportsPage() {
   const [groupMode, setGroupMode] = useState<GroupMode>("year");
   const [showForm, setShowForm] = useState(false);
   const [view, setView] = useState<"list" | "grid">("grid");
+
+  // Filter bar state.
+  const [filterProject, setFilterProject] = useState<string>(ALL);
+  const [filterStatus, setFilterStatus] = useState<string>(ALL);
+  const [filterYear, setFilterYear] = useState<string>(ALL);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -73,9 +72,25 @@ export default function ReportsPage() {
 
   const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
+  // Distinct years present, for the year filter.
+  const years = useMemo(
+    () => Array.from(new Set(reports.map((r) => r.year))).sort((a, b) => b - a),
+    [reports]
+  );
+
+  const filtered = useMemo(
+    () => reports.filter(
+      (r) =>
+        (filterProject === ALL || String(r.project_id) === filterProject) &&
+        (filterStatus === ALL || r.status === filterStatus) &&
+        (filterYear === ALL || String(r.year) === filterYear)
+    ),
+    [reports, filterProject, filterStatus, filterYear]
+  );
+
   const groups = useMemo(() => {
     const map = new Map<string, ReportRow[]>();
-    for (const r of reports) {
+    for (const r of filtered) {
       const key =
         groupMode === "year" ? String(r.year) :
         groupMode === "organization" ? (r.partner_long_name || r.partner_short_name) :
@@ -88,7 +103,7 @@ export default function ReportsPage() {
       if (groupMode === "status") return STATUS_ORDER.indexOf(a[0]) - STATUS_ORDER.indexOf(b[0]);
       return a[0].localeCompare(b[0]);
     });
-  }, [reports, groupMode]);
+  }, [filtered, groupMode]);
 
   const confirm = useConfirm();
 
@@ -107,20 +122,6 @@ export default function ReportsPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Reports" description="Create and manage reporting periods for projects">
-        {view === "grid" && (
-          <>
-            <Layers className="size-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Group by</span>
-            <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
-              <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="year">Year</SelectItem>
-                <SelectItem value="organization">Organization</SelectItem>
-                <SelectItem value="status">Status</SelectItem>
-              </SelectContent>
-            </Select>
-          </>
-        )}
         <ViewToggle view={view} onChange={setView} />
         {!showForm && (
           <Button size="sm" onClick={() => setShowForm(true)}>
@@ -128,6 +129,50 @@ export default function ReportsPage() {
           </Button>
         )}
       </PageHeader>
+
+      <FilterBar>
+        <FilterSelect
+          icon={FolderKanban}
+          label="Project"
+          value={filterProject}
+          onChange={setFilterProject}
+          allLabel="All projects"
+          width={240}
+          options={projects.map((p) => ({
+            value: String(p.id),
+            label: p.partner_short_name ? `${p.partner_short_name} · ${p.project_title}` : p.project_title,
+          }))}
+        />
+        <FilterSelect
+          icon={CircleDot}
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          allLabel="All statuses"
+          width={160}
+          options={STATUS_ORDER.map((s) => ({ value: s, label: s }))}
+        />
+        <FilterSelect
+          icon={CalendarDays}
+          label="Year"
+          value={filterYear}
+          onChange={setFilterYear}
+          allLabel="All years"
+          width={120}
+          options={years.map((y) => ({ value: String(y), label: String(y) }))}
+        />
+        {view === "grid" && (
+          <FilterSelect
+            icon={Layers}
+            label="Group by"
+            value={groupMode === "year" ? ALL : groupMode}
+            onChange={(v) => setGroupMode(v === ALL ? "year" : (v as GroupMode))}
+            allLabel="Year"
+            width={150}
+            options={[{ value: "organization", label: "Organization" }, { value: "status", label: "Status" }]}
+          />
+        )}
+      </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
         {error && (
@@ -153,6 +198,10 @@ export default function ReportsPage() {
           <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
             No reports yet. Create one above to get started.
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
+            No reports match the current filters.
+          </div>
         ) : view === "list" ? (
           <Table>
             <TableHeader>
@@ -168,7 +217,7 @@ export default function ReportsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reports.map((r) => (
+              {filtered.map((r) => (
                 <TableRow
                   key={r.id}
                   className="cursor-pointer"

@@ -1,8 +1,12 @@
 "use client";
 
-import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2 } from "lucide-react";
+import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 // ── Page header ─────────────────────────────────────────────────────────────
@@ -86,6 +90,81 @@ export function ViewToggle({
       >
         <LayoutGrid className="size-3.5" />
       </button>
+    </div>
+  );
+}
+
+// ── Filter / group bar ──────────────────────────────────────────────────────
+// A unified sub-header bar that sits directly below the PageHeader. Compose it
+// from SearchInput / FilterSelect. The `ALL` sentinel is the "no filter" value
+// (shadcn Select forbids empty-string item values).
+
+export const ALL = "__all__";
+
+export function FilterBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-8 py-2.5 shrink-0">
+      {children}
+    </div>
+  );
+}
+
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = "Search…",
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("relative w-full max-w-sm", className)}>
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="h-8 pl-8 text-sm"
+      />
+    </div>
+  );
+}
+
+export function FilterSelect({
+  icon: Icon,
+  label,
+  value,
+  onChange,
+  options,
+  allLabel = "All",
+  width = 150,
+}: {
+  icon?: LucideIcon;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  allLabel?: string;
+  width?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {Icon && <Icon className="size-3.5 text-muted-foreground shrink-0" />}
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{label}</span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8 text-xs" style={{ width }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{allLabel}</SelectItem>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

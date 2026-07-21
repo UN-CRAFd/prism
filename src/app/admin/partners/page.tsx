@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
 import { Plus, Building2, ExternalLink } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
+  FilterBar, SearchInput,
 } from "@/components/admin/shared";
 
 // -- Types ------------------------------------------------------------------
@@ -59,6 +60,7 @@ export default function PartnersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("grid");
+  const [search, setSearch] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -86,6 +88,16 @@ export default function PartnersPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Search across short/long name, email, and linked project names.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return partners;
+    return partners.filter((p) =>
+      [p.short_name, p.long_name, p.mail_account, ...p.projects.map((pr) => pr.short_name || pr.project_title)]
+        .some((v) => v?.toLowerCase().includes(q))
+    );
+  }, [partners, search]);
 
   function resetForm() {
     setShortName(""); setLongName(""); setWebsite(""); setMail(""); setPassword("");
@@ -144,6 +156,10 @@ export default function PartnersPage() {
         )}
       </PageHeader>
 
+      <FilterBar>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search partners by name, email, or project…" />
+      </FilterBar>
+
       <div className="flex-1 overflow-auto px-8 py-6">
         {error && <ErrorBanner message={error} />}
 
@@ -184,6 +200,11 @@ export default function PartnersPage() {
             <Building2 className="size-8 opacity-30" />
             <p className="text-sm">No partners yet.</p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <Building2 className="size-8 opacity-30" />
+            <p className="text-sm">No partners match your search.</p>
+          </div>
         ) : view === "list" ? (
           <Table>
             <TableHeader>
@@ -197,7 +218,7 @@ export default function PartnersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {partners.map((p) => (
+              {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
                     {p.short_name
@@ -234,7 +255,7 @@ export default function PartnersPage() {
           </Table>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {partners.map((p) => (
+            {filtered.map((p) => (
               <div key={p.id} className="group rounded-xl border bg-card flex transition-colors hover:bg-muted/30 cursor-pointer overflow-hidden">
                 <div className="bg-muted w-24 flex-shrink-0 flex items-center justify-center p-3">
                   <PartnerLogo shortName={p.short_name} />

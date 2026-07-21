@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
 import { Plus, Contact, CornerDownRight, Trash2, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
+  FilterBar, SearchInput,
 } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { buildContactTree, flattenTree, descendantIds } from "@/lib/contact-tree";
@@ -85,6 +86,7 @@ export default function ContactsPage() {
   const [error, setError] = useState<string | null>(null);
   const [addingLink, setAddingLink] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [search, setSearch] = useState("");
 
   function toggleGroup(partnerId: number) {
     setCollapsed((prev) => {
@@ -218,10 +220,20 @@ export default function ContactsPage() {
     .filter((p) => !editLinks.some((l) => l.project_id === p.id))
     .map((p) => ({ id: p.id, label: p.short_name || p.project_title }));
 
+  // Search across name / role / email / partner name.
+  const filteredContacts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter((c) =>
+      [c.name, c.role, c.email, c.partner_short_name, c.partner_long_name]
+        .some((v) => v?.toLowerCase().includes(q))
+    );
+  }, [contacts, search]);
+
   // One group per partner (contacts already arrive ordered by partner), each
   // flattened into a manager → reports list with a depth for indentation.
   const groups: { partnerId: number; label: string; shortName: string | null; rows: { node: PartnerContact; depth: number }[] }[] = [];
-  for (const c of contacts) {
+  for (const c of filteredContacts) {
     let g = groups.find((x) => x.partnerId === c.partner_id);
     if (!g) {
       g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", shortName: c.partner_short_name, rows: [] };
@@ -229,7 +241,7 @@ export default function ContactsPage() {
     }
   }
   for (const g of groups) {
-    g.rows = flattenTree(buildContactTree(contacts.filter((c) => c.partner_id === g.partnerId)));
+    g.rows = flattenTree(buildContactTree(filteredContacts.filter((c) => c.partner_id === g.partnerId)));
   }
 
   return (
@@ -241,6 +253,10 @@ export default function ContactsPage() {
           </Button>
         )}
       </PageHeader>
+
+      <FilterBar>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, role, email, or partner…" />
+      </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">
         {error && <ErrorBanner message={error} />}
@@ -371,6 +387,11 @@ export default function ContactsPage() {
             <p className="text-sm">
               {partners.length === 0 ? "Add a partner first, then create contacts." : "No contacts yet."}
             </p>
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <Contact className="size-8 opacity-30" />
+            <p className="text-sm">No contacts match your search.</p>
           </div>
         ) : (
           <div className="space-y-8">

@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2 } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2 } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
+  FilterBar, FilterSelect, ALL,
 } from "@/components/admin/shared";
 
 // -- Types ------------------------------------------------------------------
@@ -104,6 +105,12 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("grid");
+
+  // Filter & group bar state.
+  const [filterPartner, setFilterPartner] = useState<string>(ALL);
+  const [filterStatus, setFilterStatus] = useState<string>(ALL);
+  // ALL = no grouping; otherwise "partner" | "status".
+  const [groupMode, setGroupMode] = useState<string>(ALL);
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -238,6 +245,103 @@ export default function ProjectsPage() {
     }
   }
 
+  // ── Filter & group ────────────────────────────────────────────────────────
+  const filtered = useMemo(
+    () => projects.filter(
+      (p) =>
+        (filterPartner === ALL || String(p.partner_id) === filterPartner) &&
+        (filterStatus === ALL || p.status === filterStatus)
+    ),
+    [projects, filterPartner, filterStatus]
+  );
+
+  // Grouped sections for the grid view (null when grouping is off → flat grid).
+  const groups = useMemo(() => {
+    if (groupMode === ALL) return null;
+    const map = new Map<string, Project[]>();
+    for (const p of filtered) {
+      const key = groupMode === "partner" ? (p.partner_short_name || "—") : p.status;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(p);
+    }
+    const entries = Array.from(map.entries());
+    if (groupMode === "status") {
+      return entries.sort((a, b) => PROJECT_STATUSES.indexOf(a[0] as ProjectStatus) - PROJECT_STATUSES.indexOf(b[0] as ProjectStatus));
+    }
+    return entries.sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered, groupMode]);
+
+  const renderCard = (p: Project) => (
+    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
+          <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
+        </div>
+        <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+      </div>
+      <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+        {p.grant_size_usd && (
+          <span className="inline-flex items-center gap-1.5">
+            <DollarSign className="size-3 shrink-0" />
+            {fmtUsd(p.grant_size_usd)}
+          </span>
+        )}
+        {durationLabel(p.project_duration_months) && (
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="size-3 shrink-0" />
+            {durationLabel(p.project_duration_months)}
+          </span>
+        )}
+        {p.mptfo_project_number && (
+          <a
+            href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit"
+          >
+            <ExternalLink className="size-3" />
+            {p.mptfo_project_number}
+          </a>
+        )}
+      </div>
+
+      {/* Status + ProDoc actions */}
+      <div className="flex gap-1.5 mt-auto pt-1">
+        <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+          <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
+            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+              {STATUS_ICONS[p.status]}
+              <SelectValue />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {PROJECT_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <button
+          onClick={() => printProdoc(p)}
+          disabled={printingId === p.id || !prodocByProject[p.id]}
+          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          title="Print the project document to PDF"
+        >
+          {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
+          Print ProDoc
+        </button>
+        <button
+          onClick={() => openProdoc(p)}
+          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="Open the project document"
+        >
+          Open ProDoc
+          <ArrowRight className="size-3" />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Projects" description="Manage projects across partner organizations">
@@ -248,6 +352,38 @@ export default function ProjectsPage() {
           </Button>
         )}
       </PageHeader>
+
+      <FilterBar>
+        <FilterSelect
+          icon={Building2}
+          label="Partner"
+          value={filterPartner}
+          onChange={setFilterPartner}
+          allLabel="All partners"
+          width={190}
+          options={partners.map((p) => ({ value: String(p.id), label: p.short_name || p.long_name || "—" }))}
+        />
+        <FilterSelect
+          icon={CircleDot}
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          allLabel="All statuses"
+          width={190}
+          options={PROJECT_STATUSES.map((s) => ({ value: s, label: s }))}
+        />
+        {view === "grid" && (
+          <FilterSelect
+            icon={Layers}
+            label="Group by"
+            value={groupMode}
+            onChange={setGroupMode}
+            allLabel="None"
+            width={150}
+            options={[{ value: "partner", label: "Partner" }, { value: "status", label: "Status" }]}
+          />
+        )}
+      </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">
         {error && <ErrorBanner message={error} />}
@@ -318,6 +454,11 @@ export default function ProjectsPage() {
               {partners.length === 0 ? "Add a partner first, then create projects." : "No projects yet."}
             </p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <FolderKanban className="size-8 opacity-30" />
+            <p className="text-sm">No projects match the current filters.</p>
+          </div>
         ) : view === "list" ? (
           <Table>
             <TableHeader>
@@ -335,7 +476,7 @@ export default function ProjectsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {projects.map((p) => (
+              {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
@@ -393,78 +534,26 @@ export default function ProjectsPage() {
               ))}
             </TableBody>
           </Table>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((p) => (
-              <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
-                    <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
-                  </div>
-                  <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+        ) : groups ? (
+          <div className="space-y-6">
+            {groups.map(([key, rows]) => (
+              <div key={key} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {groupMode === "partner"
+                    ? <Building2 className="size-4 text-muted-foreground" />
+                    : <CircleDot className="size-4 text-muted-foreground" />}
+                  <h3 className="text-base font-bold">{key}</h3>
+                  <span className="text-sm text-muted-foreground">({rows.length})</span>
                 </div>
-                <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                  {p.grant_size_usd && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <DollarSign className="size-3 shrink-0" />
-                      {fmtUsd(p.grant_size_usd)}
-                    </span>
-                  )}
-                  {durationLabel(p.project_duration_months) && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock className="size-3 shrink-0" />
-                      {durationLabel(p.project_duration_months)}
-                    </span>
-                  )}
-                  {p.mptfo_project_number && (
-                    <a
-                      href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit"
-                    >
-                      <ExternalLink className="size-3" />
-                      {p.mptfo_project_number}
-                    </a>
-                  )}
-                </div>
-
-                {/* Status + ProDoc actions */}
-                <div className="flex gap-1.5 mt-auto pt-1">
-                  <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-                    <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
-                      <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                        {STATUS_ICONS[p.status]}
-                        <SelectValue />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROJECT_STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <button
-                    onClick={() => printProdoc(p)}
-                    disabled={printingId === p.id || !prodocByProject[p.id]}
-                    className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-                    title="Print the project document to PDF"
-                  >
-                    {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
-                    Print ProDoc
-                  </button>
-                  <button
-                    onClick={() => openProdoc(p)}
-                    className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    title="Open the project document"
-                  >
-                    Open ProDoc
-                    <ArrowRight className="size-3" />
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rows.map(renderCard)}
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(renderCard)}
           </div>
         )}
       </div>

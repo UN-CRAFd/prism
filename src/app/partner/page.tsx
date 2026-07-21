@@ -72,7 +72,7 @@ export default function PartnerHomePage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch("/api/reports")
+    fetch("/api/reports?data_type=report")
       .then((r) => r.json())
       .then((all: Report[]) => {
         const filtered = all.filter(

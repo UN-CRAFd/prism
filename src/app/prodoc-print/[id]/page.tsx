@@ -2,16 +2,17 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Loader2, Download } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 import labels from "@/lib/labels.json";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project Document print view. Renders the full prodoc as a styled A4 document
-// using the real brand fonts (Qanelas headings, Roboto body) and captures it to
-// a multi-page PDF client-side (html2canvas → jsPDF). All colours are inline hex
-// so html2canvas never meets an oklch() token it can't parse.
+// using the real brand fonts (Qanelas headings, Roboto body). PDF output is via
+// the browser's native print (window.print → "Save as PDF"), so the text stays
+// real/vector — selectable and searchable — and the browser handles pagination
+// (page breaks controlled by the @media print rules in PRINT_CSS).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BRAND = "#f1b434";
@@ -19,6 +20,26 @@ const INK = "#1a1a1a";
 const MUTED = "#6b7280";
 const LINE = "#e5e7eb";
 const SOFT = "#f8f8f6";
+
+// Print rules: strip the on-screen chrome, let the document fill the page, and
+// control where page breaks fall. `print-color-adjust` keeps the brand colours.
+const PRINT_CSS = `
+@media print {
+  /* Standard page margin — the browser draws its own header/footer (title, URL,
+     date, page numbers) in this margin area. */
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #ffffff !important; }
+  .prodoc-screen { background: #ffffff !important; padding: 0 !important; min-height: 0 !important; }
+  .prodoc-doc {
+    width: 100% !important; margin: 0 !important; padding: 0 !important;
+  }
+  .no-print { display: none !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  h1, h2 { break-after: avoid-page; }
+  thead { display: table-header-group; }        /* repeat table headers per page */
+  tr, [data-trow], .avoid-break { break-inside: avoid; }
+}
+`;
 
 interface ProdocData {
   meta: Record<string, unknown>;
@@ -103,143 +124,43 @@ export default function ProdocPrintPage() {
     })();
   }, [data]);
 
-  const exportPdf = useCallback(async () => {
-    if (!docRef.current || !data) return;
+  // Open the browser print dialog (→ "Save as PDF"). Native print renders real
+  // vector text with the actual fonts, so the output is selectable/searchable.
+  const printPdf = useCallback(async () => {
     setExporting(true);
-    const docEl = docRef.current;
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
       await document.fonts.ready;
-
-      const canvas = await html2canvas(docEl, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-        // Tailwind v4 preflight sets border/color props on every element using
-        // lab()/oklch(), which html2canvas can't parse. Sweep the clone and
-        // rewrite only the unsupported values to safe fallbacks — our explicit
-        // hex colours (brand yellow, greys) don't match and are left intact.
-        onclone: (clonedDoc: Document) => {
-          const props = [
-            "color", "backgroundColor",
-            "borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor",
-            "outlineColor", "textDecorationColor", "columnRuleColor", "caretColor",
-          ] as const;
-          const unsupported = /(oklch|oklab|\blab\b|\blch\b|color\()/;
-          const view = clonedDoc.defaultView;
-          if (!view) return;
-          clonedDoc.querySelectorAll<HTMLElement>("*").forEach((el) => {
-            const cs = view.getComputedStyle(el);
-            for (const p of props) {
-              const val = cs[p as keyof CSSStyleDeclaration] as string | undefined;
-              if (val && unsupported.test(val)) {
-                el.style[p as "color"] =
-                  p === "backgroundColor" || p === "caretColor" ? "transparent" :
-                  p.startsWith("border") || p === "columnRuleColor" ? "#e5e7eb" :
-                  "#1a1a1a";
-              }
-            }
-          });
-        },
-      });
-
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const PAGE_W = 210, PAGE_H = 297;
-      const MARGIN_TOP = 12, MARGIN_BOTTOM = 16;   // bottom leaves room for page number
-      const usableMm = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM;
-      const pxPerMm = canvas.width / PAGE_W;
-      const usablePx = usableMm * pxPerMm;
-
-      // Measure block boundaries in canvas pixels so we only cut between blocks.
-      const docRect = docEl.getBoundingClientRect();
-      const factor = canvas.width / docEl.offsetWidth;
-      const blocks = Array.from(docEl.querySelectorAll<HTMLElement>("[data-block]"))
-        .map((el) => {
-          const r = el.getBoundingClientRect();
-          return {
-            top: (r.top - docRect.top) * factor,
-            bottom: (r.bottom - docRect.top) * factor,
-            keep: el.dataset.keep === "1", // headings: never orphan at page bottom
-          };
-        })
-        .sort((a, b) => a.top - b.top);
-
-      // Greedy pack blocks into pages; the end of a page is the top of the next
-      // block (so inter-block whitespace rides along), never inside a block.
-      const pages: { start: number; end: number }[] = [];
-      if (blocks.length === 0) {
-        pages.push({ start: 0, end: canvas.height });
-      } else {
-        const ends = blocks.map((b, i) => (i < blocks.length - 1 ? blocks[i + 1].top : canvas.height));
-        let start = 0;
-        let idx = 0;
-        while (idx < blocks.length) {
-          const limit = start + usablePx;
-          let j = -1;
-          for (let k = idx; k < blocks.length; k++) {
-            if (ends[k] <= limit) j = k; else break;
-          }
-          if (j < idx) {
-            // First block is taller than a page — hard-cut it across pages.
-            const end = Math.min(limit, canvas.height);
-            pages.push({ start, end });
-            start = end;
-            while (idx < blocks.length && ends[idx] <= start) idx++;
-            continue;
-          }
-          if (blocks[j].keep && j > idx) j -= 1; // push a trailing heading to next page
-          pages.push({ start, end: ends[j] });
-          start = ends[j];
-          idx = j + 1;
-        }
-      }
-
-      // Render each page slice onto its own white canvas, with margins + page number.
-      for (let p = 0; p < pages.length; p++) {
-        const { start, end } = pages[p];
-        const sliceH = Math.max(1, Math.round(end - start));
-        const slice = document.createElement("canvas");
-        slice.width = canvas.width;
-        slice.height = sliceH;
-        const ctx = slice.getContext("2d")!;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, slice.width, sliceH);
-        ctx.drawImage(canvas, 0, start, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-
-        if (p > 0) pdf.addPage();
-        const sliceHmm = sliceH / pxPerMm;
-        pdf.addImage(slice.toDataURL("image/png"), "PNG", 0, MARGIN_TOP, PAGE_W, sliceHmm);
-
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(9);
-        pdf.setTextColor(150, 150, 150);
-        pdf.text(`${p + 1} / ${pages.length}`, PAGE_W / 2, PAGE_H - 8, { align: "center" });
-      }
-
-      const shortName = (data.meta.project_short_name as string) || (data.meta.project_title as string) || "prodoc";
-      const slug = shortName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      pdf.save(`${slug}_project-document.pdf`);
-
-      if (auto) setTimeout(() => window.close(), 400);
-    } catch (e) {
-      console.error("PDF export failed:", e);
-      setError("PDF export failed. See console for details.");
+      window.print();
     } finally {
       setExporting(false);
     }
-  }, [data, auto]);
+  }, []);
 
-  // Auto-trigger the export once data, fonts and logos are ready.
+  // Set the document title so the print dialog / saved file uses a sensible name.
   useEffect(() => {
-    if (auto && data && assetsReady && !exporting) {
-      document.fonts.ready.then(() => setTimeout(exportPdf, 300));
+    if (!data) return;
+    const short = (data.meta.project_short_name as string) || (data.meta.project_title as string) || "prodoc";
+    const slug = short.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const prev = document.title;
+    document.title = `${slug}_project-document`;
+    return () => { document.title = prev; };
+  }, [data]);
+
+  // Auto-open the print dialog once data, fonts and logos are ready. Closing the
+  // tab after printing is handled by the afterprint listener below.
+  useEffect(() => {
+    if (auto && data && assetsReady) {
+      document.fonts.ready.then(() => setTimeout(() => window.print(), 350));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, data, assetsReady]);
+
+  // In auto mode, close the tab once the print dialog is dismissed.
+  useEffect(() => {
+    if (!auto) return;
+    const onAfterPrint = () => window.close();
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => window.removeEventListener("afterprint", onAfterPrint);
+  }, [auto]);
 
   if (error) {
     return <div style={{ padding: 40, color: "#b91c1c", fontFamily: "var(--font-roboto)" }}>{error}</div>;
@@ -284,12 +205,14 @@ export default function ProdocPrintPage() {
   const wpYearGroups = groupQuartersByYear(wpQuarters);
 
   return (
-    <div style={{ background: "#525659", minHeight: "100vh", padding: "24px 0", fontFamily: "var(--font-roboto)" }}>
-      {/* Floating export button (hidden in auto mode) */}
+    <div className="prodoc-screen" style={{ background: "#525659", minHeight: "100vh", padding: "24px 0", fontFamily: "var(--font-roboto)" }}>
+      <style>{PRINT_CSS}</style>
+
+      {/* Floating print button (screen only; hidden in auto mode and when printing) */}
       {!auto && (
-        <div style={{ position: "fixed", top: 20, right: 24, zIndex: 50 }}>
+        <div className="no-print" style={{ position: "fixed", top: 20, right: 24, zIndex: 50 }}>
           <button
-            onClick={exportPdf}
+            onClick={printPdf}
             disabled={exporting}
             style={{
               display: "flex", alignItems: "center", gap: 8, background: BRAND, color: "#1a1a1a",
@@ -297,22 +220,23 @@ export default function ProdocPrintPage() {
               fontFamily: "var(--font-roboto)", fontSize: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
             }}
           >
-            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-            {exporting ? "Generating…" : "Download PDF"}
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+            Save as PDF
           </button>
         </div>
       )}
 
-      {/* A4 document (794px ≈ 210mm @ 96dpi) */}
+      {/* A4 document (794px ≈ 210mm @ 96dpi on screen; full width when printed) */}
       <div
         ref={docRef}
+        className="prodoc-doc"
         style={{
           width: 794, margin: "0 auto", background: "#ffffff", color: INK,
           padding: "12px 56px", boxSizing: "border-box", fontSize: 12.5, lineHeight: 1.55,
         }}
       >
         {/* ── Cover header ── */}
-        <div data-block style={{ position: "relative", borderTop: `6px solid ${BRAND}`, paddingTop: 22, marginBottom: 28, overflow: "hidden" }}>
+        <div data-block className="avoid-break" style={{ position: "relative", borderTop: `6px solid ${BRAND}`, paddingTop: 22, marginBottom: 28, overflow: "hidden" }}>
           {/* CRAF'd symbol watermark */}
           <img
             src="/images/crafd-symbol-black.svg"
@@ -347,7 +271,7 @@ export default function ProdocPrintPage() {
         </div>
 
         {/* ── Meta grid ── */}
-        <div data-block>
+        <div data-block className="avoid-break">
           <MetaGrid
             items={[
               ["MPTFO number", (m.mptfo_project_number as string) || "—"],
@@ -373,7 +297,7 @@ export default function ProdocPrintPage() {
         {data.narratives.length > 0 && (
           <Section title="Narratives">
             {data.narratives.map((n) => (
-              <div key={n.narrative_key} data-block style={{ marginBottom: 14 }}>
+              <div key={n.narrative_key} data-block className="avoid-break" style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>
                   {NARRATIVE_LABELS[n.narrative_key] || n.narrative_key}
                 </div>
@@ -595,7 +519,7 @@ function QBox({ on }: { on: boolean }) {
 
 function SignatureBlock({ name, role }: { name: string; role: string }) {
   return (
-    <div style={{ flex: "1 1 220px", minWidth: 220 }}>
+    <div className="avoid-break" style={{ flex: "1 1 220px", minWidth: 220 }}>
       {/* Space to sign */}
       <div style={{ height: 46 }} />
       <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 5 }}>

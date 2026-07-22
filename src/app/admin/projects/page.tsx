@@ -237,7 +237,7 @@ export default function ProjectsPage() {
     // Open the styled print view; it renders the full prodoc with the brand fonts
     // and auto-exports itself to a PDF (html2canvas → jsPDF), then closes.
     setPrintingId(p.id);
-    window.open(`/admin/prodoc-print/${prodocId}?auto=1`, "_blank");
+    window.open(`/prodoc-print/${prodocId}?auto=1`, "_blank");
     setTimeout(() => setPrintingId(null), 1500);
   }
 

@@ -294,6 +294,19 @@ export function ReportEditor({
     router.push(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${section}`);
   }
 
+  // Change the report's status from the top bar (admin only). Optimistic; the
+  // readOnly gate recomputes from the updated local state immediately.
+  async function handleReportStatusChange(newStatus: Report["status"]) {
+    if (!selectedReport) return;
+    const id = selectedReport.id;
+    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
+    await fetch(`/api/reports/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+  }
+
   // ── Autosave for the parent-managed sections ──────────────────────────────
   // Saves every dirty item across surveys / overview / risk / indicators, so an
   // in-flight edit is never dropped when the user switches section before it
@@ -704,13 +717,32 @@ export function ReportEditor({
                 <h1 className="text-2xl font-bold font-qanelas capitalize">
                   {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
                 </h1>
-                <span className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                  reportStatusStyle(selectedReport.status, "dark")
-                )}>
-                  {readOnly && <Lock className="size-3" />}
-                  {selectedReport.status}
-                </span>
+                {mode === "admin" ? (
+                  <Select value={selectedReport.status} onValueChange={(v) => handleReportStatusChange(v as Report["status"])}>
+                    <SelectTrigger className={cn(
+                      "h-7 w-auto gap-1 rounded-full border-0 px-2.5 text-xs font-semibold [&>svg]:size-3 [&>svg]:opacity-70",
+                      reportStatusStyle(selectedReport.status, "dark")
+                    )}>
+                      <span className="flex items-center gap-1 whitespace-nowrap">
+                        {readOnly && <Lock className="size-3" />}
+                        {selectedReport.status}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Open">Open</SelectItem>
+                      <SelectItem value="Under Review">Under Review</SelectItem>
+                      <SelectItem value="Closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    reportStatusStyle(selectedReport.status, "dark")
+                  )}>
+                    {readOnly && <Lock className="size-3" />}
+                    {selectedReport.status}
+                  </span>
+                )}
               </div>
               <p className="text-neutral-400 text-sm mt-0.5">{selectedReport.project_title}</p>
             </>

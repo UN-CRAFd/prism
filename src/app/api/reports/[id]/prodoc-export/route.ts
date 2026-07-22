@@ -39,7 +39,7 @@ export async function GET(
     const meta = metaRows[0];
     const projectId = meta.project_id as number;
 
-    const [narratives, surveys, risks, indicators, activities, budgets] = await Promise.all([
+    const [narratives, surveys, risks, indicators, activities, budgets, applicants] = await Promise.all([
       query(
         `SELECT narrative_key, answer
            FROM reporting_platform.project_narratives
@@ -91,9 +91,17 @@ export async function GET(
           ORDER BY ec.sort_order, eb.year`,
         [projectId]
       ),
+      query(
+        `SELECT pc.name, pc.role
+           FROM reporting_platform.project_contacts jc
+           JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
+          WHERE jc.project_id = $1 AND jc.is_applicant = TRUE
+          ORDER BY jc.sort_order, pc.name`,
+        [projectId]
+      ),
     ]);
 
-    return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets });
+    return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets, applicants });
   } catch (err) {
     console.error("GET /api/reports/[id]/prodoc-export error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

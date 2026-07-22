@@ -37,6 +37,7 @@ interface ProdocData {
     implementing_agent: string | null; planned_quarters: string[] | null;
   }[];
   budgets: { category_name: string; sort_order: number; year: number; approved_amount: string | null }[];
+  applicants: { name: string; role: string | null }[];
 }
 
 const NARRATIVE_LABELS: Record<string, string> = Object.fromEntries(
@@ -315,7 +316,10 @@ export default function ProdocPrintPage() {
           />
           <div style={{ position: "relative", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600 }}>
+              <div style={{ fontSize: 11, letterSpacing: 1, color: "#9a7a1e", fontWeight: 700 }}>
+                Complex Risk Analytics Fund (CRAF&apos;d)
+              </div>
+              <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600, marginTop: 4 }}>
                 Project Document
               </div>
               <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 30, lineHeight: 1.12, margin: "10px 0 6px" }}>
@@ -464,6 +468,19 @@ export default function ProdocPrintPage() {
           </Section>
         )}
 
+        {/* ── Signatures ── */}
+        <Section title="Signatures">
+          <div data-block style={{ display: "flex", flexWrap: "wrap", gap: 28, marginTop: 4 }}>
+            {(data.applicants.length > 0
+              ? data.applicants.map((a) => ({ name: a.name, role: a.role || "Applicant" }))
+              : [{ name: (m.partner_long_name as string) || (m.partner_short_name as string) || "Applicant", role: "Applicant" }]
+            ).map((s, i) => (
+              <SignatureBlock key={`app-${i}`} name={s.name} role={s.role} />
+            ))}
+            <SignatureBlock name="CRAF'd Secretariat" role="Complex Risk Analytics Fund" />
+          </div>
+        </Section>
+
         <div data-block style={{ marginTop: 40, paddingTop: 12, borderTop: `1px solid ${LINE}`, fontSize: 10, color: MUTED, textAlign: "center" }}>
           CRAF'd · Project Document · {m.project_title as string}
         </div>
@@ -488,6 +505,20 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {title}
       </h2>
       {children}
+    </div>
+  );
+}
+
+function SignatureBlock({ name, role }: { name: string; role: string }) {
+  return (
+    <div style={{ flex: "1 1 220px", minWidth: 220 }}>
+      {/* Space to sign */}
+      <div style={{ height: 46 }} />
+      <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 5 }}>
+        <div style={{ fontWeight: 700, fontSize: 12.5 }}>{name}</div>
+        <div style={{ fontSize: 11, color: MUTED }}>{role}</div>
+        <div style={{ fontSize: 10.5, color: MUTED, marginTop: 8 }}>Date: ____________________</div>
+      </div>
     </div>
   );
 }

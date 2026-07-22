@@ -63,6 +63,9 @@ export default function PartnerHomePage() {
   const router = useRouter();
 
   const [reports, setReports] = useState<Report[]>([]);
+  // Prodocs (one per project) — the source of project dates, independent of
+  // whether any reporting-year reports exist yet.
+  const [projects, setProjects] = useState<Report[]>([]);
   const [comments, setComments] = useState<FeedbackComment[]>([]);
   const [loading, setLoading] = useState(true);
   // The greeting (time-based) and user (client-side auth) only exist on the
@@ -72,18 +75,21 @@ export default function PartnerHomePage() {
 
   useEffect(() => {
     if (!user) return;
+    const forPartner = (r: Report) =>
+      r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
+      r.partner_short_name === user.organization;
+
     fetch("/api/reports?data_type=report")
       .then((r) => r.json())
-      .then((all: Report[]) => {
-        const filtered = all.filter(
-          (r) =>
-            r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-            r.partner_short_name === user.organization
-        );
-        setReports(filtered);
-      })
+      .then((all: Report[]) => setReports(all.filter(forPartner)))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Prodocs give us every project (and its dates) even with zero reports.
+    fetch("/api/reports?data_type=prodoc")
+      .then((r) => r.json())
+      .then((all: Report[]) => setProjects(all.filter(forPartner)))
+      .catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -117,9 +123,12 @@ export default function PartnerHomePage() {
   const timeline = useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = [];
 
-    // Project start & end — one pair per unique project
+    // Project start & end — one pair per project, sourced from prodocs so they
+    // show even when no reporting-year reports exist. Fall back to report rows
+    // if prodocs haven't loaded for some reason.
+    const projectRows = projects.length > 0 ? projects : reports;
     const seenProjects = new Set<number>();
-    for (const r of reports) {
+    for (const r of projectRows) {
       if (seenProjects.has(r.project_id)) continue;
       seenProjects.add(r.project_id);
       if (!r.project_start_date) continue;
@@ -171,7 +180,7 @@ export default function PartnerHomePage() {
     });
 
     return events.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
-  }, [reports]);
+  }, [reports, projects]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();

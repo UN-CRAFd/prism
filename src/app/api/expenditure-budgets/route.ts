@@ -17,23 +17,25 @@ export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
   try {
-    const proj = await query<{ indirect_cost_rate: string }>(
-      `SELECT indirect_cost_rate FROM reporting_platform.projects WHERE id = $1`,
+    // Uses single source of truth: project_year_range() function in database.
+    const proj = await query<{ indirect_cost_rate: string; years: number[] }>(
+      `SELECT
+         p.indirect_cost_rate,
+         reporting_platform.project_year_range(p.project_start_date, p.project_duration_months) AS years
+       FROM reporting_platform.projects p
+       WHERE p.id = $1`,
       [projectId]
     );
-    const years = await query<{ year: number }>(
-      `SELECT DISTINCT year FROM reporting_platform.reports
-        WHERE project_id = $1 AND data_type = 'report' ORDER BY year ASC`,
-      [projectId]
-    );
+    if (!proj[0]) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
     const budgets = await query<{ category_id: number; year: number; approved_amount: string | null }>(
       `SELECT category_id, year, approved_amount
          FROM reporting_platform.expenditure_budgets WHERE project_id = $1`,
       [projectId]
     );
     return NextResponse.json({
-      indirectRate: proj[0] ? Number(proj[0].indirect_cost_rate) : 0.07,
-      years: years.map((y) => y.year),
+      indirectRate: Number(proj[0].indirect_cost_rate),
+      years: proj[0].years ?? [],
       budgets: budgets.map((b) => ({ ...b, approved_amount: toAmount(b.approved_amount) })),
     });
   } catch (err) {

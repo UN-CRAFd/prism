@@ -29,7 +29,7 @@ function toQuarters(v: unknown): string[] {
 async function loadRange(projectId: string | number) {
   const rows = await query<{ start_date: string | null; end_date: string | null }>(
     `SELECT TO_CHAR(project_start_date, 'YYYY-MM-DD') AS start_date,
-            TO_CHAR((project_start_date + (project_duration_months * INTERVAL '1 month'))::date, 'YYYY-MM-DD') AS end_date
+            TO_CHAR(reporting_platform.project_end_date(project_start_date, project_duration_months), 'YYYY-MM-DD') AS end_date
        FROM reporting_platform.projects WHERE id = $1`,
     [projectId]
   );

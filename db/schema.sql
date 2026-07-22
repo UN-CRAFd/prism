@@ -114,6 +114,24 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Reusable trigger function: keeps updated_at current on every UPDATE.
+-- Single source of truth: derive project year range from start_date + duration_months.
+-- Used by expenditure, workplan, and any other feature needing consistent year calculation.
+CREATE OR REPLACE FUNCTION reporting_platform.project_year_range(
+  start_date DATE, duration_months INT
+) RETURNS INT[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM (start_date + (n * INTERVAL '1 month'))::date)::int
+    ORDER BY EXTRACT(YEAR FROM (start_date + (n * INTERVAL '1 month'))::date)::int)
+  FROM GENERATE_SERIES(0, GREATEST(COALESCE(duration_months, 12), 1) - 1) AS n;
+$$;
+
+-- Single source of truth: derive project end date.
+-- Used by workplan quarter range, and any other feature needing project end date.
+CREATE OR REPLACE FUNCTION reporting_platform.project_end_date(
+  start_date DATE, duration_months INT
+) RETURNS DATE LANGUAGE sql IMMUTABLE AS $$
+  SELECT (start_date + (GREATEST(COALESCE(duration_months, 12), 1) * INTERVAL '1 month'))::date;
+$$;
+
 CREATE OR REPLACE FUNCTION reporting_platform.set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
@@ -557,13 +575,43 @@ CREATE TABLE IF NOT EXISTS expenditure_entries (
     id                 SERIAL       PRIMARY KEY,
     report_id          INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     category_id        INTEGER      NOT NULL REFERENCES expenditure_categories(id) ON DELETE CASCADE,
-    annual_expenditure NUMERIC(15,2),
+    year               SMALLINT     NOT NULL CHECK (year BETWEEN 2020 AND 2050),
+    approved_amount    NUMERIC(15,2) GENERATED ALWAYS AS (
+        COALESCE(
+            (SELECT eb.approved_amount
+             FROM expenditure_budgets eb
+             WHERE eb.project_id = (SELECT r.project_id FROM reports r WHERE r.id = report_id)
+             AND eb.category_id = category_id
+             AND eb.year = year),
+            0
+        )
+    ) STORED,
+    annual_expenditure NUMERIC(15,2) CHECK (annual_expenditure IS NULL OR annual_expenditure >= 0),
+    variance           NUMERIC(15,2) GENERATED ALWAYS AS (
+        CASE
+            WHEN annual_expenditure IS NOT NULL
+            THEN annual_expenditure - COALESCE(approved_amount, 0)
+            ELSE NULL
+        END
+    ) STORED,
+    variance_percent   NUMERIC(5,2) GENERATED ALWAYS AS (
+        CASE
+            WHEN annual_expenditure IS NOT NULL
+                 AND approved_amount IS NOT NULL
+                 AND approved_amount > 0
+            THEN ROUND((annual_expenditure - approved_amount) * 100.0 / approved_amount, 2)
+            ELSE NULL
+        END
+    ) STORED,
     comment            TEXT,
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (report_id, category_id)
 );
 CREATE INDEX IF NOT EXISTS expenditure_entries_report_idx ON expenditure_entries(report_id);
+CREATE INDEX IF NOT EXISTS expenditure_entries_year_idx ON expenditure_entries(year);
+CREATE INDEX IF NOT EXISTS expenditure_entries_category_year_idx ON expenditure_entries(category_id, year)
+    WHERE annual_expenditure IS NOT NULL;
 DROP TRIGGER IF EXISTS expenditure_entries_updated_at ON expenditure_entries;
 CREATE TRIGGER expenditure_entries_updated_at
     BEFORE UPDATE ON expenditure_entries

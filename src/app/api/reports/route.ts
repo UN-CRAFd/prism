@@ -77,8 +77,8 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
 
   await client.query(
     `INSERT INTO reporting_platform.risk_management
-       (report_id, risk_name, risk_category, approved_mitigation)
-     SELECT nr.id, rm.risk_name, rm.risk_category, rm.approved_mitigation
+       (report_id, risk_name, approved_mitigation)
+     SELECT nr.id, rm.risk_name, rm.approved_mitigation
        FROM reporting_platform.reports nr
        JOIN reporting_platform.reports pd
          ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
@@ -96,6 +96,26 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
          ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
        JOIN reporting_platform.indicator_data d ON d.report_id = pd.id
       WHERE nr.id = ANY($1::int[])`,
+    [reportIds]
+  );
+}
+
+// Populate expenditure entries for the report.
+// Creates one row per category. approved_amount is GENERATED (always references
+// current expenditure_budgets), so budget changes in prodoc automatically update all reports.
+// Variance columns are auto-calculated when annual_expenditure is filled in.
+async function populateExpenditureEntries(client: PoolClient, reportIds: number[]) {
+  if (reportIds.length === 0) return;
+
+  await client.query(
+    `INSERT INTO reporting_platform.expenditure_entries
+       (report_id, category_id, year)
+     SELECT nr.id, ec.id, nr.year
+       FROM reporting_platform.reports nr
+       CROSS JOIN reporting_platform.expenditure_categories ec
+      WHERE nr.id = ANY($1::int[])
+        AND nr.data_type = 'report'
+      ON CONFLICT (report_id, category_id) DO NOTHING`,
     [reportIds]
   );
 }
@@ -150,6 +170,7 @@ export async function POST(request: Request) {
       );
 
       await copyProdocBaseline(client, inserted.rows.map((r) => r.id));
+      await populateExpenditureEntries(client, inserted.rows.map((r) => r.id));
 
       await client.query("COMMIT");
       return NextResponse.json(
@@ -188,6 +209,7 @@ export async function POST(request: Request) {
     }
 
     await copyProdocBaseline(client, [inserted.rows[0].id]);
+    await populateExpenditureEntries(client, [inserted.rows[0].id]);
 
     await client.query("COMMIT");
     return NextResponse.json(inserted.rows[0], { status: 201 });

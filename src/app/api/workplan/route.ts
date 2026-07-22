@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT p.id AS project_id, r.year,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
-              TO_CHAR((p.project_start_date + (p.project_duration_months * INTERVAL '1 month'))::date, 'YYYY-MM-DD') AS end_date
+              TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS end_date
          FROM reporting_platform.reports r
          JOIN reporting_platform.projects p ON p.id = r.project_id
         WHERE r.id = $1`,

@@ -65,6 +65,10 @@ export default function ProdocPrintPage() {
   const [data, setData] = useState<ProdocData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // Org logo lives at /logos/<short_name>.<webp|png>. Probe both up front and
+  // store the loadable URL (or null) so the image is fully loaded before capture.
+  const [orgLogo, setOrgLogo] = useState<string | null>(null);
+  const [assetsReady, setAssetsReady] = useState(false);
   const docRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,9 +78,32 @@ export default function ProdocPrintPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Unknown error"));
   }, [params.id]);
 
+  // Probe + preload the org logo (and the CRAF'd watermark) before allowing export.
+  useEffect(() => {
+    if (!data) return;
+    const short = (data.meta.partner_short_name as string | null)?.toLowerCase();
+    const load = (src: string) =>
+      new Promise<string | null>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(src);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+    (async () => {
+      let logo: string | null = null;
+      if (short) {
+        logo = (await load(`/logos/${short}.webp`)) || (await load(`/logos/${short}.png`));
+      }
+      await load("/images/crafd-symbol-black.svg");
+      setOrgLogo(logo);
+      setAssetsReady(true);
+    })();
+  }, [data]);
+
   const exportPdf = useCallback(async () => {
     if (!docRef.current || !data) return;
     setExporting(true);
+    const docEl = docRef.current;
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
@@ -84,7 +111,7 @@ export default function ProdocPrintPage() {
       ]);
       await document.fonts.ready;
 
-      const canvas = await html2canvas(docRef.current, {
+      const canvas = await html2canvas(docEl, {
         scale: 2,
         backgroundColor: "#ffffff",
         useCORS: true,
@@ -118,21 +145,76 @@ export default function ProdocPrintPage() {
       });
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
-      const imgH = (canvas.height * imgW) / canvas.width;
-      const imgData = canvas.toDataURL("image/png");
+      const PAGE_W = 210, PAGE_H = 297;
+      const MARGIN_TOP = 12, MARGIN_BOTTOM = 16;   // bottom leaves room for page number
+      const usableMm = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM;
+      const pxPerMm = canvas.width / PAGE_W;
+      const usablePx = usableMm * pxPerMm;
 
-      let heightLeft = imgH;
-      let position = 0;
-      pdf.addImage(imgData, "PNG", 0, position, imgW, imgH);
-      heightLeft -= pageH;
-      while (heightLeft > 0) {
-        position -= pageH;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgW, imgH);
-        heightLeft -= pageH;
+      // Measure block boundaries in canvas pixels so we only cut between blocks.
+      const docRect = docEl.getBoundingClientRect();
+      const factor = canvas.width / docEl.offsetWidth;
+      const blocks = Array.from(docEl.querySelectorAll<HTMLElement>("[data-block]"))
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            top: (r.top - docRect.top) * factor,
+            bottom: (r.bottom - docRect.top) * factor,
+            keep: el.dataset.keep === "1", // headings: never orphan at page bottom
+          };
+        })
+        .sort((a, b) => a.top - b.top);
+
+      // Greedy pack blocks into pages; the end of a page is the top of the next
+      // block (so inter-block whitespace rides along), never inside a block.
+      const pages: { start: number; end: number }[] = [];
+      if (blocks.length === 0) {
+        pages.push({ start: 0, end: canvas.height });
+      } else {
+        const ends = blocks.map((b, i) => (i < blocks.length - 1 ? blocks[i + 1].top : canvas.height));
+        let start = 0;
+        let idx = 0;
+        while (idx < blocks.length) {
+          const limit = start + usablePx;
+          let j = -1;
+          for (let k = idx; k < blocks.length; k++) {
+            if (ends[k] <= limit) j = k; else break;
+          }
+          if (j < idx) {
+            // First block is taller than a page — hard-cut it across pages.
+            const end = Math.min(limit, canvas.height);
+            pages.push({ start, end });
+            start = end;
+            while (idx < blocks.length && ends[idx] <= start) idx++;
+            continue;
+          }
+          if (blocks[j].keep && j > idx) j -= 1; // push a trailing heading to next page
+          pages.push({ start, end: ends[j] });
+          start = ends[j];
+          idx = j + 1;
+        }
+      }
+
+      // Render each page slice onto its own white canvas, with margins + page number.
+      for (let p = 0; p < pages.length; p++) {
+        const { start, end } = pages[p];
+        const sliceH = Math.max(1, Math.round(end - start));
+        const slice = document.createElement("canvas");
+        slice.width = canvas.width;
+        slice.height = sliceH;
+        const ctx = slice.getContext("2d")!;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, slice.width, sliceH);
+        ctx.drawImage(canvas, 0, start, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+
+        if (p > 0) pdf.addPage();
+        const sliceHmm = sliceH / pxPerMm;
+        pdf.addImage(slice.toDataURL("image/png"), "PNG", 0, MARGIN_TOP, PAGE_W, sliceHmm);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(`${p + 1} / ${pages.length}`, PAGE_W / 2, PAGE_H - 8, { align: "center" });
       }
 
       const shortName = (data.meta.project_short_name as string) || (data.meta.project_title as string) || "prodoc";
@@ -148,13 +230,13 @@ export default function ProdocPrintPage() {
     }
   }, [data, auto]);
 
-  // Auto-trigger the export once data + fonts are ready (opened from the button).
+  // Auto-trigger the export once data, fonts and logos are ready.
   useEffect(() => {
-    if (auto && data && !exporting) {
+    if (auto && data && assetsReady && !exporting) {
       document.fonts.ready.then(() => setTimeout(exportPdf, 300));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, data]);
+  }, [auto, data, assetsReady]);
 
   if (error) {
     return <div style={{ padding: 40, color: "#b91c1c", fontFamily: "var(--font-roboto)" }}>{error}</div>;
@@ -216,50 +298,73 @@ export default function ProdocPrintPage() {
         ref={docRef}
         style={{
           width: 794, margin: "0 auto", background: "#ffffff", color: INK,
-          padding: "56px 56px 64px", boxSizing: "border-box", fontSize: 12.5, lineHeight: 1.55,
+          padding: "12px 56px", boxSizing: "border-box", fontSize: 12.5, lineHeight: 1.55,
         }}
       >
         {/* ── Cover header ── */}
-        <div style={{ borderTop: `6px solid ${BRAND}`, paddingTop: 22, marginBottom: 28 }}>
-          <div style={{ fontFamily: "var(--font-roboto)", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600 }}>
-            Project Document
-          </div>
-          <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 30, lineHeight: 1.12, margin: "10px 0 6px" }}>
-            {m.project_title as string}
-          </h1>
-          <div style={{ fontSize: 14, color: MUTED }}>
-            {(m.partner_long_name as string) || (m.partner_short_name as string)}
-            {m.partner_short_name && m.partner_long_name ? ` (${m.partner_short_name})` : ""}
+        <div data-block style={{ position: "relative", borderTop: `6px solid ${BRAND}`, paddingTop: 22, marginBottom: 28, overflow: "hidden" }}>
+          {/* CRAF'd symbol watermark */}
+          <img
+            src="/images/crafd-symbol-black.svg"
+            alt=""
+            aria-hidden
+            style={{
+              position: "absolute", top: -16, right: -12, width: 150, height: "auto",
+              opacity: 0.05, pointerEvents: "none",
+            }}
+          />
+          <div style={{ position: "relative", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600 }}>
+                Project Document
+              </div>
+              <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 30, lineHeight: 1.12, margin: "10px 0 6px" }}>
+                {m.project_title as string}
+              </h1>
+              <div style={{ fontSize: 14, color: MUTED }}>
+                {(m.partner_long_name as string) || (m.partner_short_name as string)}
+                {m.partner_short_name && m.partner_long_name ? ` (${m.partner_short_name})` : ""}
+              </div>
+            </div>
+            {orgLogo && (
+              <img
+                src={orgLogo}
+                alt={(m.partner_short_name as string) || "Organization logo"}
+                style={{ height: 56, width: "auto", maxWidth: 160, objectFit: "contain", flexShrink: 0 }}
+              />
+            )}
           </div>
         </div>
 
         {/* ── Meta grid ── */}
-        <MetaGrid
-          items={[
-            ["MPTFO number", (m.mptfo_project_number as string) || "—"],
-            ["Status", (m.status as string) || "—"],
-            ["Funding amount", fmtUsd(m.grant_size_usd != null ? num(m.grant_size_usd) : null)],
-            ["Start date", fmtDate(m.project_start_date as string | null)],
-            ["Duration", m.project_duration_months ? `${m.project_duration_months} months` : "—"],
-            ["Geographic scope", (m.geographic_scope as string) || "—"],
-          ]}
-        />
+        <div data-block>
+          <MetaGrid
+            items={[
+              ["MPTFO number", (m.mptfo_project_number as string) || "—"],
+              ["Status", (m.status as string) || "—"],
+              ["Funding amount", fmtUsd(m.grant_size_usd != null ? num(m.grant_size_usd) : null)],
+              ["Start date", fmtDate(m.project_start_date as string | null)],
+              ["Duration", m.project_duration_months ? `${m.project_duration_months} months` : "—"],
+              ["Geographic scope", (m.geographic_scope as string) || "—"],
+            ]}
+          />
+        </div>
         {m.implementing_partners ? (
-          <div style={{ marginTop: 10, fontSize: 12 }}>
+          <div data-block style={{ marginTop: 10, fontSize: 12 }}>
             <span style={{ color: MUTED }}>Implementing partners: </span>
             {m.implementing_partners as string}
           </div>
         ) : null}
         {m.description ? (
-          <p style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}>{m.description as string}</p>
+          <p data-block style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}>{m.description as string}</p>
         ) : null}
 
         {/* ── Narratives ── */}
         {data.narratives.length > 0 && (
           <Section title="Narratives">
             {data.narratives.map((n) => (
-              <div key={n.narrative_key} style={{ marginBottom: 14, breakInside: "avoid" }}>
-                <div style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 14, marginBottom: 3 }}>
+              <div key={n.narrative_key} data-block style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>
                   {NARRATIVE_LABELS[n.narrative_key] || n.narrative_key}
                 </div>
                 <div style={{ fontSize: 12, color: "#374151", whiteSpace: "pre-wrap" }}>{n.answer}</div>
@@ -271,34 +376,38 @@ export default function ProdocPrintPage() {
         {/* ── Indicators ── */}
         {data.indicators.length > 0 && (
           <Section title="Indicators">
-            <Table
-              head={["Indicator", "Category", "Baseline", "Target"]}
-              widths={["46%", "22%", "16%", "16%"]}
-              rows={data.indicators.map((i) => [
-                i.indicator_name,
-                i.category || "—",
-                i.baseline_value ? `${i.baseline_value}${i.baseline_year ? ` (${i.baseline_year})` : ""}` : "—",
-                i.target_value ? `${i.target_value}${i.target_year ? ` (${i.target_year})` : ""}` : "—",
-              ])}
-            />
+            <div data-block>
+              <Table
+                head={["Indicator", "Category", "Baseline", "Target"]}
+                widths={["46%", "22%", "16%", "16%"]}
+                rows={data.indicators.map((i) => [
+                  i.indicator_name,
+                  i.category || "—",
+                  i.baseline_value ? `${i.baseline_value}${i.baseline_year ? ` (${i.baseline_year})` : ""}` : "—",
+                  i.target_value ? `${i.target_value}${i.target_year ? ` (${i.target_year})` : ""}` : "—",
+                ])}
+              />
+            </div>
           </Section>
         )}
 
         {/* ── Risk register ── */}
         {data.risks.length > 0 && (
           <Section title="Risk Management">
-            <Table
-              head={["Risk", "Categories", "L", "I", "Approved mitigation"]}
-              widths={["24%", "18%", "6%", "6%", "46%"]}
-              align={["left", "left", "center", "center", "left"]}
-              rows={data.risks.map((r) => [
-                r.risk_name,
-                r.categories.length ? r.categories.join(", ") : "—",
-                r.likelihood ?? "—",
-                r.impact ?? "—",
-                r.approved_mitigation || "—",
-              ])}
-            />
+            <div data-block>
+              <Table
+                head={["Risk", "Categories", "L", "I", "Approved mitigation"]}
+                widths={["24%", "18%", "6%", "6%", "46%"]}
+                align={["left", "left", "center", "center", "left"]}
+                rows={data.risks.map((r) => [
+                  r.risk_name,
+                  r.categories.length ? r.categories.join(", ") : "—",
+                  r.likelihood ?? "—",
+                  r.impact ?? "—",
+                  r.approved_mitigation || "—",
+                ])}
+              />
+            </div>
           </Section>
         )}
 
@@ -306,8 +415,8 @@ export default function ProdocPrintPage() {
         {data.activities.length > 0 && (
           <Section title="Workplan">
             {outcomeGroups.map(([outcome, acts]) => (
-              <div key={outcome} style={{ marginBottom: 12 }}>
-                <div style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 13, marginBottom: 5 }}>
+              <div key={outcome} data-block style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5, color: "#374151" }}>
                   {outcome}
                 </div>
                 <Table
@@ -329,7 +438,7 @@ export default function ProdocPrintPage() {
         {/* ── Expenditure budget ── */}
         {categories.length > 0 && years.length > 0 && (
           <Section title="Approved Budget (USD)">
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
                 <tr>
                   <Th align="left">Budget category</Th>
@@ -355,18 +464,7 @@ export default function ProdocPrintPage() {
           </Section>
         )}
 
-        {/* ── Surveys ── */}
-        {data.surveys.length > 0 && (
-          <Section title="Survey Questions">
-            <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: "#374151" }}>
-              {data.surveys.map((s, i) => (
-                <li key={i} style={{ marginBottom: 5 }}>{s.question}</li>
-              ))}
-            </ol>
-          </Section>
-        )}
-
-        <div style={{ marginTop: 40, paddingTop: 12, borderTop: `1px solid ${LINE}`, fontSize: 10, color: MUTED, textAlign: "center" }}>
+        <div data-block style={{ marginTop: 40, paddingTop: 12, borderTop: `1px solid ${LINE}`, fontSize: 10, color: MUTED, textAlign: "center" }}>
           CRAF'd · Project Document · {m.project_title as string}
         </div>
       </div>
@@ -379,10 +477,14 @@ export default function ProdocPrintPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginTop: 26 }}>
-      <h2 style={{
-        fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 17, margin: "0 0 10px",
-        paddingBottom: 6, borderBottom: `2px solid ${BRAND}`,
-      }}>
+      <h2
+        data-block
+        data-keep="1"
+        style={{
+          fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 17, margin: "0 0 10px",
+          paddingBottom: 6, borderBottom: `2px solid ${BRAND}`,
+        }}
+      >
         {title}
       </h2>
       {children}
@@ -403,6 +505,9 @@ function MetaGrid({ items }: { items: [string, string][] }) {
   );
 }
 
+// Flexbox-based table. html2canvas ignores vertical-align on <td>, so rows use
+// display:flex + alignItems:center to vertically centre every cell — including
+// rows where one column wraps to multiple lines.
 function Table({
   head, rows, widths, align,
 }: {
@@ -411,25 +516,37 @@ function Table({
   widths?: string[];
   align?: ("left" | "center" | "right")[];
 }) {
+  const colStyle = (i: number): React.CSSProperties =>
+    widths?.[i] ? { flex: `0 0 ${widths[i]}`, maxWidth: widths[i] } : { flex: "1 1 0" };
+
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-      <thead>
-        <tr>
-          {head.map((h, i) => (
-            <Th key={i} align={align?.[i] ?? "left"} width={widths?.[i]}>{h}</Th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, ri) => (
-          <tr key={ri}>
-            {row.map((cell, ci) => (
-              <Td key={ci} align={align?.[ci] ?? "left"}>{cell ?? "—"}</Td>
-            ))}
-          </tr>
+    <div style={{ fontSize: 11 }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "stretch", background: "#f3f4f6", borderBottom: `1px solid ${LINE}` }}>
+        {head.map((h, i) => (
+          <div key={i} style={{
+            ...colStyle(i), boxSizing: "border-box", padding: "6px 8px",
+            textAlign: align?.[i] ?? "left", color: "#374151", fontWeight: 700,
+            fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4,
+          }}>
+            {h}
+          </div>
         ))}
-      </tbody>
-    </table>
+      </div>
+      {/* Body rows */}
+      {rows.map((row, ri) => (
+        <div key={ri} data-trow style={{ display: "flex", alignItems: "center", borderBottom: `1px solid ${LINE}` }}>
+          {row.map((cell, ci) => (
+            <div key={ci} style={{
+              ...colStyle(ci), boxSizing: "border-box", padding: "6px 8px",
+              textAlign: align?.[ci] ?? "left",
+            }}>
+              {cell ?? "—"}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -438,7 +555,7 @@ function Th({ children, align = "left", width }: { children: React.ReactNode; al
     <th style={{
       textAlign: align, width, background: "#f3f4f6", color: "#374151", fontWeight: 700,
       fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, padding: "6px 8px",
-      borderBottom: `1px solid ${LINE}`,
+      borderBottom: `1px solid ${LINE}`, verticalAlign: "middle",
     }}>
       {children}
     </th>
@@ -447,7 +564,7 @@ function Th({ children, align = "left", width }: { children: React.ReactNode; al
 
 function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) {
   return (
-    <td style={{ textAlign: align, padding: "6px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "top" }}>
+    <td style={{ textAlign: align, padding: "6px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "middle" }}>
       {children}
     </td>
   );
@@ -460,11 +577,11 @@ function TotalRow({
 }) {
   return (
     <tr style={{ background: strong ? "#f3f4f6" : "#fafafa", fontWeight: strong ? 700 : 600 }}>
-      <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>{label}</td>
+      <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{label}</td>
       {years.map((y, i) => (
-        <td key={y} style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{fmtUsd(cells[i])}</td>
+        <td key={y} style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(cells[i])}</td>
       ))}
-      <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{fmtUsd(total)}</td>
+      <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(total)}</td>
     </tr>
   );
 }

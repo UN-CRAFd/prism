@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers } from "lucide-react";
+import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
@@ -35,6 +35,7 @@ interface Prodoc {
   partner_short_name: string;
   project_start_date: string | null;
   project_duration_months: number | null;
+  status: string | null; // Open | Under Review | Closed — gates editability
 }
 
 interface Survey {
@@ -335,6 +336,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // ── Indicators CRUD ───────────────────────────────────────────────────────
 
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
+  // Editable while "Open" or "Under Review"; "Closed" locks it — same rule as reports.
+  const readOnly = !!selectedDoc && selectedDoc.status === "Closed";
 
   async function addIndicatorLine(indicatorId: number) {
     if (!selectedProdocId || !selectedDoc) return;
@@ -531,6 +534,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
         )}
 
+        {readOnly && selectedProdocId && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+            <Lock className="size-3.5 shrink-0" />
+            This project document is closed and read-only. Set its status back to Open on the Projects page to edit.
+          </div>
+        )}
+
+        {/* fieldset disables every form control within when the prodoc is closed */}
+        <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
         {!selectedProdocId ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
@@ -804,6 +816,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         ) : selectedSection === "expenditure" ? (
           selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} /> : null
         ) : null}
+        </fieldset>
       </div>
     </div>
   );

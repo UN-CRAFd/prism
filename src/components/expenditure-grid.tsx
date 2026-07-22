@@ -356,6 +356,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
   // percentage string shown in the field.
   const [rate, setRate] = useState(0.07);
   const [rateInput, setRateInput] = useState("7");
+  const [grantSize, setGrantSize] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -372,17 +373,20 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
     setLoading(true);
     setError(null);
     try {
-      const [catRes, budRes] = await Promise.all([
+      const [catRes, budRes, projRes] = await Promise.all([
         fetch("/api/expenditure-categories"),
         fetch(`/api/expenditure-budgets?projectId=${projectId}`),
+        fetch(`/api/projects/${projectId}`),
       ]);
-      if (!catRes.ok || !budRes.ok) throw new Error("Failed to load expenditure setup");
+      if (!catRes.ok || !budRes.ok || !projRes.ok) throw new Error("Failed to load expenditure setup");
       const cats: ExpenditureCategory[] = await catRes.json();
       const bud: { indirectRate: number; years: number[]; budgets: BudgetRow[] } = await budRes.json();
+      const proj: { grant_size_usd: number | null } = await projRes.json();
       setCategories(cats);
       setYears(bud.years);
       setRate(bud.indirectRate);
       setRateInput(String(Math.round(bud.indirectRate * 100 * 100) / 100));
+      setGrantSize(proj.grant_size_usd);
       const m: Record<string, string> = {};
       for (const b of bud.budgets) {
         if (b.approved_amount != null) m[`${b.category_id}-${b.year}`] = String(b.approved_amount);
@@ -474,88 +478,116 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
     return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading…</div>;
   }
 
+  const totalBudget = totalSub * (1 + rate);
+  const availableBalance = grantSize ? grantSize - totalBudget : null;
+
   return (
     <div className="space-y-4">
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
-
-      <div className="flex items-end justify-between gap-4 rounded-xl border bg-card p-4">
-        {isAdmin ? (
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Indirect support cost rate</label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="number" min="0" max="100" step="0.01"
-                value={rateInput}
-                onChange={(e) => setRateInput(e.target.value)}
-                onBlur={commitRate}
-                className="h-8 w-24 text-sm text-right tabular-nums"
-              />
-              <span className="text-sm text-muted-foreground">%</span>
-            </div>
-          </div>
-        ) : <div />}
-        {saveState === "saving" ? (
-          <span className="flex items-center gap-1.5 text-muted-foreground text-sm"><Loader2 className="size-3.5 animate-spin" /> Saving…</span>
-        ) : saveState === "saved" ? (
-          <span className="flex items-center gap-1.5 text-green-600 text-sm"><CheckCircle2 className="size-4" /> All changes saved</span>
-        ) : saveState === "error" ? (
-          <span className="text-sm text-destructive">Save failed — retrying on next change</span>
-        ) : null}
-      </div>
 
       {years.length === 0 ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
           No report years exist for this project yet. Approved annual budgets are entered per reporting year.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
-          <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Approved annual budget (USD) per category</p>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground min-w-[220px]">Budget categories</th>
-                {years.map((y) => (
-                  <th key={y} className="px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]">{y}</th>
-                ))}
-                <th className="px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-muted/10">
-                  <td className="px-3 py-2 border-r">{c.name}</td>
+        <>
+          <div className="overflow-x-auto rounded-xl border">
+            <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Approved annual budget (USD) per category</p>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground min-w-[220px]">Budget categories</th>
                   {years.map((y) => (
-                    <td key={y} className="px-1 py-1 border-l">
-                      <Input
-                        value={amounts[`${c.id}-${y}`] ?? ""}
-                        onChange={(e) => setAmount(c.id, y, e.target.value)}
-                        inputMode="decimal"
-                        placeholder="0"
-                        className="h-8 text-sm text-right tabular-nums"
-                      />
-                    </td>
+                    <th key={y} className="px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]">{y}</th>
                   ))}
-                  <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="approved" /></td>
+                  <th className="px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]">Total</th>
                 </tr>
-              ))}
-              <tr className="border-t bg-neutral-100 font-semibold">
-                <td className="px-3 py-2 border-r">Project costs sub total</td>
-                {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y)} /></td>))}
-                <td className="px-2 py-2 text-right border-l"><Num value={totalSub} /></td>
-              </tr>
-              <tr className="border-t bg-muted/30">
-                <td className="px-3 py-2 border-r">Indirect support costs ({Math.round(rate * 100)}%)</td>
-                {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * rate} /></td>))}
-                <td className="px-2 py-2 text-right border-l"><Num value={totalSub * rate} /></td>
-              </tr>
-              <tr className="border-t bg-neutral-100 font-semibold">
-                <td className="px-3 py-2 border-r">Total</td>
-                {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * (1 + rate)} kind="strong" /></td>))}
-                <td className="px-2 py-2 text-right border-l"><Num value={totalSub * (1 + rate)} kind="strong" /></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {categories.map((c) => (
+                  <tr key={c.id} className="border-t hover:bg-muted/10">
+                    <td className="px-3 py-2 border-r">{c.name}</td>
+                    {years.map((y) => (
+                      <td key={y} className="px-1 py-1 border-l">
+                        <Input
+                          value={amounts[`${c.id}-${y}`] ?? ""}
+                          onChange={(e) => setAmount(c.id, y, e.target.value)}
+                          inputMode="decimal"
+                          placeholder="0"
+                          className="h-8 text-sm text-right tabular-nums"
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="approved" /></td>
+                  </tr>
+                ))}
+                <tr className="border-t bg-neutral-100 font-semibold">
+                  <td className="px-3 py-2 border-r">Project costs sub total</td>
+                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y)} /></td>))}
+                  <td className="px-2 py-2 text-right border-l"><Num value={totalSub} /></td>
+                </tr>
+                <tr className="border-t bg-muted/30">
+                  <td className="px-3 py-2 border-r">Indirect support costs ({Math.round(rate * 100)}%)</td>
+                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * rate} /></td>))}
+                  <td className="px-2 py-2 text-right border-l"><Num value={totalSub * rate} /></td>
+                </tr>
+                <tr className="border-t bg-neutral-100 font-semibold">
+                  <td className="px-3 py-2 border-r">Total</td>
+                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * (1 + rate)} kind="strong" /></td>))}
+                  <td className="px-2 py-2 text-right border-l"><Num value={totalBudget} kind="strong" /></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Below table: indirect rate editor + balance box */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Indirect rate editor */}
+            {isAdmin && (
+              <div className="rounded-xl border bg-card p-4 space-y-3">
+                <label className="text-sm font-medium text-muted-foreground">Indirect support cost rate</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number" min="0" max="100" step="0.01"
+                    value={rateInput}
+                    onChange={(e) => setRateInput(e.target.value)}
+                    onBlur={commitRate}
+                    className="h-9 w-20 text-sm text-right tabular-nums"
+                  />
+                  <span className="text-sm text-muted-foreground">%</span>
+                </div>
+                {saveState === "saving" ? (
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs"><Loader2 className="size-3 animate-spin" /> Saving…</span>
+                ) : saveState === "saved" ? (
+                  <span className="flex items-center gap-1.5 text-green-600 text-xs"><CheckCircle2 className="size-4" /> Saved</span>
+                ) : saveState === "error" ? (
+                  <span className="text-xs text-destructive">Save failed</span>
+                ) : null}
+              </div>
+            )}
+
+            {/* Available balance */}
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <label className="text-sm font-medium text-muted-foreground">Available balance</label>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Grant size:</span>
+                  <span className="font-semibold tabular-nums">{grantSize ? formatAmount(grantSize) : "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total budget:</span>
+                  <span className="font-semibold tabular-nums">{formatAmount(totalBudget)}</span>
+                </div>
+                <div className={`flex justify-between text-sm pt-2 border-t ${availableBalance !== null && availableBalance < 0 ? "text-red-600" : ""}`}>
+                  <span className="font-medium">Available:</span>
+                  <span className={`font-bold tabular-nums ${availableBalance === null ? "text-muted-foreground" : availableBalance < 0 ? "text-red-600" : "text-green-700"}`}>
+                    {availableBalance !== null ? formatAmount(availableBalance) : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -401,7 +401,7 @@ export default function ProdocPrintPage() {
                         const planned = new Set(a.planned_quarters ?? []);
                         return (
                           <tr key={ai}>
-                            <td style={{ padding: "5px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "top" }}>
+                            <td style={{ padding: "5px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "middle" }}>
                               <div style={{ fontWeight: 600 }}>
                                 {a.activity_num ? `${a.activity_num} ` : ""}{a.activity_text || "—"}
                               </div>

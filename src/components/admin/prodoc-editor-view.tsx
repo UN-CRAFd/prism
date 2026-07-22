@@ -33,6 +33,8 @@ interface Prodoc {
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string;
+  project_start_date: string | null;
+  project_duration_months: number | null;
 }
 
 interface Survey {
@@ -335,10 +337,31 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
 
   async function addIndicatorLine(indicatorId: number) {
-    if (!selectedProdocId) return;
+    if (!selectedProdocId || !selectedDoc) return;
+
+    // Calculate baseline year (project start) and target year (project end)
+    let baselineYear: number | null = null;
+    let targetYear: number | null = null;
+
+    if (selectedDoc.project_start_date) {
+      baselineYear = new Date(selectedDoc.project_start_date).getFullYear();
+      if (selectedDoc.project_duration_months) {
+        const endDate = new Date(selectedDoc.project_start_date);
+        endDate.setMonth(endDate.getMonth() + selectedDoc.project_duration_months);
+        targetYear = endDate.getFullYear();
+      } else {
+        targetYear = baselineYear;
+      }
+    }
+
     const res = await fetch("/api/indicator-data", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reportId: Number(selectedProdocId), indicator_id: indicatorId }),
+      body: JSON.stringify({
+        reportId: Number(selectedProdocId),
+        indicator_id: indicatorId,
+        baseline_year: baselineYear,
+        target_year: targetYear,
+      }),
     });
     if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to add indicator"); return; }
     const created: IndicatorLine = await res.json();
@@ -736,7 +759,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_year: e.target.value ? Number(e.target.value) : null })}
                                   onBlur={() => saveIndicatorLine(line.id)}
                                   placeholder={labels.placeholders.year}
-                                  className="text-sm h-8"
+                                  className="text-sm h-8 w-20"
                                 />
                               </td>
                               <td className="px-4 py-3">
@@ -754,7 +777,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   onChange={(e) => updateIndicatorLineLocal(line.id, { target_year: e.target.value ? Number(e.target.value) : null })}
                                   onBlur={() => saveIndicatorLine(line.id)}
                                   placeholder={labels.placeholders.year}
-                                  className="text-sm h-8"
+                                  className="text-sm h-8 w-20"
                                 />
                               </td>
                               <td className="px-4 py-3 text-right">

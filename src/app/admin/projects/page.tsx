@@ -316,7 +316,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Status + ProDoc actions */}
-      <div className="flex gap-1.5 mt-auto pt-1">
+      <div className="flex gap-1.5 mt-auto pt-1" onClick={(e) => e.stopPropagation()}>
         <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
           <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
             <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
@@ -331,7 +331,7 @@ export default function ProjectsPage() {
           </SelectContent>
         </Select>
         <button
-          onClick={() => printProdoc(p)}
+          onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
           disabled={printingId === p.id || !prodocByProject[p.id]}
           className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
           title="Print the project document to PDF"
@@ -340,7 +340,7 @@ export default function ProjectsPage() {
           Print ProDoc
         </button>
         <button
-          onClick={() => openProdoc(p)}
+          onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
           className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Open the project document"
         >
@@ -515,10 +515,10 @@ export default function ProjectsPage() {
                   <TableCell className="text-right tabular-nums">{fmtUsd(p.grant_size_usd)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => printProdoc(p)}
+                        onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
                         disabled={printingId === p.id || !prodocByProject[p.id]}
                         className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                         title="Print the project document to PDF"
@@ -527,7 +527,7 @@ export default function ProjectsPage() {
                         Print
                       </button>
                       <button
-                        onClick={() => openProdoc(p)}
+                        onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
                         className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         title="Open the project document"
                       >

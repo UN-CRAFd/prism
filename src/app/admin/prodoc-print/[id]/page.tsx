@@ -89,6 +89,32 @@ export default function ProdocPrintPage() {
         backgroundColor: "#ffffff",
         useCORS: true,
         logging: false,
+        // Tailwind v4 preflight sets border/color props on every element using
+        // lab()/oklch(), which html2canvas can't parse. Sweep the clone and
+        // rewrite only the unsupported values to safe fallbacks — our explicit
+        // hex colours (brand yellow, greys) don't match and are left intact.
+        onclone: (clonedDoc: Document) => {
+          const props = [
+            "color", "backgroundColor",
+            "borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor",
+            "outlineColor", "textDecorationColor", "columnRuleColor", "caretColor",
+          ] as const;
+          const unsupported = /(oklch|oklab|\blab\b|\blch\b|color\()/;
+          const view = clonedDoc.defaultView;
+          if (!view) return;
+          clonedDoc.querySelectorAll<HTMLElement>("*").forEach((el) => {
+            const cs = view.getComputedStyle(el);
+            for (const p of props) {
+              const val = cs[p as keyof CSSStyleDeclaration] as string | undefined;
+              if (val && unsupported.test(val)) {
+                el.style[p as "color"] =
+                  p === "backgroundColor" || p === "caretColor" ? "transparent" :
+                  p.startsWith("border") || p === "columnRuleColor" ? "#e5e7eb" :
+                  "#1a1a1a";
+              }
+            }
+          });
+        },
       });
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });

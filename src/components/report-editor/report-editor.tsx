@@ -704,7 +704,7 @@ export function ReportEditor({
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
 
   return (
-    <CommentsProvider reportId={reportId} enabled={mode === "admin"}>
+    <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"}>
     <div className="flex flex-col h-full bg-background">
 
       {/* Top bar */}

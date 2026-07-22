@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { MessageSquare, MessageSquarePlus, Check, Trash2, Loader2 } from "lucide-react";
+import { MessageSquare, MessageSquarePlus, Check, Trash2, Loader2, RotateCcw } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -21,19 +21,25 @@ export interface ItemComment {
 
 interface CommentsContextValue {
   enabled: boolean;
+  // Partners can view comments but not add/resolve/delete them.
+  readOnly: boolean;
   reportId: number | null;
   commentsFor: (section: string, itemId: number | null) => ItemComment[];
   add: (section: string, itemId: number | null, body: string) => Promise<void>;
   setResolved: (id: number, resolved: boolean) => Promise<void>;
+  // Partner-side confirmation that a comment has been addressed.
+  setAddressed: (id: number, addressed: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
 }
 
 const CommentsContext = createContext<CommentsContextValue>({
   enabled: false,
+  readOnly: false,
   reportId: null,
   commentsFor: () => [],
   add: async () => {},
   setResolved: async () => {},
+  setAddressed: async () => {},
   remove: async () => {},
 });
 
@@ -41,16 +47,18 @@ export function useComments() {
   return useContext(CommentsContext);
 }
 
-// Loads every comment for a report once and hands them out per item. Only active
-// (`enabled`) in the admin editor; in the partner editor it's a no-op so the
-// inline <ItemComments> triggers render nothing.
+// Loads every comment for a report once and hands them out per item. When
+// `readOnly` (partner editor) the inline <ItemComments> only renders the icon
+// for items that already have a comment and hides the add/resolve/delete UI.
 export function CommentsProvider({
   reportId,
   enabled,
+  readOnly = false,
   children,
 }: {
   reportId: number | null;
   enabled: boolean;
+  readOnly?: boolean;
   children: ReactNode;
 }) {
   const [comments, setComments] = useState<ItemComment[]>([]);
@@ -90,22 +98,38 @@ export function CommentsProvider({
     if (res.ok) setComments((prev) => prev.map((c) => (c.id === id ? { ...c, resolved } : c)));
   }, []);
 
+  // Optimistic; reverts on failure. Mirrors the partner homepage confirmation.
+  const setAddressed = useCallback(async (id: number, addressed: boolean) => {
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, partner_addressed: addressed } : c)));
+    try {
+      const res = await fetch("/api/comments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, partner_addressed: addressed }),
+      });
+      if (!res.ok) throw new Error("failed");
+    } catch {
+      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, partner_addressed: !addressed } : c)));
+    }
+  }, []);
+
   const remove = useCallback(async (id: number) => {
     const res = await fetch(`/api/comments?id=${id}`, { method: "DELETE" });
     if (res.ok) setComments((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   return (
-    <CommentsContext.Provider value={{ enabled, reportId, commentsFor, add, setResolved, remove }}>
+    <CommentsContext.Provider value={{ enabled, readOnly, reportId, commentsFor, add, setResolved, setAddressed, remove }}>
       {children}
     </CommentsContext.Provider>
   );
 }
 
-// Inline comment affordance for a single item. Renders nothing unless comments
-// are enabled (admin editor). `itemId` null attaches the comment to the section.
+// Inline comment affordance for a single item. Admins add/resolve/delete;
+// partners (readOnly) only see the icon when a comment exists, view it on hover,
+// and can confirm it as addressed. `itemId` null attaches to the section.
 export function ItemComments({ section, itemId }: { section: string; itemId?: number | null }) {
-  const { enabled, commentsFor, add, setResolved, remove } = useComments();
+  const { enabled, readOnly, commentsFor, add, setResolved, setAddressed, remove } = useComments();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -113,6 +137,18 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   // The popover is rendered in a portal (see below) so the table's overflow-x-auto
   // wrapper can't clip it; this tracks where to anchor it to the trigger button.
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  // Partners open the popover on hover; a short grace delay lets the pointer
+  // travel from the trigger to the (portaled) panel without it closing.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openNow = useCallback(() => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+    setOpen(true);
+  }, []);
+  const scheduleClose = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 150);
+  }, []);
+  const hoverProps = readOnly ? { onMouseEnter: openNow, onMouseLeave: scheduleClose } : {};
 
   const POPOVER_WIDTH = 320; // w-80
 
@@ -143,6 +179,10 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   const list = commentsFor(section, itemId ?? null);
   const unresolved = list.filter((c) => !c.resolved).length;
 
+  // Partners only see the affordance when a comment already exists — they can't
+  // create one, so an empty "add" trigger would be meaningless.
+  if (readOnly && list.length === 0) return null;
+
   async function submit() {
     const body = draft.trim();
     if (!body) return;
@@ -152,7 +192,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   }
 
   return (
-    <span className="relative inline-flex align-middle">
+    <span className="relative inline-flex align-middle" {...hoverProps}>
       <button
         ref={btnRef}
         type="button"
@@ -173,10 +213,13 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
 
       {open && pos && typeof document !== "undefined" && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          {/* Admin dismisses by clicking outside; partners open on hover so the
+              backdrop would only get in the way. */}
+          {!readOnly && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
           <div
             className="fixed z-50 w-80 rounded-lg border bg-popover shadow-lg text-popover-foreground"
             style={{ top: pos.top, right: pos.right, width: POPOVER_WIDTH }}
+            {...hoverProps}
           >
             <div className="max-h-64 overflow-y-auto p-3 space-y-2">
               {list.length === 0 ? (
@@ -186,39 +229,51 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                   <div key={c.id} className={cn("rounded-md border px-2.5 py-2 text-xs", c.resolved ? "bg-muted/40 opacity-70" : "bg-card")}>
                     <p className={cn("whitespace-pre-wrap break-words", c.resolved && "line-through")}>{c.body}</p>
                     <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>{formatDate(c.created_at)}{c.resolved && " · resolved"}</span>
-                      <span className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setResolved(c.id, !c.resolved)}
-                          title={c.resolved ? "Mark unresolved" : "Mark resolved"}
-                          className={cn("hover:text-foreground transition-colors", c.resolved && "text-green-600")}
-                        >
-                          <Check className="size-3.5" />
-                        </button>
-                        <button type="button" onClick={() => remove(c.id)} title="Delete" className="hover:text-destructive transition-colors">
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </span>
+                      <span>{formatDate(c.created_at)}{c.resolved && " · resolved"}{readOnly && c.partner_addressed && " · confirmed"}</span>
+                      {!readOnly ? (
+                        <span className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setResolved(c.id, !c.resolved)}
+                            title={c.resolved ? "Mark unresolved" : "Mark resolved"}
+                            className={cn("hover:text-foreground transition-colors", c.resolved && "text-green-600")}
+                          >
+                            <Check className="size-3.5" />
+                          </button>
+                          <button type="button" onClick={() => remove(c.id)} title="Delete" className="hover:text-destructive transition-colors">
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </span>
+                      ) : c.partner_addressed ? (
+                        <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-[10px]" onClick={() => setAddressed(c.id, false)}>
+                          <RotateCcw className="size-3" /> Undo
+                        </Button>
+                      ) : (
+                        <Button size="sm" className="h-5 px-1.5 gap-1 text-[10px]" onClick={() => setAddressed(c.id, true)}>
+                          <Check className="size-3" /> Confirm
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
               )}
             </div>
-            <div className="border-t p-2.5 space-y-2">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Add a comment…"
-                className="text-xs min-h-[56px] resize-none"
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
-              />
-              <div className="flex justify-end">
-                <Button size="sm" className="h-7 text-xs" onClick={submit} disabled={busy || !draft.trim()}>
-                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Comment"}
-                </Button>
+            {!readOnly && (
+              <div className="border-t p-2.5 space-y-2">
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="Add a comment…"
+                  className="text-xs min-h-[56px] resize-none"
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+                />
+                <div className="flex justify-end">
+                  <Button size="sm" className="h-7 text-xs" onClick={submit} disabled={busy || !draft.trim()}>
+                    {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Comment"}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </>,
         document.body

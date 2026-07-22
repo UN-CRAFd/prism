@@ -24,7 +24,7 @@ interface Partner {
   short_name: string | null;
   long_name: string | null;
   organization_website: string | null;
-  mail_account: string;
+  mail_account: string | null;
   created_at: string;
   projects: { id: number; project_title: string; short_name: string | null }[];
 }
@@ -115,22 +115,22 @@ export default function PartnersPage() {
     setShortName(p.short_name || "");
     setLongName(p.long_name || "");
     setWebsite(p.organization_website || "");
-    setMail(p.mail_account);
+    setMail(p.mail_account || "");
     setPassword("");
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
   async function handleSubmit() {
-    if (!shortName.trim() || !mail.trim()) { setFormError("Short name and email are required"); return; }
+    if (!shortName.trim() || !longName.trim()) { setFormError("Short name and long name are required"); return; }
     if (!editId && !password.trim()) { setFormError("Password is required for new partners"); return; }
     setSaving(true); setFormError(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body: Record<string, any> = {
         short_name: shortName.trim(),
-        long_name: longName.trim() || null,
+        long_name: longName.trim(),
         organization_website: website.trim() || null,
-        mail_account: mail.trim(),
+        mail_account: mail.trim() || null,
       };
       if (password) body.password = password;
       const res = await fetch(
@@ -184,17 +184,17 @@ export default function PartnersPage() {
               <Field label="Short name" required>
                 <Input value={shortName} onChange={(e) => setShortName(e.target.value.replace(/\s/g, ""))} placeholder="Acronym" />
               </Field>
-              <Field label="Long name">
+              <Field label="Long name" required>
                 <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full organization name" />
               </Field>
               <Field label="Website">
                 <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.org" />
               </Field>
-              <Field label="Email account" required>
-                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@example.org" type="email" />
+              <Field label="Email account">
+                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@example.org" type="email" autoComplete="off" />
               </Field>
               <Field label={editId ? "Password (blank = keep current)" : "Password"} required={!editId}>
-                <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={editId ? "Unchanged" : ""} />
+                <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={editId ? "Unchanged" : ""} autoComplete="new-password" />
               </Field>
             </div>
           </FormShell>
@@ -233,7 +233,7 @@ export default function PartnersPage() {
                       : <Dash />}
                   </TableCell>
                   <TableCell className="font-medium">{p.long_name || <Dash />}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{p.mail_account}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{p.mail_account || <Dash />}</TableCell>
                   <TableCell>
                     {p.organization_website
                       ? <a href={p.organization_website} target="_blank" rel="noopener noreferrer"

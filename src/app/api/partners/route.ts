@@ -27,9 +27,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { short_name, long_name, organization_website, password, mail_account } = body;
 
-    if (!short_name || !mail_account || !password) {
+    // Email is optional — partners log in by short name (or email if set) and set
+    // their own password via a share link. Long name is the required identifier.
+    if (!short_name || !long_name || !password) {
       return NextResponse.json(
-        { error: "short_name, mail_account, and password are required" },
+        { error: "short_name, long_name, and password are required" },
         { status: 400 }
       );
     }
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
          (short_name, long_name, organization_website, password_hash, mail_account)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, short_name, long_name, organization_website, mail_account, created_at, updated_at`,
-      [short_name, long_name || null, organization_website || null, hashPassword(password), mail_account]
+      [short_name, long_name, organization_website || null, hashPassword(password), mail_account || null]
     );
 
     return NextResponse.json(rows[0], { status: 201 });

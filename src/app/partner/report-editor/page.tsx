@@ -159,7 +159,7 @@ export default function ReportEditorPage() {
                       : "Continue filling out your " + latestYear + " annual report"}
                   </p>
                   <button
-                    onClick={() => router.push(`/partner/${toSlug(byYear[latestYear][0])}/${latestYear}/overview`)}
+                    onClick={() => router.push(`/partner/report-editor/${toSlug(byYear[latestYear][0])}/${latestYear}/overview`)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
                   >
                     {allClosed(byYear[latestYear]) ? labels.dashboard.review : labels.dashboard.openReport}
@@ -180,7 +180,7 @@ export default function ReportEditorPage() {
                     return (
                       <button
                         key={year}
-                        onClick={() => router.push(`/partner/${toSlug(yearReports[0])}/${year}/overview`)}
+                        onClick={() => router.push(`/partner/report-editor/${toSlug(yearReports[0])}/${year}/overview`)}
                         className="group rounded-xl border bg-card p-5 text-left hover:border-neutral-300 transition-colors"
                       >
                         <div className="flex items-start justify-between mb-3">

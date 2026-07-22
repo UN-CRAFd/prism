@@ -2,7 +2,7 @@ import labels from "@/lib/labels.json";
 
 // The ordered list of partner-report sections. Shared by the report-editor tab
 // bar and the sidebar sub-menu so the two can never drift. `value` is the URL
-// segment used in /partner/[project]/[year]/[section].
+// segment used in /partner/report-editor/[project]/[year]/[section].
 
 export type ReportSectionGroup = "Qualitative" | "Quantitative";
 
@@ -38,12 +38,11 @@ export const REPORT_SECTION_GROUPS: { label: ReportSectionGroup; sections: Repor
 ];
 
 // Given a pathname, return the report context when the user is inside the
-// report editor (/partner/{project}/{year}/{section}), else null.
+// report editor (/partner/report-editor/{project}/{year}/{section}), else null.
 export function parseReportPath(pathname: string): { project: string; year: string; section: string } | null {
-  const parts = pathname.split("/").filter(Boolean); // ["partner", project, year, section]
-  if (parts[0] !== "partner" || parts.length < 4) return null;
-  // A report path always has a 4-digit year in the third slot; this excludes
-  // sibling partner routes like /partner/prodoc-editor/<slug>/<section>.
-  if (!/^\d{4}$/.test(parts[2])) return null;
-  return { project: parts[1], year: parts[2], section: parts[3] };
+  const parts = pathname.split("/").filter(Boolean); // ["partner", "report-editor", project, year, section]
+  if (parts[0] !== "partner" || parts[1] !== "report-editor" || parts.length < 5) return null;
+  // A report path always has a 4-digit year in the fourth slot.
+  if (!/^\d{4}$/.test(parts[3])) return null;
+  return { project: parts[2], year: parts[3], section: parts[4] };
 }

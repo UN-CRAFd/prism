@@ -160,12 +160,7 @@ export function AppSidebar() {
               href: "/partner/report-editor",
               label: "Report Editor",
               icon: FileText,
-              isActive: (p: string) =>
-                p.startsWith("/partner/report-editor") ||
-                (p.startsWith("/partner/") &&
-                  !p.startsWith("/partner/prodoc-editor") &&
-                  !p.startsWith("/partner/contacts") &&
-                  p.split("/").filter(Boolean).length >= 4),
+              isActive: (p: string) => p.startsWith("/partner/report-editor"),
             },
             {
               href: "/partner/contacts",
@@ -223,7 +218,7 @@ export function AppSidebar() {
                         <div key={`${it.slug}-${it.year}`}>
                           {/* Level 1: report — click to open (keeps the current section) */}
                           <Link
-                            href={`/partner/${it.slug}/${it.year}/${targetSection}`}
+                            href={`/partner/report-editor/${it.slug}/${it.year}/${targetSection}`}
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
@@ -249,7 +244,7 @@ export function AppSidebar() {
                                     return (
                                       <Link
                                         key={s.value}
-                                        href={`/partner/${it.slug}/${it.year}/${s.value}`}
+                                        href={`/partner/report-editor/${it.slug}/${it.year}/${s.value}`}
                                         className={cn(
                                           "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition-colors",
                                           secActive

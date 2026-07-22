@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, Download } from "lucide-react";
 import labels from "@/lib/labels.json";
+import { likelihoodLabel, impactLabel } from "@/lib/risk";
+import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project Document print view. Renders the full prodoc as a styled A4 document
@@ -274,6 +276,13 @@ export default function ProdocPrintPage() {
     }, new Map<string, ProdocData["activities"]>())
   );
 
+  // Workplan quarter columns — derived from the project's start → end, like the grid.
+  const wpQuarters = quarterRange(
+    quarterFromDate(m.project_start_date as string | null),
+    quarterFromDate(m.project_end_date as string | null)
+  );
+  const wpYearGroups = groupQuartersByYear(wpQuarters);
+
   return (
     <div style={{ background: "#525659", minHeight: "100vh", padding: "24px 0", fontFamily: "var(--font-roboto)" }}>
       {/* Floating export button (hidden in auto mode) */}
@@ -316,16 +325,13 @@ export default function ProdocPrintPage() {
           />
           <div style={{ position: "relative", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1, color: "#9a7a1e", fontWeight: 700 }}>
-                Complex Risk Analytics Fund (CRAF&apos;d)
-              </div>
               <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600, marginTop: 4 }}>
-                Project Document
+                Complex Risk Analytics Fund (CRAF'd) Project Document
               </div>
-              <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 30, lineHeight: 1.12, margin: "10px 0 6px" }}>
+              <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 30, lineHeight: 1.1, margin: "10px 0 8px" }}>
                 {m.project_title as string}
               </h1>
-              <div style={{ fontSize: 14, color: MUTED }}>
+              <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.2, margin: "0 0 10px" }}>
                 {(m.partner_long_name as string) || (m.partner_short_name as string)}
                 {m.partner_short_name && m.partner_long_name ? ` (${m.partner_short_name})` : ""}
               </div>
@@ -400,14 +406,14 @@ export default function ProdocPrintPage() {
           <Section title="Risk Management">
             <div data-block>
               <Table
-                head={["Risk", "Categories", "L", "I", "Approved mitigation"]}
-                widths={["24%", "18%", "6%", "6%", "46%"]}
-                align={["left", "left", "center", "center", "left"]}
+                head={["Risk", "Categories", "Likelihood", "Impact", "Approved mitigation"]}
+                widths={["22%", "16%", "13%", "13%", "36%"]}
+                align={["left", "left", "left", "left", "left"]}
                 rows={data.risks.map((r) => [
                   r.risk_name,
                   r.categories.length ? r.categories.join(", ") : "—",
-                  r.likelihood ?? "—",
-                  r.impact ?? "—",
+                  likelihoodLabel(r.likelihood) || "—",
+                  impactLabel(r.impact) || "—",
                   r.approved_mitigation || "—",
                 ])}
               />
@@ -418,24 +424,92 @@ export default function ProdocPrintPage() {
         {/* ── Workplan ── */}
         {data.activities.length > 0 && (
           <Section title="Workplan">
-            {outcomeGroups.map(([outcome, acts]) => (
-              <div key={outcome} data-block style={{ marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5, color: "#374151" }}>
-                  {outcome}
+            {wpQuarters.length > 0 ? (
+              <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5, tableLayout: "fixed" }}>
+                <colgroup>
+                  <col />
+                  {wpQuarters.map((q) => <col key={q} style={{ width: 18 }} />)}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th rowSpan={2} style={{
+                      textAlign: "left", background: "#f3f4f6", color: "#374151", fontWeight: 700,
+                      fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.4, padding: "6px 8px",
+                      borderBottom: `1px solid ${LINE}`, verticalAlign: "bottom",
+                    }}>
+                      Activity
+                    </th>
+                    {wpYearGroups.map((g) => (
+                      <th key={g.year} colSpan={g.quarters.length} style={{
+                        textAlign: "center", background: "#f3f4f6", color: "#374151", fontWeight: 700,
+                        fontSize: 10, padding: "4px 2px", borderBottom: `1px solid ${LINE}`, borderLeft: `1px solid ${LINE}`,
+                      }}>
+                        {g.year}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {wpYearGroups.flatMap((g) =>
+                      g.quarters.map((q, qi) => (
+                        <th key={q.key} style={{
+                          width: 26, textAlign: "center", background: "#f3f4f6", color: MUTED, fontWeight: 600,
+                          fontSize: 9, padding: "3px 0", borderBottom: `1px solid ${LINE}`,
+                          borderLeft: qi === 0 ? `1px solid ${LINE}` : undefined,
+                        }}>
+                          {q.q}
+                        </th>
+                      ))
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {outcomeGroups.map(([outcome, acts]) => (
+                    <Fragment key={outcome}>
+                      <tr>
+                        <td colSpan={1 + wpQuarters.length} style={{
+                          fontWeight: 700, fontSize: 11, color: "#374151", background: SOFT,
+                          padding: "5px 8px", borderBottom: `1px solid ${LINE}`, borderTop: `1px solid ${LINE}`,
+                        }}>
+                          {outcome}
+                        </td>
+                      </tr>
+                      {acts.map((a, ai) => {
+                        const planned = new Set(a.planned_quarters ?? []);
+                        return (
+                          <tr key={ai}>
+                            <td style={{ padding: "5px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "top" }}>
+                              <div style={{ fontWeight: 600 }}>
+                                {a.activity_num ? `${a.activity_num} ` : ""}{a.activity_text || "—"}
+                              </div>
+                              {a.implementing_agent && (
+                                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 1 }}>{a.implementing_agent}</div>
+                              )}
+                            </td>
+                            {wpQuarters.map((qk) => (
+                              <td key={qk} style={{ textAlign: "center", padding: "5px 0", borderBottom: `1px solid ${LINE}` }}>
+                                <QBox on={planned.has(qk)} />
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              // No project dates — fall back to a simple activity list.
+              outcomeGroups.map(([outcome, acts]) => (
+                <div key={outcome} data-block style={{ marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5, color: "#374151" }}>{outcome}</div>
+                  <Table
+                    head={["#", "Activity", "Implementing agent"]}
+                    widths={["8%", "62%", "30%"]}
+                    rows={acts.map((a) => [a.activity_num || "—", a.activity_text || "—", a.implementing_agent || "—"])}
+                  />
                 </div>
-                <Table
-                  head={["#", "Activity", "Implementing agent", "Planned quarters"]}
-                  widths={["8%", "42%", "22%", "28%"]}
-                  rows={acts.map((a) => [
-                    a.activity_num || "—",
-                    a.activity_text || "—",
-                    a.implementing_agent || "—",
-                    Array.isArray(a.planned_quarters) && a.planned_quarters.length
-                      ? a.planned_quarters.join(", ") : "—",
-                  ])}
-                />
-              </div>
-            ))}
+              ))
+            )}
           </Section>
         )}
 
@@ -506,6 +580,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </h2>
       {children}
     </div>
+  );
+}
+
+// Quarter checkbox for the workplan matrix: filled brand square when planned.
+function QBox({ on }: { on: boolean }) {
+  return (
+    <div style={{
+      width: 11, height: 11, margin: "0 auto", borderRadius: 2,
+      border: `1px solid ${on ? BRAND : "#c9c9c9"}`, background: on ? BRAND : "#ffffff",
+    }} />
   );
 }
 

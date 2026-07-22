@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -239,13 +239,41 @@ export function CreateReportForm({
   const [formError, setFormError] = useState<string | null>(null);
 
   const [projectId, setProjectId] = useState<string>("");
-  const [year, setYear] = useState<string>(String(YEARS[YEARS.length - 1]));
+  const [year, setYear] = useState<string>("");
   const [submissionDate, setSubmissionDate] = useState<string>("");
   const [reportType, setReportType] = useState<string>("annual");
+  const [projectYears, setProjectYears] = useState<number[]>([]);
+  const [loadingYears, setLoadingYears] = useState(false);
+
+  // Fetch available years when project is selected
+  useEffect(() => {
+    if (!projectId) {
+      setProjectYears([]);
+      setYear("");
+      return;
+    }
+    const loadYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch(`/api/expenditure-budgets?projectId=${projectId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProjectYears(data.years || []);
+          setYear(String(data.years?.[data.years.length - 1] || ""));
+        }
+      } catch (e) {
+        console.error("Failed to load project years:", e);
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    loadYears();
+  }, [projectId]);
 
   function reset() {
     setProjectId("");
-    setYear(String(YEARS[YEARS.length - 1]));
+    setYear("");
+    setProjectYears([]);
     setSubmissionDate("");
     setReportType("annual");
     setFormError(null);
@@ -334,10 +362,10 @@ export function CreateReportForm({
           )}
 
           <Field label="Year" required>
-            <Select value={year} onValueChange={setYear}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <Select value={year} onValueChange={setYear} disabled={!projectId || loadingYears}>
+              <SelectTrigger className="w-full"><SelectValue placeholder={loadingYears ? "Loading..." : projectYears.length === 0 && projectId ? "No years available" : "Select a year"} /></SelectTrigger>
               <SelectContent>
-                {YEARS.map((y) => (
+                {projectYears.map((y) => (
                   <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                 ))}
               </SelectContent>

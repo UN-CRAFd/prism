@@ -22,6 +22,24 @@
 
 SET search_path TO reporting_platform;
 
+-- ── Step 0: Create helper functions (single source of truth for project calculations) ─
+
+-- Derive all years covered by the project (from start_date + duration_months)
+CREATE OR REPLACE FUNCTION reporting_platform.project_year_range(
+  start_date DATE, duration_months INT
+) RETURNS INT[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM (start_date + (n * INTERVAL '1 month'))::date)::int
+    ORDER BY EXTRACT(YEAR FROM (start_date + (n * INTERVAL '1 month'))::date)::int)
+  FROM GENERATE_SERIES(0, GREATEST(COALESCE(duration_months, 12), 1) - 1) AS n;
+$$;
+
+-- Derive project end date (from start_date + duration_months)
+CREATE OR REPLACE FUNCTION reporting_platform.project_end_date(
+  start_date DATE, duration_months INT
+) RETURNS DATE LANGUAGE sql IMMUTABLE AS $$
+  SELECT (start_date + (GREATEST(COALESCE(duration_months, 12), 1) * INTERVAL '1 month'))::date;
+$$;
+
 -- ── Step 1: Add year column for explicit context ──────────────────────────────
 
 ALTER TABLE expenditure_entries

@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
     const contextVal = context || null;
 
     await query(
-      `INSERT INTO reporting_platform.surveys (reportid, question, assessment, context)
+      `INSERT INTO reporting_platform.surveys (report_id, question, assessment, context)
        VALUES ($1, $2, $3, $4)`,
       [reportId, question, Number.isFinite(assessmentVal) ? assessmentVal : null, contextVal]
     );

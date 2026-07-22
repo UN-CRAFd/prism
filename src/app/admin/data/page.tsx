@@ -57,7 +57,6 @@ type DataRow = {
   id: number;
   year: number;
   report_id?: number;
-  reportid?: number;
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string;
@@ -79,7 +78,7 @@ interface SectionConfig {
   value: Section;
   label: string;
   endpoint: string;
-  reportIdKey: "report_id" | "reportid";
+  reportIdKey: "report_id";
   minWidth: number;
   columns: ColumnDef[];
 }
@@ -195,7 +194,7 @@ const leadCols = [yearCol, projectCol, partnerCol];
 
 const SECTION_CONFIGS: SectionConfig[] = [
   {
-    value: "surveys", label: "Surveys", endpoint: "/api/surveys", reportIdKey: "reportid", minWidth: 860,
+    value: "surveys", label: "Surveys", endpoint: "/api/surveys", reportIdKey: "report_id", minWidth: 860,
     columns: [
       ...leadCols,
       { header: "Question", headClass: "w-[260px]", cell: (r) => <p className="break-words">{r.question as string}</p> },

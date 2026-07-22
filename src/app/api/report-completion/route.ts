@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       // Surveys — every question assessed.
       query<Row>(
         `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE assessment IS NOT NULL)::int AS ok
-           FROM reporting_platform.surveys WHERE reportid = $1`,
+           FROM reporting_platform.surveys WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 

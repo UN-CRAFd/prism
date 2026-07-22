@@ -21,6 +21,98 @@
 CREATE SCHEMA IF NOT EXISTS reporting_platform;
 SET search_path TO reporting_platform;
 
+-- ── ENUM Types ──────────────────────────────────────────────────────────────
+DO $$ BEGIN
+    CREATE TYPE project_status AS ENUM (
+        'Idea',
+        'Ongoing',
+        'Operationally Closed',
+        'Financially Closed',
+        'Project Closed'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE report_status AS ENUM (
+        'Open',
+        'Closed',
+        'Under Review'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE data_type_enum AS ENUM (
+        'report',
+        'prodoc'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE report_type_enum AS ENUM (
+        'annual',
+        'final'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE indicator_category_enum AS ENUM (
+        'Data Outputs & Quality',
+        'Analytics Products',
+        'Access & Usage',
+        'Reach & Influence',
+        'Capacity & Partnerships'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE indicator_cycle_enum AS ENUM (
+        'yearly',
+        'at_closure'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE workplan_status AS ENUM (
+        'Behind Schedule',
+        'On Track',
+        'Achieved'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE section_type AS ENUM (
+        'general',
+        'narratives',
+        'risk',
+        'indicators',
+        'workplan',
+        'expenditure',
+        'surveys',
+        'key_achievements',
+        'partnerships',
+        'results',
+        'lessons_learned',
+        'external_coverage',
+        'testimonials'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE funding_type_enum AS ENUM (
+        'In Cash',
+        'In Kind'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- Reusable trigger function: keeps updated_at current on every UPDATE.
 CREATE OR REPLACE FUNCTION reporting_platform.set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -33,8 +125,8 @@ $$;
 -- ── Partners ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS partners (
     id                   SERIAL       PRIMARY KEY,
-    short_name           TEXT         NOT NULL,
-    long_name            TEXT,
+    short_name           VARCHAR(50)  NOT NULL,
+    long_name            VARCHAR(500),
     organization_website TEXT,
     password_hash        TEXT         NOT NULL,          -- scrypt:<salt>:<hash>
     mail_account         TEXT         NOT NULL UNIQUE,
@@ -53,8 +145,8 @@ CREATE TABLE IF NOT EXISTS partner_contacts (
     id         SERIAL       PRIMARY KEY,
     partner_id INTEGER      NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
     manager_id INTEGER      REFERENCES partner_contacts(id) ON DELETE SET NULL,
-    name       TEXT         NOT NULL,
-    role       TEXT,
+    name       VARCHAR(255) NOT NULL,
+    role       VARCHAR(100),
     email      TEXT,
     sort_order INTEGER      NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -71,11 +163,10 @@ CREATE TRIGGER partner_contacts_updated_at
 CREATE TABLE IF NOT EXISTS projects (
     id                      SERIAL        PRIMARY KEY,
     partner_id              INTEGER       NOT NULL REFERENCES partners(id) ON DELETE RESTRICT,
-    project_title           TEXT          NOT NULL,
-    short_name              TEXT,
+    project_title           VARCHAR(500)  NOT NULL,
+    short_name              VARCHAR(50),
     description             TEXT,
-    status                  TEXT          NOT NULL DEFAULT 'Ongoing'
-        CHECK (status IN ('Idea', 'Ongoing', 'Operationally Closed', 'Financially Closed', 'Project Closed')),
+    status                  project_status NOT NULL DEFAULT 'Ongoing'::project_status,
     mptfo_project_number    TEXT,
     grant_size_usd          NUMERIC(15,2),
     project_start_date      DATE,
@@ -117,19 +208,17 @@ CREATE TRIGGER project_contacts_updated_at
 
 -- ── Reports ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reports (
-    id                     SERIAL      PRIMARY KEY,
-    project_id             INTEGER     NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
-    year                   SMALLINT    NOT NULL CHECK (year BETWEEN 2020 AND 2050),
+    id                     SERIAL         PRIMARY KEY,
+    project_id             INTEGER        NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+    year                   SMALLINT       NOT NULL CHECK (year BETWEEN 2020 AND 2050),
     report_submission_date DATE,
-    authorized             BOOLEAN     NOT NULL DEFAULT FALSE,
-    status                 TEXT        NOT NULL DEFAULT 'Open'
-                             CHECK (status IN ('Open', 'Closed', 'Under Review')),
-    data_type              TEXT        NOT NULL DEFAULT 'report'
-                             CHECK (data_type IN ('report', 'prodoc')),
-    report_type            TEXT        CHECK (report_type IN ('annual', 'final')),
+    authorized             BOOLEAN        NOT NULL DEFAULT FALSE,
+    status                 report_status  NOT NULL DEFAULT 'Open'::report_status,
+    data_type              data_type_enum NOT NULL DEFAULT 'report'::data_type_enum,
+    report_type            report_type_enum,
     mptfo_report_link      TEXT,
-    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, year, data_type)
 );
 
@@ -158,7 +247,7 @@ CREATE TRIGGER reports_updated_at
 CREATE TABLE IF NOT EXISTS item_comments (
     id         SERIAL       PRIMARY KEY,
     report_id  INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    section    TEXT         NOT NULL,
+    section    section_type NOT NULL,
     item_id    INTEGER,
     body       TEXT         NOT NULL,
     resolved          BOOLEAN NOT NULL DEFAULT FALSE,  -- CRAF'd-side confirmation
@@ -176,15 +265,16 @@ CREATE TRIGGER item_comments_updated_at
 -- ── Surveys (one row per question per report) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS surveys (
     id         SERIAL      PRIMARY KEY,
-    reportid   INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    report_id  INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     question   TEXT        NOT NULL,
     assessment SMALLINT    CHECK (assessment BETWEEN 1 AND 5),
     context    TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (report_id, question)
 );
 
-CREATE INDEX IF NOT EXISTS surveys_reportid_idx ON surveys(reportid);
+CREATE INDEX IF NOT EXISTS surveys_report_id_idx ON surveys(report_id);
 
 DROP TRIGGER IF EXISTS surveys_updated_at ON surveys;
 CREATE TRIGGER surveys_updated_at
@@ -196,17 +286,17 @@ CREATE TRIGGER surveys_updated_at
 -- created while editing a report and scoped to that project. archived_at
 -- soft-deletes so historical reports never break.
 CREATE TABLE IF NOT EXISTS indicators (
-    id                    SERIAL      PRIMARY KEY,
-    name                  TEXT        NOT NULL,
+    id                    SERIAL                  PRIMARY KEY,
+    name                  TEXT                    NOT NULL,
     description           TEXT,
     means_of_verification TEXT,
-    category              TEXT        CHECK (category IN ('Data Outputs & Quality', 'Analytics Products', 'Access & Usage', 'Reach & Influence', 'Capacity & Partnerships')),
-    cycle                 TEXT        CHECK (cycle IN ('yearly', 'at_closure')),
-    is_standard           BOOLEAN     NOT NULL DEFAULT TRUE,
-    project_id            INTEGER     REFERENCES projects(id) ON DELETE CASCADE,
+    category              indicator_category_enum,
+    cycle                 indicator_cycle_enum,
+    is_standard           BOOLEAN                 NOT NULL DEFAULT TRUE,
+    project_id            INTEGER                 REFERENCES projects(id) ON DELETE CASCADE,
     archived_at           TIMESTAMPTZ,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     CHECK ( (is_standard AND project_id IS NULL) OR (NOT is_standard AND project_id IS NOT NULL) )
 );
 
@@ -219,19 +309,19 @@ CREATE TRIGGER indicators_updated_at
 
 -- ── Indicator data (one row per indicator per report) ────────────────────────
 CREATE TABLE IF NOT EXISTS indicator_data (
-    id             SERIAL      PRIMARY KEY,
-    report_id      INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    indicator_id   INTEGER     NOT NULL REFERENCES indicators(id) ON DELETE RESTRICT,
+    id             SERIAL         PRIMARY KEY,
+    report_id      INTEGER        NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    indicator_id   INTEGER        NOT NULL REFERENCES indicators(id) ON DELETE CASCADE,
     baseline_value TEXT,
-    baseline_year  SMALLINT    CHECK (baseline_year BETWEEN 2000 AND 2050),
+    baseline_year  SMALLINT       CHECK (baseline_year BETWEEN 2000 AND 2050),
     target_value   TEXT,
-    target_year    SMALLINT    CHECK (target_year BETWEEN 2000 AND 2050),
+    target_year    SMALLINT       CHECK (target_year BETWEEN 2000 AND 2050),
     achieved_value TEXT,
-    status         TEXT        CHECK (status IN ('on_track', 'off_track', 'ahead_of_schedule')),
+    status         workplan_status,
     comment        TEXT,
-    sort_order     SMALLINT    NOT NULL DEFAULT 1,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sort_order     SMALLINT       NOT NULL DEFAULT 1,
+    created_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     UNIQUE (report_id, indicator_id)
 );
 
@@ -248,7 +338,6 @@ CREATE TABLE IF NOT EXISTS risk_management (
     id                  SERIAL       PRIMARY KEY,
     report_id           INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     risk_name           TEXT         NOT NULL,
-    risk_category       TEXT[],
     likelihood          SMALLINT     CHECK (likelihood BETWEEN 1 AND 5),
     impact              SMALLINT     CHECK (impact BETWEEN 1 AND 5),
     approved_mitigation TEXT,
@@ -260,9 +349,26 @@ CREATE TABLE IF NOT EXISTS risk_management (
 
 CREATE INDEX IF NOT EXISTS risk_management_report_id_idx ON risk_management(report_id);
 
+-- ── Risk categories (normalized from TEXT[] array) ──────────────────────────
+CREATE TABLE IF NOT EXISTS risk_categories (
+    id         SERIAL       PRIMARY KEY,
+    risk_id    INTEGER      NOT NULL REFERENCES risk_management(id) ON DELETE CASCADE,
+    category   TEXT         NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (risk_id, category)
+);
+
+CREATE INDEX IF NOT EXISTS risk_categories_risk_id_idx ON risk_categories(risk_id);
+
 DROP TRIGGER IF EXISTS risk_management_updated_at ON risk_management;
 CREATE TRIGGER risk_management_updated_at
     BEFORE UPDATE ON risk_management
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+DROP TRIGGER IF EXISTS risk_categories_updated_at ON risk_categories;
+CREATE TRIGGER risk_categories_updated_at
+    BEFORE UPDATE ON risk_categories
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- ── Qualitative list sections (one set of rows per report) ───────────────────
@@ -318,7 +424,14 @@ CREATE TRIGGER results_updated_at
 CREATE TABLE IF NOT EXISTS lessons_learned (
     id                  SERIAL      PRIMARY KEY,
     report_id           INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    category            TEXT,
+    category            TEXT        CHECK (category IN (
+        'Operational Efficiency',
+        'Risk Management',
+        'Partnership Development',
+        'Technical Innovation',
+        'Advocacy & Influence',
+        'Other'
+    )),
     lesson_learned      TEXT,
     adjustment_informed TEXT,
     sort_order          SMALLINT    NOT NULL DEFAULT 1,
@@ -334,7 +447,14 @@ CREATE TRIGGER lessons_learned_updated_at
 CREATE TABLE IF NOT EXISTS external_coverage (
     id              SERIAL      PRIMARY KEY,
     report_id       INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    type            TEXT,
+    type            TEXT        CHECK (type IN (
+        'Media Coverage',
+        'Academic Publication',
+        'Policy Brief',
+        'Conference Presentation',
+        'Online Article',
+        'Other'
+    )),
     description     TEXT,
     reach_indicator TEXT,
     links           TEXT,
@@ -396,7 +516,7 @@ CREATE TABLE IF NOT EXISTS workplan_entries (
     report_id        INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     activity_id      INTEGER      NOT NULL REFERENCES workplan_activities(id) ON DELETE CASCADE,
     updated_quarters JSONB,                                     -- null = same as baseline
-    status           TEXT         CHECK (status IN ('Behind Schedule', 'On Track', 'Achieved')),
+    status           workplan_status,
     comment          TEXT,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -487,15 +607,15 @@ CREATE TRIGGER transfer_data_updated_at
 
 -- ── Complementary funding ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS complementary_contributors (
-    id               SERIAL       PRIMARY KEY,
-    project_id       INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    id               SERIAL            PRIMARY KEY,
+    project_id       INTEGER           NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     contributor_name TEXT,
     website          TEXT,
-    funding_type     TEXT         CHECK (funding_type IN ('In Cash', 'In Kind')),
-    sort_order       INTEGER      NOT NULL DEFAULT 0,
+    funding_type     funding_type_enum,
+    sort_order       INTEGER           NOT NULL DEFAULT 0,
     archived_at      TIMESTAMPTZ,
-    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    created_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS complementary_contributors_project_idx ON complementary_contributors(project_id);
 DROP TRIGGER IF EXISTS complementary_contributors_updated_at ON complementary_contributors;

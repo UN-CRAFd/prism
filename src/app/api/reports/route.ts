@@ -65,12 +65,12 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
   if (reportIds.length === 0) return;
 
   await client.query(
-    `INSERT INTO reporting_platform.surveys (reportid, question)
+    `INSERT INTO reporting_platform.surveys (report_id, question)
      SELECT nr.id, s.question
        FROM reporting_platform.reports nr
        JOIN reporting_platform.reports pd
          ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
-       JOIN reporting_platform.surveys s ON s.reportid = pd.id
+       JOIN reporting_platform.surveys s ON s.report_id = pd.id
       WHERE nr.id = ANY($1::int[])`,
     [reportIds]
   );

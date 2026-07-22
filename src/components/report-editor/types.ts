@@ -4,7 +4,7 @@
 
 export interface Survey {
   id: number;
-  reportid: number;
+  report_id: number;
   question: string;
   assessment: number | null;
   context: string | null;

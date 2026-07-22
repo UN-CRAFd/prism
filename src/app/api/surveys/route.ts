@@ -6,9 +6,9 @@ export async function GET(req: NextRequest) {
 
   if (reportId) {
     const rows = await query(
-      `SELECT id, reportid, question, assessment, context
+      `SELECT id, report_id, question, assessment, context
        FROM reporting_platform.surveys
-       WHERE reportid = $1
+       WHERE report_id = $1
        ORDER BY id ASC`,
       [reportId]
     );
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const rows = await query(
     `SELECT
        s.id,
-       s.reportid,
+       s.report_id,
        s.question,
        s.assessment,
        s.context,
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
        pt.short_name  AS partner_short_name,
        pt.long_name   AS partner_long_name
      FROM reporting_platform.surveys s
-     JOIN reporting_platform.reports  r  ON r.id  = s.reportid
+     JOIN reporting_platform.reports  r  ON r.id  = s.report_id
      JOIN reporting_platform.projects p  ON p.id  = r.project_id
      JOIN reporting_platform.partners pt ON pt.id = p.partner_id
      WHERE r.data_type = 'report'
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reportId and question are required" }, { status: 400 });
   }
   const rows = await query(
-    `INSERT INTO reporting_platform.surveys (reportid, question) VALUES ($1, $2) RETURNING *`,
+    `INSERT INTO reporting_platform.surveys (report_id, question) VALUES ($1, $2) RETURNING *`,
     [reportId, question.trim()]
   );
   return NextResponse.json(rows[0], { status: 201 });

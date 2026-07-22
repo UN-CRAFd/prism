@@ -52,7 +52,7 @@ interface CoverageRow {
 async function fetchReportData(reportId: string) {
   const [reportRes, surveysRes, risksRes, achievementsRes, partnershipsRes, resultsRes, lessonsRes, coverageRes] = await Promise.all([
     query("SELECT r.*, p.project_title, p.short_name AS project_short_name, pt.short_name AS partner_short_name, pt.long_name AS partner_long_name FROM reporting_platform.reports r JOIN reporting_platform.projects p ON p.id = r.project_id JOIN reporting_platform.partners pt ON pt.id = p.partner_id WHERE r.id = $1", [reportId]),
-    query("SELECT question, assessment, context FROM reporting_platform.surveys WHERE reportid = $1 ORDER BY id", [reportId]),
+    query("SELECT question, assessment, context FROM reporting_platform.surveys WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT risk_name, likelihood, impact, approved_mitigation, updated_mitigation FROM reporting_platform.risk_management WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT achievement, significance, links FROM reporting_platform.key_achievements WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT partner_organization, result, links FROM reporting_platform.partnerships WHERE report_id = $1 ORDER BY id", [reportId]),

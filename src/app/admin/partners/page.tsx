@@ -106,6 +106,11 @@ export default function PartnersPage() {
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
+  function openProjectDoc(projectTitle: string, projectShortName: string | null) {
+    const slug = (projectShortName ?? projectTitle).toLowerCase().replace(/\s+/g, "-");
+    router.push(`/admin/prodoc-editor/${slug}/general`);
+  }
+
   function startEdit(p: Partner) {
     setShortName(p.short_name || "");
     setLongName(p.long_name || "");
@@ -241,7 +246,7 @@ export default function PartnersPage() {
                     {p.projects.length > 0
                       ? <div className="flex flex-wrap gap-1">
                           {p.projects.map((pr) => (
-                            <Badge key={pr.id} variant="secondary" className="text-xs font-normal">
+                            <Badge key={pr.id} variant="secondary" className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors" onClick={(e) => { e.stopPropagation(); openProjectDoc(pr.project_title, pr.short_name); }}>
                               {pr.short_name || pr.project_title}
                             </Badge>
                           ))}
@@ -281,7 +286,7 @@ export default function PartnersPage() {
                   {p.projects.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {p.projects.map((pr) => (
-                        <Badge key={pr.id} variant="secondary" className="text-xs font-normal">
+                        <Badge key={pr.id} variant="secondary" className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors" onClick={(e) => { e.stopPropagation(); openProjectDoc(pr.project_title, pr.short_name); }}>
                           {pr.short_name || pr.project_title}
                         </Badge>
                       ))}

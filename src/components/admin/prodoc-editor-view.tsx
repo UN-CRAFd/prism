@@ -425,13 +425,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       {/* Header */}
       <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">Project Document{isPartner ? "" : " Editor"}</h1>
+          <h1 className="text-2xl font-bold font-qanelas">{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
           {isPartner ? (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedDoc ? (selectedDoc.project_short_name || selectedDoc.project_title) : "Your project document baseline."}
+              {selectedDoc ? (selectedDoc.project_short_name || "Project Document") : "Your project document baseline."}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground mt-0.5">Detailed Project Information for approval</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Project Document Editor</p>
           )}
         </div>
 

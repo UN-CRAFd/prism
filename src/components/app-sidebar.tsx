@@ -67,7 +67,9 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
-  const [logoFailed, setLogoFailed] = useState(false);
+  // Partner logo file may be .webp or .png; step through both before falling
+  // back to the initial avatar.
+  const [logoExt, setLogoExt] = useState<"webp" | "png" | "none">("webp");
   const [reports, setReports] = useState<SidebarReport[]>([]);
 
   useEffect(() => {
@@ -363,12 +365,12 @@ export function AppSidebar() {
 
       <div className="p-4">
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-          {mounted && user?.role === "partner" && user.organization && !logoFailed ? (
+          {mounted && user?.role === "partner" && user.organization && logoExt !== "none" ? (
             <img
-              src={`/logos/${user.organization.toLowerCase()}.webp`}
+              src={`/logos/${user.organization.toLowerCase()}.${logoExt}`}
               alt={user.organization}
-              className="w-9 h-9 object-contain bg-muted rounded"
-              onError={() => setLogoFailed(true)}
+              className="size-9 shrink-0 rounded-full bg-white border object-contain p-1.5"
+              onError={() => setLogoExt(logoExt === "webp" ? "png" : "none")}
             />
           ) : (
             <Avatar className="size-9">

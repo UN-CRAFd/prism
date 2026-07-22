@@ -223,7 +223,7 @@ export default function PartnerHomePage() {
               <div className="rounded-xl border bg-card overflow-hidden divide-y">
                 {loading ? (
                   <div className="px-4 py-6 text-center">
-                    <p className="text-sm text-muted-foreground">Loading…</p>
+                    <p className="text-sm text-muted-foreground">{labels.common.loading}</p>
                   </div>
                 ) : pendingReports.length === 0 ? (
                   <div className="flex items-center gap-3 px-4 py-6 justify-center">

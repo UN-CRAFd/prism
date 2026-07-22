@@ -506,7 +506,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <SelectTrigger className="w-[320px] h-9">
               {loadingDocs ? (
                 <span className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" /> Loading…
+                  <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
                 </span>
               ) : selectedDoc ? (
                 <span className="truncate">{selectedDoc.project_short_name || selectedDoc.project_title}</span>
@@ -586,7 +586,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <FileQuestion className="size-10 opacity-30" />
             <p className="text-sm">
               {loadingDocs
-                ? labels.partnerEditor.loading
+                ? labels.common.loading
                 : isPartner
                   ? "No project document is available for your organization yet."
                   : "Select a project to edit its project document."}
@@ -595,7 +595,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         ) : sectionLoading ? (
           <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
+            <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
           </div>
 
         ) : selectedSection === "general" ? (
@@ -631,7 +631,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="flex-1 text-sm min-h-[60px] resize-none" autoFocus />
                           <div className="flex gap-2 shrink-0">
                             <Button size="sm" variant="outline" onClick={() => handleEditSave(s.id)}>{labels.adminEditor.save}</Button>
-                            <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditingText(""); }}>{labels.adminEditor.cancel}</Button>
+                            <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditingText(""); }}>{labels.common.cancel}</Button>
                           </div>
                         </div>
                       ) : (
@@ -697,7 +697,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">
                                   <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory(""); setEditingRiskApprovedMitigation(""); }}>{labels.adminEditor.cancel}</Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory(""); setEditingRiskApprovedMitigation(""); }}>{labels.common.cancel}</Button>
                                 </div>
                               </td>
                             </>

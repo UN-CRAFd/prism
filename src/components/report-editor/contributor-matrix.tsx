@@ -259,7 +259,7 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     const dirtyCells = rows.filter((r) => states[r.entityId]?.cellDirty);
     const cellSnap = new Map(dirtyCells.map((r) => [r.entityId, JSON.stringify({ a: states[r.entityId].amount, l: states[r.entityId].activityIds })]));
 
-    const ok = (r: Response) => { if (!r.ok) throw new Error("Save failed"); };
+    const ok = (r: Response) => { if (!r.ok) throw new Error(labels.common.saveFailed); };
     try {
       await Promise.all([
         ...dirtyMasters.map((r) => {
@@ -272,7 +272,7 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
         }),
       ]);
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Save failed");
+      onError(e instanceof Error ? e.message : labels.common.saveFailed);
       throw e;
     }
 
@@ -420,7 +420,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
+        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
       </div>
     );
   }
@@ -659,8 +659,8 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
     totalColumn: labels.transfers.columns.total,
     selectType: labels.transfers.selectPartnerType,
     selectActivity: labels.transfers.selectActivity,
-    identityPlaceholder: labels.placeholders.transferOrganizationName,
-    websitePlaceholder: labels.placeholders.transferWebsite,
+    identityPlaceholder: labels.common.placeholders.organizationName,
+    websitePlaceholder: labels.common.placeholders.url,
     amountPlaceholder: labels.placeholders.transferAmount,
     amountMinWidth: "min-w-[140px]",
     activityMinWidth: "min-w-[220px]",
@@ -701,7 +701,7 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
     selectType: labels.complementary.selectFundingType,
     selectActivity: labels.complementary.selectActivities,
     identityPlaceholder: labels.placeholders.complementaryContributorName,
-    websitePlaceholder: labels.placeholders.complementaryWebsite,
+    websitePlaceholder: labels.common.placeholders.url,
     amountPlaceholder: labels.placeholders.complementaryAmount,
     amountMinWidth: "min-w-[150px]",
     activityMinWidth: "min-w-[240px]",

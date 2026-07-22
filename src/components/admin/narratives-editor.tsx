@@ -91,7 +91,7 @@ export function NarrativesAdminEditor({
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
+        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
       </div>
     );
   }

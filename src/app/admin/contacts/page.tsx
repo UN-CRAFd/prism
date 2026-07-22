@@ -285,7 +285,7 @@ export default function ContactsPage() {
                 </Select>
               </Field>
               <Field label="Name" required>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={labels.common.placeholders.fullName} />
               </Field>
               <Field label="Role">
                 <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />

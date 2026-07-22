@@ -575,14 +575,16 @@ CREATE TABLE IF NOT EXISTS expenditure_entries (
     id                 SERIAL       PRIMARY KEY,
     report_id          INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     category_id        INTEGER      NOT NULL REFERENCES expenditure_categories(id) ON DELETE CASCADE,
-    year               SMALLINT     NOT NULL CHECK (year BETWEEN 2020 AND 2050),
+    -- approved_amount derives BOTH the project and the year from the entry's
+    -- report (report_id → reports), so no year is stored on the row: reports.year
+    -- is the single source of truth. See migration 016.
     approved_amount    NUMERIC(15,2) GENERATED ALWAYS AS (
         COALESCE(
             (SELECT eb.approved_amount
              FROM expenditure_budgets eb
              WHERE eb.project_id = (SELECT r.project_id FROM reports r WHERE r.id = report_id)
              AND eb.category_id = category_id
-             AND eb.year = year),
+             AND eb.year = (SELECT r.year FROM reports r WHERE r.id = report_id)),
             0
         )
     ) STORED,
@@ -609,8 +611,7 @@ CREATE TABLE IF NOT EXISTS expenditure_entries (
     UNIQUE (report_id, category_id)
 );
 CREATE INDEX IF NOT EXISTS expenditure_entries_report_idx ON expenditure_entries(report_id);
-CREATE INDEX IF NOT EXISTS expenditure_entries_year_idx ON expenditure_entries(year);
-CREATE INDEX IF NOT EXISTS expenditure_entries_category_year_idx ON expenditure_entries(category_id, year)
+CREATE INDEX IF NOT EXISTS expenditure_entries_category_idx ON expenditure_entries(category_id)
     WHERE annual_expenditure IS NOT NULL;
 DROP TRIGGER IF EXISTS expenditure_entries_updated_at ON expenditure_entries;
 CREATE TRIGGER expenditure_entries_updated_at
@@ -676,7 +677,6 @@ CREATE TABLE IF NOT EXISTS complementary_data (
     report_id           INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     contributor_id      INTEGER      NOT NULL REFERENCES complementary_contributors(id) ON DELETE CASCADE,
     contribution_amount NUMERIC(14,2),
-    linked_activity_ids JSONB        NOT NULL DEFAULT '[]',     -- array of workplan_activity ids
     sort_order          INTEGER      NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -688,6 +688,18 @@ DROP TRIGGER IF EXISTS complementary_data_updated_at ON complementary_data;
 CREATE TRIGGER complementary_data_updated_at
     BEFORE UPDATE ON complementary_data
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- A contribution can support several workplan activities (many-to-many). Real FKs
+-- (unlike the former linked_activity_ids JSONB array) keep referential integrity;
+-- ON DELETE CASCADE drops the link when either the contribution or the activity
+-- is removed. Mirrors risk_categories / transfer_data.linked_activity_id. (016/017)
+CREATE TABLE IF NOT EXISTS complementary_data_activities (
+    complementary_data_id INTEGER NOT NULL REFERENCES complementary_data(id)  ON DELETE CASCADE,
+    activity_id           INTEGER NOT NULL REFERENCES workplan_activities(id)  ON DELETE CASCADE,
+    PRIMARY KEY (complementary_data_id, activity_id)
+);
+CREATE INDEX IF NOT EXISTS complementary_data_activities_activity_idx
+    ON complementary_data_activities(activity_id);
 
 -- ── Project narratives ───────────────────────────────────────────────────────
 -- Project-level proposal narratives (Background & Relevance, Theory of Change,

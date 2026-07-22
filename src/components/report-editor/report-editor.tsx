@@ -326,7 +326,7 @@ export function ReportEditor({
     const saveOverview = overviewDirty;
     const overviewSnap = JSON.stringify(overview);
 
-    const ok = (r: Response) => { if (!r.ok) throw new Error("Save failed"); };
+    const ok = (r: Response) => { if (!r.ok) throw new Error(labels.common.saveFailed); };
     try {
       await Promise.all([
         ...dirtySurveys.map((s) => {
@@ -344,7 +344,7 @@ export function ReportEditor({
         ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, authorized: overview.authorized }) }).then(ok)] : []),
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       throw e;
     }
 
@@ -764,7 +764,7 @@ export function ReportEditor({
             <SelectTrigger className="w-[300px] h-9 bg-neutral-900 border-neutral-700 text-white">
               {loadingReports ? (
                 <span className="flex items-center gap-2 text-neutral-400">
-                  <Loader2 className="size-3 animate-spin" /> {labels.partnerEditor.loading}
+                  <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
                 </span>
               ) : selectedReport ? (
                 <span className="truncate capitalize">
@@ -891,7 +891,7 @@ export function ReportEditor({
           </div>
         ) : loadingReports || sectionLoading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
+            <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
           </div>
 
         ) : params.section === "surveys" ? (

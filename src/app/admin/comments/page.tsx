@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared";
 import { CommentContextBadges } from "@/components/comment-context-badges";
+import labels from "@/lib/labels.json";
 
 interface AdminComment {
   id: number;
@@ -144,7 +145,7 @@ export default function AdminCommentsPage() {
                   onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit(c.id); if (e.key === "Escape") cancelEdit(); }}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                  <Button size="sm" variant="outline" onClick={cancelEdit}>{labels.common.cancel}</Button>
                   <Button size="sm" onClick={() => saveEdit(c.id)} disabled={busy || !draft.trim()}>
                     {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
                   </Button>

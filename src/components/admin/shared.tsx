@@ -8,6 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import labels from "@/lib/labels.json";
 
 // ── Page header ─────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ export function FilterSelect({
 export function LoadingState() {
   return (
     <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
-      <Loader2 className="size-4 animate-spin" /> Loading…
+      <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
     </div>
   );
 }

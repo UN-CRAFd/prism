@@ -129,7 +129,7 @@ export function RiskSection({
                     <td colSpan={2} className="px-4 py-3 align-top">
                       <div className="flex items-center justify-end gap-2">
                         <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                        <Button size="sm" variant="outline" onClick={cancelRiskEdit}>{labels.adminEditor.cancel}</Button>
+                        <Button size="sm" variant="outline" onClick={cancelRiskEdit}>{labels.common.cancel}</Button>
                       </div>
                     </td>
                   </tr>

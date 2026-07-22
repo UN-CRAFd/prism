@@ -254,7 +254,7 @@ export function SectionTableEditor({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
+        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
       </div>
     );
   }
@@ -381,7 +381,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     fields: [
       { key: "achievement", header: labels.keyAchievements.columns.achievement, remark: labels.keyAchievements.remarks.achievement, type: "textarea", placeholder: labels.placeholders.achievement, headClass: "w-[35%]" },
       { key: "significance", header: labels.keyAchievements.columns.significance, remark: labels.keyAchievements.remarks.significance, type: "textarea", placeholder: labels.placeholders.significance, headClass: "w-[35%]" },
-      { key: "links", header: labels.keyAchievements.columns.links, remark: labels.keyAchievements.remarks.links, type: "links", placeholder: labels.placeholders.achievementLinks, headClass: "w-64" },
+      { key: "links", header: labels.common.columns.links, remark: labels.keyAchievements.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-64" },
     ],
   },
   partnerships: {
@@ -390,9 +390,9 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     addLabel: labels.partnerEditor.addPartner,
     emptyText: labels.partnerEditor.emptyPartnerships,
     fields: [
-      { key: "partner_organization", header: labels.partnerships.columns.partnerOrganization, remark: labels.partnerships.remarks.partnerOrganization, type: "input", placeholder: labels.placeholders.partnerOrganization, headClass: "w-[28%]" },
+      { key: "partner_organization", header: labels.partnerships.columns.partnerOrganization, remark: labels.partnerships.remarks.partnerOrganization, type: "input", placeholder: labels.common.placeholders.organizationName, headClass: "w-[28%]" },
       { key: "result", header: labels.partnerships.columns.result, remark: labels.partnerships.remarks.result, type: "textarea", placeholder: labels.placeholders.partnershipResult },
-      { key: "links", header: labels.partnerships.columns.links, remark: labels.partnerships.remarks.links, type: "links", placeholder: labels.placeholders.achievementLinks, headClass: "w-64" },
+      { key: "links", header: labels.common.columns.links, remark: labels.partnerships.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-64" },
     ],
   },
   results: {
@@ -404,7 +404,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
       { key: "context", header: labels.results.columns.context, remark: labels.results.remarks.context, type: "textarea", placeholder: labels.placeholders.resultContext, headClass: "w-[25%]" },
       { key: "data_driven_decision", header: labels.results.columns.dataDrivenDecision, remark: labels.results.remarks.dataDrivenDecision, type: "textarea", placeholder: labels.placeholders.dataDrivenDecision, headClass: "w-[25%]" },
       { key: "resulting_impact", header: labels.results.columns.resultingImpact, remark: labels.results.remarks.resultingImpact, type: "textarea", placeholder: labels.placeholders.resultingImpact, headClass: "w-[25%]" },
-      { key: "links", header: labels.results.columns.links, remark: labels.results.remarks.links, type: "links", placeholder: labels.placeholders.achievementLinks, headClass: "w-48" },
+      { key: "links", header: labels.common.columns.links, remark: labels.results.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-48" },
     ],
   },
   lessons: {
@@ -428,7 +428,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
       { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: labels.externalCoverage.types, headClass: "w-44" },
       { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]" },
       { key: "reach_indicator", header: labels.externalCoverage.columns.reachIndicator, remark: labels.externalCoverage.remarks.reachIndicator, type: "textarea", placeholder: labels.placeholders.reachIndicator, headClass: "w-[20%]" },
-      { key: "links", header: labels.externalCoverage.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.placeholders.achievementLinks, headClass: "w-52" },
+      { key: "links", header: labels.common.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-52" },
     ],
   },
 };
@@ -441,7 +441,7 @@ const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
   { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40" },
   { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44" },
   { key: "photo_label", header: labels.testimonials.columns.photoLabel, type: "input", placeholder: labels.testimonials.placeholders.photoLabel, headClass: "w-40" },
-  { key: "photo_link", header: labels.testimonials.columns.photoLink, type: "input", placeholder: labels.testimonials.placeholders.photoLink, headClass: "w-48" },
+  { key: "photo_link", header: labels.testimonials.columns.photoLink, type: "input", placeholder: labels.common.placeholders.url, headClass: "w-48" },
   { key: "photo_credits", header: labels.testimonials.columns.photoCredits, type: "input", placeholder: labels.testimonials.placeholders.photoCredits, headClass: "w-40" },
 ];
 

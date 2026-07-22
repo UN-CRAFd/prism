@@ -143,11 +143,9 @@ export default function ReportEditorPage() {
                 <div className="divide-y">
                   {byYear[latestYear].map((report) => (
                     <div key={report.id} className="px-6 py-4 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
                         <p className="text-sm font-medium truncate">{report.project_title}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <StatusPill status={report.status} />
-                        </div>
+                        <StatusPill status={report.status} />
                       </div>
                     </div>
                   ))}

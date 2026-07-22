@@ -60,12 +60,16 @@ function coerce(key: FieldKey, value: string): unknown {
 export function GeneralInfoAdminEditor({
   projectId,
   onSaveStateChange,
+  readOnly = false,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
   // isAdmin retained on the type for callers; the rate (the only admin-gated
   // field) now lives in the Expenditure tab, so nothing here branches on it.
   isAdmin?: boolean;
+  // When the prodoc is view-only, the blue instructions box is hidden (the
+  // parent shows the amber view-only bar instead).
+  readOnly?: boolean;
 }) {
   const confirm = useConfirm();
 
@@ -217,9 +221,11 @@ export function GeneralInfoAdminEditor({
         </div>
       )}
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        {labels.tabInstructions.general}
-      </div>
+      {!readOnly && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          {labels.tabInstructions.general}
+        </div>
+      )}
 
       {/* Project data */}
       <div className="rounded-xl border bg-card p-6 space-y-5">

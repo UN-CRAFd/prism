@@ -22,9 +22,13 @@ const EMPTY: Entry = { answer: "", comment: "" };
 export function NarrativesAdminEditor({
   projectId,
   onSaveStateChange,
+  readOnly = false,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
+  // When the prodoc is view-only, the blue instructions box is hidden (the
+  // parent shows the amber view-only bar instead).
+  readOnly?: boolean;
 }) {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [loading, setLoading] = useState(false);
@@ -100,9 +104,11 @@ export function NarrativesAdminEditor({
         </div>
       )}
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        {labels.tabInstructions.narratives}
-      </div>
+      {!readOnly && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          {labels.tabInstructions.narratives}
+        </div>
+      )}
 
       {QUESTIONS.map((q, i) => {
         const { answer, comment } = entryOf(q.key);

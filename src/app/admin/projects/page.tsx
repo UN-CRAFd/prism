@@ -231,27 +231,14 @@ export default function ProjectsPage() {
     router.push(`/admin/prodoc-editor/${slug}/general`);
   }
 
-  async function printProdoc(p: Project) {
+  function printProdoc(p: Project) {
     const prodocId = prodocByProject[p.id];
     if (!prodocId) return;
+    // Open the styled print view; it renders the full prodoc with the brand fonts
+    // and auto-exports itself to a PDF (html2canvas → jsPDF), then closes.
     setPrintingId(p.id);
-    try {
-      const response = await fetch(`/api/reports/${prodocId}/pdf`);
-      if (!response.ok) throw new Error("Failed to generate PDF");
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${p.short_name || "prodoc"}_prodoc.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error("Print failed:", e);
-    } finally {
-      setPrintingId(null);
-    }
+    window.open(`/admin/prodoc-print/${prodocId}?auto=1`, "_blank");
+    setTimeout(() => setPrintingId(null), 1500);
   }
 
   // ── Filter & group ────────────────────────────────────────────────────────

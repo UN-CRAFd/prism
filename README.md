@@ -1,12 +1,12 @@
 # PRISM — CRAF'd Reporting Platform
 
-A web application for collecting, editing and reviewing partner project
+A reporting web application for collecting, editing and reviewing partner project
 reports for the CRAF'd (Complex Risk Analytics Fund) portfolio, and for
 presenting the aggregated results in a dashboard. Partners submit narrative
 and quantitative reporting (achievements, indicators, work plans, budgets,
 risk management, testimonials, etc.); the Secretariat reviews and exports it.
 
-Built with [Next.js](https://nextjs.org) (App Router), React, TypeScript,
+Built with the package [Next.js](https://nextjs.org) (App Router), React, TypeScript,
 Tailwind CSS and a PostgreSQL backend.
 
 ## Getting started

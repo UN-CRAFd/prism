@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +97,7 @@ function fmtUsd(v: string | null) {
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   // project_id → its prodoc report id (for Print / Open ProDoc).
@@ -111,6 +112,14 @@ export default function ProjectsPage() {
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   // ALL = no grouping; otherwise "partner" | "status".
   const [groupMode, setGroupMode] = useState<string>(ALL);
+
+  // Apply partner filter from query parameter on mount
+  useEffect(() => {
+    const partnerParam = searchParams.get("partner");
+    if (partnerParam) {
+      setFilterPartner(partnerParam);
+    }
+  }, [searchParams]);
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -272,7 +281,7 @@ export default function ProjectsPage() {
   }, [filtered, groupMode]);
 
   const renderCard = (p: Project) => (
-    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30">
+    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
@@ -477,7 +486,7 @@ export default function ProjectsPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((p) => (
-                <TableRow key={p.id}>
+                <TableRow key={p.id} className="cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
                       {p.partner_short_name || "—"}

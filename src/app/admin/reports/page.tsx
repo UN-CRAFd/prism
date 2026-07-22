@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ import {
 
 export default function ReportsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,14 @@ export default function ReportsPage() {
   const [filterProject, setFilterProject] = useState<string>(ALL);
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   const [filterYear, setFilterYear] = useState<string>(ALL);
+
+  // Apply project filter from query parameter on mount
+  useEffect(() => {
+    const projectParam = searchParams.get("project");
+    if (projectParam) {
+      setFilterProject(projectParam);
+    }
+  }, [searchParams]);
 
   const loadData = useCallback(async () => {
     setLoading(true);

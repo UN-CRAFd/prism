@@ -55,8 +55,8 @@ export async function POST(request: Request) {
 
     const inserted = await client.query(
       `INSERT INTO reporting_platform.projects
-         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope, implementing_partners)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope, implementing_partners, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Idea')
        RETURNING *`,
       [
         partner_id, project_title,

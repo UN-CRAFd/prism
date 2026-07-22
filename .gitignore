@@ -29,3 +29,5 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+pnpm-lock.yaml
+pnpm-workspace.yaml

@@ -206,7 +206,7 @@ export function ExpenditurePartnerEditor({
         <td style={fz("cat")} className={cn("px-3 py-2 text-sm border-r border-t", bg)}>{label}</td>
         <td style={fz("app")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={appT} kind="approved" /></td>
         <td style={fz("exp")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
-        <td style={fz("diff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={expT - appT} kind="diff" /></td>
+        <td style={fz("diff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={appT - expT} kind="diff" /></td>
         {years.map((y) => {
           const ap = withIndirect(sumApproved(y), mult);
           const ex = withIndirect(sumExp(y), mult);
@@ -247,7 +247,7 @@ export function ExpenditurePartnerEditor({
                 <td style={fz("cat")} className="px-3 py-2 border-r border-t bg-card">{c.name}</td>
                 <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="approved" /></td>
                 <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} /></td>
-                <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={expT - appT} kind="diff" /></td>
+                <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
                 {years.map((y) => {
                     const editable = y === currentYear;
                     const ap = budFor(y, c.id);
@@ -258,7 +258,7 @@ export function ExpenditurePartnerEditor({
                         editable={editable}
                         approved={ap}
                         exp={ex}
-                        diff={num(ex) - num(ap)}
+                        diff={num(ap) - num(ex)}
                         expInput={edits[c.id]?.exp ?? ""}
                         comment={editable ? (edits[c.id]?.comment ?? "") : (data.expenditure.find((x) => x.category_id === c.id && x.year === y)?.comment ?? "")}
                         onExp={(v) => update(c.id, { exp: v })}
@@ -337,7 +337,7 @@ function FooterYearCells({ approved, exp, strong }: { approved: number; exp: num
     <>
       <td className="px-2 py-2 text-right border-l border-t"><Num value={approved} kind="approved" /></td>
       <td className="px-2 py-2 text-right border-t"><Num value={exp} kind={strong ? "strong" : "plain"} /></td>
-      <td className="px-2 py-2 text-right border-t"><Num value={exp - approved} kind="diff" /></td>
+      <td className="px-2 py-2 text-right border-t"><Num value={approved - exp} kind="diff" /></td>
       <td className="px-2 py-2 border-t" />
     </>
   );

@@ -294,7 +294,22 @@ export default function ProjectsPage() {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
-          <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
+          <p className="text-lg font-semibold leading-snug line-clamp-2">
+            {p.project_title}
+            {p.mptfo_project_number && (
+              <a
+                href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[11px] font-medium text-blue-600 hover:underline"
+                title="Open on MPTF Office Gateway"
+              >
+                MPTFO
+                <ExternalLink className="size-3" />
+              </a>
+            )}
+          </p>
         </div>
         <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
       </div>
@@ -328,17 +343,6 @@ export default function ProjectsPage() {
             <Clock className="size-3 shrink-0" />
             {durationLabel(p.project_duration_months)}
           </span>
-        )}
-        {p.mptfo_project_number && (
-          <a
-            href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit"
-          >
-            <ExternalLink className="size-3" />
-            {p.mptfo_project_number}
-          </a>
         )}
       </div>
 

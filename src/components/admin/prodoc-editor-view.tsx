@@ -336,8 +336,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // ── Indicators CRUD ───────────────────────────────────────────────────────
 
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
-  // Editable while "Open" or "Under Review"; "Closed" locks it — same rule as reports.
-  const readOnly = !!selectedDoc && selectedDoc.status === "Closed";
+  // Status → who can edit (same rule as reports):
+  //   Open → admin + partner · Under Review → admin only · Closed → no one
+  const readOnly =
+    !!selectedDoc &&
+    (selectedDoc.status === "Closed" ||
+      (selectedDoc.status === "Under Review" && isPartner));
 
   async function addIndicatorLine(indicatorId: number) {
     if (!selectedProdocId || !selectedDoc) return;
@@ -535,9 +539,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         )}
 
         {readOnly && selectedProdocId && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
             <Lock className="size-3.5 shrink-0" />
-            This project document is closed and read-only. Set its status back to Open on the Projects page to edit.
+            <span>
+              This project document is <b>{selectedDoc?.status}</b> and is view-only
+              {selectedDoc?.status === "Under Review" ? " for partners — only administrators can edit it" : ""}.
+            </span>
           </div>
         )}
 

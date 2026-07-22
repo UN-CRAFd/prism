@@ -668,10 +668,16 @@ export function ReportEditor({
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
   );
-  // A report is editable while "Open" or "Under Review"; only a "Closed" report
-  // is rendered view-only via a disabled <fieldset>. The admin mirror forces
-  // read-only regardless of status.
-  const readOnly = forceReadOnly || (!!selectedReport && selectedReport.status === "Closed");
+  // Status → who can edit:
+  //   Open          → admin + partner
+  //   Under Review  → admin only (partner is read-only)
+  //   Closed        → no one
+  // (forceReadOnly still wins as an explicit override.)
+  const readOnly =
+    forceReadOnly ||
+    (!!selectedReport &&
+      (selectedReport.status === "Closed" ||
+        (selectedReport.status === "Under Review" && mode !== "admin")));
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :

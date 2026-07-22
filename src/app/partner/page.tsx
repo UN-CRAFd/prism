@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
+import labels from "@/lib/labels.json";
 import {
   AlertCircle,
   ArrowRight,
@@ -194,7 +195,7 @@ export default function PartnerHomePage() {
     <div className="flex flex-col min-h-full bg-background">
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
-        <p className="text-neutral-400 text-sm mb-1">PRISM V.0.2</p>
+        <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
         <h1 className="text-3xl font-bold font-qanelas">
           {mounted ? `${greeting}, ${user?.organization ?? user?.name ?? ""}` : " "}
         </h1>

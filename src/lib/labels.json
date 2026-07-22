@@ -1,4 +1,7 @@
 {
+  "app": {
+    "nameVersion": "PRISM V.1.0"
+  },
   "sections": {
     "general": "General Information",
     "overview": "Overview",
@@ -360,7 +363,6 @@
     "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {
-    "eyebrow": "PRISM V.0.2",
     "title": "Report Editor",
     "assessmentLabel": "Assessment",
     "contextLabel": "Context",

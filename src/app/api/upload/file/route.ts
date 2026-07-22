@@ -110,17 +110,17 @@ export async function POST(req: NextRequest) {
       const reportId = matches[0].id;
       const categories = risk_category
         ? risk_category.split(",").map((c) => c.trim()).filter(Boolean)
-        : null;
+        : [];
 
-      await query(
+      // risk_category is normalized into the risk_categories junction table.
+      const created = await query<{ id: number }>(
         `INSERT INTO reporting_platform.risk_management
-           (report_id, risk_name, risk_category, likelihood, impact,
+           (report_id, risk_name, likelihood, impact,
             approved_mitigation, updated_mitigation, project_revision)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
         [
           reportId,
           risk_name.trim(),
-          categories,
           likelihoodFromText(likelihood),
           impactFromText(impact),
           approved_mitigation || null,
@@ -128,6 +128,15 @@ export async function POST(req: NextRequest) {
           toProjectRevision(project_revision),
         ]
       );
+
+      if (categories.length) {
+        await query(
+          `INSERT INTO reporting_platform.risk_categories (risk_id, category)
+           SELECT $1, unnest($2::text[])
+           ON CONFLICT (risk_id, category) DO NOTHING`,
+          [created[0].id, categories]
+        );
+      }
 
       inserted++;
     }

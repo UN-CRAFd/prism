@@ -142,7 +142,11 @@ const EXPORTS: Record<string, SectionExport> = {
     ],
     sql: reportScoped(
       "risk_management", "rm", "report_id",
-      "rm.risk_name, rm.risk_category, rm.likelihood, rm.impact, rm.approved_mitigation, rm.updated_mitigation, rm.project_revision",
+      `rm.risk_name,
+       (SELECT string_agg(rc.category, ', ' ORDER BY rc.category)
+          FROM reporting_platform.risk_categories rc
+         WHERE rc.risk_id = rm.id) AS risk_category,
+       rm.likelihood, rm.impact, rm.approved_mitigation, rm.updated_mitigation, rm.project_revision`,
       "rm.id"
     ),
   },

@@ -1,5 +1,5 @@
-import { WikiPage } from "@/components/partner/wiki/wiki-page";
+import { redirect } from "next/navigation";
 
 export default function WikiRoute() {
-  return <WikiPage />;
+  redirect("/partner/wiki/how-to-use");
 }

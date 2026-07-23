@@ -138,8 +138,9 @@ export function AppSidebar() {
         <Image
           src="/images/crafd-logo-full-black.svg"
           alt="CRAF'd"
-          width={140}
-          height={92}
+          width={116}
+          height={76}
+          className="h-auto w-[116px]"
           priority
         />
       </div>

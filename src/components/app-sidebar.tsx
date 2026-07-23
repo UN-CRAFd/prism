@@ -23,6 +23,7 @@ import {
   Check,
   Contact,
   MessageSquare,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, parseReportPath } from "@/lib/report-sections";
@@ -30,6 +31,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+const wikiSections = [
+  { id: "how-to-use", label: "How to Use the Platform" },
+  { id: "key-features", label: "Key Features" },
+  { id: "faq", label: "FAQ" },
+];
 
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
@@ -171,13 +178,17 @@ export function AppSidebar() {
               icon: Contact,
               isActive: (p: string) => p.startsWith("/partner/contacts"),
             },
+            {
+              href: "/partner/wiki",
+              label: "Guide",
+              icon: BookOpen,
+              isActive: (p: string) => p.startsWith("/partner/wiki"),
+            },
           ].map(({ href, label, icon: Icon, isActive }) => {
             const active = isActive(pathname);
-            // The Report Editor entry expands into a sub-menu of the partner's
-            // reports (level 1). While a report is open, that report also expands
-            // into its sections (level 2). The report list also shows on the
-            // report-editor landing page so the reports are visible up front.
             const isEditor = href === "/partner/report-editor";
+            const isWiki = href === "/partner/wiki";
+            const showWikiSubs = isWiki && pathname.startsWith("/partner/wiki");
             const report = isEditor ? parseReportPath(pathname) : null;
             const showReports = isEditor && (!!report || pathname.startsWith("/partner/report-editor"));
             return (
@@ -194,6 +205,20 @@ export function AppSidebar() {
                   <Icon className="size-3.5 shrink-0" />
                   {label}
                 </Link>
+
+                {showWikiSubs && (
+                  <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2 border-l border-border/60">
+                    {wikiSections.map((sub) => (
+                      <a
+                        key={sub.id}
+                        href={`#${sub.id}`}
+                        className="flex items-center rounded-md px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      >
+                        {sub.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {showReports && (() => {
                   // Level 1 = every report the partner can edit; level 2 = the

@@ -33,9 +33,9 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const wikiSections = [
-  { id: "how-to-use", label: "How to Use the Platform" },
-  { id: "key-features", label: "Key Features" },
-  { id: "faq", label: "FAQ" },
+  { href: "/partner/wiki/how-to-use", label: "How to Use the Platform" },
+  { href: "/partner/wiki/key-features", label: "Key Features" },
+  { href: "/partner/wiki/faq", label: "FAQ" },
 ];
 
 const administrationLinks = [
@@ -205,15 +205,23 @@ export function AppSidebar() {
 
                 {showWikiSubs && (
                   <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2 border-l border-border/60">
-                    {wikiSections.map((sub) => (
-                      <a
-                        key={sub.id}
-                        href={`#${sub.id}`}
-                        className="flex items-center rounded-md px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                      >
-                        {sub.label}
-                      </a>
-                    ))}
+                    {wikiSections.map((sub) => {
+                      const subActive = pathname === sub.href;
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          className={cn(
+                            "flex items-center rounded-md px-3 py-1.5 text-[12px] transition-colors",
+                            subActive
+                              ? "bg-crafd-yellow/10 text-crafd-yellow font-medium"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
 

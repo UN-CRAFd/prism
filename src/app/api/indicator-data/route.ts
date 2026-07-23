@@ -103,6 +103,7 @@ type MatrixRawRow = {
   means_of_verification: string | null;
   category: string | null;
   cycle: string | null;
+  is_standard: boolean;
 };
 
 async function getMatrix(reportId: string) {
@@ -121,7 +122,7 @@ async function getMatrix(reportId: string) {
             d.achieved_value, d.status, d.comment, d.sort_order,
             r.year AS report_year, (r.id = $2) AS is_current,
             i.name AS indicator_name, i.description AS indicator_description,
-            i.means_of_verification, i.category, i.cycle
+            i.means_of_verification, i.category, i.cycle, i.is_standard
        FROM reporting_platform.indicator_data d
        JOIN reporting_platform.reports r ON r.id = d.report_id
        JOIN reporting_platform.indicators i ON i.id = d.indicator_id
@@ -143,6 +144,7 @@ async function getMatrix(reportId: string) {
       means_of_verification: r.means_of_verification,
       category: r.category,
       cycle: r.cycle,
+      is_standard: r.is_standard,
       baseline_value: r.baseline_value,
       baseline_year: r.baseline_year,
       target_value: r.target_value,

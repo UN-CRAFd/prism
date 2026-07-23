@@ -80,6 +80,8 @@ export interface IndicatorMatrixRow {
   means_of_verification: string | null;
   category: string | null;
   cycle: string | null;
+  // true = standard (admin library) indicator; false = custom, partner-defined.
+  is_standard: boolean;
   baseline_value: string | null;
   baseline_year: number | null;
   target_value: string | null;

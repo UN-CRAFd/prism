@@ -106,6 +106,7 @@ export function ReportEditor({
   const [newIndicatorTargetValue, setNewIndicatorTargetValue] = useState("");
   const [newIndicatorTargetYear, setNewIndicatorTargetYear] = useState("");
   const [addingIndicator, setAddingIndicator] = useState(false);
+  const [deletingIndicatorLineId, setDeletingIndicatorLineId] = useState<number | null>(null);
 
   // Undo / redo over the parent-managed section edits. History is per section
   // visit (reset below when the section or report changes).
@@ -615,6 +616,90 @@ export function ReportEditor({
     }
   }
 
+  // Remove an indicator from this report. Admins may remove any row; partners only
+  // their own custom (non-standard) indicators — the button is hidden otherwise, and
+  // this re-checks the rule as a guard. Deletes only the current report's line
+  // (historical years for the same indicator are untouched). Undoable, mirroring risk.
+  async function handleIndicatorDelete(row: IndicatorMatrixRow) {
+    if (mode !== "admin" && row.is_standard) return;
+    if (!reportId) return;
+    if (!await confirm({
+      message: `Remove indicator "${row.indicator_name}" from this report? You can undo this with the Undo button.`,
+      confirmLabel: "Remove",
+    })) return;
+
+    const lineId = row.currentLineId;
+    const state = indicatorStates[lineId];
+    setDeletingIndicatorLineId(lineId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/indicator-data?id=${lineId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove indicator");
+      setIndicatorRows((prev) => prev.filter((r) => r.currentLineId !== lineId));
+      setIndicatorStates((prev) => {
+        const next = { ...prev };
+        delete next[lineId];
+        return next;
+      });
+
+      // Undoable: recreate the report line (new id) on undo, delete again on redo.
+      const savedRid = reportId;
+      pushCommand({
+        undo: async () => {
+          try {
+            const cRes = await fetch("/api/indicator-data", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportId: savedRid,
+                indicator_id: row.indicator_id,
+                baseline_value: row.baseline_value,
+                baseline_year: row.baseline_year,
+                target_value: row.target_value,
+                target_year: row.target_year,
+              }),
+            });
+            if (!cRes.ok) throw new Error("Failed to restore indicator");
+            const created: { id: number } = await cRes.json();
+            if (state && (state.achieved_value || state.status || state.comment)) {
+              await fetch("/api/indicator-data", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: created.id,
+                  achieved_value: state.achieved_value || null,
+                  status: state.status,
+                  comment: state.comment || null,
+                }),
+              });
+            }
+            await loadIndicators(savedRid);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to restore indicator");
+          }
+        },
+        redo: async () => {
+          // Undo recreated the line with a fresh id; look it up by indicator, delete, reload.
+          try {
+            const list: { rows: IndicatorMatrixRow[] } =
+              await (await fetch(`/api/indicator-data?reportId=${savedRid}&matrix=1`)).json();
+            const match = list.rows.find((r) => r.indicator_id === row.indicator_id);
+            if (match) {
+              await fetch(`/api/indicator-data?id=${match.currentLineId}`, { method: "DELETE" });
+            }
+            await loadIndicators(savedRid);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to remove indicator");
+          }
+        },
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setDeletingIndicatorLineId(null);
+    }
+  }
+
   // ── Undo / redo (command stack) ────────────────────────────────────────────
   function pushCommand(cmd: HistoryCommand) {
     setUndoStack((s) => [...s, cmd].slice(-100));
@@ -948,6 +1033,9 @@ export function ReportEditor({
             addingIndicator={addingIndicator}
             handleIndicatorAdd={handleIndicatorAdd}
             updateIndicator={updateIndicator}
+            isAdmin={mode === "admin"}
+            deletingIndicatorLineId={deletingIndicatorLineId}
+            handleIndicatorDelete={handleIndicatorDelete}
           />
 
         ) : params.section === "transfers" ? (

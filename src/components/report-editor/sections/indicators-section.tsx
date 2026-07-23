@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, type CSSProperties } from "react";
-import { Loader2, Plus, Info, Layers } from "lucide-react";
+import { Loader2, Plus, Info, Layers, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +61,12 @@ export interface IndicatorsSectionProps {
   handleIndicatorAdd: () => void;
 
   updateIndicator: (id: number, patch: Partial<IndicatorState>) => void;
+
+  // Row removal. Admins may remove any indicator; partners only their own custom
+  // (non-standard) ones — the button is hidden on standard rows for partners.
+  isAdmin: boolean;
+  deletingIndicatorLineId: number | null;
+  handleIndicatorDelete: (row: IndicatorMatrixRow) => void;
 }
 
 export function IndicatorsSection({
@@ -81,6 +87,9 @@ export function IndicatorsSection({
   addingIndicator,
   handleIndicatorAdd,
   updateIndicator,
+  isAdmin,
+  deletingIndicatorLineId,
+  handleIndicatorDelete,
 }: IndicatorsSectionProps) {
   return (
     <div className="space-y-4">
@@ -126,11 +135,14 @@ export function IndicatorsSection({
           { label: labels.indicators.columns.status, minWidth: "min-w-[140px]" },
           { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
         ]}
+        trailingCols={[
+          { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
+        ]}
       >
           <tbody>
             {grouped.map(([category, rows]) => [
               <tr key={`cat-${category}`} className="bg-muted/40">
-                <td colSpan={3 + indicatorYears.length * 3} style={ifz("ind")} className="px-3 py-2.5">
+                <td colSpan={3 + indicatorYears.length * 3 + 1} style={ifz("ind")} className="px-3 py-2.5">
                   <div className="flex items-center gap-2 font-semibold text-sm">
                     <Layers className="size-3.5 text-muted-foreground" />
                     {category}
@@ -232,6 +244,23 @@ export function IndicatorsSection({
                       </Fragment>
                     );
                   })}
+
+                  {/* Trailing: remove-from-report. Admins may remove any indicator;
+                      partners only their own custom (non-standard) ones. */}
+                  <td className="px-2 py-2 border-l border-t text-center">
+                    {(isAdmin || !row.is_standard) && (
+                      <button
+                        onClick={() => handleIndicatorDelete(row)}
+                        disabled={deletingIndicatorLineId === row.currentLineId}
+                        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                        aria-label={`Remove indicator ${row.indicator_name}`}
+                      >
+                        {deletingIndicatorLineId === row.currentLineId
+                          ? <Loader2 className="size-3.5 animate-spin" />
+                          : <Trash2 className="size-3.5" />}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               );
             }),

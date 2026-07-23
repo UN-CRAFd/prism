@@ -134,7 +134,7 @@ export function AppSidebar() {
       "flex h-screen flex-col border-r border-border bg-sidebar overflow-hidden transition-all duration-300 ease-in-out",
       isOpen ? "w-64" : "w-0"
     )}>
-      <div className="flex items-center gap-3 px-6 h-32">
+      <div className="flex shrink-0 items-center gap-3 px-6 h-24">
         <Image
           src="/images/crafd-logo-full-black.svg"
           alt="CRAF'd"
@@ -147,9 +147,9 @@ export function AppSidebar() {
       <Separator />
 
       {!mounted ? (
-        <nav className="flex-1 space-y-1 px-3 py-4" />
+        <nav className="flex-1 min-h-0 space-y-1 px-3 py-4" />
       ) : isPartner ? (
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-4 space-y-1">
           {[
             {
               href: "/partner",
@@ -299,7 +299,7 @@ export function AppSidebar() {
           })}
         </nav>
       ) : (
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-hide space-y-1 px-3 py-4">
           <Link
             href="/admin"
             className={cn(
@@ -383,7 +383,7 @@ export function AppSidebar() {
 
       <Separator />
 
-      <div className="p-4">
+      <div className="shrink-0 p-4">
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
           {mounted && user?.role === "partner" && user.organization && logoExt !== "none" ? (
             <img

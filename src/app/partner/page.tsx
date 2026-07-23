@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
+import labels from "@/lib/labels.json";
 import {
   AlertCircle,
   ArrowRight,
@@ -63,6 +64,9 @@ export default function PartnerHomePage() {
   const router = useRouter();
 
   const [reports, setReports] = useState<Report[]>([]);
+  // Prodocs (one per project) — the source of project dates, independent of
+  // whether any reporting-year reports exist yet.
+  const [projects, setProjects] = useState<Report[]>([]);
   const [comments, setComments] = useState<FeedbackComment[]>([]);
   const [loading, setLoading] = useState(true);
   // The greeting (time-based) and user (client-side auth) only exist on the
@@ -72,18 +76,21 @@ export default function PartnerHomePage() {
 
   useEffect(() => {
     if (!user) return;
+    const forPartner = (r: Report) =>
+      r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
+      r.partner_short_name === user.organization;
+
     fetch("/api/reports?data_type=report")
       .then((r) => r.json())
-      .then((all: Report[]) => {
-        const filtered = all.filter(
-          (r) =>
-            r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-            r.partner_short_name === user.organization
-        );
-        setReports(filtered);
-      })
+      .then((all: Report[]) => setReports(all.filter(forPartner)))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Prodocs give us every project (and its dates) even with zero reports.
+    fetch("/api/reports?data_type=prodoc")
+      .then((r) => r.json())
+      .then((all: Report[]) => setProjects(all.filter(forPartner)))
+      .catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -117,9 +124,12 @@ export default function PartnerHomePage() {
   const timeline = useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = [];
 
-    // Project start & end — one pair per unique project
+    // Project start & end — one pair per project, sourced from prodocs so they
+    // show even when no reporting-year reports exist. Fall back to report rows
+    // if prodocs haven't loaded for some reason.
+    const projectRows = projects.length > 0 ? projects : reports;
     const seenProjects = new Set<number>();
-    for (const r of reports) {
+    for (const r of projectRows) {
       if (seenProjects.has(r.project_id)) continue;
       seenProjects.add(r.project_id);
       if (!r.project_start_date) continue;
@@ -171,7 +181,7 @@ export default function PartnerHomePage() {
     });
 
     return events.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
-  }, [reports]);
+  }, [reports, projects]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -185,7 +195,7 @@ export default function PartnerHomePage() {
     <div className="flex flex-col min-h-full bg-background">
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
-        <p className="text-neutral-400 text-sm mb-1">PRISM V.0.2</p>
+        <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
         <h1 className="text-3xl font-bold font-qanelas">
           {mounted ? `${greeting}, ${user?.organization ?? user?.name ?? ""}` : " "}
         </h1>
@@ -213,7 +223,7 @@ export default function PartnerHomePage() {
               <div className="rounded-xl border bg-card overflow-hidden divide-y">
                 {loading ? (
                   <div className="px-4 py-6 text-center">
-                    <p className="text-sm text-muted-foreground">Loading…</p>
+                    <p className="text-sm text-muted-foreground">{labels.common.loading}</p>
                   </div>
                 ) : pendingReports.length === 0 ? (
                   <div className="flex items-center gap-3 px-4 py-6 justify-center">
@@ -230,7 +240,7 @@ export default function PartnerHomePage() {
                       key={report.id}
                       onClick={() =>
                         router.push(
-                          `/partner/${toSlug(report)}/${report.year}/overview`
+                          `/partner/report-editor/${toSlug(report)}/${report.year}/overview`
                         )
                       }
                       className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
@@ -270,7 +280,7 @@ export default function PartnerHomePage() {
                     const slug = (c.project_short_name ?? c.project_title).toLowerCase();
                     const done = c.partner_addressed;
                     return (
-                      <div key={c.id} className={cn("px-4 py-3 transition-colors cursor-pointer hover:bg-accent/60", done && "bg-muted/20")} onClick={() => router.push(`/partner/${slug}/${c.year}/${c.section}`)}>
+                      <div key={c.id} className={cn("px-4 py-3 transition-colors cursor-pointer hover:bg-accent/60", done && "bg-muted/20")} onClick={() => router.push(`/partner/report-editor/${slug}/${c.year}/${c.section}`)}>
                         <div className="w-full flex items-start gap-3 text-left">
                           <MessageSquare className={cn("size-4 mt-0.5 shrink-0", done ? "text-muted-foreground/40" : "text-amber-500")} />
                           <div className="flex-1 min-w-0">

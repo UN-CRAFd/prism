@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import labels from "@/lib/labels.json";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -239,7 +240,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight 
       setSaveState("saved");
     } catch (e) {
       ids.forEach((id) => dirtyRef.current.add(id));
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       setSaveState("error");
     }
   }, [reportId]);
@@ -276,7 +277,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading…
+        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
       </div>
     );
   }
@@ -619,7 +620,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     } catch (e) {
       // Re-queue the failed ids so the next change retries them.
       ids.forEach((id) => progressDirtyRef.current.add(id));
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       setSaveState("error");
     }
   }, [partnerMode, reportId]);
@@ -693,7 +694,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       }
       setSaveState("saved");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       setSaveState("error");
     } finally {
       savingRef.current = false;
@@ -902,7 +903,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading…
+        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
       </div>
     );
   }

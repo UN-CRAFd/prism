@@ -57,7 +57,7 @@ export default function LoginPage() {
 
        <h1 className="text-2xl text-white mb-0">
   <span className="font-bold font-qanelas">PRISM</span>{" "}
-  <span className="font-normal font-roboto">Reporting Platform</span>
+  <span className="font-normal font-roboto">Administration Platform</span>
 </h1>
         <p className="text-white text-sm mb-12">
           <span className="font-bold">P</span>roject{" "}

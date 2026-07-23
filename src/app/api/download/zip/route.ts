@@ -142,7 +142,11 @@ const EXPORTS: Record<string, SectionExport> = {
     ],
     sql: reportScoped(
       "risk_management", "rm", "report_id",
-      "rm.risk_name, rm.risk_category, rm.likelihood, rm.impact, rm.approved_mitigation, rm.updated_mitigation, rm.project_revision",
+      `rm.risk_name,
+       (SELECT string_agg(rc.category, ', ' ORDER BY rc.category)
+          FROM reporting_platform.risk_categories rc
+         WHERE rc.risk_id = rm.id) AS risk_category,
+       rm.likelihood, rm.impact, rm.approved_mitigation, rm.updated_mitigation, rm.project_revision`,
       "rm.id"
     ),
   },
@@ -222,8 +226,9 @@ const EXPORTS: Record<string, SectionExport> = {
       SELECT r.year, p.project_title AS project_name, pt.short_name AS partner,
         cc.contributor_name AS contributor, cc.funding_type, cd.contribution_amount,
         (SELECT string_agg(NULLIF(TRIM(COALESCE(wa.activity_num, '') || ' ' || COALESCE(wa.activity_text, '')), ''), '; ' ORDER BY wa.sort_order)
-           FROM reporting_platform.workplan_activities wa
-          WHERE wa.id = ANY (SELECT jsonb_array_elements_text(cd.linked_activity_ids)::int)) AS linked_activities
+           FROM reporting_platform.complementary_data_activities cda
+           JOIN reporting_platform.workplan_activities wa ON wa.id = cda.activity_id
+          WHERE cda.complementary_data_id = cd.id) AS linked_activities
       FROM reporting_platform.complementary_data cd
       JOIN reporting_platform.complementary_contributors cc ON cc.id = cd.contributor_id
       JOIN reporting_platform.reports  r  ON r.id  = cd.report_id

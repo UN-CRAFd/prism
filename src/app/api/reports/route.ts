@@ -101,16 +101,17 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
 }
 
 // Populate expenditure entries for the report.
-// Creates one row per category. approved_amount is GENERATED (always references
-// current expenditure_budgets), so budget changes in prodoc automatically update all reports.
-// Variance columns are auto-calculated when annual_expenditure is filled in.
+// Creates one row per category. approved_amount is GENERATED — it derives both the
+// project and the year from the entry's report (report_id → reports), so budget
+// changes in the prodoc automatically update all reports and no year is stored on
+// the row. Variance columns are auto-calculated when annual_expenditure is filled in.
 async function populateExpenditureEntries(client: PoolClient, reportIds: number[]) {
   if (reportIds.length === 0) return;
 
   await client.query(
     `INSERT INTO reporting_platform.expenditure_entries
-       (report_id, category_id, year)
-     SELECT nr.id, ec.id, nr.year
+       (report_id, category_id)
+     SELECT nr.id, ec.id
        FROM reporting_platform.reports nr
        CROSS JOIN reporting_platform.expenditure_categories ec
       WHERE nr.id = ANY($1::int[])

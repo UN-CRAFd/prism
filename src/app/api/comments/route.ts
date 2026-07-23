@@ -22,8 +22,13 @@ const SECTION_ITEM_LABEL_SQL: Record<string, string> = {
   surveys:
     `SELECT id, question AS label FROM reporting_platform.surveys WHERE id = ANY($1)`,
   risk:
-    `SELECT id, concat_ws(' · ', NULLIF(risk_name, ''), NULLIF(array_to_string(risk_category, ', '), '')) AS label
-       FROM reporting_platform.risk_management WHERE id = ANY($1)`,
+    `SELECT rm.id,
+            concat_ws(' · ',
+              NULLIF(rm.risk_name, ''),
+              NULLIF((SELECT string_agg(rc.category, ', ' ORDER BY rc.category)
+                        FROM reporting_platform.risk_categories rc
+                       WHERE rc.risk_id = rm.id), '')) AS label
+       FROM reporting_platform.risk_management rm WHERE rm.id = ANY($1)`,
   indicators:
     `SELECT d.id, i.name AS label
        FROM reporting_platform.indicator_data d

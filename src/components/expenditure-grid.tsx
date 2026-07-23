@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import labels from "@/lib/labels.json";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
@@ -172,7 +173,7 @@ export function ExpenditurePartnerEditor({
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading…</div>;
+    return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> {labels.common.loading}</div>;
   }
   if (error) {
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
@@ -206,7 +207,7 @@ export function ExpenditurePartnerEditor({
         <td style={fz("cat")} className={cn("px-3 py-2 text-sm border-r border-t", bg)}>{label}</td>
         <td style={fz("app")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={appT} kind="approved" /></td>
         <td style={fz("exp")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
-        <td style={fz("diff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={expT - appT} kind="diff" /></td>
+        <td style={fz("diff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={appT - expT} kind="diff" /></td>
         {years.map((y) => {
           const ap = withIndirect(sumApproved(y), mult);
           const ex = withIndirect(sumExp(y), mult);
@@ -247,7 +248,7 @@ export function ExpenditurePartnerEditor({
                 <td style={fz("cat")} className="px-3 py-2 border-r border-t bg-card">{c.name}</td>
                 <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="approved" /></td>
                 <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} /></td>
-                <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={expT - appT} kind="diff" /></td>
+                <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
                 {years.map((y) => {
                     const editable = y === currentYear;
                     const ap = budFor(y, c.id);
@@ -258,7 +259,7 @@ export function ExpenditurePartnerEditor({
                         editable={editable}
                         approved={ap}
                         exp={ex}
-                        diff={num(ex) - num(ap)}
+                        diff={num(ap) - num(ex)}
                         expInput={edits[c.id]?.exp ?? ""}
                         comment={editable ? (edits[c.id]?.comment ?? "") : (data.expenditure.find((x) => x.category_id === c.id && x.year === y)?.comment ?? "")}
                         onExp={(v) => update(c.id, { exp: v })}
@@ -337,7 +338,7 @@ function FooterYearCells({ approved, exp, strong }: { approved: number; exp: num
     <>
       <td className="px-2 py-2 text-right border-l border-t"><Num value={approved} kind="approved" /></td>
       <td className="px-2 py-2 text-right border-t"><Num value={exp} kind={strong ? "strong" : "plain"} /></td>
-      <td className="px-2 py-2 text-right border-t"><Num value={exp - approved} kind="diff" /></td>
+      <td className="px-2 py-2 text-right border-t"><Num value={approved - exp} kind="diff" /></td>
       <td className="px-2 py-2 border-t" />
     </>
   );
@@ -419,7 +420,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
       }
       setSaveState("saved");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       setSaveState("error");
     } finally {
       savingRef.current = false;
@@ -464,7 +465,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
       if (!res.ok) throw new Error("Failed to save rate");
       setSaveState("saved");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       setSaveState("error");
     }
   }
@@ -475,7 +476,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
   const totalSub = categories.reduce((a, c) => a + catTotal(c.id), 0);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading…</div>;
+    return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> {labels.common.loading}</div>;
   }
 
   const totalBudget = totalSub * (1 + rate);
@@ -557,11 +558,11 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
                   <span className="text-sm text-muted-foreground">%</span>
                 </div>
                 {saveState === "saving" ? (
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs"><Loader2 className="size-3 animate-spin" /> Saving…</span>
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs"><Loader2 className="size-3 animate-spin" /> {labels.common.saving}</span>
                 ) : saveState === "saved" ? (
-                  <span className="flex items-center gap-1.5 text-green-600 text-xs"><CheckCircle2 className="size-4" /> Saved</span>
+                  <span className="flex items-center gap-1.5 text-green-600 text-xs"><CheckCircle2 className="size-4" /> {labels.common.saved}</span>
                 ) : saveState === "error" ? (
-                  <span className="text-xs text-destructive">Save failed</span>
+                  <span className="text-xs text-destructive">{labels.common.saveFailed}</span>
                 ) : null}
               </div>
             )}

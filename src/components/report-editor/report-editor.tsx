@@ -294,6 +294,19 @@ export function ReportEditor({
     router.push(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${section}`);
   }
 
+  // Change the report's status from the top bar (admin only). Optimistic; the
+  // readOnly gate recomputes from the updated local state immediately.
+  async function handleReportStatusChange(newStatus: Report["status"]) {
+    if (!selectedReport) return;
+    const id = selectedReport.id;
+    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
+    await fetch(`/api/reports/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+  }
+
   // ── Autosave for the parent-managed sections ──────────────────────────────
   // Saves every dirty item across surveys / overview / risk / indicators, so an
   // in-flight edit is never dropped when the user switches section before it
@@ -313,7 +326,7 @@ export function ReportEditor({
     const saveOverview = overviewDirty;
     const overviewSnap = JSON.stringify(overview);
 
-    const ok = (r: Response) => { if (!r.ok) throw new Error("Save failed"); };
+    const ok = (r: Response) => { if (!r.ok) throw new Error(labels.common.saveFailed); };
     try {
       await Promise.all([
         ...dirtySurveys.map((s) => {
@@ -331,7 +344,7 @@ export function ReportEditor({
         ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, authorized: overview.authorized }) }).then(ok)] : []),
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(e instanceof Error ? e.message : labels.common.saveFailed);
       throw e;
     }
 
@@ -668,10 +681,16 @@ export function ReportEditor({
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
   );
-  // A report is editable while "Open" or "Under Review"; only a "Closed" report
-  // is rendered view-only via a disabled <fieldset>. The admin mirror forces
-  // read-only regardless of status.
-  const readOnly = forceReadOnly || (!!selectedReport && selectedReport.status === "Closed");
+  // Status → who can edit:
+  //   Open          → admin + partner
+  //   Under Review  → admin only (partner is read-only)
+  //   Closed        → no one
+  // (forceReadOnly still wins as an explicit override.)
+  const readOnly =
+    forceReadOnly ||
+    (!!selectedReport &&
+      (selectedReport.status === "Closed" ||
+        (selectedReport.status === "Under Review" && mode !== "admin")));
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
@@ -685,7 +704,7 @@ export function ReportEditor({
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
 
   return (
-    <CommentsProvider reportId={reportId} enabled={mode === "admin"}>
+    <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"}>
     <div className="flex flex-col h-full bg-background">
 
       {/* Top bar */}
@@ -698,13 +717,32 @@ export function ReportEditor({
                 <h1 className="text-2xl font-bold font-qanelas capitalize">
                   {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
                 </h1>
-                <span className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                  reportStatusStyle(selectedReport.status, "dark")
-                )}>
-                  {readOnly && <Lock className="size-3" />}
-                  {selectedReport.status}
-                </span>
+                {mode === "admin" ? (
+                  <Select value={selectedReport.status} onValueChange={(v) => handleReportStatusChange(v as Report["status"])}>
+                    <SelectTrigger className={cn(
+                      "h-7 w-auto gap-1 rounded-full border-0 px-2.5 text-xs font-semibold [&>svg]:size-3 [&>svg]:opacity-70",
+                      reportStatusStyle(selectedReport.status, "dark")
+                    )}>
+                      <span className="flex items-center gap-1 whitespace-nowrap">
+                        {readOnly && <Lock className="size-3" />}
+                        {selectedReport.status}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Open">Open</SelectItem>
+                      <SelectItem value="Under Review">Under Review</SelectItem>
+                      <SelectItem value="Closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    reportStatusStyle(selectedReport.status, "dark")
+                  )}>
+                    {readOnly && <Lock className="size-3" />}
+                    {selectedReport.status}
+                  </span>
+                )}
               </div>
               <p className="text-neutral-400 text-sm mt-0.5">{selectedReport.project_title}</p>
             </>
@@ -726,7 +764,7 @@ export function ReportEditor({
             <SelectTrigger className="w-[300px] h-9 bg-neutral-900 border-neutral-700 text-white">
               {loadingReports ? (
                 <span className="flex items-center gap-2 text-neutral-400">
-                  <Loader2 className="size-3 animate-spin" /> {labels.partnerEditor.loading}
+                  <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
                 </span>
               ) : selectedReport ? (
                 <span className="truncate capitalize">
@@ -853,7 +891,7 @@ export function ReportEditor({
           </div>
         ) : loadingReports || sectionLoading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> {labels.partnerEditor.loading}
+            <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
           </div>
 
         ) : params.section === "surveys" ? (

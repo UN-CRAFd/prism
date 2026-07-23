@@ -1,4 +1,22 @@
 {
+  "app": {
+    "nameVersion": "PRISM V.1.0"
+  },
+  "common": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "cancel": "Cancel",
+    "columns": {
+      "links": "Links / Materials"
+    },
+    "placeholders": {
+      "url": "https://…",
+      "organizationName": "Organization name…",
+      "fullName": "Full name"
+    }
+  },
   "sections": {
     "general": "General Information",
     "overview": "Overview",
@@ -154,8 +172,7 @@
   "keyAchievements": {
     "columns": {
       "achievement": "Achievement",
-      "significance": "Significance",
-      "links": "Links / Materials"
+      "significance": "Significance"
     },
     "remarks": {
       "achievement": "Briefly describe a major result or milestone achieved while implementing the project during this reporting period. For example: The project developed a cloud system that now delivers up-to-date weather and impact feeds.",
@@ -181,7 +198,6 @@
       "personName": "Full name",
       "personTitle": "Role / position",
       "photoLabel": "How to label the person in the photo",
-      "photoLink": "https://…",
       "photoCredits": "Photographer / source"
     }
   },
@@ -190,8 +206,7 @@
     "columns": {
       "type": "Type",
       "description": "Description",
-      "reachIndicator": "Reach / Indicator",
-      "links": "Links / Materials"
+      "reachIndicator": "Reach / Indicator"
     },
     "remarks": {
       "type": "Select the type of coverage and engagement.",
@@ -217,8 +232,7 @@
     "columns": {
       "context": "Context",
       "dataDrivenDecision": "Data-driven Decision",
-      "resultingImpact": "Resulting Impact",
-      "links": "Links / Materials"
+      "resultingImpact": "Resulting Impact"
     },
     "remarks": {
       "context": "Briefly describe the problem, risk, or decision gap in a fragile or crisis-affected setting. For example: Repeated intercommunal tensions in Akobo County, South Sudan, were causing cyclical displacement, with limited early warning to prevent escalation before violence occurred.",
@@ -230,8 +244,7 @@
   "partnerships": {
     "columns": {
       "partnerOrganization": "Partner Organization",
-      "result": "Result of the Partnership",
-      "links": "Links / Materials"
+      "result": "Result of the Partnership"
     },
     "remarks": {
       "partnerOrganization": "List the organization that contributed as an implementing, counterpart, or ecosystem partner to the project.",
@@ -320,8 +333,6 @@
   "placeholders": {
     "projectTitle": "Project title…",
     "mptfoProjectNumber": "e.g. 11400004",
-    "organizationName": "Organization name…",
-    "organizationWebsite": "https://…",
     "durationMonths": "e.g. 24",
     "grantSizeUsd": "e.g. 500000",
     "implementingPartners": "List implementing partners…",
@@ -334,8 +345,6 @@
     "riskCategories": "Categories (comma-separated)…",
     "achievement": "Describe the key achievement from this reporting period…",
     "significance": "Explain why this achievement is significant to the project's goals…",
-    "achievementLinks": "https://…",
-    "partnerOrganization": "Organization name…",
     "partnershipResult": "Describe what improved or changed because of the partnership…",
     "resultContext": "Briefly describe the problem, risk, or decision gap…",
     "dataDrivenDecision": "Explain how the project's data or insights informed concrete decisions…",
@@ -352,23 +361,16 @@
     "year": "e.g. 2025",
     "achievedValue": "Value achieved this year…",
     "indicatorComment": "Explain the result…",
-    "transferOrganizationName": "Organization name…",
-    "transferWebsite": "https://…",
     "transferAmount": "e.g. 15000",
     "complementaryContributorName": "Contributor name…",
-    "complementaryWebsite": "https://…",
     "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {
-    "eyebrow": "PRISM V.0.2",
     "title": "Report Editor",
     "assessmentLabel": "Assessment",
     "contextLabel": "Context",
     "selectReport": "Select a report",
-    "loading": "Loading…",
     "saveChanges": "Save changes",
-    "saving": "Saving…",
-    "saved": "Saved",
     "emptySurveys": "No survey questions found for this report.",
     "emptyRisks": "No risks have been added to this report yet.",
     "emptyKeyAchievements": "No key achievements added yet. Click below to add your first.",
@@ -390,7 +392,6 @@
     "title": "Report Editor",
     "subtitle": "Edit survey questions and risks for a selected report",
     "selectReport": "Select a report",
-    "loadingReports": "Loading reports…",
     "selectToStart": "Select a report to start editing.",
     "emptySurveys": "No survey questions yet.",
     "emptyRisks": "No risks added yet.",
@@ -398,8 +399,7 @@
     "addIndicator": "Add indicator",
     "createIndicator": "Create new indicator",
     "add": "Add",
-    "save": "Save",
-    "cancel": "Cancel"
+    "save": "Save"
   },
   "dashboard": {
     "title": "Reporting",

@@ -74,7 +74,9 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
-  const [logoFailed, setLogoFailed] = useState(false);
+  // Partner logo file may be .webp or .png; step through both before falling
+  // back to the initial avatar.
+  const [logoExt, setLogoExt] = useState<"webp" | "png" | "none">("webp");
   const [reports, setReports] = useState<SidebarReport[]>([]);
 
   useEffect(() => {
@@ -156,21 +158,16 @@ export function AppSidebar() {
               isActive: (p: string) => p === "/partner",
             },
             {
-              href: "/partner/report-editor",
-              label: "Report Editor",
-              icon: FileText,
-              isActive: (p: string) =>
-                p.startsWith("/partner/report-editor") ||
-                (p.startsWith("/partner/") &&
-                  !p.startsWith("/partner/prodoc-editor") &&
-                  !p.startsWith("/partner/contacts") &&
-                  p.split("/").filter(Boolean).length >= 4),
-            },
-            {
               href: "/partner/prodoc-editor",
               label: "Project Document",
               icon: FileStack,
               isActive: (p: string) => p.startsWith("/partner/prodoc-editor"),
+            },
+            {
+              href: "/partner/report-editor",
+              label: "Report Editor",
+              icon: FileText,
+              isActive: (p: string) => p.startsWith("/partner/report-editor"),
             },
             {
               href: "/partner/contacts",
@@ -246,7 +243,7 @@ export function AppSidebar() {
                         <div key={`${it.slug}-${it.year}`}>
                           {/* Level 1: report — click to open (keeps the current section) */}
                           <Link
-                            href={`/partner/${it.slug}/${it.year}/${targetSection}`}
+                            href={`/partner/report-editor/${it.slug}/${it.year}/${targetSection}`}
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
@@ -272,7 +269,7 @@ export function AppSidebar() {
                                     return (
                                       <Link
                                         key={s.value}
-                                        href={`/partner/${it.slug}/${it.year}/${s.value}`}
+                                        href={`/partner/report-editor/${it.slug}/${it.year}/${s.value}`}
                                         className={cn(
                                           "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition-colors",
                                           secActive
@@ -388,12 +385,12 @@ export function AppSidebar() {
 
       <div className="p-4">
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-          {mounted && user?.role === "partner" && user.organization && !logoFailed ? (
+          {mounted && user?.role === "partner" && user.organization && logoExt !== "none" ? (
             <img
-              src={`/logos/${user.organization.toLowerCase()}.webp`}
+              src={`/logos/${user.organization.toLowerCase()}.${logoExt}`}
               alt={user.organization}
-              className="w-9 h-9 object-contain bg-muted rounded"
-              onError={() => setLogoFailed(true)}
+              className="size-9 shrink-0 rounded-full bg-white border object-contain p-1.5"
+              onError={() => setLogoExt(logoExt === "webp" ? "png" : "none")}
             />
           ) : (
             <Avatar className="size-9">

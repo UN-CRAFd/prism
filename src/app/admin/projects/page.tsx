@@ -19,6 +19,15 @@ import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, FilterSelect, ALL,
 } from "@/components/admin/shared";
+import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
+
+// Prodoc uses the same status set as reports (it IS a reports row).
+const PRODOC_STATUSES: ReportStatus[] = ["Open", "Under Review", "Closed"];
+const PRODOC_STATUS_ICONS: Record<ReportStatus, ReactNode> = {
+  Open:           <CircleDot className="size-3 shrink-0 text-blue-700" />,
+  "Under Review": <Clock className="size-3 shrink-0 text-amber-700" />,
+  Closed:         <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+};
 
 // -- Types ------------------------------------------------------------------
 
@@ -100,8 +109,8 @@ export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  // project_id → its prodoc report id (for Print / Open ProDoc).
-  const [prodocByProject, setProdocByProject] = useState<Record<number, number>>({});
+  // project_id → its prodoc { report id, status } (for Print / Open / status).
+  const [prodocByProject, setProdocByProject] = useState<Record<number, { id: number; status: ReportStatus }>>({});
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,8 +157,8 @@ export default function ProjectsPage() {
       if (!pRes.ok || !prRes.ok || !pdRes.ok) throw new Error("Failed to fetch data");
       setPartners(await pRes.json());
       setProjects(await prRes.json());
-      const prodocs: { id: number; project_id: number }[] = await pdRes.json();
-      setProdocByProject(Object.fromEntries(prodocs.map((d) => [d.project_id, d.id])));
+      const prodocs: { id: number; project_id: number; status: ReportStatus }[] = await pdRes.json();
+      setProdocByProject(Object.fromEntries(prodocs.map((d) => [d.project_id, { id: d.id, status: d.status }])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -232,13 +241,24 @@ export default function ProjectsPage() {
   }
 
   function printProdoc(p: Project) {
-    const prodocId = prodocByProject[p.id];
+    const prodocId = prodocByProject[p.id]?.id;
     if (!prodocId) return;
     // Open the styled print view; it renders the full prodoc with the brand fonts
-    // and auto-exports itself to a PDF (html2canvas → jsPDF), then closes.
+    // and prints via the browser (→ Save as PDF), then closes.
     setPrintingId(p.id);
-    window.open(`/admin/prodoc-print/${prodocId}?auto=1`, "_blank");
+    window.open(`/prodoc-print/${prodocId}?auto=1`, "_blank");
     setTimeout(() => setPrintingId(null), 1500);
+  }
+
+  // Set the prodoc's editable status (Open / Under Review / Closed) — same
+  // status model as reports. Optimistic; persisted via PUT /api/reports/:id.
+  async function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
+    setProdocByProject((prev) => ({ ...prev, [projectId]: { id: prodocId, status } }));
+    await fetch(`/api/reports/${prodocId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
   }
 
   // ── Filter & group ────────────────────────────────────────────────────────
@@ -267,43 +287,35 @@ export default function ProjectsPage() {
     return entries.sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered, groupMode]);
 
-  const renderCard = (p: Project) => (
+  const renderCard = (p: Project) => {
+    const pd = prodocByProject[p.id];
+    return (
     <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
-          <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
+          <p className="text-lg font-semibold leading-snug line-clamp-2">
+            {p.project_title}
+            {p.mptfo_project_number && (
+              <a
+                href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[11px] font-medium text-blue-600 hover:underline"
+                title="Open on MPTF Office Gateway"
+              >
+                MPTFO
+                <ExternalLink className="size-3" />
+              </a>
+            )}
+          </p>
         </div>
         <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
       </div>
-      <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-        {p.grant_size_usd && (
-          <span className="inline-flex items-center gap-1.5">
-            <DollarSign className="size-3 shrink-0" />
-            {fmtUsd(p.grant_size_usd)}
-          </span>
-        )}
-        {durationLabel(p.project_duration_months) && (
-          <span className="inline-flex items-center gap-1.5">
-            <Clock className="size-3 shrink-0" />
-            {durationLabel(p.project_duration_months)}
-          </span>
-        )}
-        {p.mptfo_project_number && (
-          <a
-            href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-blue-600 hover:underline w-fit"
-          >
-            <ExternalLink className="size-3" />
-            {p.mptfo_project_number}
-          </a>
-        )}
-      </div>
 
-      {/* Status + ProDoc actions */}
-      <div className="flex gap-1.5 mt-auto pt-1" onClick={(e) => e.stopPropagation()}>
+      {/* Project status — straight below the title */}
+      <div onClick={(e) => e.stopPropagation()}>
         <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
           <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
             <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
@@ -317,26 +329,62 @@ export default function ProjectsPage() {
             ))}
           </SelectContent>
         </Select>
-        <button
-          onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
-          disabled={printingId === p.id || !prodocByProject[p.id]}
-          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-          title="Print the project document to PDF"
-        >
-          {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
-          Print ProDoc
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
-          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Open the project document"
-        >
-          Open ProDoc
-          <ArrowRight className="size-3" />
-        </button>
+      </div>
+
+      <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+        {p.grant_size_usd && (
+          <span className="inline-flex items-center gap-1.5">
+            <DollarSign className="size-3 shrink-0" />
+            {fmtUsd(p.grant_size_usd)}
+          </span>
+        )}
+        {durationLabel(p.project_duration_months) && (
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="size-3 shrink-0" />
+            {durationLabel(p.project_duration_months)}
+          </span>
+        )}
+      </div>
+
+      {/* ── Project Document ── status + open + print */}
+      <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Project Document</p>
+        <div className="flex gap-1.5">
+          {pd && (
+            <Select value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
+              <SelectTrigger title="Project document status" className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}>
+                <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                  {PRODOC_STATUS_ICONS[pd.status]}
+                  <SelectValue />
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {PRODOC_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
+            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Open the project document"
+          >
+            Open
+            <ArrowRight className="size-3" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
+            disabled={printingId === p.id || !pd}
+            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            title="Print the project document to PDF"
+          >
+            {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
+            Print
+          </button>
+        </div>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -521,6 +569,25 @@ export default function ProjectsPage() {
                         Open
                         <ArrowRight className="size-3" />
                       </button>
+                      {prodocByProject[p.id] && (
+                        <Select
+                          value={prodocByProject[p.id]!.status}
+                          onValueChange={(v) => handleProdocStatusChange(p.id, prodocByProject[p.id]!.id, v as ReportStatus)}
+                        >
+                          <SelectTrigger
+                            title="Project document status"
+                            className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(prodocByProject[p.id]!.status)}`}
+                          >
+                            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                              {PRODOC_STATUS_ICONS[prodocByProject[p.id]!.status]}
+                              <SelectValue />
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PRODOC_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

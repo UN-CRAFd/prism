@@ -91,8 +91,11 @@ export async function GET(req: NextRequest) {
       // Complementary — every row has amount + at least one linked activity.
       query<Row>(
         `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE contribution_amount IS NOT NULL AND jsonb_array_length(linked_activity_ids) > 0)::int AS ok
-           FROM reporting_platform.complementary_data WHERE report_id = $1`,
+                COUNT(*) FILTER (WHERE contribution_amount IS NOT NULL AND EXISTS (
+                  SELECT 1 FROM reporting_platform.complementary_data_activities cda
+                   WHERE cda.complementary_data_id = cd.id
+                ))::int AS ok
+           FROM reporting_platform.complementary_data cd WHERE cd.report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 

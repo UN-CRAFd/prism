@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import labels from "@/lib/labels.json";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -87,7 +88,7 @@ export function AutosaveIndicator({
   if (s === "saving") {
     return (
       <span className={cn("flex items-center gap-1.5 text-sm", tone === "dark" ? "text-neutral-300" : "text-muted-foreground")}>
-        <Loader2 className="size-3.5 animate-spin" /> Saving…
+        <Loader2 className="size-3.5 animate-spin" /> {labels.common.saving}
       </span>
     );
   }

@@ -55,7 +55,7 @@ function sessionFor(ctx: ReportContext) {
       role: "partner" as const,
       organization: ctx.partner_short_name,
     },
-    redirect: `/partner/${encodeURIComponent(slug)}/${ctx.year}/overview`,
+    redirect: `/partner/report-editor/${encodeURIComponent(slug)}/${ctx.year}/overview`,
   };
 }
 

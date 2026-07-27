@@ -1,3 +1,6 @@
+import { HelpCircle } from "lucide-react";
+import { WikiShell, SectionHeading } from "./wiki-components";
+
 const faqs = [
   {
     q: "I cannot log in — what should I do?",
@@ -23,26 +26,30 @@ const faqs = [
 
 export function FaqPage() {
   return (
-    <div className="flex flex-col min-h-full bg-background">
-      <div className="sticky top-0 z-10 bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
-        <p className="text-neutral-400 text-sm mb-1">PRISM V.0.2</p>
-        <h1 className="text-3xl font-bold font-qanelas">Guide</h1>
-        <p className="text-neutral-400 text-sm mt-2">How to use the PRISM reporting platform</p>
-      </div>
-
-      <div className="flex-1 px-8 py-8">
-        <div className="max-w-3xl space-y-6">
-          <h2 className="text-xl font-bold pb-3 border-b">FAQ</h2>
-          <div className="space-y-6">
-            {faqs.map((item) => (
-              <div key={item.q} className="border-b pb-6 last:border-b-0 last:pb-0">
-                <p className="text-sm font-semibold mb-2">{item.q}</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.a}</p>
-              </div>
+    <WikiShell>
+      <SectionHeading icon={HelpCircle}>FAQ</SectionHeading>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-xs text-muted-foreground uppercase">
+            <tr>
+              <th className="px-4 py-2.5 text-left w-[38%]">Question</th>
+              <th className="px-4 py-2.5 text-left">Answer</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {faqs.map(({ q, a }) => (
+              <tr key={q} className="hover:bg-muted/40 align-top">
+                <td className="px-4 py-3 font-medium text-foreground leading-snug">
+                  {q}
+                </td>
+                <td className="px-4 py-3 text-muted-foreground leading-relaxed">
+                  {a}
+                </td>
+              </tr>
             ))}
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
-    </div>
+    </WikiShell>
   );
 }

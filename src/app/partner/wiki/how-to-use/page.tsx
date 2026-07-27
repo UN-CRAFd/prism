@@ -1,5 +1,5 @@
-import { HowToUsePage } from "@/components/partner/wiki/how-to-use-page";
+import { redirect } from "next/navigation";
 
 export default function HowToUseRoute() {
-  return <HowToUsePage />;
+  redirect("/partner/wiki/introduction");
 }

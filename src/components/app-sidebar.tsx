@@ -33,7 +33,9 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const wikiSections = [
-  { href: "/partner/wiki/how-to-use", label: "How to Use the Platform" },
+  { href: "/partner/wiki/introduction", label: "Introduction" },
+  { href: "/partner/wiki/project-document", label: "Project Document" },
+  { href: "/partner/wiki/report-editor", label: "Report Editor" },
   { href: "/partner/wiki/key-features", label: "Key Features" },
   { href: "/partner/wiki/faq", label: "FAQ" },
 ];

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, guardReport } from "@/lib/authz";
 
 // Report completion, per section.
 //
@@ -15,8 +16,14 @@ type Row = Record<string, unknown>;
 const n = (v: unknown) => Number((v as { toString: () => string })?.toString?.() ?? v ?? 0) || 0;
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
   if (!reportId) return NextResponse.json({ error: "reportId required" }, { status: 400 });
+
+  const gate = await guardReport(session, reportId);
+  if (gate) return gate;
 
   try {
     const meta = await query<{ project_id: number }>(
@@ -157,6 +164,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sections, sectionsStarted, total: startedKeys.length });
   } catch (err) {
     console.error("GET /api/report-completion error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load completion" }, { status: 500 });
   }
 }

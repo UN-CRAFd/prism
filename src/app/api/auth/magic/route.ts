@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { createMagicToken, verifyMagicToken, magicLinkEnabled } from "@/lib/magic-link";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
+import { requireAdmin } from "@/lib/authz";
 
 // Share links for a report:
 //   POST { reportId }            → { token }                — admin copies this into a URL
@@ -60,6 +62,10 @@ function sessionFor(ctx: ReportContext) {
 }
 
 export async function POST(req: NextRequest) {
+  // Only the admin mints share links; recipients use GET/PUT without a session.
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   if (!magicLinkEnabled()) {
     return NextResponse.json(
       { error: "Share links are not configured (set MAGIC_LINK_SECRET or ADMIN_PASSWORD)." },
@@ -85,7 +91,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ token });
   } catch (err) {
     console.error("POST /api/auth/magic error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Could not create share link" }, { status: 500 });
   }
 }
 
@@ -106,7 +112,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/auth/magic error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Could not open share link" }, { status: 500 });
   }
 }
 
@@ -154,9 +160,23 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(sessionFor(ctx));
+    const session = sessionFor(ctx);
+    const token = await createSessionToken({
+      role: "partner",
+      org: ctx.partner_short_name,
+      name: session.user.name || ctx.partner_short_name,
+    });
+    const res = NextResponse.json(session);
+    res.cookies.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    });
+    return res;
   } catch (err) {
     console.error("PUT /api/auth/magic error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }

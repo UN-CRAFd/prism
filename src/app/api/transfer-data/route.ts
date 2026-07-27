@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 
 // Per-report transfer lines. Keyed by reportId for consistency with every other
 // section route. Each row joins its master transfer partner for display fields.
@@ -51,23 +52,31 @@ const SELECT_ALL = `
    ORDER BY r.year DESC, pt.short_name, p.project_title, d.sort_order ASC, d.id ASC`;
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
   const matrix = req.nextUrl.searchParams.get("matrix");
   if (!reportId) {
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
       console.error("GET /api/transfer-data (all) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
+
+  const gate = await guardReport(session, reportId);
+  if (gate) return gate;
 
   if (matrix) {
     try {
       return await getMatrix(reportId);
     } catch (err) {
       console.error("GET /api/transfer-data (matrix) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
 
@@ -81,7 +90,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/transfer-data error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -176,6 +185,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reportId and transfer_partner_id are required" }, { status: 400 });
   }
 
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardReport(session, reportId as string | number);
+  if (gate) return gate;
+
   try {
     const existing = await query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM reporting_platform.transfer_data WHERE report_id = $1`,
@@ -201,11 +215,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     console.error("POST /api/transfer-data error:", err);
-    const msg = String(err);
-    if (msg.includes("duplicate key")) {
+    if (String(err).includes("duplicate key")) {
       return NextResponse.json({ error: "This organization is already on the report" }, { status: 409 });
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -217,6 +230,11 @@ export async function PATCH(req: NextRequest) {
 
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "transfer_data", id as string | number);
+  if (gate) return gate;
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -244,18 +262,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/transfer-data error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "transfer_data", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.transfer_data WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/transfer-data error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

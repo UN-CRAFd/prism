@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { quarterFromDate } from "@/lib/workplan";
+import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 
 // ── Per-report workplan progress (partner-owned) ─────────────────────────────
 //
@@ -35,15 +36,24 @@ const SELECT_ALL = `
    ORDER BY r.year DESC, pt.short_name, p.project_title, a.sort_order ASC, a.id ASC`;
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
   if (!reportId) {
+    // Cross-report "Full Data" listing is admin-only.
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
       console.error("GET /api/workplan (all) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
+
+  const gate = await guardReport(session, reportId);
+  if (gate) return gate;
 
   try {
     // Resolve the project + current year + derive the quarter range from
@@ -122,7 +132,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/workplan error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -136,6 +146,11 @@ export async function PATCH(req: NextRequest) {
   if (!reportId || !activityId) {
     return NextResponse.json({ error: "reportId and activityId required" }, { status: 400 });
   }
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardReport(session, reportId as string | number);
+  if (gate) return gate;
 
   const updatedQuarters = toQuartersOrNull(body.updated_quarters);
   const status = (body.status as string) || null;
@@ -163,6 +178,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/workplan error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

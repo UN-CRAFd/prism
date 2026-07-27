@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, guardReport } from "@/lib/authz";
 
 // Consolidated prodoc data for the print/PDF view. Returns every section of a
 // project document in one payload so the print page can render it in one pass.
@@ -11,6 +12,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardReport(session, id);
+    if (gate) return gate;
 
     const metaRows = await query<Record<string, unknown>>(
       `SELECT
@@ -104,6 +110,6 @@ export async function GET(
     return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets, applicants });
   } catch (err) {
     console.error("GET /api/reports/[id]/prodoc-export error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

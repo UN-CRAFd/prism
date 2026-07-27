@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import type { PoolClient } from "pg";
+import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 
 // Per-report complementary funding lines. Sibling of transfer-data, but a single
 // contribution can link to SEVERAL workplan activities. Those links live in the
@@ -88,23 +89,31 @@ const SELECT_ALL = `
    ORDER BY r.year DESC, pt.short_name, p.project_title, d.sort_order ASC, d.id ASC`;
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
   const matrix = req.nextUrl.searchParams.get("matrix");
   if (!reportId) {
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
       console.error("GET /api/complementary-data (all) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
+
+  const gate = await guardReport(session, reportId);
+  if (gate) return gate;
 
   if (matrix) {
     try {
       return await getMatrix(reportId);
     } catch (err) {
       console.error("GET /api/complementary-data (matrix) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
 
@@ -118,7 +127,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/complementary-data error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -211,6 +220,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reportId and contributor_id are required" }, { status: 400 });
   }
 
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardReport(session, reportId as string | number);
+  if (gate) return gate;
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -237,11 +251,10 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("POST /api/complementary-data error:", err);
-    const msg = String(err);
-    if (msg.includes("duplicate key")) {
+    if (String(err).includes("duplicate key")) {
       return NextResponse.json({ error: "This contributor is already on the report" }, { status: 409 });
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   } finally {
     client.release();
   }
@@ -255,6 +268,11 @@ export async function PATCH(req: NextRequest) {
 
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "complementary_data", id as string | number);
+  if (gate) return gate;
 
   const hasAmount = "contribution_amount" in body;
   const hasActivities = "linked_activity_ids" in body;
@@ -293,7 +311,7 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("PATCH /api/complementary-data error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   } finally {
     client.release();
   }
@@ -302,11 +320,17 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "complementary_data", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.complementary_data WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/complementary-data error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

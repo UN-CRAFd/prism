@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 
 const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
 const VALID_STATUSES = new Set(["Open", "Closed", "Under Review"]);
@@ -11,6 +12,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardReport(session, id);
+    if (gate) return gate;
+
     const rows = await query(
       `SELECT
          r.id, r.project_id, r.year, r.report_type, r.data_type,
@@ -40,6 +46,11 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardReport(session, id);
+    if (gate) return gate;
+
     const body = await request.json();
 
     const setClauses: string[] = [];
@@ -80,6 +91,9 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   try {
     const { id } = await params;
     // A project always keeps exactly one project document, so prodocs can't be

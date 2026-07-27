@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardProject, guardProjectRow } from "@/lib/authz";
 
 // Links a project to its partner-org contacts (applicants + project contacts).
 // The contact records themselves live in partner_contacts (org-scoped) and are
@@ -14,10 +15,15 @@ import { query } from "@/lib/db";
 //   DELETE ?id=X                             → unlink
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const projectId = req.nextUrl.searchParams.get("project_id");
   const contactId = req.nextUrl.searchParams.get("contact_id");
   try {
     if (projectId) {
+      const gate = await guardProject(session, projectId);
+      if (gate) return gate;
       const rows = await query(
         `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
                 c.name, c.role, c.email
@@ -31,6 +37,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (contactId) {
+      // Enumerating a contact's project links is a cross-project view — admin only.
+      const gate = await requireAdmin();
+      if (gate instanceof NextResponse) return gate;
       const rows = await query(
         `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
                 p.project_title, p.short_name AS project_short_name
@@ -43,7 +52,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(rows);
     }
 
-    // Overview: every link with both project and contact context.
+    // Overview: every link with both project and contact context — admin only.
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
     const rows = await query(
       `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
               p.project_title, p.short_name AS project_short_name,
@@ -56,7 +67,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/project-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -69,6 +80,11 @@ export async function POST(req: NextRequest) {
   const { project_id, contact_id } = body;
   if (!project_id) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
   if (!contact_id) return NextResponse.json({ error: "contact_id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, project_id as string | number);
+  if (gate) return gate;
 
   try {
     const maxRow = await query<{ max: number | null }>(
@@ -109,7 +125,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(created[0], { status: 201 });
   } catch (err) {
     console.error("POST /api/project-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -121,6 +137,11 @@ export async function PATCH(req: NextRequest) {
 
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProjectRow(session, "project_contacts", id as string | number);
+  if (gate) return gate;
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -148,18 +169,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/project-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProjectRow(session, "project_contacts", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.project_contacts WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/project-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 
 // Per-report expenditure matrix (partner-owned).
 //
@@ -35,15 +36,23 @@ const SELECT_ALL = `
    ORDER BY r.year DESC, pt.short_name, p.project_title, cat.sort_order ASC, cat.id ASC`;
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
   if (!reportId) {
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
       console.error("GET /api/expenditure (all) error:", err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
+
+  const gate = await guardReport(session, reportId);
+  if (gate) return gate;
 
   try {
     const meta = await query<{ project_id: number; year: number; indirect_cost_rate: string }>(
@@ -91,7 +100,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/expenditure error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -105,6 +114,11 @@ export async function PATCH(req: NextRequest) {
   if (!reportId || !categoryId) {
     return NextResponse.json({ error: "reportId and categoryId required" }, { status: 400 });
   }
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardReport(session, reportId as string | number);
+  if (gate) return gate;
 
   try {
     const rows = await query(
@@ -121,6 +135,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/expenditure error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

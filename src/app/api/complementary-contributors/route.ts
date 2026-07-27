@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, guardProject, guardProjectRow } from "@/lib/authz";
 
 // Master "complementary contributor" records — the contributing organisation
 // (name, website, funding type), project-scoped. Sibling of transfer-partners.
@@ -18,6 +19,11 @@ export async function POST(req: NextRequest) {
 
   const { project_id } = body;
   if (!project_id) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, project_id as string | number);
+  if (gate) return gate;
 
   try {
     const maxRow = await query<{ max: number | null }>(
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     console.error("POST /api/complementary-contributors error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -54,6 +60,11 @@ export async function PATCH(req: NextRequest) {
 
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProjectRow(session, "complementary_contributors", id as string | number);
+  if (gate) return gate;
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -78,18 +89,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/complementary-contributors error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProjectRow(session, "complementary_contributors", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.complementary_contributors WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/complementary-contributors error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

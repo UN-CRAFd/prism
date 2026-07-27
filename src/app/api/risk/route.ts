@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 
 // risk_category was normalized out of risk_management into the risk_categories
 // junction table (migration 014). Every read assembles it back into a string[]
@@ -39,9 +40,14 @@ async function fetchRisk(id: number) {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
   try {
     if (reportId) {
+      const gate = await guardReport(session, reportId);
+      if (gate) return gate;
       const rows = await query(
         `SELECT rm.*, ${CATEGORY_AGG}
            FROM reporting_platform.risk_management rm
@@ -51,6 +57,8 @@ export async function GET(req: NextRequest) {
       );
       return NextResponse.json(rows);
     }
+    const adminGate = await requireAdmin();
+    if (adminGate instanceof NextResponse) return adminGate;
     const rows = await query(`
       SELECT
         rm.*,
@@ -70,7 +78,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/risk error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -85,6 +93,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reportId and risk_name required" }, { status: 400 });
   }
 
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardReport(session, reportId as string | number);
+  if (gate) return gate;
+
   const categories = normalizeCategories(risk_category);
 
   try {
@@ -98,7 +111,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(await fetchRisk(id), { status: 201 });
   } catch (err) {
     console.error("POST /api/risk error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -110,6 +123,11 @@ export async function PATCH(req: NextRequest) {
 
   const { id, ...fields } = body;
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "risk_management", id as string | number);
+  if (gate) return gate;
 
   const toNum = (v: unknown) => {
     if (v === null || v === undefined || v === "") return null;
@@ -150,18 +168,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(await fetchRisk(Number(id)));
   } catch (err) {
     console.error("PATCH /api/risk error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "risk_management", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.risk_management WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/risk error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

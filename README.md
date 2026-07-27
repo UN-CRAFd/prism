@@ -38,10 +38,26 @@ AZURE_POSTGRES_PASSWORD=the-prism_app-password
 # Admin login password (required for the "admin" account).
 # There is no default — if this is unset, admin login is disabled.
 ADMIN_PASSWORD=choose-a-strong-secret
+
+# Secret used to sign the session cookie (HMAC-SHA256). Strongly recommended.
+# If unset, the app falls back to ADMIN_PASSWORD so it keeps working with no
+# new config — but then rotating ADMIN_PASSWORD invalidates all live sessions.
+# Set a dedicated, high-entropy value (e.g. `openssl rand -hex 32`).
+SESSION_SECRET=a-long-random-string
 ```
 
 > **Note:** Do not use the `NEXT_PUBLIC_` prefix for any secret — variables
 > with that prefix are embedded in the client bundle and readable by anyone.
+
+### Authentication & authorization
+
+Every `/api/*` data route requires an authenticated session (an httpOnly,
+signed `crafd_session` cookie); Edge middleware rejects unauthenticated
+requests before they reach a handler. Beyond that, routes enforce **ownership**:
+a partner may only read or mutate resources belonging to their own
+organization, while the admin account bypasses ownership. Cross-tenant
+operations (portfolio-wide listings, bulk CSV import, the full-portfolio ZIP
+export) are admin-only.
 
 ### Database
 

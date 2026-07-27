@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, guardReport, guardRow } from "@/lib/authz";
 
 // Factory for the repeatable "list of items under a report" sections
 // (key achievements, partnerships, results, lessons learned, external coverage).
@@ -50,9 +51,14 @@ export function makeSectionRoute(config: SectionConfig) {
   const fieldList = fields.join(", ");
 
   async function GET(req: NextRequest) {
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+
     const reportId = req.nextUrl.searchParams.get("reportId");
     try {
       if (reportId) {
+        const gate = await guardReport(session, reportId);
+        if (gate) return gate;
         const rows = await query(
           `SELECT id, report_id, ${fieldList}, sort_order
              FROM ${schemaTable}
@@ -63,7 +69,10 @@ export function makeSectionRoute(config: SectionConfig) {
         return NextResponse.json(rows);
       }
 
-      // Cross-report listing with project/partner context (admin/reporting views).
+      // Cross-report listing with project/partner context — admin reporting views only.
+      if (session.role !== "admin") {
+        return NextResponse.json({ error: "reportId is required" }, { status: 400 });
+      }
       const rows = await query(
         `SELECT
            t.id,
@@ -86,16 +95,22 @@ export function makeSectionRoute(config: SectionConfig) {
       return NextResponse.json(rows);
     } catch (err) {
       console.error(`GET /api section (${table}) error:`, err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
 
   async function POST(req: NextRequest) {
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+
     const body = await parseBody(req);
     if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
     const reportId = body.reportId;
     if (!reportId) return NextResponse.json({ error: "reportId is required" }, { status: 400 });
+
+    const gate = await guardReport(session, reportId as string | number);
+    if (gate) return gate;
 
     try {
       const existing = await query<{ count: string }>(
@@ -124,16 +139,22 @@ export function makeSectionRoute(config: SectionConfig) {
       return NextResponse.json(rows[0], { status: 201 });
     } catch (err) {
       console.error(`POST /api section (${table}) error:`, err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
 
   async function PATCH(req: NextRequest) {
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+
     const body = await parseBody(req);
     if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
     const { id } = body;
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+    const gate = await guardRow(session, table, id as string | number);
+    if (gate) return gate;
 
     try {
       const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
@@ -150,19 +171,25 @@ export function makeSectionRoute(config: SectionConfig) {
       return NextResponse.json(rows[0]);
     } catch (err) {
       console.error(`PATCH /api section (${table}) error:`, err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
 
   async function DELETE(req: NextRequest) {
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+    const gate = await guardRow(session, table, id);
+    if (gate) return gate;
     try {
       await query(`DELETE FROM ${schemaTable} WHERE id = $1`, [id]);
       return NextResponse.json({ ok: true });
     } catch (err) {
       console.error(`DELETE /api section (${table}) error:`, err);
-      return NextResponse.json({ error: String(err) }, { status: 500 });
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
 

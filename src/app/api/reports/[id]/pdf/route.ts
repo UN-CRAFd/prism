@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { jsPDF } from "jspdf";
 import type { Report } from "@/lib/types";
+import { requireSession, guardReport } from "@/lib/authz";
 
 interface SurveyRow {
   question: string;
@@ -79,6 +80,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardReport(session, id);
+    if (gate) return gate;
+
     const data = await fetchReportData(id);
 
     const doc = new jsPDF({

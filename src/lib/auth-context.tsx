@@ -50,6 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem("crafd-user");
+    // Clear the server session cookie too; ignore transport errors on logout.
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   }, []);
 
   return (

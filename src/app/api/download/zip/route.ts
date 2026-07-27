@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { zipSync, strToU8 } from "fflate";
+import { requireAdmin } from "@/lib/authz";
 
 // ── CSV helpers ────────────────────────────────────────────────────────────
 
@@ -242,6 +243,10 @@ const EXPORTS: Record<string, SectionExport> = {
 // ── Route ──────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  // Exports every partner's data across all reports — admin only.
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   const sections = req.nextUrl.searchParams.getAll("sections");
   if (sections.length === 0) {
     return NextResponse.json({ error: "At least one section is required" }, { status: 400 });
@@ -270,6 +275,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/download/zip error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

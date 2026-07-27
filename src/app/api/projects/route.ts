@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
+import { requireSession, requireAdmin } from "@/lib/authz";
 
 // The one project document every project owns is a reports row with
 // data_type='prodoc'. Its year is cosmetic (a prodoc is not tied to a reporting
@@ -12,21 +13,31 @@ function prodocYearFor(startDate: unknown): number {
 }
 
 export async function GET() {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   try {
-    const rows = await query(`
-      SELECT pr.*, p.short_name AS partner_short_name, p.long_name AS partner_long_name
-      FROM reporting_platform.projects pr
-      JOIN reporting_platform.partners p ON p.id = pr.partner_id
-      ORDER BY p.short_name, pr.project_title
-    `);
+    // Partners see only their own organization's projects; admins see all.
+    const scoped = session.role !== "admin";
+    const rows = await query(
+      `SELECT pr.*, p.short_name AS partner_short_name, p.long_name AS partner_long_name
+       FROM reporting_platform.projects pr
+       JOIN reporting_platform.partners p ON p.id = pr.partner_id
+       ${scoped ? "WHERE lower(p.short_name) = lower($1)" : ""}
+       ORDER BY p.short_name, pr.project_title`,
+      scoped ? [session.org] : []
+    );
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/projects error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load projects" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -79,7 +90,7 @@ export async function POST(request: Request) {
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("POST /api/projects error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
   } finally {
     client.release();
   }

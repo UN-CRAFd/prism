@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireAdmin } from "@/lib/authz";
 
 // GET /api/reports/activity?limit=5
 // Reports ordered by their most recent partner edit. A report's own updated_at
@@ -7,6 +8,10 @@ import { query } from "@/lib/db";
 // updated_at across every per-report section table (surveys, indicators, …).
 // Static route — resolves before /api/reports/[id].
 export async function GET(req: NextRequest) {
+  // Cross-tenant listing of every report's last activity — admin only.
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit")) || 5, 1), 50);
 
   try {

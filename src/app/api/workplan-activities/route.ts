@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { quarterFromDate } from "@/lib/workplan";
+import { requireSession, guardProject, guardProjectRow } from "@/lib/authz";
 
 // ── Master workplan structure (project-level, admin-owned) ───────────────────
 //
@@ -42,6 +43,12 @@ async function loadRange(projectId: string | number) {
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, projectId);
+  if (gate) return gate;
+
   try {
     const activities = await query(
       `SELECT * FROM reporting_platform.workplan_activities
@@ -53,7 +60,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ range, activities });
   } catch (err) {
     console.error("GET /api/workplan-activities error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -65,6 +72,11 @@ export async function POST(req: NextRequest) {
 
   const { projectId } = body;
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, projectId as string | number);
+  if (gate) return gate;
 
   try {
     let sortOrder: number;
@@ -99,7 +111,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     console.error("POST /api/workplan-activities error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -112,6 +124,11 @@ export async function PATCH(req: NextRequest) {
   // Update one activity.
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProjectRow(session, "workplan_activities", id as string | number);
+  if (gate) return gate;
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -143,18 +160,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/workplan-activities error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProjectRow(session, "workplan_activities", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.workplan_activities WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/workplan-activities error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

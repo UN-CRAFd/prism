@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PoolClient } from "pg";
 import pool, { query } from "@/lib/db";
+import { requireSession, requireAdmin } from "@/lib/authz";
 
 const MIN_YEAR = 2020;
 const MAX_YEAR = 2050;
@@ -8,12 +9,26 @@ const MAX_YEAR = 2050;
 // GET /api/reports — list all reports with project + partner info
 // Optional query param: ?data_type=report|prodoc
 export async function GET(request: Request) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   try {
     const { searchParams } = new URL(request.url);
     const dataType = searchParams.get("data_type");
 
-    const rows = await query(`
-      SELECT
+    // Partners see only their own organization's reports; admins see all.
+    const scoped = session.role !== "admin";
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    if (dataType) conditions.push(`r.data_type = '${dataType === "prodoc" ? "prodoc" : "report"}'`);
+    if (scoped) {
+      values.push(session.org);
+      conditions.push(`lower(p.short_name) = lower($${values.length})`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const rows = await query(
+      `SELECT
         r.id,
         r.project_id,
         r.year,
@@ -36,9 +51,10 @@ export async function GET(request: Request) {
       FROM reporting_platform.reports r
       JOIN reporting_platform.projects pr ON pr.id = r.project_id
       JOIN reporting_platform.partners p  ON p.id  = pr.partner_id
-      ${dataType ? `WHERE r.data_type = '${dataType === "prodoc" ? "prodoc" : "report"}'` : ""}
-      ORDER BY r.year DESC, p.short_name, pr.project_title
-    `);
+      ${where}
+      ORDER BY r.year DESC, p.short_name, pr.project_title`,
+      values
+    );
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/reports error:", err);
@@ -125,6 +141,10 @@ async function populateExpenditureEntries(client: PoolClient, reportIds: number[
 // Single report: { project_id, year, report_submission_date? }
 // Annual report (all projects): { year, annual: true, report_submission_date? }
 export async function POST(request: Request) {
+  // Creating reports (single or the annual batch) is an admin lifecycle operation.
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();

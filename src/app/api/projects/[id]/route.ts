@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
@@ -13,6 +14,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardProject(session, id);
+    if (gate) return gate;
+
     const rows = await query(
       `SELECT p.*, pr.short_name AS partner_short_name, pr.long_name AS partner_long_name
          FROM reporting_platform.projects p
@@ -26,7 +32,7 @@ export async function GET(
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("GET /api/projects/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load project" }, { status: 500 });
   }
 }
 
@@ -36,6 +42,11 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardProject(session, id);
+    if (gate) return gate;
+
     const body = await request.json();
 
     const setClauses: string[] = [];
@@ -64,7 +75,7 @@ export async function PUT(
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PUT /api/projects/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
   }
 }
 
@@ -72,6 +83,9 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   const { id } = await params;
 
   // The prodoc (data_type='prodoc') is an inseparable part of the project and is
@@ -111,7 +125,7 @@ export async function DELETE(
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("DELETE /api/projects/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
   } finally {
     client.release();
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, guardProject } from "@/lib/authz";
 
 // Project-level narrative texts for the project document. One row per
 // (project_id, narrative_key); the question set/labels live in labels.json.
@@ -11,6 +12,12 @@ import { query } from "@/lib/db";
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("project_id");
   if (!projectId) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, projectId);
+  if (gate) return gate;
+
   try {
     const rows = await query(
       `SELECT id, project_id, narrative_key, answer, comment
@@ -22,7 +29,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/project-narratives error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -36,6 +43,11 @@ export async function PATCH(req: NextRequest) {
   if (!project_id) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
   if (!narrative_key) return NextResponse.json({ error: "narrative_key is required" }, { status: 400 });
 
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, project_id as string | number);
+  if (gate) return gate;
+
   try {
     const rows = await query(
       `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, answer, comment)
@@ -48,6 +60,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/project-narratives error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

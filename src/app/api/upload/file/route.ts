@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { likelihoodFromText, impactFromText } from "@/lib/risk";
+import { requireAdmin } from "@/lib/authz";
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -41,6 +42,10 @@ function toProjectRevision(val: string | undefined): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Bulk import matches reports by name/year across all partners — admin only.
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const section = (form.get("section") as string | null) ?? "surveys";

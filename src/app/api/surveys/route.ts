@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const reportId = req.nextUrl.searchParams.get("reportId");
 
   if (reportId) {
+    const gate = await guardReport(session, reportId);
+    if (gate) return gate;
     const rows = await query(
       `SELECT id, report_id, question, assessment, context
        FROM reporting_platform.surveys
@@ -15,7 +21,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   }
 
-  // No reportId — return all surveys with report/project/partner context
+  // No reportId — cross-report listing (admin only).
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
   const rows = await query(
     `SELECT
        s.id,
@@ -45,6 +53,10 @@ export async function POST(req: NextRequest) {
   if (!reportId || !question?.trim()) {
     return NextResponse.json({ error: "reportId and question are required" }, { status: 400 });
   }
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardReport(session, reportId);
+  if (gate) return gate;
   const rows = await query(
     `INSERT INTO reporting_platform.surveys (report_id, question) VALUES ($1, $2) RETURNING *`,
     [reportId, question.trim()]
@@ -56,6 +68,10 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const { id, assessment, context } = body as { id: number; assessment: number | null; context: string | null };
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "surveys", id);
+  if (gate) return gate;
   const rows = await query(
     `UPDATE reporting_platform.surveys
      SET assessment = $1, context = $2
@@ -70,6 +86,10 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardRow(session, "surveys", id);
+  if (gate) return gate;
   await query(`DELETE FROM reporting_platform.surveys WHERE id = $1`, [id]);
   return NextResponse.json({ ok: true });
 }

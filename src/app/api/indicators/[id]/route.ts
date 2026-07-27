@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, guardProjectRow } from "@/lib/authz";
 
 const ALLOWED_FIELDS = [
   "name",
@@ -16,6 +17,11 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardProjectRow(session, "indicators", id);
+    if (gate) return gate;
+
     const body = await request.json();
 
     const setClauses: string[] = [];
@@ -48,7 +54,7 @@ export async function PUT(
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PUT /api/indicators/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -63,6 +69,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const gate = await guardProjectRow(session, "indicators", id);
+    if (gate) return gate;
+
     const restore = new URL(request.url).searchParams.get("restore") === "1";
 
     if (restore) {
@@ -100,6 +111,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true, deleted: false, archived_at: rows[0].archived_at });
   } catch (err) {
     console.error("DELETE /api/indicators/[id] error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

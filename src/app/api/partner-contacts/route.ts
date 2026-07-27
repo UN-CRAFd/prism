@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardPartner, guardPartnerRow } from "@/lib/authz";
 
 // Partner contacts (people at a partner organization).
 //   GET ?partner_id=X → that partner's contacts (partner view)
@@ -11,9 +12,14 @@ import { query } from "@/lib/db";
 const FIELDS = ["name", "role", "email", "manager_id"] as const;
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const partnerId = req.nextUrl.searchParams.get("partner_id");
   try {
     if (partnerId) {
+      const gate = await guardPartner(session, partnerId);
+      if (gate) return gate;
       const rows = await query(
         `SELECT id, partner_id, manager_id, name, role, email, sort_order
            FROM reporting_platform.partner_contacts
@@ -24,6 +30,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(rows);
     }
 
+    // Cross-partner listing (admin contacts view).
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
     const rows = await query(
       `SELECT c.id, c.partner_id, c.manager_id, c.name, c.role, c.email, c.sort_order,
               p.short_name AS partner_short_name, p.long_name AS partner_long_name
@@ -34,7 +43,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/partner-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -50,6 +59,11 @@ export async function POST(req: NextRequest) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!partnerId) return NextResponse.json({ error: "partner_id is required" }, { status: 400 });
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardPartner(session, partnerId as string | number);
+  if (gate) return gate;
 
   try {
     const existing = await query<{ count: string }>(
@@ -67,7 +81,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     console.error("POST /api/partner-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -81,6 +95,11 @@ export async function PATCH(req: NextRequest) {
 
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardPartnerRow(session, "partner_contacts", id as string | number);
+  if (gate) return gate;
 
   try {
     const setClause = FIELDS.map((f, i) => `${f} = $${i + 1}`).join(", ");
@@ -102,18 +121,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/partner-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardPartnerRow(session, "partner_contacts", id);
+  if (gate) return gate;
+
   try {
     await query(`DELETE FROM reporting_platform.partner_contacts WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/partner-contacts error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

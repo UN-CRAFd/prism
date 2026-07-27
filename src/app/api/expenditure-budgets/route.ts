@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 
 // Approved annual budgets + indirect rate for a project (admin-owned).
 //
@@ -16,6 +17,12 @@ function toAmount(v: unknown): number | null {
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const gate = await guardProject(session, projectId);
+  if (gate) return gate;
+
   try {
     // Uses single source of truth: project_year_range() function in database.
     const proj = await query<{ indirect_cost_rate: string; years: number[] }>(
@@ -40,7 +47,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/expenditure-budgets error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -52,6 +59,11 @@ export async function PATCH(req: NextRequest) {
 
   const { projectId } = body;
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+
+  // Approved budgets + indirect rate are admin-owned (they drive every report's
+  // approved_amount); partners enter actuals via /api/expenditure only.
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
 
   try {
     // Branch 1: set the indirect rate.
@@ -81,6 +93,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     console.error("PATCH /api/expenditure-budgets error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

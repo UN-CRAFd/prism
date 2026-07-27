@@ -1,13 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 
 // GET /api/indicators
 //   ?project_id=X       → standard library + that project's custom indicators (for the report-editor typeahead)
 //   (no project_id)     → standard library only (for the admin indicators page)
 //   &include_archived=1 → also include soft-deleted (archived) rows
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   const projectId = req.nextUrl.searchParams.get("project_id");
   const includeArchived = req.nextUrl.searchParams.get("include_archived") === "1";
+
+  // Scoped to a project → the report-editor typeahead: partner must own it.
+  // No project_id → the admin library view (with cross-partner usage): admin-only.
+  if (projectId) {
+    const gate = await guardProject(session, projectId);
+    if (gate) return gate;
+  } else {
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
+  }
+
   try {
     const where: string[] = [];
     const values: unknown[] = [];
@@ -49,7 +64,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("GET /api/indicators error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 
@@ -69,6 +84,18 @@ export async function POST(req: NextRequest) {
   const projectId = body.project_id ?? null;
   if (!isStandard && !projectId) {
     return NextResponse.json({ error: "project_id is required for custom indicators" }, { status: 400 });
+  }
+
+  // Standard (library) indicators are admin-owned; custom ones must belong to a
+  // project the caller owns.
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  if (isStandard) {
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
+  } else {
+    const gate = await guardProject(session, projectId as string | number);
+    if (gate) return gate;
   }
 
   try {
@@ -91,6 +118,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     console.error("POST /api/indicators error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

@@ -967,8 +967,14 @@ export function ReportEditor({
 
         {/* Disabled fieldset makes the entire section view-only when the report
             is not Open — natively disables every input, select and button inside,
-            including the child editors, while keeping scrolling and text selection. */}
-        <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", params.section === "workplan" && "flex-1 min-h-0 flex flex-col")}>
+            including the child editors, while keeping scrolling and text selection.
+            The fieldset MUST stay at its default (block) display: a `display: flex`
+            (or grid) fieldset hits a Chromium/WebKit bug where `disabled` no longer
+            cascades to descendant form controls, so the workplan's per-row Select
+            dropdowns would stay live on a closed report. The workplan's flex layout
+            therefore lives on the inner wrapper below, not on the fieldset itself. */}
+        <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", params.section === "workplan" && "flex-1 min-h-0")}>
+        <div className={cn("min-w-0", params.section === "workplan" && "flex flex-col h-full min-h-0")}>
         {notFound ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
@@ -1103,6 +1109,7 @@ export function ReportEditor({
             <p className="text-sm">Section not found.</p>
           </div>
         )}
+        </div>
         </fieldset>
       </div>
     </div>

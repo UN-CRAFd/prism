@@ -579,7 +579,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
         )}
 
-        {/* fieldset disables every form control within when the prodoc is closed */}
+        {/* fieldset disables every form control within when the prodoc is closed.
+            Keep it at its default (block) display: a `display: flex`/`grid` fieldset
+            hits a Chromium/WebKit bug where `disabled` stops cascading to descendant
+            form controls, which would leave the General Info dropdowns live on a
+            closed document. If a section here ever needs a fill-height flex layout,
+            put the flex on an inner wrapper, not on this fieldset. */}
         <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
         {!selectedProdocId ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">

@@ -14,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, FilterSelect, ALL,
@@ -71,6 +71,13 @@ interface ProjectExtension {
   previous_duration_months: number;
   new_duration_months: number;
   note: string | null;
+  created_at: string;
+}
+
+interface ProjectRevision {
+  id: number;
+  revision_date: string;
+  comment: string | null;
   created_at: string;
 }
 
@@ -295,6 +302,48 @@ export default function ProjectsPage() {
     finally { setNceSaving(false); }
   }
 
+  // ── Project revision ──────────────────────────────────────────────────────
+  // A logged event only — the project was revised on a date, for a reason.
+  // Nothing derived from the project changes.
+  const [revProject, setRevProject] = useState<Project | null>(null);
+  const [revDate, setRevDate] = useState("");
+  const [revComment, setRevComment] = useState("");
+  const [revHistory, setRevHistory] = useState<ProjectRevision[]>([]);
+  const [revSaving, setRevSaving] = useState(false);
+  const [revError, setRevError] = useState<string | null>(null);
+
+  function openRevision(p: Project) {
+    // Default the date to today in local time (never drifts across time zones).
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setRevProject(p);
+    setRevDate(today);
+    setRevComment("");
+    setRevError(null);
+    setRevHistory([]);
+    fetch(`/api/projects/${p.id}/revisions`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: ProjectRevision[]) => setRevHistory(Array.isArray(rows) ? rows : []))
+      .catch(() => setRevHistory([]));
+  }
+
+  async function submitRevision() {
+    if (!revProject) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(revDate)) { setRevError("Pick a revision date"); return; }
+    setRevSaving(true); setRevError(null);
+    try {
+      const res = await fetch(`/api/projects/${revProject.id}/revisions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision_date: revDate, comment: revComment.trim() || null }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to log revision"); }
+      setRevProject(null);
+      load();
+    } catch (e) { setRevError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setRevSaving(false); }
+  }
+
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
@@ -404,13 +453,23 @@ export default function ProjectsPage() {
         {p.project_start_date && p.project_duration_months != null && (
           <button
             onClick={(e) => { e.stopPropagation(); openNce(p); }}
-            className="h-7 flex shrink-0 items-center gap-1 rounded border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="h-7 flex shrink-0 items-center gap-1 rounded border border-border bg-muted px-2 text-[11px] font-medium text-foreground hover:bg-muted/70 transition-colors"
             title="Grant a no-cost extension — extends the project timeline without changing the budget"
           >
             <CalendarPlus className="size-3" />
             No-cost extension
           </button>
         )}
+
+        {/* Project revision — log a revision event (date + comment); no derived changes */}
+        <button
+          onClick={(e) => { e.stopPropagation(); openRevision(p); }}
+          className="h-7 flex shrink-0 items-center gap-1 rounded border border-border bg-muted px-2 text-[11px] font-medium text-foreground hover:bg-muted/70 transition-colors"
+          title="Log a project revision — records the date and a comment"
+        >
+          <FilePenLine className="size-3" />
+          Project revision
+        </button>
       </div>
 
       <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
@@ -799,6 +858,68 @@ export default function ProjectsPage() {
           </div>
         );
       })()}
+
+      {/* Project revision dialog */}
+      {revProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { if (!revSaving) setRevProject(null); }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+          <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                  <FilePenLine className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground leading-snug">Project revision</p>
+                  <p className="text-sm text-muted-foreground leading-snug truncate">{revProject.project_title}</p>
+                </div>
+              </div>
+
+              {revHistory.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                    Previous revisions
+                  </p>
+                  <ul className="space-y-1">
+                    {revHistory.map((rev) => (
+                      <li key={rev.id} className="flex items-start justify-between gap-2 text-xs">
+                        <span className="min-w-0 text-muted-foreground">{rev.comment || <span className="italic">No comment</span>}</span>
+                        <span className="shrink-0 tabular-nums text-foreground">{formatDate(rev.revision_date)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <label className="text-xs font-medium text-foreground">Revision date</label>
+              <Input
+                value={revDate}
+                onChange={(e) => { setRevDate(e.target.value); setRevError(null); }}
+                type="date"
+                autoFocus
+                className="mt-1.5"
+              />
+
+              <label className="mt-4 block text-xs font-medium text-foreground">Comment <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <Input
+                value={revComment}
+                onChange={(e) => setRevComment(e.target.value)}
+                placeholder="e.g. revised scope and deliverables"
+                className="mt-1.5"
+              />
+
+              {revError && <p className="mt-3 text-xs text-destructive">{revError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2 px-6 pb-5">
+              <Button variant="outline" size="sm" onClick={() => setRevProject(null)} disabled={revSaving}>Cancel</Button>
+              <Button size="sm" onClick={submitRevision} disabled={revSaving || !revDate}>
+                {revSaving ? <Loader2 className="size-4 animate-spin" /> : "Log revision"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

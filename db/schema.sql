@@ -240,6 +240,19 @@ CREATE TABLE IF NOT EXISTS project_extensions (
 );
 CREATE INDEX IF NOT EXISTS project_extensions_project_id_idx ON project_extensions(project_id);
 
+-- ── Project revisions (revision history) ─────────────────────────────────────
+-- A logged project-revision event: the date it was revised plus an optional
+-- comment. Purely an audit record — unlike an extension it changes nothing
+-- derived (no period / budget / workplan impact). Cascade-deleted with the project.
+CREATE TABLE IF NOT EXISTS project_revisions (
+    id            SERIAL       PRIMARY KEY,
+    project_id    INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    revision_date DATE         NOT NULL,
+    comment       TEXT,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS project_revisions_project_id_idx ON project_revisions(project_id);
+
 -- ── Reports ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reports (
     id                     SERIAL         PRIMARY KEY,

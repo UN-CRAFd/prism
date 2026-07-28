@@ -14,12 +14,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2 } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, FilterSelect, ALL,
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
+import { formatDate } from "@/lib/utils";
 
 // Prodoc uses the same status set as reports (it IS a reports row).
 const PRODOC_STATUSES: ReportStatus[] = ["Open", "Under Review", "Closed"];
@@ -87,6 +88,16 @@ const STATUS_ICONS: Record<ProjectStatus, ReactNode> = {
 
 function durationLabel(months: number | null): string | null {
   return months && months > 0 ? `${months} months` : null;
+}
+
+// Derived project end date = start + duration months. Parsed in local time from
+// the YYYY-MM-DD portion so it never drifts a day across time zones. Mirrors the
+// DB's reporting_platform.project_end_date() used by budgets/workplan.
+function projectEndDate(startDate: string, durationMonths: number): Date {
+  const [y, m, d] = startDate.slice(0, 10).split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setMonth(dt.getMonth() + durationMonths);
+  return dt;
 }
 
 function fmtUsd(v: string | null) {
@@ -225,6 +236,41 @@ export default function ProjectsPage() {
     if (!res.ok) setProjects(prev);
   }
 
+  // ── No-cost extension ─────────────────────────────────────────────────────
+  // A no-cost extension only lengthens the project timeline: it adds months to
+  // project_duration_months. Everything derived from the period recomputes on
+  // reload — the budget year columns (project_year_range), the workplan quarter
+  // grid (project_end_date) and the Gantt — because they read the duration
+  // server-side. No budget figures change; the same grant covers more time.
+  const [nceProject, setNceProject] = useState<Project | null>(null);
+  const [nceMonths, setNceMonths] = useState("");
+  const [nceSaving, setNceSaving] = useState(false);
+  const [nceError, setNceError] = useState<string | null>(null);
+
+  function openNce(p: Project) {
+    setNceProject(p);
+    setNceMonths("");
+    setNceError(null);
+  }
+
+  async function submitNce() {
+    if (!nceProject || nceProject.project_duration_months == null) return;
+    const added = parseInt(nceMonths, 10);
+    if (!Number.isFinite(added) || added <= 0) { setNceError("Enter a positive number of months to add"); return; }
+    setNceSaving(true); setNceError(null);
+    try {
+      const res = await fetch(`/api/projects/${nceProject.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_duration_months: nceProject.project_duration_months + added }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to extend project"); }
+      setNceProject(null);
+      load();
+    } catch (e) { setNceError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setNceSaving(false); }
+  }
+
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
@@ -314,8 +360,8 @@ export default function ProjectsPage() {
         <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
       </div>
 
-      {/* Project status — straight below the title */}
-      <div onClick={(e) => e.stopPropagation()}>
+      {/* Project status — straight below the title, with the no-cost extension beside it */}
+      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
         <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
           <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
             <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
@@ -329,6 +375,18 @@ export default function ProjectsPage() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* No-cost extension — only when the project has a defined period to extend */}
+        {p.project_start_date && p.project_duration_months != null && (
+          <button
+            onClick={(e) => { e.stopPropagation(); openNce(p); }}
+            className="h-7 flex shrink-0 items-center gap-1 rounded border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Grant a no-cost extension — extends the project timeline without changing the budget"
+          >
+            <CalendarPlus className="size-3" />
+            No-cost extension
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
@@ -620,6 +678,67 @@ export default function ProjectsPage() {
           </div>
         )}
       </div>
+
+      {/* No-cost extension dialog */}
+      {nceProject && nceProject.project_start_date && nceProject.project_duration_months != null && (() => {
+        const start = nceProject.project_start_date;
+        const currentDuration = nceProject.project_duration_months;
+        const added = parseInt(nceMonths, 10);
+        const validAdd = Number.isFinite(added) && added > 0 ? added : 0;
+        const newDuration = currentDuration + validAdd;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { if (!nceSaving) setNceProject(null); }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+            <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                    <CalendarPlus className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-snug">No-cost extension</p>
+                    <p className="text-sm text-muted-foreground leading-snug truncate">{nceProject.project_title}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground mb-4 space-y-1">
+                  <div className="flex justify-between gap-2"><span>Start</span><span className="tabular-nums text-foreground">{formatDate(start)}</span></div>
+                  <div className="flex justify-between gap-2"><span>Current end</span><span className="tabular-nums text-foreground">{formatDate(projectEndDate(start, currentDuration))} · {currentDuration} mo</span></div>
+                </div>
+
+                <label className="text-xs font-medium text-foreground">Months to add</label>
+                <Input
+                  value={nceMonths}
+                  onChange={(e) => { setNceMonths(e.target.value.replace(/\D/g, "")); setNceError(null); }}
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder="e.g. 6"
+                  autoFocus
+                  className="mt-1.5"
+                />
+
+                {validAdd > 0 && (
+                  <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                    New end date <span className="font-semibold text-foreground tabular-nums">{formatDate(projectEndDate(start, newDuration))}</span> · {newDuration} months total.
+                    <br />Budget and workplan periods update automatically; the grant amount is unchanged.
+                  </p>
+                )}
+
+                {nceError && <p className="mt-3 text-xs text-destructive">{nceError}</p>}
+              </div>
+
+              <div className="flex justify-end gap-2 px-6 pb-5">
+                <Button variant="outline" size="sm" onClick={() => setNceProject(null)} disabled={nceSaving}>Cancel</Button>
+                <Button size="sm" onClick={submitNce} disabled={nceSaving || !validAdd}>
+                  {nceSaving ? <Loader2 className="size-4 animate-spin" /> : "Extend project"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

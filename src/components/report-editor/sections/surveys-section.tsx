@@ -14,6 +14,8 @@ export interface SurveysSectionProps {
   updateRow: (id: number, patch: Partial<RowState>) => void;
 }
 
+// Read-only is handled entirely by the parent's <fieldset disabled> (native
+// textarea) + <ReadOnlyProvider> (Radix ScaleSelect) — no prop needed.
 export function SurveysSection({ surveys, rowStates, updateRow }: SurveysSectionProps) {
   if (surveys.length === 0) {
     return (

@@ -170,7 +170,7 @@ interface ProgressState {
   comment: string;
 }
 
-export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight }: { reportId: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean }) {
+export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight, readOnly = false }: { reportId: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean; readOnly?: boolean }) {
   const [data, setData] = useState<WorkplanMatrix | null>(null);
   const [progress, setProgress] = useState<Record<number, ProgressState>>({});
   const [loading, setLoading] = useState(true);
@@ -382,6 +382,12 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight 
                   {/* One progress line per report year; only the current one edits */}
                   {years.map((yr) => {
                     const isCurrent = yr === currentYear;
+                    // The current year's line is the only editable one — and only
+                    // when the report itself is editable. When read-only it renders
+                    // exactly like a past year's line (badges / plain text), so a
+                    // closed report can never be changed here regardless of whether
+                    // the wrapping fieldset manages to disable the controls.
+                    const editable = isCurrent && !readOnly;
                     const cell = a.byYear[yr];
                     const checks = isCurrent ? (ps?.updated_quarters ?? []) : (cell?.updated_quarters ?? []);
                     const status = (isCurrent ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
@@ -395,12 +401,16 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight 
                           <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
                             <QuarterCell
                               checked={checks.includes(q)}
-                              variant={isCurrent ? "editable" : "baseline"}
-                              onToggle={isCurrent ? () => toggleQuarter(a.id, q) : undefined}
+                              variant={editable ? "editable" : "baseline"}
+                              onToggle={editable ? () => toggleQuarter(a.id, q) : undefined}
                             />
                           </td>
                         ))}
                         <td className="px-2 py-2 align-middle border-l">
+                          {/* Current-year status always renders the dropdown; when
+                              the report is read-only the surrounding <ReadOnlyProvider>
+                              disables it (same mechanism as every other section's
+                              select). Past years stay a plain badge. */}
                           {isCurrent ? (
                             <Select value={status ?? "none"} onValueChange={(v) => updateProgress(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
                               <SelectTrigger className="h-8 px-1 w-[140px]">
@@ -420,7 +430,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight 
                           )}
                         </td>
                         <td className="px-2 py-2 border-l">
-                          {isCurrent ? (
+                          {editable ? (
                             <Textarea
                               value={comment}
                               onChange={(e) => updateProgress(a.id, { comment: e.target.value })}

@@ -312,15 +312,6 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     pushMapEdit(entityId, patch, { cellDirty: true });
   }, [pushMapEdit]);
 
-  // Toggle a workplan activity in a contribution's multi-select set.
-  const toggleActivity = useCallback((entityId: number, activityId: number) => {
-    const cur = states[entityId];
-    if (!cur) return;
-    const has = cur.activityIds.includes(activityId);
-    const activityIds = has ? cur.activityIds.filter((x) => x !== activityId) : [...cur.activityIds, activityId];
-    pushMapEdit(entityId, { activityIds }, { cellDirty: true });
-  }, [states, pushMapEdit]);
-
   // Add a blank entry: create an empty project-scoped organisation and attach it
   // to this report. The partner fills every field inline in the row below.
   const onAdd = useCallback(async () => {
@@ -410,12 +401,74 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     }
   }, [reportId, states, config, confirm, onError, load, pushCommand, cellBody]);
 
-  return { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell, toggleActivity };
+  return { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell };
+}
+
+// Linked-activity picker shared by BOTH matrix modes so transfers and
+// complementary render the identical control. It's a checkbox dropdown over the
+// project's workplan activities: in multi mode each box toggles independently; in
+// single mode picking one replaces the selection (clicking the checked box clears
+// it). Selection is always the generic number[] the row state already stores, so
+// the caller just persists whatever ids come back. Read-only is inherited from
+// the surrounding <ReadOnlyProvider> via DropdownMenuTrigger.
+function LinkedActivityPicker({
+  activities,
+  activityById,
+  selected,
+  multiple,
+  emptyLabel,
+  onChange,
+}: {
+  activities: ContributorActivity[];
+  activityById: Map<number, ContributorActivity>;
+  selected: number[];
+  multiple: boolean;
+  emptyLabel: string;
+  onChange: (ids: number[]) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex flex-col gap-0.5 disabled:cursor-not-allowed disabled:opacity-50">
+          {selected.length === 0
+            ? <span className="text-muted-foreground py-0.5">{emptyLabel}</span>
+            : selected.map((aid) => (
+                <span key={aid} className="line-clamp-1 font-medium">{activityLabel(activityById.get(aid))}</span>
+              ))}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
+        {activities.length === 0 && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan activities yet.</div>
+        )}
+        {activities.map((a) => {
+          const checked = selected.includes(a.id);
+          return (
+            <DropdownMenuCheckboxItem
+              key={a.id}
+              checked={checked}
+              onCheckedChange={() =>
+                onChange(
+                  multiple
+                    ? checked ? selected.filter((x) => x !== a.id) : [...selected, a.id]
+                    : checked ? [] : [a.id]
+                )
+              }
+              onSelect={(e) => e.preventDefault()}
+              className="text-xs"
+            >
+              <span className="line-clamp-2">{activityLabel(a)}</span>
+            </DropdownMenuCheckboxItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function ContributorMatrix(props: ContributorMatrixProps) {
   const { config } = props;
-  const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell, toggleActivity } = useContributorMatrix(props);
+  const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
 
   if (loading) {
     return (
@@ -516,50 +569,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                               <Input type="number" min={0} value={state.amount} onChange={(e) => updateCell(row.entityId, { amount: e.target.value })} placeholder={config.labels.amountPlaceholder} className="text-sm h-8 text-right tabular-nums" />
                             </td>
                             <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                              {config.activityMode === "single" ? (
-                                <Select value={state.activityIds[0] != null ? String(state.activityIds[0]) : "none"} onValueChange={(v) => updateCell(row.entityId, { activityIds: v === "none" ? [] : [Number(v)] })}>
-                                  <SelectTrigger className="w-full h-8 px-2">
-                                    {state.activityIds[0] != null
-                                      ? <span className="truncate text-left text-xs">{activityLabel(activityById.get(state.activityIds[0]))}</span>
-                                      : <span className="text-muted-foreground">{config.labels.selectActivity}</span>}
-                                  </SelectTrigger>
-                                  <SelectContent className="max-w-[440px]">
-                                    <SelectItem value="none"><span className="text-muted-foreground">{config.labels.selectActivity}</span></SelectItem>
-                                    {activities.length === 0 && (
-                                      <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan activities yet.</div>
-                                    )}
-                                    {activities.map((a) => (<SelectItem key={a.id} value={String(a.id)}>{activityLabel(a)}</SelectItem>))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex flex-col gap-0.5">
-                                      {state.activityIds.length === 0
-                                        ? <span className="text-muted-foreground py-0.5">{config.labels.selectActivity}</span>
-                                        : state.activityIds.map((aid) => (
-                                            <span key={aid} className="line-clamp-1 font-medium">{activityLabel(activityById.get(aid))}</span>
-                                          ))}
-                                    </button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
-                                    {activities.length === 0 && (
-                                      <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan activities yet.</div>
-                                    )}
-                                    {activities.map((a) => (
-                                      <DropdownMenuCheckboxItem
-                                        key={a.id}
-                                        checked={state.activityIds.includes(a.id)}
-                                        onCheckedChange={() => toggleActivity(row.entityId, a.id)}
-                                        onSelect={(e) => e.preventDefault()}
-                                        className="text-xs"
-                                      >
-                                        <span className="line-clamp-2">{activityLabel(a)}</span>
-                                      </DropdownMenuCheckboxItem>
-                                    ))}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
+                              <LinkedActivityPicker
+                                activities={activities}
+                                activityById={activityById}
+                                selected={state.activityIds}
+                                multiple={config.activityMode === "multi"}
+                                emptyLabel={config.labels.selectActivity}
+                                onChange={(ids) => updateCell(row.entityId, { activityIds: ids })}
+                              />
                             </td>
                           </Fragment>
                         );
@@ -571,20 +588,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                             {cell?.amount != null ? formatAmount(cell.amount) : <span className="text-muted-foreground/40">—</span>}
                           </td>
                           <td className="px-2 py-2 border-t text-muted-foreground">
-                            {config.activityMode === "single" ? (
-                              cell != null && cell.activityIds.length > 0
-                                ? <p className="line-clamp-2 text-xs">{activityLabel(activityById.get(cell.activityIds[0]))}</p>
-                                : <span className="text-muted-foreground/40">—</span>
+                            {cell && cell.activityIds.length > 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                {cell.activityIds.map((aid) => (
+                                  <span key={aid} className="line-clamp-1 text-xs font-medium">{activityLabel(activityById.get(aid))}</span>
+                                ))}
+                              </div>
                             ) : (
-                              cell && cell.activityIds.length > 0
-                                ? (
-                                  <div className="flex flex-col gap-0.5">
-                                    {cell.activityIds.map((aid) => (
-                                      <span key={aid} className="line-clamp-1 text-xs font-medium">{activityLabel(activityById.get(aid))}</span>
-                                    ))}
-                                  </div>
-                                )
-                                : <span className="text-muted-foreground/40">—</span>
+                              <span className="text-muted-foreground/40">—</span>
                             )}
                           </td>
                         </Fragment>

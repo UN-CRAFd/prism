@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useReadOnly } from "@/components/ui/read-only-context";
 
 function DropdownMenu({
   ...props
@@ -11,12 +12,18 @@ function DropdownMenu({
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
 }
 
+// Inherits read-only from the surrounding <ReadOnlyProvider> (see
+// read-only-context) — the trigger isn't reliably disabled by a wrapping
+// <fieldset disabled>. An explicit `disabled` prop still wins.
 function DropdownMenuTrigger({
+  disabled,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
+  const readOnly = useReadOnly();
   return (
     <DropdownMenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
+      disabled={disabled || readOnly}
       {...props}
     />
   );

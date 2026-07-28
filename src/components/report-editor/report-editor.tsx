@@ -11,6 +11,7 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
+import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -965,14 +966,19 @@ export function ReportEditor({
           </div>
         )}
 
-        {/* Disabled fieldset makes the entire section view-only when the report
-            is not Open — natively disables every input, select and button inside,
-            including the child editors, while keeping scrolling and text selection.
-            The fieldset MUST stay at its default (block) display: a `display: flex`
-            (or grid) fieldset hits a Chromium/WebKit bug where `disabled` no longer
-            cascades to descendant form controls, so the workplan's per-row Select
-            dropdowns would stay live on a closed report. The workplan's flex layout
-            therefore lives on the inner wrapper below, not on the fieldset itself. */}
+        {/* Two complementary read-only mechanisms cover the whole section view:
+            (1) the disabled <fieldset> natively locks every native control inside
+            (input, textarea, button) while keeping scrolling and text selection;
+            (2) <ReadOnlyProvider> locks every Radix Select AND DropdownMenu in the
+            subtree — those portalled triggers are NOT reliably disabled by
+            fieldset[disabled] (a Chromium/WebKit quirk, worse still if the fieldset
+            is display:flex), so without it dropdowns like the workplan status,
+            survey assessment, indicator status or the complementary linked-activities
+            menu would stay live on a closed report. Together they mean no per-control
+            readOnly threading is needed for the standard controls. The fieldset also
+            stays at its default (block) display for the same cascade reason — the
+            workplan's flex layout lives on the inner wrapper. */}
+        <ReadOnlyProvider readOnly={readOnly}>
         <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", params.section === "workplan" && "flex-1 min-h-0")}>
         <div className={cn("min-w-0", params.section === "workplan" && "flex flex-col h-full min-h-0")}>
         {notFound ? (
@@ -1092,6 +1098,7 @@ export function ReportEditor({
               reportId={reportId}
               onSaveStateChange={setChildSaveState}
               fillHeight
+              readOnly={readOnly}
             />
           ) : null
 
@@ -1111,6 +1118,7 @@ export function ReportEditor({
         )}
         </div>
         </fieldset>
+        </ReadOnlyProvider>
       </div>
     </div>
     </CommentsProvider>

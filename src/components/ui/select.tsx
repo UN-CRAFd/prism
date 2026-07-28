@@ -4,11 +4,17 @@ import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useReadOnly } from "@/components/ui/read-only-context";
 
+// Inherits read-only from the surrounding <ReadOnlyProvider> (see
+// read-only-context) since a Radix Select trigger isn't reliably disabled by a
+// wrapping <fieldset disabled>. An explicit `disabled` prop still wins.
 function Select({
+  disabled,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+  const readOnly = useReadOnly();
+  return <SelectPrimitive.Root data-slot="select" disabled={disabled || readOnly} {...props} />;
 }
 
 function SelectGroup({

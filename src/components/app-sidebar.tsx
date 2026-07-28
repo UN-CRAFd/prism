@@ -32,12 +32,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// The guide is a single long page; sub-links scroll to section anchors on it.
 const wikiSections = [
-  { href: "/partner/wiki/introduction", label: "Introduction" },
-  { href: "/partner/wiki/project-document", label: "Project Document" },
-  { href: "/partner/wiki/report-editor", label: "Report Editor" },
-  { href: "/partner/wiki/key-features", label: "Key Features" },
-  { href: "/partner/wiki/faq", label: "FAQ" },
+  { hash: "introduction", label: "Introduction" },
+  { hash: "project-document", label: "Project Document" },
+  { hash: "report-editor", label: "Report Editor" },
+  { hash: "key-features", label: "Key Features" },
+  { hash: "faq", label: "FAQ" },
 ];
 
 const administrationLinks = [
@@ -76,6 +77,9 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  // Tracks the guide anchor currently in the URL so the matching sub-link stays
+  // highlighted (the pathname alone can't distinguish guide sections).
+  const [wikiHash, setWikiHash] = useState("");
   // Partner logo file may be .webp or .png; step through both before falling
   // back to the initial avatar.
   const [logoExt, setLogoExt] = useState<"webp" | "png" | "none">("webp");
@@ -84,6 +88,42 @@ export function AppSidebar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // On the single-page guide, keep the active sub-link in sync with what's
+  // actually on screen. A scroll-spy observer drives the highlight as the user
+  // scrolls; hashchange covers browser back/forward. Elsewhere, just mirror the
+  // URL hash. Runs after the guide's sections have mounted (deps on pathname).
+  useEffect(() => {
+    if (pathname !== "/partner/wiki") {
+      setWikiHash(window.location.hash.slice(1));
+      return;
+    }
+
+    const sync = () => setWikiHash(window.location.hash.slice(1));
+    sync();
+    window.addEventListener("hashchange", sync);
+
+    const els = wikiSections
+      .map((s) => document.getElementById(s.hash))
+      .filter((el): el is HTMLElement => el !== null);
+    // Highlight the section whose top has scrolled just under the sticky header
+    // (128px) — the top-most one still intersecting the upper band of the view.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setWikiHash(visible[0].target.id);
+      },
+      { rootMargin: "-128px 0px -55% 0px" }
+    );
+    els.forEach((el) => observer.observe(el));
+
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      observer.disconnect();
+    };
+  }, [pathname]);
 
   const isPartner = user?.role === "partner";
 
@@ -208,12 +248,27 @@ export function AppSidebar() {
 
                 {showWikiSubs && (
                   <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2 border-l border-border/60">
-                    {wikiSections.map((sub) => {
-                      const subActive = pathname === sub.href;
+                    {wikiSections.map((sub, i) => {
+                      // Default the first item to active when no anchor is set yet.
+                      const subActive =
+                        wikiHash === sub.hash || (wikiHash === "" && i === 0);
                       return (
                         <Link
-                          key={sub.href}
-                          href={sub.href}
+                          key={sub.hash}
+                          href={`/partner/wiki#${sub.hash}`}
+                          onClick={(e) => {
+                            // Already on the guide: scroll smoothly ourselves.
+                            // (App Router hash-only pushes don't fire hashchange,
+                            // so we also update the URL + active state by hand.)
+                            if (pathname === "/partner/wiki") {
+                              e.preventDefault();
+                              setWikiHash(sub.hash);
+                              window.history.replaceState(null, "", `/partner/wiki#${sub.hash}`);
+                              document
+                                .getElementById(sub.hash)
+                                ?.scrollIntoView({ behavior: "smooth" });
+                            }
+                          }}
                           className={cn(
                             "flex items-center rounded-md px-3 py-1.5 text-[12px] transition-colors",
                             subActive

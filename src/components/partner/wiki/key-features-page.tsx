@@ -1,5 +1,5 @@
 import { Sparkles } from "lucide-react";
-import { WikiShell, SectionHeading, Badge } from "./wiki-components";
+import { SectionHeading, Badge } from "./wiki-components";
 
 const keyFeatures = [
   {
@@ -46,7 +46,7 @@ const keyFeatures = [
 
 export function KeyFeaturesPage() {
   return (
-    <WikiShell>
+    <section id="key-features" className="scroll-mt-32 py-12">
       <SectionHeading icon={Sparkles}>Key Features</SectionHeading>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {keyFeatures.map((f) => (
@@ -64,6 +64,6 @@ export function KeyFeaturesPage() {
           </div>
         ))}
       </div>
-    </WikiShell>
+    </section>
   );
 }

@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react";
-import { WikiShell, SectionHeading, InfoBox, Badge, Step } from "./wiki-components";
+import { SectionHeading, InfoBox, Badge, Step } from "./wiki-components";
 
 const prodocSections = [
   {
@@ -36,7 +36,7 @@ const prodocSections = [
 
 export function ProjectDocumentPage() {
   return (
-    <WikiShell>
+    <section id="project-document" className="scroll-mt-32 py-12">
       <SectionHeading icon={FileText}>Project Document</SectionHeading>
 
       <p className="mb-4 text-sm text-muted-foreground leading-relaxed">
@@ -133,6 +133,6 @@ export function ProjectDocumentPage() {
         cannot be edited. Contact your CRAF&apos;d programme officer if you
         believe a field should be editable.
       </InfoBox>
-    </WikiShell>
+    </section>
   );
 }

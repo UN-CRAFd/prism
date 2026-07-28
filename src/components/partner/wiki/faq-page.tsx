@@ -1,5 +1,5 @@
 import { HelpCircle } from "lucide-react";
-import { WikiShell, SectionHeading } from "./wiki-components";
+import { SectionHeading } from "./wiki-components";
 
 const faqs = [
   {
@@ -26,7 +26,7 @@ const faqs = [
 
 export function FaqPage() {
   return (
-    <WikiShell>
+    <section id="faq" className="scroll-mt-32 py-12 last:pb-0">
       <SectionHeading icon={HelpCircle}>FAQ</SectionHeading>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
@@ -50,6 +50,6 @@ export function FaqPage() {
           </tbody>
         </table>
       </div>
-    </WikiShell>
+    </section>
   );
 }

@@ -1,5 +1,6 @@
-import { ProjectDocumentPage } from "@/components/partner/wiki/project-document-page";
+import { redirect } from "next/navigation";
 
+// The guide is now a single long page; legacy per-section routes point at anchors.
 export default function ProjectDocumentRoute() {
-  return <ProjectDocumentPage />;
+  redirect("/partner/wiki#project-document");
 }

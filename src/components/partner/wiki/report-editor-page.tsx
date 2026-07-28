@@ -1,5 +1,5 @@
 import { FileEdit } from "lucide-react";
-import { WikiShell, SectionHeading, InfoBox, Step } from "./wiki-components";
+import { SectionHeading, InfoBox, Step } from "./wiki-components";
 
 const reportSections = [
   {
@@ -76,7 +76,7 @@ const reportSections = [
 
 export function ReportEditorPage() {
   return (
-    <WikiShell>
+    <section id="report-editor" className="scroll-mt-32 py-12">
       <SectionHeading icon={FileEdit}>Report Editor</SectionHeading>
 
       <p className="mb-4 text-sm text-muted-foreground leading-relaxed">
@@ -189,6 +189,6 @@ export function ReportEditorPage() {
           the report for revision.
         </InfoBox>
       </div>
-    </WikiShell>
+    </section>
   );
 }

@@ -1,5 +1,6 @@
-import { KeyFeaturesPage } from "@/components/partner/wiki/key-features-page";
+import { redirect } from "next/navigation";
 
+// The guide is now a single long page; legacy per-section routes point at anchors.
 export default function KeyFeaturesRoute() {
-  return <KeyFeaturesPage />;
+  redirect("/partner/wiki#key-features");
 }

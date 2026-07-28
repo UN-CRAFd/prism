@@ -1,9 +1,9 @@
 import { BookOpen } from "lucide-react";
-import { WikiShell, SectionHeading, InfoBox } from "./wiki-components";
+import { SectionHeading, InfoBox } from "./wiki-components";
 
 export function IntroductionPage() {
   return (
-    <WikiShell>
+    <section id="introduction" className="scroll-mt-32 py-12 first:pt-0">
       <div className="mb-6 border-b border-border pb-6">
         <p className="mb-1 text-sm font-medium text-crafd-yellow">
           Partner Documentation
@@ -65,6 +65,6 @@ export function IntroductionPage() {
         </a>
         .
       </InfoBox>
-    </WikiShell>
+    </section>
   );
 }

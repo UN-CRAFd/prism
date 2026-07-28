@@ -141,14 +141,27 @@ export default function ReportEditorPage() {
 
               <div className="rounded-xl border bg-card overflow-hidden">
                 <div className="divide-y">
-                  {byYear[latestYear].map((report) => (
-                    <div key={report.id} className="px-6 py-4 flex items-center gap-4">
-                      <div className="flex-1 min-w-0 flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{report.project_title}</p>
-                        <StatusPill status={report.status} />
+                  {byYear[latestYear].map((report) => {
+                    const started = completion[report.id] ?? 0;
+                    const pct = Math.min(100, Math.round((started / 7) * 100));
+                    return (
+                      <div key={report.id} className="px-6 py-4 flex items-center gap-4">
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">{report.project_title}</p>
+                          <StatusPill status={report.status} />
+                        </div>
+                        <div className="flex items-center gap-2 w-40 shrink-0">
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-crafd-yellow rounded-full transition-all duration-300"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">{pct}%</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Footer CTA */}

@@ -59,6 +59,19 @@ interface Project {
   project_duration_months: number | null;
   geographic_scope: string | null;
   implementing_partners: string | null;
+  // No-cost extension rollup (from project_extensions) — total months added
+  // across all extensions and how many were granted.
+  extension_months_total: number;
+  extension_count: number;
+}
+
+interface ProjectExtension {
+  id: number;
+  months_added: number;
+  previous_duration_months: number;
+  new_duration_months: number;
+  note: string | null;
+  created_at: string;
 }
 
 // Project STATUS presentation — matches the CHECK constraint in db/schema.sql.
@@ -244,13 +257,22 @@ export default function ProjectsPage() {
   // server-side. No budget figures change; the same grant covers more time.
   const [nceProject, setNceProject] = useState<Project | null>(null);
   const [nceMonths, setNceMonths] = useState("");
+  const [nceNote, setNceNote] = useState("");
+  const [nceHistory, setNceHistory] = useState<ProjectExtension[]>([]);
   const [nceSaving, setNceSaving] = useState(false);
   const [nceError, setNceError] = useState<string | null>(null);
 
   function openNce(p: Project) {
     setNceProject(p);
     setNceMonths("");
+    setNceNote("");
     setNceError(null);
+    // Show the project's prior extensions for context while granting a new one.
+    setNceHistory([]);
+    fetch(`/api/projects/${p.id}/extensions`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: ProjectExtension[]) => setNceHistory(Array.isArray(rows) ? rows : []))
+      .catch(() => setNceHistory([]));
   }
 
   async function submitNce() {
@@ -259,10 +281,12 @@ export default function ProjectsPage() {
     if (!Number.isFinite(added) || added <= 0) { setNceError("Enter a positive number of months to add"); return; }
     setNceSaving(true); setNceError(null);
     try {
-      const res = await fetch(`/api/projects/${nceProject.id}`, {
-        method: "PUT",
+      // Records the extension (project_extensions) and lengthens the period in
+      // one transaction; budget/workplan periods recompute on reload.
+      const res = await fetch(`/api/projects/${nceProject.id}/extensions`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_duration_months: nceProject.project_duration_months + added }),
+        body: JSON.stringify({ months_added: added, note: nceNote.trim() || null }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to extend project"); }
       setNceProject(null);
@@ -400,6 +424,15 @@ export default function ProjectsPage() {
           <span className="inline-flex items-center gap-1.5">
             <Clock className="size-3 shrink-0" />
             {durationLabel(p.project_duration_months)}
+            {p.extension_count > 0 && (
+              <span
+                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700"
+                title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
+              >
+                <CalendarPlus className="size-2.5" />
+                +{p.extension_months_total}mo NCE{p.extension_count > 1 ? ` ×${p.extension_count}` : ""}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -706,6 +739,25 @@ export default function ProjectsPage() {
                   <div className="flex justify-between gap-2"><span>Current end</span><span className="tabular-nums text-foreground">{formatDate(projectEndDate(start, currentDuration))} · {currentDuration} mo</span></div>
                 </div>
 
+                {nceHistory.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Previous extensions
+                    </p>
+                    <ul className="space-y-1">
+                      {nceHistory.map((ext) => (
+                        <li key={ext.id} className="flex items-start justify-between gap-2 text-xs">
+                          <span className="min-w-0">
+                            <span className="font-semibold text-foreground">+{ext.months_added} mo</span>
+                            {ext.note && <span className="text-muted-foreground"> — {ext.note}</span>}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">{formatDate(ext.created_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <label className="text-xs font-medium text-foreground">Months to add</label>
                 <Input
                   value={nceMonths}
@@ -725,6 +777,14 @@ export default function ProjectsPage() {
                     <br />Budget and workplan periods update automatically; the grant amount is unchanged.
                   </p>
                 )}
+
+                <label className="mt-4 block text-xs font-medium text-foreground">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <Input
+                  value={nceNote}
+                  onChange={(e) => setNceNote(e.target.value)}
+                  placeholder="e.g. donor-approved extension"
+                  className="mt-1.5"
+                />
 
                 {nceError && <p className="mt-3 text-xs text-destructive">{nceError}</p>}
               </div>

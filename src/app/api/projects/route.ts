@@ -20,9 +20,16 @@ export async function GET() {
     // Partners see only their own organization's projects; admins see all.
     const scoped = session.role !== "admin";
     const rows = await query(
-      `SELECT pr.*, p.short_name AS partner_short_name, p.long_name AS partner_long_name
+      `SELECT pr.*, p.short_name AS partner_short_name, p.long_name AS partner_long_name,
+              COALESCE(ext.months_total, 0)::int AS extension_months_total,
+              COALESCE(ext.cnt, 0)::int          AS extension_count
        FROM reporting_platform.projects pr
        JOIN reporting_platform.partners p ON p.id = pr.partner_id
+       LEFT JOIN LATERAL (
+         SELECT SUM(months_added) AS months_total, COUNT(*) AS cnt
+           FROM reporting_platform.project_extensions e
+          WHERE e.project_id = pr.id
+       ) ext ON TRUE
        ${scoped ? "WHERE lower(p.short_name) = lower($1)" : ""}
        ORDER BY p.short_name, pr.project_title`,
       scoped ? [session.org] : []

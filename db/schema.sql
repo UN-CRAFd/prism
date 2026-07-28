@@ -224,6 +224,22 @@ CREATE TRIGGER project_contacts_updated_at
     BEFORE UPDATE ON project_contacts
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Project extensions (no-cost extension history) ───────────────────────────
+-- One row per no-cost extension granted on a project: months added plus a
+-- snapshot of the duration before/after (so the log survives later direct edits
+-- to the duration) and an optional reason. projects.project_duration_months
+-- stays the single source of truth for the total period; this is the audit trail.
+CREATE TABLE IF NOT EXISTS project_extensions (
+    id                        SERIAL       PRIMARY KEY,
+    project_id                INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    months_added              INTEGER      NOT NULL CHECK (months_added > 0),
+    previous_duration_months  INTEGER      NOT NULL,
+    new_duration_months       INTEGER      NOT NULL,
+    note                      TEXT,
+    created_at                TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS project_extensions_project_id_idx ON project_extensions(project_id);
+
 -- ── Reports ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reports (
     id                     SERIAL         PRIMARY KEY,

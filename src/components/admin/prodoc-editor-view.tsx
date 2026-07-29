@@ -17,6 +17,7 @@ import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
 import { GeneralInfoAdminEditor } from "@/components/admin/general-info-editor";
+import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { cycleLabel } from "@/lib/indicators";
@@ -90,6 +91,7 @@ interface LibraryIndicator {
 const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean }[] = [
   { value: "general", label: labels.sections.general },
   { value: "narratives", label: labels.sections.narratives },
+  { value: "sdg", label: labels.sections.sdg },
   { value: "risk", label: labels.sections.risk },
   { value: "indicators", label: labels.sections.indicators },
   { value: "workplan", label: labels.sections.workplan },
@@ -497,7 +499,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </div>
 
         <div className="flex items-center gap-3">
-          {selectedProdocId && (selectedSection === "general" || selectedSection === "narratives") && (
+          {selectedProdocId && (selectedSection === "general" || selectedSection === "narratives" || selectedSection === "sdg") && (
             <AutosaveIndicator state={editorSaveState} idleAsSaved />
           )}
 
@@ -853,6 +855,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         ) : selectedSection === "narratives" ? (
           selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} readOnly={readOnly} /> : null
+
+        ) : selectedSection === "sdg" ? (
+          selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} readOnly={readOnly} /> : null
 
         ) : selectedSection === "workplan" ? (
           selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} /> : null

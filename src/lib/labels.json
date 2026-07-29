@@ -33,7 +33,8 @@
     "indicators": "Indicators",
     "transfers": "Transfers",
     "complementary": "Complementary",
-    "narratives": "Narratives"
+    "narratives": "Narratives",
+    "sdg": "SDG Targets"
   },
   "tabInstructions": {
     "general": "Edit the core project data, lifecycle status and description. Link the organization's applicants and the project contacts (focal points and project managers) below. Changes save automatically.",
@@ -50,7 +51,8 @@
     "indicators": "Report progress against each indicator for this reporting period. For each indicator, enter the value achieved this year, select whether it is on track, and add a short comment explaining the result. Baselines and targets were set when the report was prepared and are shown for reference.",
     "transfers": "List the organizations you transferred funds to during this reporting period. For each organization, provide its name, website and type, then enter the amount transferred this year (USD) and link it to the workplan activity it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "complementary": "List the contributors that provided complementary funding to the project during this reporting period. For each contributor, provide its name, website and funding type (in cash or in kind), then enter the total contribution this year (USD) and link it to the workplan activities it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
-    "narratives": "Enter the written narrative texts that make up the project document. Each field captures one narrative section from the proposal. Changes save automatically when you leave a field."
+    "narratives": "Enter the written narrative texts that make up the project document. Each field captures one narrative section from the proposal. Changes save automatically when you leave a field.",
+    "sdg": "Select the Sustainable Development Goals and targets this project focuses on, and assign each a focus percentage. The percentages should add up to 100% across the project. Changes save automatically."
   },
   "generalInfo": {
     "detailsHeading": "Project data",

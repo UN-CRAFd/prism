@@ -750,6 +750,28 @@ CREATE TRIGGER project_narratives_updated_at
     BEFORE UPDATE ON project_narratives
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Project SDG targets ──────────────────────────────────────────────────────
+-- The SDG Target focus of a project: selected SDG targets (sub-indicators of
+-- goals 1–17), each with a focus percentage meant to sum to 100% across the
+-- project (soft rule, enforced in the UI). Project-level, shared by both sides.
+-- The goal/target catalogue lives in code (src/lib/sdg.ts), so target_code is
+-- stored free-form.
+CREATE TABLE IF NOT EXISTS project_sdg_targets (
+    id           SERIAL       PRIMARY KEY,
+    project_id   INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    sdg_goal     SMALLINT     NOT NULL CHECK (sdg_goal BETWEEN 1 AND 17),
+    target_code  TEXT         NOT NULL,
+    percentage   NUMERIC(5,2) NOT NULL DEFAULT 0 CHECK (percentage >= 0 AND percentage <= 100),
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (project_id, target_code)
+);
+CREATE INDEX IF NOT EXISTS project_sdg_targets_project_idx ON project_sdg_targets(project_id);
+DROP TRIGGER IF EXISTS project_sdg_targets_updated_at ON project_sdg_targets;
+CREATE TRIGGER project_sdg_targets_updated_at
+    BEFORE UPDATE ON project_sdg_targets
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data
 -- ─────────────────────────────────────────────────────────────────────────────

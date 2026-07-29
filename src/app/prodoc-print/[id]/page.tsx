@@ -62,7 +62,10 @@ interface ProdocData {
     implementing_agent: string | null; planned_quarters: string[] | null;
   }[];
   budgets: { category_name: string; sort_order: number; year: number; approved_amount: string | null }[];
-  applicants: { name: string; role: string | null }[];
+  signatures: {
+    contacts: { name: string; role: string | null; relationship: string | null; signed_at: string | null }[];
+    secretariat: { signed_at: string | null };
+  };
   sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number }[];
 }
 
@@ -516,13 +519,25 @@ export default function ProdocPrintPage() {
         {/* ── Signatures ── */}
         <Section title="Signatures">
           <div data-block style={{ display: "flex", flexWrap: "wrap", gap: 28, marginTop: 4 }}>
-            {(data.applicants.length > 0
-              ? data.applicants.map((a) => ({ name: a.name, role: a.role || "Applicant" }))
-              : [{ name: (m.partner_long_name as string) || (m.partner_short_name as string) || "Applicant", role: "Applicant" }]
+            {(data.signatures.contacts.length > 0
+              ? data.signatures.contacts.map((c) => ({
+                  name: c.name,
+                  role: c.role || c.relationship || "Project contact",
+                  signedDate: c.signed_at,
+                }))
+              : [{
+                  name: (m.partner_long_name as string) || (m.partner_short_name as string) || "Applicant",
+                  role: "Applicant",
+                  signedDate: null as string | null,
+                }]
             ).map((s, i) => (
-              <SignatureBlock key={`app-${i}`} name={s.name} role={s.role} />
+              <SignatureBlock key={`app-${i}`} name={s.name} role={s.role} signedDate={s.signedDate} />
             ))}
-            <SignatureBlock name="CRAF'd Secretariat" role="Complex Risk Analytics Fund" />
+            <SignatureBlock
+              name="CRAF'd Secretariat"
+              role="Complex Risk Analytics Fund"
+              signedDate={data.signatures.secretariat.signed_at}
+            />
           </div>
         </Section>
 
@@ -564,15 +579,22 @@ function QBox({ on }: { on: boolean }) {
   );
 }
 
-function SignatureBlock({ name, role }: { name: string; role: string }) {
+function SignatureBlock({ name, role, signedDate }: { name: string; role: string; signedDate?: string | null }) {
+  const signed = !!signedDate;
   return (
     <div className="avoid-break" style={{ flex: "1 1 220px", minWidth: 220 }}>
-      {/* Space to sign */}
-      <div style={{ height: 46 }} />
+      {/* Signing space — filled with a script signature once signed. */}
+      <div style={{ height: 46, display: "flex", alignItems: "flex-end", paddingBottom: 3 }}>
+        {signed && (
+          <span style={{ fontFamily: "cursive", fontSize: 22, color: INK, lineHeight: 1 }}>{name}</span>
+        )}
+      </div>
       <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 5 }}>
         <div style={{ fontWeight: 700, fontSize: 12.5 }}>{name}</div>
         <div style={{ fontSize: 11, color: MUTED }}>{role}</div>
-        <div style={{ fontSize: 10.5, color: MUTED, marginTop: 8 }}>Date: ____________________</div>
+        <div style={{ fontSize: 10.5, color: MUTED, marginTop: 8 }}>
+          Date: {signed ? fmtDate(signedDate!) : "____________________"}
+        </div>
       </div>
     </div>
   );

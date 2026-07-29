@@ -45,7 +45,7 @@ export async function GET(
     const meta = metaRows[0];
     const projectId = meta.project_id as number;
 
-    const [narratives, surveys, risks, indicators, activities, budgets, applicants, sdgTargets] = await Promise.all([
+    const [narratives, surveys, risks, indicators, activities, budgets, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
       query(
         `SELECT narrative_key, answer
            FROM reporting_platform.project_narratives
@@ -97,12 +97,25 @@ export async function GET(
           ORDER BY ec.sort_order, eb.year`,
         [projectId]
       ),
+      // Signature slots: every project contact, with its signature date if signed.
       query(
-        `SELECT pc.name, pc.role
+        `SELECT pc.name, pc.role, jc.relationship,
+                TO_CHAR(sig.signed_at, 'YYYY-MM-DD') AS signed_at
            FROM reporting_platform.project_contacts jc
            JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
-          WHERE jc.project_id = $1 AND jc.is_applicant = TRUE
+           LEFT JOIN reporting_platform.prodoc_signatures sig
+             ON sig.project_id = jc.project_id
+            AND sig.party = 'contact'
+            AND sig.contact_id = jc.contact_id
+          WHERE jc.project_id = $1
           ORDER BY jc.sort_order, pc.name`,
+        [projectId]
+      ),
+      query(
+        `SELECT TO_CHAR(signed_at, 'YYYY-MM-DD') AS signed_at
+           FROM reporting_platform.prodoc_signatures
+          WHERE project_id = $1 AND party = 'secretariat'
+          LIMIT 1`,
         [projectId]
       ),
       query(
@@ -114,7 +127,12 @@ export async function GET(
       ),
     ]);
 
-    return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets, applicants, sdgTargets });
+    const signatures = {
+      contacts: signatureContacts as { name: string; role: string | null; relationship: string | null; signed_at: string | null }[],
+      secretariat: { signed_at: (secretariatSig[0] as { signed_at: string } | undefined)?.signed_at ?? null },
+    };
+
+    return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets, signatures, sdgTargets });
   } catch (err) {
     console.error("GET /api/reports/[id]/prodoc-export error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });

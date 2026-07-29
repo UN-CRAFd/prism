@@ -772,6 +772,35 @@ CREATE TRIGGER project_sdg_targets_updated_at
     BEFORE UPDATE ON project_sdg_targets
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Project document signatures ──────────────────────────────────────────────
+-- Sign-off on the project document by two parties: 'contact' (a project contact,
+-- signed by the partner or an admin) and 'secretariat' (the CRAF'd Secretariat,
+-- signed by an admin only — no people table, so no contact_id). Click-to-sign:
+-- signing inserts a row, un-signing deletes it. Renders on the exported prodoc.
+CREATE TABLE IF NOT EXISTS prodoc_signatures (
+    id          SERIAL       PRIMARY KEY,
+    project_id  INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    party       TEXT         NOT NULL CHECK (party IN ('contact', 'secretariat')),
+    contact_id  INTEGER      REFERENCES partner_contacts(id) ON DELETE CASCADE,
+    signed_by   TEXT,
+    signed_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CHECK (
+        (party = 'contact' AND contact_id IS NOT NULL)
+     OR (party = 'secretariat' AND contact_id IS NULL)
+    )
+);
+CREATE UNIQUE INDEX IF NOT EXISTS prodoc_signatures_contact_uidx
+    ON prodoc_signatures(project_id, contact_id) WHERE party = 'contact';
+CREATE UNIQUE INDEX IF NOT EXISTS prodoc_signatures_secretariat_uidx
+    ON prodoc_signatures(project_id) WHERE party = 'secretariat';
+CREATE INDEX IF NOT EXISTS prodoc_signatures_project_idx ON prodoc_signatures(project_id);
+DROP TRIGGER IF EXISTS prodoc_signatures_updated_at ON prodoc_signatures;
+CREATE TRIGGER prodoc_signatures_updated_at
+    BEFORE UPDATE ON prodoc_signatures
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data
 -- ─────────────────────────────────────────────────────────────────────────────

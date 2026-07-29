@@ -34,7 +34,8 @@
     "transfers": "Transfers",
     "complementary": "Complementary",
     "narratives": "Narratives",
-    "sdg": "SDG Targets"
+    "sdg": "SDG Targets",
+    "signatures": "Signatures"
   },
   "tabInstructions": {
     "general": "Edit the core project data, lifecycle status and description. Link the organization's applicants and the project contacts (focal points and project managers) below. Changes save automatically.",
@@ -52,7 +53,18 @@
     "transfers": "List the organizations you transferred funds to during this reporting period. For each organization, provide its name, website and type, then enter the amount transferred this year (USD) and link it to the workplan activity it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "complementary": "List the contributors that provided complementary funding to the project during this reporting period. For each contributor, provide its name, website and funding type (in cash or in kind), then enter the total contribution this year (USD) and link it to the workplan activities it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "narratives": "Enter the written narrative texts that make up the project document. Each field captures one narrative section from the proposal. Changes save automatically when you leave a field.",
-    "sdg": "Select the Sustainable Development Goals and targets this project focuses on, and assign each a focus percentage. The percentages should add up to 100% across the project. Changes save automatically."
+    "sdg": "Select the Sustainable Development Goals and targets this project focuses on, and assign each a focus percentage. The percentages should add up to 100% across the project. Changes save automatically.",
+    "signatures": "Sign off on the project document. Sign for each project contact below; the CRAF'd Secretariat is signed by the administrator. Signatures appear on the exported project document and can be removed if signed in error."
+  },
+  "signatures": {
+    "contactsHeading": "Project contacts",
+    "secretariatHeading": "CRAF'd Secretariat",
+    "secretariatSubtitle": "Complex Risk Analytics Fund",
+    "sign": "Sign",
+    "signedOn": "Signed",
+    "remove": "Remove signature",
+    "emptyContacts": "No project contacts yet. Add contacts in the General Information tab.",
+    "awaitingSecretariat": "Awaiting signature"
   },
   "generalInfo": {
     "detailsHeading": "Project data",

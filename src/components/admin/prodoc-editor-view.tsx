@@ -18,6 +18,7 @@ import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
 import { GeneralInfoAdminEditor } from "@/components/admin/general-info-editor";
 import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
+import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { cycleLabel } from "@/lib/indicators";
@@ -96,6 +97,7 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
   { value: "indicators", label: labels.sections.indicators },
   { value: "workplan", label: labels.sections.workplan },
   { value: "expenditure", label: labels.sections.expenditure },
+  { value: "signatures", label: labels.sections.signatures },
   { value: "surveys", label: labels.sections.surveys, muted: true, adminOnly: true },
 ];
 
@@ -870,6 +872,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         ) : selectedSection === "sdg" ? (
           selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} readOnly={readOnly} /> : null
+
+        ) : selectedSection === "signatures" ? (
+          selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} readOnly={readOnly} /> : null
 
         ) : selectedSection === "workplan" ? (
           selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} /> : null

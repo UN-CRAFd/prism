@@ -66,7 +66,7 @@ interface ProdocData {
     contacts: { name: string; role: string | null; relationship: string | null; signed_at: string | null }[];
     secretariat: { signed_at: string | null };
   };
-  sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number }[];
+  sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number; priority?: string }[];
 }
 
 const NARRATIVE_LABELS: Record<string, string> = Object.fromEntries(
@@ -329,34 +329,47 @@ export default function ProdocPrintPage() {
         {/* ── SDG Targets ── */}
         {data.sdgTargets.length > 0 && (
           <Section title="SDG Targets">
-            <div data-block className="avoid-break" style={{ border: `1px solid ${LINE}`, borderRadius: 8, overflow: "hidden" }}>
-              {data.sdgTargets.map((s) => {
-                const goal = getSdgGoal(Number(s.sdg_goal));
-                const target = getSdgTarget(s.target_code);
-                return (
-                  <div key={s.target_code} data-trow style={{
-                    display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px",
-                    borderBottom: `1px solid ${LINE}`,
-                  }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={sdgIconPath(Number(s.sdg_goal))}
-                      alt={goal ? `SDG ${Number(s.sdg_goal)}: ${goal.title}` : `SDG ${Number(s.sdg_goal)}`}
-                      style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 3 }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12 }}>
-                        {s.target_code}{target ? ` — ${target.target.title}` : ""}
-                      </div>
-                      {goal && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 1 }}>{goal.title}</div>}
-                    </div>
-                    <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 12, color: "#374151" }}>
-                      {num(s.percentage).toLocaleString(undefined, { maximumFractionDigits: 2 })}%
-                    </span>
+            {(["primary", "secondary"] as const).map((group) => {
+              const rows = data.sdgTargets.filter(
+                (s) => (s.priority === "secondary" ? "secondary" : "primary") === group
+              );
+              if (rows.length === 0) return null;
+              return (
+                <div key={group} data-block className="avoid-break" style={{ marginTop: group === "secondary" ? 12 : 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 12.5, color: INK, margin: "0 0 6px" }}>
+                    {group === "primary" ? "Primary goals" : "Secondary goals"}
                   </div>
-                );
-              })}
-            </div>
+                  <div style={{ border: `1px solid ${LINE}`, borderRadius: 8, overflow: "hidden" }}>
+                    {rows.map((s) => {
+                      const goal = getSdgGoal(Number(s.sdg_goal));
+                      const target = getSdgTarget(s.target_code);
+                      return (
+                        <div key={s.target_code} data-trow style={{
+                          display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px",
+                          borderBottom: `1px solid ${LINE}`,
+                        }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={sdgIconPath(Number(s.sdg_goal))}
+                            alt={goal ? `SDG ${Number(s.sdg_goal)}: ${goal.title}` : `SDG ${Number(s.sdg_goal)}`}
+                            style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 3 }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 12 }}>
+                              {s.target_code}{target ? ` — ${target.target.title}` : ""}
+                            </div>
+                            {goal && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 1 }}>{goal.title}</div>}
+                          </div>
+                          <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 12, color: "#374151" }}>
+                            {num(s.percentage).toLocaleString(undefined, { maximumFractionDigits: 2 })}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </Section>
         )}
 

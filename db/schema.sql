@@ -788,6 +788,7 @@ CREATE TABLE IF NOT EXISTS project_sdg_targets (
     sdg_goal     SMALLINT     NOT NULL CHECK (sdg_goal BETWEEN 1 AND 17),
     target_code  TEXT         NOT NULL,
     percentage   NUMERIC(5,2) NOT NULL DEFAULT 0 CHECK (percentage >= 0 AND percentage <= 100),
+    priority     TEXT         NOT NULL DEFAULT 'primary' CHECK (priority IN ('primary', 'secondary')),
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, target_code)

@@ -8,13 +8,14 @@ import { requireSession, guardProject } from "@/lib/authz";
 // in the UI). The goal/target catalogue lives in code (src/lib/sdg.ts).
 //
 //   GET  ?project_id=X   → all selected target rows for the project
-//   PUT  { project_id, targets: [{ sdg_goal, target_code, percentage }] }
+//   PUT  { project_id, targets: [{ sdg_goal, target_code, percentage, priority }] }
 //                        → replace the whole set for the project (transactional)
 
 interface TargetInput {
   sdg_goal: number;
   target_code: string;
   percentage: number;
+  priority: "primary" | "secondary";
 }
 
 export async function GET(req: NextRequest) {
@@ -28,10 +29,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, project_id, sdg_goal, target_code, percentage
+      `SELECT id, project_id, sdg_goal, target_code, percentage, priority
          FROM reporting_platform.project_sdg_targets
         WHERE project_id = $1
-        ORDER BY sdg_goal, target_code`,
+        ORDER BY (priority = 'secondary'), sdg_goal, target_code`,
       [projectId]
     );
     return NextResponse.json(rows);
@@ -73,8 +74,9 @@ export async function PUT(req: NextRequest) {
     if (seen.has(code)) {
       return NextResponse.json({ error: `Duplicate target_code: ${code}` }, { status: 400 });
     }
+    const priority = t.priority === "secondary" ? "secondary" : "primary";
     seen.add(code);
-    targets.push({ sdg_goal: goal, target_code: code, percentage: pct });
+    targets.push({ sdg_goal: goal, target_code: code, percentage: pct, priority });
   }
 
   const session = await requireSession();
@@ -92,9 +94,9 @@ export async function PUT(req: NextRequest) {
     for (const t of targets) {
       await client.query(
         `INSERT INTO reporting_platform.project_sdg_targets
-           (project_id, sdg_goal, target_code, percentage)
-         VALUES ($1, $2, $3, $4)`,
-        [project_id, t.sdg_goal, t.target_code, t.percentage]
+           (project_id, sdg_goal, target_code, percentage, priority)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [project_id, t.sdg_goal, t.target_code, t.percentage, t.priority]
       );
     }
     await client.query("COMMIT");
@@ -107,10 +109,10 @@ export async function PUT(req: NextRequest) {
   }
 
   const rows = await query(
-    `SELECT id, project_id, sdg_goal, target_code, percentage
+    `SELECT id, project_id, sdg_goal, target_code, percentage, priority
        FROM reporting_platform.project_sdg_targets
       WHERE project_id = $1
-      ORDER BY sdg_goal, target_code`,
+      ORDER BY (priority = 'secondary'), sdg_goal, target_code`,
     [project_id]
   );
   return NextResponse.json(rows);

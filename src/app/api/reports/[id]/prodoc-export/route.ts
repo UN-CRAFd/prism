@@ -119,10 +119,10 @@ export async function GET(
         [projectId]
       ),
       query(
-        `SELECT sdg_goal, target_code, percentage
+        `SELECT sdg_goal, target_code, percentage, priority
            FROM reporting_platform.project_sdg_targets
           WHERE project_id = $1
-          ORDER BY target_code`,
+          ORDER BY (priority = 'secondary'), sdg_goal, target_code`,
         [projectId]
       ),
     ]);

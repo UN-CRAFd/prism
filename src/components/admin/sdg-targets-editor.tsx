@@ -19,7 +19,8 @@ import labels from "@/lib/labels.json";
 // autosave via useAutosave, persisting the whole set with a single PUT — the same
 // AutosaveIndicator the report editor uses.
 
-type Selected = { sdg_goal: number; target_code: string; percentage: number };
+type Priority = "primary" | "secondary";
+type Selected = { sdg_goal: number; target_code: string; percentage: number; priority: Priority };
 
 const snapshot = (list: Selected[]) =>
   JSON.stringify([...list].sort((a, b) => a.target_code.localeCompare(b.target_code)));
@@ -49,11 +50,12 @@ export function SdgTargetsEditor({
     setLoading(true); setError(null);
     fetch(`/api/project-sdg-targets?project_id=${projectId}`)
       .then((r) => { if (!r.ok) throw new Error("Failed to load SDG targets"); return r.json(); })
-      .then((rows: { sdg_goal: number; target_code: string; percentage: string | number }[]) => {
+      .then((rows: { sdg_goal: number; target_code: string; percentage: string | number; priority?: string }[]) => {
         const list: Selected[] = rows.map((r) => ({
           sdg_goal: Number(r.sdg_goal),
           target_code: r.target_code,
           percentage: Number(r.percentage),
+          priority: r.priority === "secondary" ? "secondary" : "primary",
         }));
         setSelected(list);
         savedRef.current = snapshot(list);
@@ -86,7 +88,7 @@ export function SdgTargetsEditor({
     if (selected.some((s) => s.target_code === pickTarget)) return;
     const found = getSdgTarget(pickTarget);
     if (!found) return;
-    mutate([...selected, { sdg_goal: found.goal.goal, target_code: pickTarget, percentage: 0 }]);
+    mutate([...selected, { sdg_goal: found.goal.goal, target_code: pickTarget, percentage: 0, priority: "primary" }]);
     setPickTarget("");
   };
 
@@ -94,6 +96,10 @@ export function SdgTargetsEditor({
     const pct = value === "" ? 0 : Math.min(100, Math.max(0, Number(value)));
     if (Number.isNaN(pct)) return;
     mutate(selected.map((s) => (s.target_code === code ? { ...s, percentage: pct } : s)));
+  };
+
+  const setPriority = (code: string, priority: Priority) => {
+    mutate(selected.map((s) => (s.target_code === code ? { ...s, priority } : s)));
   };
 
   const removeTarget = (code: string) => {
@@ -190,45 +196,69 @@ export function SdgTargetsEditor({
         </div>
       ) : (
         <div className="rounded-xl border bg-card divide-y overflow-hidden">
-          {selected.map((s) => {
-            const goal = getSdgGoal(s.sdg_goal);
-            const target = getSdgTarget(s.target_code);
+          {(["primary", "secondary"] as const).map((group) => {
+            const rows = selected.filter((s) => s.priority === group);
+            if (rows.length === 0) return null;
             return (
-              <div key={s.target_code} className="flex items-center gap-3 px-4 py-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={sdgIconPath(s.sdg_goal)}
-                  alt={goal ? `SDG ${s.sdg_goal}: ${goal.title}` : `SDG ${s.sdg_goal}`}
-                  className="size-9 shrink-0 rounded-sm"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {s.target_code}
-                    {target ? ` — ${target.target.title}` : ""}
-                  </p>
-                  {goal && <p className="text-xs text-muted-foreground truncate">{goal.title}</p>}
+              <div key={group} className="divide-y">
+                <div className="px-4 py-2 bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group === "primary" ? "Primary goals" : "Secondary goals"}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="any"
-                    value={s.percentage === 0 ? "" : s.percentage}
-                    onChange={(e) => setPercentage(s.target_code, e.target.value)}
-                    placeholder="0"
-                    className="w-20 h-8 text-sm text-right tabular-nums"
-                  />
-                  <span className="text-sm text-muted-foreground">%</span>
-                </div>
-                {!readOnly && (
-                  <button
-                    onClick={() => removeTarget(s.target_code)}
-                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
+                {rows.map((s) => {
+                  const goal = getSdgGoal(s.sdg_goal);
+                  const target = getSdgTarget(s.target_code);
+                  return (
+                    <div key={s.target_code} className="flex items-center gap-3 px-4 py-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={sdgIconPath(s.sdg_goal)}
+                        alt={goal ? `SDG ${s.sdg_goal}: ${goal.title}` : `SDG ${s.sdg_goal}`}
+                        className="size-9 shrink-0 rounded-sm"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {s.target_code}
+                          {target ? ` — ${target.target.title}` : ""}
+                        </p>
+                        {goal && <p className="text-xs text-muted-foreground truncate">{goal.title}</p>}
+                      </div>
+                      <Select
+                        value={s.priority}
+                        onValueChange={(v) => setPriority(s.target_code, v as Priority)}
+                        disabled={readOnly}
+                      >
+                        <SelectTrigger className="w-[130px] h-8 text-sm shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="primary">Primary</SelectItem>
+                          <SelectItem value="secondary">Secondary</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step="any"
+                          value={s.percentage === 0 ? "" : s.percentage}
+                          onChange={(e) => setPercentage(s.target_code, e.target.value)}
+                          placeholder="0"
+                          className="w-20 h-8 text-sm text-right tabular-nums"
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                      {!readOnly && (
+                        <button
+                          onClick={() => removeTarget(s.target_code)}
+                          className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}

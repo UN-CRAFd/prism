@@ -6,6 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import labels from "@/lib/labels.json";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
+import { getSdgGoal, getSdgTarget } from "@/lib/sdg";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project Document print view. Renders the full prodoc as a styled A4 document
@@ -61,6 +62,7 @@ interface ProdocData {
   }[];
   budgets: { category_name: string; sort_order: number; year: number; approved_amount: string | null }[];
   applicants: { name: string; role: string | null }[];
+  sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number }[];
 }
 
 const NARRATIVE_LABELS: Record<string, string> = Object.fromEntries(
@@ -304,6 +306,41 @@ export default function ProdocPrintPage() {
                 <div style={{ fontSize: 12, color: "#374151", whiteSpace: "pre-wrap" }}>{n.answer}</div>
               </div>
             ))}
+          </Section>
+        )}
+
+        {/* ── SDG Targets ── */}
+        {data.sdgTargets.length > 0 && (
+          <Section title="SDG Targets">
+            <div data-block className="avoid-break" style={{ border: `1px solid ${LINE}`, borderRadius: 8, overflow: "hidden" }}>
+              {data.sdgTargets.map((s) => {
+                const goal = getSdgGoal(Number(s.sdg_goal));
+                const target = getSdgTarget(s.target_code);
+                return (
+                  <div key={s.target_code} data-trow style={{
+                    display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px",
+                    borderBottom: `1px solid ${LINE}`,
+                  }}>
+                    <span style={{
+                      flexShrink: 0, width: 22, height: 22, borderRadius: 4, color: "#ffffff",
+                      background: goal?.color ?? "#888", fontWeight: 700, fontSize: 11,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {Number(s.sdg_goal)}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 12 }}>
+                        {s.target_code}{target ? ` — ${target.target.title}` : ""}
+                      </div>
+                      {goal && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 1 }}>{goal.title}</div>}
+                    </div>
+                    <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 12, color: "#374151" }}>
+                      {num(s.percentage).toLocaleString(undefined, { maximumFractionDigits: 2 })}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </Section>
         )}
 

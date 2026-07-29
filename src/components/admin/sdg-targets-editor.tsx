@@ -161,14 +161,14 @@ export function SdgTargetsEditor({
             <SelectTrigger className="w-[280px] h-9">
               <SelectValue placeholder={pickGoal ? "Select a target" : "Pick an SDG first"} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent align="start" className="w-[560px] max-w-[calc(100vw-2rem)]">
               {availableTargets.length === 0 ? (
                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
                   {pickGoal ? "No targets available" : "Pick an SDG first"}
                 </div>
               ) : (
                 availableTargets.map((t) => (
-                  <SelectItem key={t.code} value={t.code}>
+                  <SelectItem key={t.code} value={t.code} className="items-start whitespace-normal pr-8">
                     {t.code} — {t.title}
                   </SelectItem>
                 ))

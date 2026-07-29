@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
-import { SDG_GOALS, getSdgGoal, getSdgTarget } from "@/lib/sdg";
+import { SDG_GOALS, getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
 import labels from "@/lib/labels.json";
 
 // ── SDG Targets editor ────────────────────────────────────────────────────────
@@ -145,12 +145,13 @@ export function SdgTargetsEditor({
             <SelectContent>
               {SDG_GOALS.map((g) => (
                 <SelectItem key={g.goal} value={String(g.goal)}>
-                  <span
-                    className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
-                    style={{ backgroundColor: g.color }}
-                  >
-                    {g.goal}
-                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sdgIconPath(g.goal)}
+                    alt=""
+                    aria-hidden
+                    className="size-5 shrink-0 rounded-sm"
+                  />
                   {g.goal}. {g.title}
                 </SelectItem>
               ))}
@@ -194,12 +195,12 @@ export function SdgTargetsEditor({
             const target = getSdgTarget(s.target_code);
             return (
               <div key={s.target_code} className="flex items-center gap-3 px-4 py-3">
-                <span
-                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
-                  style={{ backgroundColor: goal?.color ?? "#888" }}
-                >
-                  {s.sdg_goal}
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={sdgIconPath(s.sdg_goal)}
+                  alt={goal ? `SDG ${s.sdg_goal}: ${goal.title}` : `SDG ${s.sdg_goal}`}
+                  className="size-9 shrink-0 rounded-sm"
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {s.target_code}

@@ -240,6 +240,15 @@ const TARGET_BY_CODE = new Map(
   SDG_GOALS.flatMap((g) => g.targets.map((t) => [t.code, { goal: g, target: t }] as const))
 );
 
+/**
+ * Public path to the official UN SDG goal icon (the coloured square with the
+ * goal number + short title). Files live in /public/images/sdg, named
+ * E-WEB-Goal-01.png … E-WEB-Goal-17.png (goal number zero-padded to 2 digits).
+ */
+export function sdgIconPath(goal: number): string {
+  return `/images/sdg/E-WEB-Goal-${String(goal).padStart(2, "0")}.png`;
+}
+
 /** Look up a goal by its number (1–17). */
 export function getSdgGoal(goal: number): SdgGoal | undefined {
   return GOAL_BY_NUMBER.get(goal);

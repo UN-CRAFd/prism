@@ -6,7 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import labels from "@/lib/labels.json";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
-import { getSdgGoal, getSdgTarget } from "@/lib/sdg";
+import { getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
 import { toDisplayHtml } from "@/lib/richtext";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +125,10 @@ export default function ProdocPrintPage() {
         logo = (await load(`/logos/${short}.webp`)) || (await load(`/logos/${short}.png`));
       }
       await load("/images/crafd-symbol-black.svg");
+      // Preload the SDG goal icons used in this document so they're painted
+      // before the print dialog captures the page.
+      const goals = Array.from(new Set(data.sdgTargets.map((s) => Number(s.sdg_goal))));
+      await Promise.all(goals.map((g) => load(sdgIconPath(g))));
       setOrgLogo(logo);
       setAssetsReady(true);
     })();
@@ -334,13 +338,12 @@ export default function ProdocPrintPage() {
                     display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px",
                     borderBottom: `1px solid ${LINE}`,
                   }}>
-                    <span style={{
-                      flexShrink: 0, width: 22, height: 22, borderRadius: 4, color: "#ffffff",
-                      background: goal?.color ?? "#888", fontWeight: 700, fontSize: 11,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {Number(s.sdg_goal)}
-                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={sdgIconPath(Number(s.sdg_goal))}
+                      alt={goal ? `SDG ${Number(s.sdg_goal)}: ${goal.title}` : `SDG ${Number(s.sdg_goal)}`}
+                      style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 3 }}
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 12 }}>
                         {s.target_code}{target ? ` — ${target.target.title}` : ""}

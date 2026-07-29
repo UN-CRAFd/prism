@@ -21,6 +21,7 @@ import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
 import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
 
@@ -595,12 +596,20 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
         )}
 
-        {/* fieldset disables every form control within when the prodoc is closed.
-            Keep it at its default (block) display: a `display: flex`/`grid` fieldset
-            hits a Chromium/WebKit bug where `disabled` stops cascading to descendant
-            form controls, which would leave the General Info dropdowns live on a
-            closed document. If a section here ever needs a fill-height flex layout,
-            put the flex on an inner wrapper, not on this fieldset. */}
+        {/* Two complementary read-only mechanisms lock a view-only prodoc, mirroring
+            the report editor:
+            (1) the disabled <fieldset> natively locks every native control inside
+            (input, textarea, checkbox, button) while keeping scrolling/selection;
+            (2) <ReadOnlyProvider> locks every Radix Select in the subtree — those
+            portalled triggers are NOT reliably disabled by fieldset[disabled] (a
+            Chromium/WebKit quirk), so without it the General Info status/relationship
+            and SDG goal/target dropdowns would stay live on a closed document.
+            Keep the fieldset at its default (block) display: a flex/grid fieldset
+            worsens the cascade bug for native controls too. If a section ever needs a
+            fill-height flex layout, put the flex on an inner wrapper, not the fieldset.
+            The header status dropdown sits outside this subtree so admins can still
+            reopen a closed prodoc. */}
+        <ReadOnlyProvider readOnly={readOnly}>
         <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
         {!selectedProdocId ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
@@ -882,6 +891,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} /> : null
         ) : null}
         </fieldset>
+        </ReadOnlyProvider>
       </div>
     </div>
   );

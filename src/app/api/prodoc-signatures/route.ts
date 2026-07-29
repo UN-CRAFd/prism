@@ -48,11 +48,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "party must be 'contact' or 'secretariat'" }, { status: 400 });
   }
 
-  // Secretariat sign-off is admin-only; contact sign-off requires owning the
-  // project (admins pass either check).
+  // Secretariat sign-off is admin-only; contact sign-off belongs to the partner
+  // that owns the project — admins sign only for the Secretariat, never for a
+  // partner's contacts.
   const session =
     party === "secretariat" ? await requireAdmin() : await requireSession();
   if (session instanceof NextResponse) return session;
+  if (party === "contact" && session.role === "admin") {
+    return NextResponse.json({ error: "Only the partner can sign for their contacts" }, { status: 403 });
+  }
   const gate = await guardProject(session, projectId as string | number);
   if (gate) return gate;
 
@@ -116,10 +120,13 @@ export async function DELETE(req: NextRequest) {
     if (rows.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const { project_id, party } = rows[0];
 
-    // Only an admin may remove a Secretariat signature; contact signatures require
-    // owning the project.
+    // Only an admin may remove a Secretariat signature; only the owning partner
+    // may remove a contact signature (admins sign/unsign the Secretariat only).
     if (party === "secretariat" && session.role !== "admin") {
       return NextResponse.json({ error: "You don't have access to this resource" }, { status: 403 });
+    }
+    if (party === "contact" && session.role === "admin") {
+      return NextResponse.json({ error: "Only the partner can sign for their contacts" }, { status: 403 });
     }
     const gate = await guardProject(session, project_id);
     if (gate) return gate;

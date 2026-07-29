@@ -177,7 +177,10 @@ export function SignaturesEditor({
                     )}
                   </div>
                   {sig ? (
-                    <SignedState sig={sig} label={label} canRemove={!readOnly} />
+                    // Contact sign-off is the partner's; an admin sees it read-only.
+                    <SignedState sig={sig} label={label} canRemove={!isAdmin && !readOnly} />
+                  ) : isAdmin ? (
+                    <span className="shrink-0 text-xs text-muted-foreground italic">{s.awaitingPartner}</span>
                   ) : (
                     <Button
                       size="sm"

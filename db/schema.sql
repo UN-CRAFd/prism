@@ -192,6 +192,9 @@ CREATE TABLE IF NOT EXISTS projects (
     geographic_scope        TEXT,
     implementing_partners   TEXT,
     keyword                 TEXT,
+    universal_markers       TEXT,
+    optional_markers        TEXT,
+    fund_specific_markers   TEXT,
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW()

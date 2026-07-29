@@ -78,6 +78,10 @@
       "startDate": "Start date",
       "durationMonths": "Duration (months)",
       "keyword": "Keyword",
+      "geographicScope": "Geographic scope",
+      "universalMarkers": "Universal Markers",
+      "optionalMarkers": "Optional Markers",
+      "fundSpecificMarkers": "Fund-Specific Markers",
       "indirectCostRate": "Indirect support cost rate (%)",
       "description": "Description"
     },
@@ -86,7 +90,11 @@
       "mptfoNumber": "e.g. 00012345",
       "grantSize": "0.00",
       "durationMonths": "e.g. 24",
-      "keyword": "e.g. anticipatory action",
+      "keyword": "Comma-separated, e.g. Anticipatory Action, Early Warning",
+      "geographicScope": "e.g. Global, Continent, Region",
+      "universalMarkers": "Comma-separated, e.g. Gender, Climate",
+      "optionalMarkers": "Comma-separated markers",
+      "fundSpecificMarkers": "Comma-separated markers",
       "indirectCostRate": "7",
       "description": "Describe the project…"
     },

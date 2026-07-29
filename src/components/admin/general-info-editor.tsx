@@ -26,14 +26,16 @@ const RELATIONSHIP_NONE = "__none__";
 // Editable project columns, kept as strings in local form state.
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
-  "grant_size_usd", "project_start_date", "project_duration_months", "keyword", "description",
+  "grant_size_usd", "project_start_date", "project_duration_months", "keyword", "geographic_scope",
+  "universal_markers", "optional_markers", "fund_specific_markers", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
 
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
-  grant_size_usd: "", project_start_date: "", project_duration_months: "", keyword: "", description: "",
+  grant_size_usd: "", project_start_date: "", project_duration_months: "", keyword: "", geographic_scope: "",
+  universal_markers: "", optional_markers: "", fund_specific_markers: "", description: "",
 };
 
 // A funding tranche in local form state. `_key` is a client-side row id (stable
@@ -70,6 +72,10 @@ function coerce(key: FieldKey, value: string): unknown {
     case "project_start_date":
     case "mptfo_project_number":
     case "keyword":
+    case "geographic_scope":
+    case "universal_markers":
+    case "optional_markers":
+    case "fund_specific_markers":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
   }
@@ -128,6 +134,10 @@ export function GeneralInfoAdminEditor({
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
           keyword: p.keyword ?? "",
+          geographic_scope: p.geographic_scope ?? "",
+          universal_markers: p.universal_markers ?? "",
+          optional_markers: p.optional_markers ?? "",
+          fund_specific_markers: p.fund_specific_markers ?? "",
           description: p.description ?? "",
         };
         setForm(loaded);
@@ -405,6 +415,46 @@ export function GeneralInfoAdminEditor({
               value={form.keyword}
               onChange={(e) => setField("keyword", e.target.value)}
               placeholder={g.placeholders.keyword}
+              className="text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.geographicScope}</label>
+            <Input
+              value={form.geographic_scope}
+              onChange={(e) => setField("geographic_scope", e.target.value)}
+              placeholder={g.placeholders.geographicScope}
+              className="text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.universalMarkers}</label>
+            <Input
+              value={form.universal_markers}
+              onChange={(e) => setField("universal_markers", e.target.value)}
+              placeholder={g.placeholders.universalMarkers}
+              className="text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.optionalMarkers}</label>
+            <Input
+              value={form.optional_markers}
+              onChange={(e) => setField("optional_markers", e.target.value)}
+              placeholder={g.placeholders.optionalMarkers}
+              className="text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.fundSpecificMarkers}</label>
+            <Input
+              value={form.fund_specific_markers}
+              onChange={(e) => setField("fund_specific_markers", e.target.value)}
+              placeholder={g.placeholders.fundSpecificMarkers}
               className="text-sm"
             />
           </div>

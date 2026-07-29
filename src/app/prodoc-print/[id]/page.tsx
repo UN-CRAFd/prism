@@ -586,7 +586,7 @@ function SignatureBlock({ name, role, signedDate }: { name: string; role: string
       {/* Signing space — filled with a script signature once signed. */}
       <div style={{ height: 46, display: "flex", alignItems: "flex-end", paddingBottom: 3 }}>
         {signed && (
-          <span style={{ fontFamily: "cursive", fontSize: 22, color: INK, lineHeight: 1 }}>{name}</span>
+          <span style={{ fontFamily: '"Segoe Script", "Bradley Hand", "Snell Roundhand", "Brush Script MT", cursive', fontSize: 22, color: INK, lineHeight: 1 }}>{name}</span>
         )}
       </div>
       <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 5 }}>

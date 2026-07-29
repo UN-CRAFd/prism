@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
+import { richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels.json";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
@@ -129,21 +131,25 @@ export function NarrativesAdminEditor({
               {/* Narrative answer */}
               <div className="lg:col-span-2 space-y-1.5">
                 <p className="text-xs text-muted-foreground">{labels.narratives.answerLabel}</p>
-                <Textarea
+                <RichTextEditor
                   value={answer}
-                  maxLength={MAX_CHARS}
-                  onChange={(e) => update(q.key, { answer: e.target.value })}
+                  onChange={(html) => update(q.key, { answer: html })}
                   placeholder={labels.narratives.placeholder}
-                  className="min-h-[180px] resize-y text-sm leading-relaxed"
+                  disabled={readOnly}
                 />
-                <div
-                  className={cn(
-                    "text-[11px] text-right tabular-nums",
-                    answer.length >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
-                  )}
-                >
-                  {answer.length.toLocaleString()}/{MAX_CHARS.toLocaleString()} characters
-                </div>
+                {(() => {
+                  const len = richTextLength(answer);
+                  return (
+                    <div
+                      className={cn(
+                        "text-[11px] text-right tabular-nums",
+                        len >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
+                      )}
+                    >
+                      {len.toLocaleString()}/{MAX_CHARS.toLocaleString()} characters
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Comment */}

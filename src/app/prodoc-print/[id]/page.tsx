@@ -7,6 +7,7 @@ import labels from "@/lib/labels.json";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 import { getSdgGoal, getSdgTarget } from "@/lib/sdg";
+import { toDisplayHtml } from "@/lib/richtext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project Document print view. Renders the full prodoc as a styled A4 document
@@ -292,7 +293,12 @@ export default function ProdocPrintPage() {
           </div>
         ) : null}
         {m.description ? (
-          <p data-block style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}>{m.description as string}</p>
+          <div
+            data-block
+            className="rich-html"
+            style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}
+            dangerouslySetInnerHTML={{ __html: toDisplayHtml(m.description as string) }}
+          />
         ) : null}
 
         {/* ── Narratives ── */}
@@ -303,7 +309,11 @@ export default function ProdocPrintPage() {
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>
                   {NARRATIVE_LABELS[n.narrative_key] || n.narrative_key}
                 </div>
-                <div style={{ fontSize: 12, color: "#374151", whiteSpace: "pre-wrap" }}>{n.answer}</div>
+                <div
+                  className="rich-html"
+                  style={{ fontSize: 12, color: "#374151" }}
+                  dangerouslySetInnerHTML={{ __html: toDisplayHtml(n.answer) }}
+                />
               </div>
             ))}
           </Section>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -302,11 +302,11 @@ export function GeneralInfoAdminEditor({
 
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">{g.fields.description}</label>
-          <Textarea
+          <RichTextEditor
             value={form.description}
-            onChange={(e) => setField("description", e.target.value)}
+            onChange={(html) => setField("description", html)}
             placeholder={g.placeholders.description}
-            className="min-h-[120px] resize-y text-sm leading-relaxed"
+            disabled={readOnly}
           />
         </div>
       </div>

@@ -210,3 +210,63 @@ body::-webkit-scrollbar {
     display: none;
   }
 }
+
+/* Rich-text editor / rendered rich content (narratives, project description). */
+.rte-content {
+  min-height: var(--rte-min-height, 180px);
+  overflow-y: auto;
+  max-height: 480px;
+  word-break: break-word;
+}
+.rte-content:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.rte-content p {
+  margin: 0 0 0.5rem;
+}
+.rte-content p:last-child {
+  margin-bottom: 0;
+}
+.rte-content ul,
+.rte-content ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.4rem;
+}
+.rte-content ul {
+  list-style: disc;
+}
+.rte-content ol {
+  list-style: decimal;
+}
+.rte-content a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* Rendered rich content in read views / print — same formatting, no height box. */
+.rich-html > :first-child {
+  margin-top: 0;
+}
+.rich-html > :last-child {
+  margin-bottom: 0;
+}
+.rich-html p {
+  margin: 0 0 0.5em;
+}
+.rich-html ul,
+.rich-html ol {
+  margin: 0 0 0.5em;
+  padding-left: 1.4em;
+}
+.rich-html ul {
+  list-style: disc;
+}
+.rich-html ol {
+  list-style: decimal;
+}
+.rich-html a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}

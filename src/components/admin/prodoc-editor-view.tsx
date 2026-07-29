@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock } from "lucide-react";
+import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
@@ -498,9 +498,21 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
           {selectedProdocId && (selectedSection === "general" || selectedSection === "narratives" || selectedSection === "sdg") && (
             <AutosaveIndicator state={editorSaveState} idleAsSaved />
+          )}
+
+          {selectedProdocId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={() => window.open(`/prodoc-print/${selectedProdocId}?auto=1`, "_blank")}
+            >
+              <Printer className="size-4 mr-1.5" />
+              Print
+            </Button>
           )}
 
           {(!isPartner || docs.length > 1) && (

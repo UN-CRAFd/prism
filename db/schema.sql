@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS projects (
     project_duration_months INTEGER,
     geographic_scope        TEXT,
     implementing_partners   TEXT,
+    keyword                 TEXT,
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -252,6 +253,28 @@ CREATE TABLE IF NOT EXISTS project_revisions (
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS project_revisions_project_id_idx ON project_revisions(project_id);
+
+-- ── Project tranches (grant disbursement schedule) ───────────────────────────
+-- Subdivides the grant (projects.grant_size_usd) into one or more disbursement
+-- tranches, each with an amount, a date and an optional comment. Edited on the
+-- project document's General Information tab by both the admin and partner
+-- sides. The amounts are intended to sum to the grant size (a soft rule
+-- enforced in the UI, not the DB). Cascade-deleted with the project.
+CREATE TABLE IF NOT EXISTS project_tranches (
+    id            SERIAL        PRIMARY KEY,
+    project_id    INTEGER       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    amount        NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+    tranche_date  DATE,
+    comment       TEXT,
+    sort_order    INTEGER       NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS project_tranches_project_idx ON project_tranches(project_id);
+DROP TRIGGER IF EXISTS project_tranches_updated_at ON project_tranches;
+CREATE TRIGGER project_tranches_updated_at
+    BEFORE UPDATE ON project_tranches
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- ── Reports ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reports (

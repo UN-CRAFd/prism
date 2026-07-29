@@ -6,10 +6,12 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
-import { Loader2, Trash2, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Loader2, Plus, Trash2, Users, Coins, FileText } from "lucide-react";
 import labels from "@/lib/labels.json";
 
 // ── General Information editor ─────────────────────────────────────────────────
@@ -24,15 +26,30 @@ const RELATIONSHIP_NONE = "__none__";
 // Editable project columns, kept as strings in local form state.
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
-  "grant_size_usd", "project_start_date", "project_duration_months", "description",
+  "grant_size_usd", "project_start_date", "project_duration_months", "keyword", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
 
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
-  grant_size_usd: "", project_start_date: "", project_duration_months: "", description: "",
+  grant_size_usd: "", project_start_date: "", project_duration_months: "", keyword: "", description: "",
 };
+
+// A funding tranche in local form state. `_key` is a client-side row id (stable
+// React key across edits); everything else mirrors the project_tranches columns
+// as strings. The whole set is saved with one PUT to /api/project-tranches.
+interface TrancheForm {
+  _key: number;
+  amount: string;
+  tranche_date: string;
+  comment: string;
+}
+
+// Order-preserving snapshot of the tranche set (ignores the client-side _key),
+// used to detect changes for autosave — same idea as the SDG targets editor.
+const tranchesSnapshot = (list: TrancheForm[]) =>
+  JSON.stringify(list.map((t) => ({ amount: t.amount.trim(), tranche_date: t.tranche_date, comment: t.comment.trim() })));
 
 interface ProjectContact {
   id: number;
@@ -52,6 +69,7 @@ function coerce(key: FieldKey, value: string): unknown {
     case "project_duration_months": return value.trim() === "" ? null : Number(value);
     case "project_start_date":
     case "mptfo_project_number":
+    case "keyword":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
   }
@@ -77,6 +95,7 @@ export function GeneralInfoAdminEditor({
   const [partnerId, setPartnerId] = useState<number | null>(null);
   const [contacts, setContacts] = useState<ProjectContact[]>([]);
   const [orgContacts, setOrgContacts] = useState<OrgContact[]>([]);
+  const [tranches, setTranches] = useState<TrancheForm[]>([]);
   const [addingContact, setAddingContact] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +103,13 @@ export function GeneralInfoAdminEditor({
   const formRef = useRef<Form>(EMPTY_FORM);
   formRef.current = form;
   const savedRef = useRef<Form>(EMPTY_FORM);
+
+  // Tranches: current set (ref for the autosave flush), the last-saved snapshot,
+  // and a monotonic counter for stable client-side row keys.
+  const tranchesRef = useRef<TrancheForm[]>([]);
+  tranchesRef.current = tranches;
+  const savedTranchesRef = useRef<string>("[]");
+  const trancheKeyRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,20 +127,33 @@ export function GeneralInfoAdminEditor({
           grant_size_usd: p.grant_size_usd != null ? String(p.grant_size_usd) : "",
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
+          keyword: p.keyword ?? "",
           description: p.description ?? "",
         };
         setForm(loaded);
         savedRef.current = { ...loaded };
         setPartnerId(p.partner_id);
 
-        const [linkRes, orgRes] = await Promise.all([
+        const [linkRes, orgRes, tranchesRes] = await Promise.all([
           fetch(`/api/project-contacts?project_id=${projectId}`),
           fetch(`/api/partner-contacts?partner_id=${p.partner_id}`),
+          fetch(`/api/project-tranches?project_id=${projectId}`),
         ]);
-        if (!linkRes.ok || !orgRes.ok) throw new Error("Failed to load contacts");
+        if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok) throw new Error("Failed to load project data");
         if (cancelled) return;
         setContacts(await linkRes.json());
         setOrgContacts(await orgRes.json());
+
+        const trancheRows: { amount: string | number | null; tranche_date: string | null; comment: string | null }[] =
+          await tranchesRes.json();
+        const loadedTranches: TrancheForm[] = trancheRows.map((t) => ({
+          _key: ++trancheKeyRef.current,
+          amount: t.amount != null ? String(t.amount) : "",
+          tranche_date: t.tranche_date ? String(t.tranche_date).slice(0, 10) : "",
+          comment: t.comment ?? "",
+        }));
+        setTranches(loadedTranches);
+        savedTranchesRef.current = tranchesSnapshot(loadedTranches);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -124,21 +163,46 @@ export function GeneralInfoAdminEditor({
     return () => { cancelled = true; };
   }, [projectId]);
 
-  // ── Project field autosave ──────────────────────────────────────────────
+  // ── Project field + tranches autosave ───────────────────────────────────
+  // One debounced flush covers both the project columns and the tranche set, so
+  // a single save indicator reflects everything on this tab. Each half only
+  // writes when its own snapshot changed.
   const flush = useCallback(async () => {
+    // Project columns.
     const snapshot = { ...formRef.current };
     const payload: Record<string, unknown> = {};
     for (const key of FIELD_KEYS) {
       if (snapshot[key] !== savedRef.current[key]) payload[key] = coerce(key, snapshot[key]);
     }
-    if (Object.keys(payload).length === 0) return;
-    const res = await fetch(`/api/projects/${projectId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("Failed to save");
-    for (const key of FIELD_KEYS) savedRef.current[key] = snapshot[key];
+    if (Object.keys(payload).length > 0) {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      for (const key of FIELD_KEYS) savedRef.current[key] = snapshot[key];
+    }
+
+    // Tranches (whole-set replace). Drop rows that are entirely blank.
+    const curTranches = tranchesRef.current;
+    const tSnap = tranchesSnapshot(curTranches);
+    if (tSnap !== savedTranchesRef.current) {
+      const outgoing = curTranches
+        .filter((t) => t.amount.trim() !== "" || t.tranche_date !== "" || t.comment.trim() !== "")
+        .map((t) => ({
+          amount: t.amount.trim() === "" ? 0 : Number(t.amount),
+          tranche_date: t.tranche_date || null,
+          comment: t.comment.trim() || null,
+        }));
+      const res = await fetch("/api/project-tranches", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, tranches: outgoing }),
+      });
+      if (!res.ok) throw new Error("Failed to save tranches");
+      savedTranchesRef.current = tSnap;
+    }
   }, [projectId]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
@@ -148,6 +212,40 @@ export function GeneralInfoAdminEditor({
     setForm((prev) => ({ ...prev, [key]: value }));
     schedule();
   };
+
+  // ── Tranche mutations (debounced via the shared autosave) ────────────────
+  // Adding a tranche splits the grant equally across all tranches: one tranche
+  // gets the full grant, two get half each, and so on. Dates/comments are kept;
+  // only the amounts are (re)distributed. Rounding remainder lands on the last
+  // row so the amounts sum to the grant exactly. With no grant set, amounts are
+  // left blank for manual entry.
+  const addTranche = () => {
+    setTranches((prev) => {
+      const next = [...prev, { _key: ++trancheKeyRef.current, amount: "", tranche_date: "", comment: "" }];
+      const grant = formRef.current.grant_size_usd.trim() === "" ? null : Number(formRef.current.grant_size_usd);
+      if (grant == null || !Number.isFinite(grant)) return next;
+      const per = Math.round((grant / next.length) * 100) / 100;
+      return next.map((t, i) => ({
+        ...t,
+        amount: String(i === next.length - 1 ? Math.round((grant - per * (next.length - 1)) * 100) / 100 : per),
+      }));
+    });
+    schedule();
+  };
+  const setTranche = (key: number, patch: Partial<Omit<TrancheForm, "_key">>) => {
+    setTranches((prev) => prev.map((t) => (t._key === key ? { ...t, ...patch } : t)));
+    schedule();
+  };
+  const removeTranche = (key: number) => {
+    setTranches((prev) => prev.filter((t) => t._key !== key));
+    schedule();
+  };
+
+  const trancheTotal = tranches.reduce((sum, t) => sum + (t.amount.trim() === "" ? 0 : Number(t.amount) || 0), 0);
+  const grantSize = form.grant_size_usd.trim() === "" ? null : Number(form.grant_size_usd);
+  const tranchesMatchGrant = grantSize != null && Math.abs(trancheTotal - grantSize) < 0.005;
+  const fmtUsd = (n: number) =>
+    n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
   async function linkContact(contactId: number) {
@@ -229,7 +327,10 @@ export function GeneralInfoAdminEditor({
 
       {/* Project data */}
       <div className="rounded-xl border bg-card p-6 space-y-5">
-        <h3 className="text-sm font-semibold">{g.detailsHeading}</h3>
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">{g.detailsHeading}</h3>
+        </div>
 
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">{g.fields.projectTitle}</label>
@@ -298,6 +399,16 @@ export function GeneralInfoAdminEditor({
             />
           </div>
 
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.keyword}</label>
+            <Input
+              value={form.keyword}
+              onChange={(e) => setField("keyword", e.target.value)}
+              placeholder={g.placeholders.keyword}
+              className="text-sm"
+            />
+          </div>
+
         </div>
 
         <div className="space-y-1.5">
@@ -309,6 +420,111 @@ export function GeneralInfoAdminEditor({
             disabled={readOnly}
           />
         </div>
+      </div>
+
+      {/* Funding tranches */}
+      <div className="rounded-xl border bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Coins className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">{g.tranches.heading}</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">{g.tranches.description}</p>
+
+        {tranches.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+            {g.tranches.empty}
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{g.tranches.columns.amount}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{g.tranches.columns.date}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{g.tranches.columns.comment}</th>
+                  <th className="w-12 px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {tranches.map((t, i) => (
+                  <tr key={t._key} className="transition-colors hover:bg-muted/20">
+                    <td className="px-4 py-3 align-middle">
+                      <Input
+                        type="number" min="0" step="0.01"
+                        value={t.amount}
+                        onChange={(e) => setTranche(t._key, { amount: e.target.value })}
+                        placeholder={`${g.tranches.columns.amount}`}
+                        className="h-8 text-sm text-right tabular-nums"
+                        aria-label={`${g.tranches.columns.amount} ${i + 1}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <Input
+                        type="date"
+                        value={t.tranche_date}
+                        onChange={(e) => setTranche(t._key, { tranche_date: e.target.value })}
+                        className="h-8 text-sm"
+                        aria-label={`${g.tranches.columns.date} ${i + 1}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <Input
+                        value={t.comment}
+                        onChange={(e) => setTranche(t._key, { comment: e.target.value })}
+                        placeholder={g.tranches.commentPlaceholder}
+                        className="h-8 text-sm"
+                        aria-label={`${g.tranches.columns.comment} ${i + 1}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-right align-middle">
+                      <button
+                        onClick={() => removeTranche(t._key)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Remove tranche"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t bg-muted/30">
+                  <td className="px-4 py-3 align-middle">
+                    <span className="text-sm font-semibold tabular-nums">{fmtUsd(trancheTotal)}</span>
+                  </td>
+                  <td colSpan={3} className="px-4 py-3 align-middle text-right">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        grantSize == null
+                          ? "bg-muted text-muted-foreground"
+                          : tranchesMatchGrant
+                          ? "bg-green-100 text-green-800"
+                          : "bg-amber-100 text-amber-800"
+                      )}
+                    >
+                      {g.tranches.total}: {fmtUsd(trancheTotal)}
+                      {grantSize != null && ` / ${fmtUsd(grantSize)}`}
+                    </span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+        {grantSize != null && tranches.length > 0 && !tranchesMatchGrant && (
+          <p className="text-xs text-amber-600">
+            {g.tranches.mismatch
+              .replace("{grant}", fmtUsd(grantSize))
+              .replace("{total}", fmtUsd(trancheTotal))}
+          </p>
+        )}
+
+        <Button onClick={addTranche} size="sm" variant="outline" className="shrink-0">
+          <Plus className="size-4 mr-1" />{g.tranches.add}
+        </Button>
       </div>
 
       {/* Contacts */}

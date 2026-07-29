@@ -77,6 +77,7 @@
       "grantSize": "Funding amount (USD)",
       "startDate": "Start date",
       "durationMonths": "Duration (months)",
+      "keyword": "Keyword",
       "indirectCostRate": "Indirect support cost rate (%)",
       "description": "Description"
     },
@@ -85,8 +86,25 @@
       "mptfoNumber": "e.g. 00012345",
       "grantSize": "0.00",
       "durationMonths": "e.g. 24",
+      "keyword": "e.g. anticipatory action",
       "indirectCostRate": "7",
       "description": "Describe the project…"
+    },
+    "tranches": {
+      "heading": "Funding tranches",
+      "description": "Subdivide the funding amount into disbursement tranches, each with a date and an optional comment.",
+      "add": "Add tranche",
+      "empty": "No tranches yet. Add one to schedule the grant disbursement.",
+      "columns": {
+        "amount": "Amount (USD)",
+        "date": "Date",
+        "comment": "Comment"
+      },
+      "commentPlaceholder": "e.g. On signature, on first milestone…",
+      "total": "Tranche total",
+      "grantSize": "Funding amount",
+      "matches": "Tranches match the funding amount.",
+      "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}."
     },
     "statusOptions": ["Idea", "Ongoing", "Operationally Closed", "Financially Closed", "Project Closed"],
     "relationshipOptions": ["Focal Point", "Project Manager"],

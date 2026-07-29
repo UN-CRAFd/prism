@@ -35,9 +35,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 // The guide is a single long page; sub-links scroll to section anchors on it.
 const wikiSections = [
   { hash: "introduction", label: "Introduction" },
+  { hash: "getting-started", label: "Getting Started" },
   { hash: "project-document", label: "Project Document" },
   { hash: "report-editor", label: "Report Editor" },
+  { hash: "report-lifecycle", label: "Lifecycle & Statuses" },
+  { hash: "signatures", label: "Signatures & Sign-off" },
+  { hash: "comments", label: "Comments & Feedback" },
+  { hash: "contacts", label: "Contact Information" },
+  { hash: "exporting", label: "Exporting & Printing" },
   { hash: "key-features", label: "Key Features" },
+  { hash: "glossary", label: "Glossary" },
   { hash: "faq", label: "FAQ" },
 ];
 

@@ -13,8 +13,8 @@ Tailwind CSS and a PostgreSQL backend.
 
 ### Prerequisites
 
-- Node.js 18+
-- A PostgreSQL database (schema in [`db/`](db/) and [`migrations/`](migrations/))
+- Node.js 20.9+ (required by Next.js 16)
+- A PostgreSQL database (canonical schema in [`db/schema.sql`](db/schema.sql))
 
 ### Install
 
@@ -70,25 +70,37 @@ The database uses **two roles**, so the running app never holds admin rights:
 
 Provision, as the **owner/admin** account:
 
-1. Apply the SQL files in [`db/`](db/) then [`migrations/`](migrations/) in
-   numerical order to create the `reporting_platform` schema.
+1. Apply [`db/schema.sql`](db/schema.sql) to create the `reporting_platform`
+   schema. This single, idempotent file is the **canonical** source of truth and
+   reproduces the exact current schema on a fresh database:
+
+   ```bash
+   psql "<ADMIN connection string>" -f db/schema.sql
+   ```
+
+   > The old incremental files under [`db/archive/`](db/archive/) (the original
+   > `db/001`–`017` and `migrations/013`–`044`) are kept for history only and are
+   > **not replayable** — the schema drifted past them. Never run them. See
+   > [`db/archive/README.md`](db/archive/README.md).
+
 2. Create and grant the application role. First set the password in
-   [`db/roles.sql`](db/roles.sql) (the `\set app_password '…'` line), then:
+   [`db/roles.sql`](db/roles.sql) (replace the `<REPLACE WITH STRONG PASSWORD>`
+   literal in the `ALTER ROLE prism_app PASSWORD …` line), then:
 
    ```bash
    psql "<ADMIN connection string>" -f db/roles.sql
    ```
 
-   It is idempotent — re-run it after adding migrations to pick up new tables
-   (default privileges also cover future objects automatically). Run it and all
-   migrations under the same owner account.
+   It is idempotent — re-run it after any schema change to pick up new tables
+   (default privileges also cover future objects automatically). Run it and
+   `db/schema.sql` under the same owner account.
 
    > The password lives in the file once filled in, so treat `db/roles.sql` as a
    > secret — do not commit the real value (or rotate it afterwards).
 
 Then set `AZURE_POSTGRES_USER=prism_app` (and its password) for the app. Keep
-the admin credentials out of the app's environment; use them only to run
-migrations.
+the admin credentials out of the app's environment; use them only to apply
+schema changes.
 
 ### Run
 
@@ -105,15 +117,16 @@ npm run lint     # lint
 - `src/components/` — UI and feature components
 - `src/lib/` — data access (`db.ts`), auth, domain logic (risk, indicators,
   expenditure, workplan), and UI labels (`labels.json`)
-- `db/`, `migrations/` — SQL schema and migrations
+- `db/` — canonical `schema.sql` + `roles.sql` (with archived legacy history
+  under `db/archive/`)
 
 ## Data
 
-Real reporting data is **not** included in this repository. The
-`public/data/` directory is git-ignored because it contains partner data
-(personal information, financial figures and internal assessments) that must
-not be published. To run the dashboard locally, supply your own data files in
-`public/data/dashboard/`.
+Real reporting data is **not** included in this repository — it lives entirely
+in the PostgreSQL database, which the app reads and writes at runtime. There are
+no data files to place on disk. The `public/data/` path remains git-ignored as a
+safety net so partner data (personal information, financial figures and internal
+assessments) can never be committed or served as a static asset.
 
 ## License
 

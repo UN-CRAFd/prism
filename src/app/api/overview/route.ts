@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // The project "overview" is no longer its own table — it is assembled read-only
 // from `projects` (title, number, grant, dates, scope, implementing partners,
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     if (rows.length === 0) return NextResponse.json(null);
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("GET /api/overview error:", err);
+    logger.error("GET /api/overview error:", err);
     return NextResponse.json({ error: "Failed to load overview" }, { status: 500 });
   }
 }
@@ -77,7 +78,7 @@ export async function PATCH(req: NextRequest) {
     if (!rows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/overview error:", err);
+    logger.error("PATCH /api/overview error:", err);
     return NextResponse.json({ error: "Failed to update overview" }, { status: 500 });
   }
 }

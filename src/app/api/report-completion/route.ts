@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Report completion, per section.
 //
@@ -163,7 +164,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ sections, sectionsStarted, total: startedKeys.length });
   } catch (err) {
-    console.error("GET /api/report-completion error:", err);
+    logger.error("GET /api/report-completion error:", err);
     return NextResponse.json({ error: "Failed to load completion" }, { status: 500 });
   }
 }

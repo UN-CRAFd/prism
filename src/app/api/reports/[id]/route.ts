@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
 const VALID_STATUSES = new Set(["Open", "Closed", "Under Review"]);
@@ -34,7 +35,7 @@ export async function GET(
     if (rows.length === 0) return NextResponse.json({ error: "Report not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("GET /api/reports/[id] error:", err);
+    logger.error("GET /api/reports/[id] error:", err);
     return NextResponse.json({ error: "Failed to fetch report" }, { status: 500 });
   }
 }
@@ -81,7 +82,7 @@ export async function PUT(
     }
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PUT /api/reports/[id] error:", err);
+    logger.error("PUT /api/reports/[id] error:", err);
     return NextResponse.json({ error: "Failed to update report" }, { status: 500 });
   }
 }
@@ -118,7 +119,7 @@ export async function DELETE(
     }
     return NextResponse.json({ deleted: id });
   } catch (err) {
-    console.error("DELETE /api/reports/[id] error:", err);
+    logger.error("DELETE /api/reports/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete report" }, { status: 500 });
   }
 }

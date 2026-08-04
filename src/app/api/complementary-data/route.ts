@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import type { PoolClient } from "pg";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Per-report complementary funding lines. Sibling of transfer-data, but a single
 // contribution can link to SEVERAL workplan activities. Those links live in the
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
-      console.error("GET /api/complementary-data (all) error:", err);
+      logger.error("GET /api/complementary-data (all) error:", err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -112,7 +113,7 @@ export async function GET(req: NextRequest) {
     try {
       return await getMatrix(reportId);
     } catch (err) {
-      console.error("GET /api/complementary-data (matrix) error:", err);
+      logger.error("GET /api/complementary-data (matrix) error:", err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -126,7 +127,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/complementary-data error:", err);
+    logger.error("GET /api/complementary-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -267,7 +268,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("POST /api/complementary-data error:", err);
+    logger.error("POST /api/complementary-data error:", err);
     if (String(err).includes("duplicate key")) {
       return NextResponse.json({ error: "This contributor is already on the report" }, { status: 409 });
     }
@@ -327,7 +328,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("PATCH /api/complementary-data error:", err);
+    logger.error("PATCH /api/complementary-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   } finally {
     client.release();
@@ -347,7 +348,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.complementary_data WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/complementary-data error:", err);
+    logger.error("DELETE /api/complementary-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

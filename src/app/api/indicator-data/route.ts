@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Per-report indicator lines. Keyed by reportId for consistency with every other
 // section route. Each row joins its master indicator for display fields.
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
-      console.error("GET /api/indicator-data (all) error:", err);
+      logger.error("GET /api/indicator-data (all) error:", err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
     try {
       return await getMatrix(reportId);
     } catch (err) {
-      console.error("GET /api/indicator-data (matrix) error:", err);
+      logger.error("GET /api/indicator-data (matrix) error:", err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/indicator-data error:", err);
+    logger.error("GET /api/indicator-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -243,7 +244,7 @@ export async function POST(req: NextRequest) {
     const rows = await query(`${SELECT_WITH_INDICATOR} WHERE d.id = $1`, [inserted[0].id]);
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/indicator-data error:", err);
+    logger.error("POST /api/indicator-data error:", err);
     if (String(err).includes("duplicate key")) {
       return NextResponse.json({ error: "This indicator is already on the report" }, { status: 409 });
     }
@@ -295,7 +296,7 @@ export async function PATCH(req: NextRequest) {
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/indicator-data error:", err);
+    logger.error("PATCH /api/indicator-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -313,7 +314,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.indicator_data WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/indicator-data error:", err);
+    logger.error("DELETE /api/indicator-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { quarterFromDate } from "@/lib/workplan";
 import { requireSession, guardProject, guardProjectRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // ── Master workplan structure (project-level, admin-owned) ───────────────────
 //
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
     const range = await loadRange(projectId);
     return NextResponse.json({ range, activities });
   } catch (err) {
-    console.error("GET /api/workplan-activities error:", err);
+    logger.error("GET /api/workplan-activities error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/workplan-activities error:", err);
+    logger.error("POST /api/workplan-activities error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -159,7 +160,7 @@ export async function PATCH(req: NextRequest) {
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/workplan-activities error:", err);
+    logger.error("PATCH /api/workplan-activities error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -177,7 +178,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.workplan_activities WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/workplan-activities error:", err);
+    logger.error("DELETE /api/workplan-activities error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { zipSync, strToU8 } from "fflate";
 import { requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // ── CSV helpers ────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("GET /api/download/zip error:", err);
+    logger.error("GET /api/download/zip error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

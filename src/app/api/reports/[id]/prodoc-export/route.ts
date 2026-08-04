@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Consolidated prodoc data for the print/PDF view. Returns every section of a
 // project document in one payload so the print page can render it in one pass.
@@ -134,7 +135,7 @@ export async function GET(
 
     return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets, signatures, sdgTargets });
   } catch (err) {
-    console.error("GET /api/reports/[id]/prodoc-export error:", err);
+    logger.error("GET /api/reports/[id]/prodoc-export error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

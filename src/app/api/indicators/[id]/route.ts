@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProjectRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS = [
   "name",
@@ -53,7 +54,7 @@ export async function PUT(
     }
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PUT /api/indicators/[id] error:", err);
+    logger.error("PUT /api/indicators/[id] error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -110,7 +111,7 @@ export async function DELETE(
     if (rows.length === 0) return NextResponse.json({ error: "Indicator not found" }, { status: 404 });
     return NextResponse.json({ ok: true, deleted: false, archived_at: rows[0].archived_at });
   } catch (err) {
-    console.error("DELETE /api/indicators/[id] error:", err);
+    logger.error("DELETE /api/indicators/[id] error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

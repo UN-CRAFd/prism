@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
+import { logger } from "@/lib/logger";
 
 // Project-level narrative texts for the project document. One row per
 // (project_id, narrative_key); the question set/labels live in labels.json.
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/project-narratives error:", err);
+    logger.error("GET /api/project-narratives error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -60,7 +61,7 @@ export async function PATCH(req: NextRequest) {
     );
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/project-narratives error:", err);
+    logger.error("PATCH /api/project-narratives error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

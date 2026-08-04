@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // The one project document every project owns is a reports row with
 // data_type='prodoc'. Its year is cosmetic (a prodoc is not tied to a reporting
@@ -36,7 +37,7 @@ export async function GET() {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/projects error:", err);
+    logger.error("GET /api/projects error:", err);
     return NextResponse.json({ error: "Failed to load projects" }, { status: 500 });
   }
 }
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
     return NextResponse.json(project, { status: 201 });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("POST /api/projects error:", err);
+    logger.error("POST /api/projects error:", err);
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
   } finally {
     client.release();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Project-level funding tranches for the project document. The grant
 // (projects.grant_size_usd) is subdivided into one or more disbursement
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/project-tranches error:", err);
+    logger.error("GET /api/project-tranches error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -97,7 +98,7 @@ export async function PUT(req: NextRequest) {
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("PUT /api/project-tranches error:", err);
+    logger.error("PUT /api/project-tranches error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   } finally {
     client.release();

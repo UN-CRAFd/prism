@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS: Record<string, string> = {
   short_name: "short_name",
@@ -51,7 +52,7 @@ export async function PUT(
     }
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PUT /api/partners/[id] error:", err);
+    logger.error("PUT /api/partners/[id] error:", err);
     return NextResponse.json({ error: "Failed to update partner" }, { status: 500 });
   }
 }
@@ -83,7 +84,7 @@ export async function DELETE(
     }
     return NextResponse.json({ deleted: true });
   } catch (err) {
-    console.error("DELETE /api/partners/[id] error:", err);
+    logger.error("DELETE /api/partners/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete partner" }, { status: 500 });
   }
 }

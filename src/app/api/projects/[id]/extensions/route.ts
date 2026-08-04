@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // List the no-cost extensions granted on a project, newest first.
 export async function GET(
@@ -24,7 +25,7 @@ export async function GET(
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/projects/[id]/extensions error:", err);
+    logger.error("GET /api/projects/[id]/extensions error:", err);
     return NextResponse.json({ error: "Failed to load extensions" }, { status: 500 });
   }
 }
@@ -91,7 +92,7 @@ export async function POST(
     return NextResponse.json({ project: updated.rows[0], extension: inserted.rows[0] }, { status: 201 });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("POST /api/projects/[id]/extensions error:", err);
+    logger.error("POST /api/projects/[id]/extensions error:", err);
     return NextResponse.json({ error: "Failed to extend project" }, { status: 500 });
   } finally {
     client.release();

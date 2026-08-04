@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { PoolClient } from "pg";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 const MIN_YEAR = 2020;
 const MAX_YEAR = 2050;
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/reports error:", err);
+    logger.error("GET /api/reports error:", err);
     return NextResponse.json({ error: "Failed to load reports" }, { status: 500 });
   }
 }
@@ -236,7 +237,7 @@ export async function POST(request: Request) {
     return NextResponse.json(inserted.rows[0], { status: 201 });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("POST /api/reports error:", err);
+    logger.error("POST /api/reports error:", err);
     return NextResponse.json({ error: "Failed to create report" }, { status: 500 });
   } finally {
     client.release();

@@ -8,14 +8,14 @@
 -- keep running under the owner/admin account; the app never does.
 --
 -- Set the password in step 2 below, then run ONCE as the schema owner / admin
--- (the SAME account that applies db/ and migrations/), AFTER the schema and
+-- (the SAME account that applies db/schema.sql), AFTER the schema and
 -- tables exist:
 --
 --   psql "<ADMIN connection string>" -f db/roles.sql
 --
 -- Then point the app's AZURE_POSTGRES_USER / AZURE_POSTGRES_PASSWORD at
--- prism_app (see README). Safe to re-run after new migrations: it is idempotent
--- and back-fills privileges on existing objects.
+-- prism_app (see README). Safe to re-run after any schema change: it is
+-- idempotent and back-fills privileges on existing objects.
 --
 -- SECURITY: once you fill this in, the file holds a real credential. Do NOT
 -- commit the filled value — set it at deploy time and treat this file as a
@@ -52,9 +52,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA reporting_platfo
 GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA reporting_platform TO prism_app;
 GRANT EXECUTE                        ON ALL FUNCTIONS IN SCHEMA reporting_platform TO prism_app;
 
--- 5. Grant the same automatically on objects created by FUTURE migrations.
+-- 5. Grant the same automatically on objects created by FUTURE schema changes.
 --    Default privileges attach to the role that runs this script, so run this
---    file and all migrations as the same owner/admin account.
+--    file and db/schema.sql as the same owner/admin account.
 ALTER DEFAULT PRIVILEGES IN SCHEMA reporting_platform
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO prism_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA reporting_platform

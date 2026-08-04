@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Approved annual budgets + indirect rate for a project (admin-owned).
 //
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
       budgets: budgets.map((b) => ({ ...b, approved_amount: toAmount(b.approved_amount) })),
     });
   } catch (err) {
-    console.error("GET /api/expenditure-budgets error:", err);
+    logger.error("GET /api/expenditure-budgets error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -92,7 +93,7 @@ export async function PATCH(req: NextRequest) {
     );
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/expenditure-budgets error:", err);
+    logger.error("PATCH /api/expenditure-budgets error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

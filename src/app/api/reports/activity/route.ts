@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // GET /api/reports/activity?limit=5
 // Reports ordered by their most recent partner edit. A report's own updated_at
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/reports/activity error:", err);
+    logger.error("GET /api/reports/activity error:", err);
     return NextResponse.json({ error: "Failed to load recent activity" }, { status: 500 });
   }
 }

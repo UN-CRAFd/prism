@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // GET /api/indicators
 //   ?project_id=X       → standard library + that project's custom indicators (for the report-editor typeahead)
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/indicators error:", err);
+    logger.error("GET /api/indicators error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/indicators error:", err);
+    logger.error("POST /api/indicators error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

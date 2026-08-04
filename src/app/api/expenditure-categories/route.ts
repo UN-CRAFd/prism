@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Standard budget-category master list (global, seeded).
 export async function GET() {
@@ -14,7 +15,7 @@ export async function GET() {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/expenditure-categories error:", err);
+    logger.error("GET /api/expenditure-categories error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

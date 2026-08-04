@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // risk_category was normalized out of risk_management into the risk_categories
 // junction table (migration 014). Every read assembles it back into a string[]
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
     `);
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/risk error:", err);
+    logger.error("GET /api/risk error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
     await syncCategories(id, categories);
     return NextResponse.json(await fetchRisk(id), { status: 201 });
   } catch (err) {
-    console.error("POST /api/risk error:", err);
+    logger.error("POST /api/risk error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -167,7 +168,7 @@ export async function PATCH(req: NextRequest) {
     }
     return NextResponse.json(await fetchRisk(Number(id)));
   } catch (err) {
-    console.error("PATCH /api/risk error:", err);
+    logger.error("PATCH /api/risk error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -185,7 +186,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.risk_management WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/risk error:", err);
+    logger.error("DELETE /api/risk error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

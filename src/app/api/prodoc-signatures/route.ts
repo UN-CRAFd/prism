@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Project-document sign-off. Two parties sign a prodoc:
 //   * 'contact'     — a project contact (linked via project_contacts). Signed by
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/prodoc-signatures error:", err);
+    logger.error("GET /api/prodoc-signatures error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(existing[0] ?? null);
   } catch (err) {
-    console.error("POST /api/prodoc-signatures error:", err);
+    logger.error("POST /api/prodoc-signatures error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -134,7 +135,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.prodoc_signatures WHERE id = $1`, [id]);
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("DELETE /api/prodoc-signatures error:", err);
+    logger.error("DELETE /api/prodoc-signatures error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

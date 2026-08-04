@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject, guardProjectRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Links a project to its partner-org contacts (applicants + project contacts).
 // The contact records themselves live in partner_contacts (org-scoped) and are
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/project-contacts error:", err);
+    logger.error("GET /api/project-contacts error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(created[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/project-contacts error:", err);
+    logger.error("POST /api/project-contacts error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -185,7 +186,7 @@ export async function PATCH(req: NextRequest) {
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/project-contacts error:", err);
+    logger.error("PATCH /api/project-contacts error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -203,7 +204,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.project_contacts WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/project-contacts error:", err);
+    logger.error("DELETE /api/project-contacts error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Testimonials section (qualitative). Two kinds, each with its own per-report cap:
 //   • leadership — exactly one quote from the organisation's leadership (max 1)
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/testimonials error:", err);
+    logger.error("GET /api/testimonials error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/testimonials error:", err);
+    logger.error("POST /api/testimonials error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -140,7 +141,7 @@ export async function PATCH(req: NextRequest) {
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/testimonials error:", err);
+    logger.error("PATCH /api/testimonials error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -158,7 +159,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.testimonials WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/testimonials error:", err);
+    logger.error("DELETE /api/testimonials error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { jsPDF } from "jspdf";
 import type { Report } from "@/lib/types";
 import { requireSession, guardReport } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 interface SurveyRow {
   question: string;
@@ -273,7 +274,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error("PDF generation error:", err);
+    logger.error("PDF generation error:", err);
     return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 });
   }
 }

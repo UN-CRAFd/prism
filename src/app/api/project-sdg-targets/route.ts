@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Project-level SDG Target focus for the project document. The set of selected
 // SDG targets (sub-indicators of goals 1–17) with a focus percentage each; the
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/project-sdg-targets error:", err);
+    logger.error("GET /api/project-sdg-targets error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -102,7 +103,7 @@ export async function PUT(req: NextRequest) {
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("PUT /api/project-sdg-targets error:", err);
+    logger.error("PUT /api/project-sdg-targets error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   } finally {
     client.release();

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { requireSession, requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   const session = await requireSession();
@@ -26,7 +27,7 @@ export async function GET() {
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/partners error:", err);
+    logger.error("GET /api/partners error:", err);
     return NextResponse.json({ error: "Failed to load partners" }, { status: 500 });
   }
 }
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/partners error:", err);
+    logger.error("POST /api/partners error:", err);
     const msg = String(err);
     if (msg.includes("duplicate key")) {
       return NextResponse.json({ error: "A partner with this email already exists" }, { status: 409 });

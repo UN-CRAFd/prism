@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
+import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
@@ -43,7 +44,7 @@ export async function GET(
     }
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("GET /api/projects/[id] error:", err);
+    logger.error("GET /api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to load project" }, { status: 500 });
   }
 }
@@ -89,7 +90,7 @@ export async function PUT(
     }
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PUT /api/projects/[id] error:", err);
+    logger.error("PUT /api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
   }
 }
@@ -139,7 +140,7 @@ export async function DELETE(
     return NextResponse.json({ deleted: true });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("DELETE /api/projects/[id] error:", err);
+    logger.error("DELETE /api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
   } finally {
     client.release();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Admin comments on report items (polymorphic — see migrations/032).
 //   GET ?reportId=<id>                → all comments for a report (editor)
@@ -162,7 +163,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: "reportId or partnerShortName is required" }, { status: 400 });
   } catch (err) {
-    console.error("GET /api/comments error:", err);
+    logger.error("GET /api/comments error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -194,7 +195,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/comments error:", err);
+    logger.error("POST /api/comments error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -230,7 +231,7 @@ export async function PATCH(req: NextRequest) {
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/comments error:", err);
+    logger.error("PATCH /api/comments error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -248,7 +249,7 @@ export async function DELETE(req: NextRequest) {
     await query(`DELETE FROM reporting_platform.item_comments WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/comments error:", err);
+    logger.error("DELETE /api/comments error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

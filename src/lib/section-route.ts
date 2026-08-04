@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport, guardRow } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Factory for the repeatable "list of items under a report" sections
 // (key achievements, partnerships, results, lessons learned, external coverage).
@@ -94,7 +95,7 @@ export function makeSectionRoute(config: SectionConfig) {
       );
       return NextResponse.json(rows);
     } catch (err) {
-      console.error(`GET /api section (${table}) error:`, err);
+      logger.error(`GET /api section (${table}) error:`, err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -138,7 +139,7 @@ export function makeSectionRoute(config: SectionConfig) {
       );
       return NextResponse.json(rows[0], { status: 201 });
     } catch (err) {
-      console.error(`POST /api section (${table}) error:`, err);
+      logger.error(`POST /api section (${table}) error:`, err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -170,7 +171,7 @@ export function makeSectionRoute(config: SectionConfig) {
       if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
       return NextResponse.json(rows[0]);
     } catch (err) {
-      console.error(`PATCH /api section (${table}) error:`, err);
+      logger.error(`PATCH /api section (${table}) error:`, err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -188,7 +189,7 @@ export function makeSectionRoute(config: SectionConfig) {
       await query(`DELETE FROM ${schemaTable} WHERE id = $1`, [id]);
       return NextResponse.json({ ok: true });
     } catch (err) {
-      console.error(`DELETE /api section (${table}) error:`, err);
+      logger.error(`DELETE /api section (${table}) error:`, err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }

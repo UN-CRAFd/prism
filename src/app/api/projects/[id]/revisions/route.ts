@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // List the revisions logged on a project, newest first.
 export async function GET(
@@ -23,7 +24,7 @@ export async function GET(
     );
     return NextResponse.json(rows);
   } catch (err) {
-    console.error("GET /api/projects/[id]/revisions error:", err);
+    logger.error("GET /api/projects/[id]/revisions error:", err);
     return NextResponse.json({ error: "Failed to load revisions" }, { status: 500 });
   }
 }
@@ -67,7 +68,7 @@ export async function POST(
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
-    console.error("POST /api/projects/[id]/revisions error:", err);
+    logger.error("POST /api/projects/[id]/revisions error:", err);
     return NextResponse.json({ error: "Failed to log revision" }, { status: 500 });
   }
 }

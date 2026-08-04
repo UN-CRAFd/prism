@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS, type Session } from "@/lib/session";
+import { logger } from "@/lib/logger";
 
 const INVALID = { error: "Invalid username or password" };
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
       organization: partner.short_name,
     });
   } catch (err) {
-    console.error("POST /api/auth/login error:", err);
+    logger.error("POST /api/auth/login error:", err);
     return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }

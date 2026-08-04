@@ -4,6 +4,7 @@ import { createMagicToken, verifyMagicToken, magicLinkEnabled } from "@/lib/magi
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
 import { requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Share links for a report:
 //   POST { reportId }            → { token }                — admin copies this into a URL
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
     const token = createMagicToken({ rid: reportId, exp: Date.now() + TTL_MS });
     return NextResponse.json({ token });
   } catch (err) {
-    console.error("POST /api/auth/magic error:", err);
+    logger.error("POST /api/auth/magic error:", err);
     return NextResponse.json({ error: "Could not create share link" }, { status: 500 });
   }
 }
@@ -111,7 +112,7 @@ export async function GET(req: NextRequest) {
       needsSetup: ctx.password_set_at === null,
     });
   } catch (err) {
-    console.error("GET /api/auth/magic error:", err);
+    logger.error("GET /api/auth/magic error:", err);
     return NextResponse.json({ error: "Could not open share link" }, { status: 500 });
   }
 }
@@ -176,7 +177,7 @@ export async function PUT(req: NextRequest) {
     });
     return res;
   } catch (err) {
-    console.error("PUT /api/auth/magic error:", err);
+    logger.error("PUT /api/auth/magic error:", err);
     return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 // Per-report expenditure matrix (partner-owned).
 //
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     try {
       return NextResponse.json(await query(SELECT_ALL));
     } catch (err) {
-      console.error("GET /api/expenditure (all) error:", err);
+      logger.error("GET /api/expenditure (all) error:", err);
       return NextResponse.json({ error: "Request failed" }, { status: 500 });
     }
   }
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
       expenditure: expenditure.map((e) => ({ ...e, annual_expenditure: toAmount(e.annual_expenditure) })),
     });
   } catch (err) {
-    console.error("GET /api/expenditure error:", err);
+    logger.error("GET /api/expenditure error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -134,7 +135,7 @@ export async function PATCH(req: NextRequest) {
     );
     return NextResponse.json(rows[0]);
   } catch (err) {
-    console.error("PATCH /api/expenditure error:", err);
+    logger.error("PATCH /api/expenditure error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

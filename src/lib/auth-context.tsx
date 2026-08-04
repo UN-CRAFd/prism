@@ -22,11 +22,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return null;
+    // A corrupted/tampered localStorage value must not throw during render — with
+    // no error boundary above this provider that would white-screen the whole app.
+    // Fall back to logged-out and clear the bad value.
+    try {
       const stored = localStorage.getItem("crafd-user");
-      return stored ? JSON.parse(stored) : null;
+      return stored ? (JSON.parse(stored) as User) : null;
+    } catch {
+      localStorage.removeItem("crafd-user");
+      return null;
     }
-    return null;
   });
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {

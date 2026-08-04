@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { sanitizeRichText } from "@/lib/sanitize";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
@@ -8,6 +9,16 @@ const ALLOWED_FIELDS = [
   "implementing_partners", "keyword",
   "universal_markers", "optional_markers", "fund_specific_markers", "indirect_cost_rate",
 ];
+
+// Fields only an admin may write. `partner_id` would let a partner reassign the
+// project to another organization (ownership escalation); `short_name` is the
+// routing slug, `implementing_partners` and `indirect_cost_rate` are admin-owned
+// (the rate lives on the admin expenditure tab). Partners never send any of these
+// via the prodoc editor, so they are silently ignored for non-admin sessions
+// rather than trusted from the request body.
+const ADMIN_ONLY_FIELDS = new Set([
+  "partner_id", "short_name", "implementing_partners", "indirect_cost_rate",
+]);
 
 export async function GET(
   _request: Request,
@@ -56,8 +67,11 @@ export async function PUT(
 
     for (const field of ALLOWED_FIELDS) {
       if (body[field] === undefined) continue;
+      if (session.role !== "admin" && ADMIN_ONLY_FIELDS.has(field)) continue;
       setClauses.push(`${field} = $${idx++}`);
-      values.push(body[field]);
+      // `description` is rich-text HTML rendered later via dangerouslySetInnerHTML;
+      // sanitize it on write so a stored payload can't execute in a viewer's browser.
+      values.push(field === "description" ? sanitizeRichText(body[field] as string) : body[field]);
     }
 
     if (setClauses.length === 0) {

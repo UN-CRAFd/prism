@@ -190,6 +190,23 @@ export async function POST(req: NextRequest) {
   const gate = await guardReport(session, reportId as string | number);
   if (gate) return gate;
 
+  // The referenced transfer partner must belong to this report's own project;
+  // otherwise a caller could link (and read back) another project's partner.
+  const scoped = await query(
+    `SELECT 1
+       FROM reporting_platform.transfer_partners tp
+       JOIN reporting_platform.reports r ON r.project_id = tp.project_id
+      WHERE tp.id = $1 AND r.id = $2
+      LIMIT 1`,
+    [transfer_partner_id, reportId]
+  );
+  if (!scoped.length) {
+    return NextResponse.json(
+      { error: "transfer_partner_id does not belong to this report's project" },
+      { status: 400 }
+    );
+  }
+
   try {
     const existing = await query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM reporting_platform.transfer_data WHERE report_id = $1`,

@@ -198,6 +198,24 @@ export async function POST(req: NextRequest) {
   const gate = await guardReport(session, reportId as string | number);
   if (gate) return gate;
 
+  // The indicator must be a shared standard indicator (project_id IS NULL) or one
+  // belonging to this report's own project; otherwise a caller could attach (and
+  // read back) another project's custom indicator.
+  const scoped = await query(
+    `SELECT 1
+       FROM reporting_platform.indicators i
+       JOIN reporting_platform.reports r ON r.id = $2
+      WHERE i.id = $1 AND (i.project_id IS NULL OR i.project_id = r.project_id)
+      LIMIT 1`,
+    [indicator_id, reportId]
+  );
+  if (!scoped.length) {
+    return NextResponse.json(
+      { error: "indicator_id is not available for this report's project" },
+      { status: 400 }
+    );
+  }
+
   try {
     const existing = await query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM reporting_platform.indicator_data WHERE report_id = $1`,

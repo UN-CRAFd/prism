@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
+import { sanitizeRichText } from "@/lib/sanitize";
 
 // Project-level narrative texts for the project document. One row per
 // (project_id, narrative_key); the question set/labels live in labels.json.
@@ -55,7 +56,7 @@ export async function PATCH(req: NextRequest) {
        ON CONFLICT (project_id, narrative_key)
        DO UPDATE SET answer = EXCLUDED.answer, comment = EXCLUDED.comment
        RETURNING id, project_id, narrative_key, answer, comment`,
-      [project_id, narrative_key, (body.answer as string) || null, (body.comment as string) || null]
+      [project_id, narrative_key, sanitizeRichText((body.answer as string) || null) ?? null, (body.comment as string) || null]
     );
     return NextResponse.json(rows[0]);
   } catch (err) {

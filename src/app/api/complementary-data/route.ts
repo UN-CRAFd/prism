@@ -225,6 +225,23 @@ export async function POST(req: NextRequest) {
   const gate = await guardReport(session, reportId as string | number);
   if (gate) return gate;
 
+  // The contributor must belong to this report's own project; otherwise a caller
+  // could link (and read back) another project's contributor.
+  const scoped = await query(
+    `SELECT 1
+       FROM reporting_platform.complementary_contributors c
+       JOIN reporting_platform.reports r ON r.project_id = c.project_id
+      WHERE c.id = $1 AND r.id = $2
+      LIMIT 1`,
+    [contributor_id, reportId]
+  );
+  if (!scoped.length) {
+    return NextResponse.json(
+      { error: "contributor_id does not belong to this report's project" },
+      { status: 400 }
+    );
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

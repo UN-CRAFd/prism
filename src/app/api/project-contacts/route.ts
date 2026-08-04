@@ -86,6 +86,23 @@ export async function POST(req: NextRequest) {
   const gate = await guardProject(session, project_id as string | number);
   if (gate) return gate;
 
+  // The contact must belong to the same partner that owns this project; otherwise
+  // a caller could link (and read back the name/role/email of) another org's contact.
+  const scoped = await query(
+    `SELECT 1
+       FROM reporting_platform.partner_contacts c
+       JOIN reporting_platform.projects p ON p.partner_id = c.partner_id
+      WHERE c.id = $1 AND p.id = $2
+      LIMIT 1`,
+    [contact_id, project_id]
+  );
+  if (!scoped.length) {
+    return NextResponse.json(
+      { error: "contact_id does not belong to this project's partner" },
+      { status: 400 }
+    );
+  }
+
   try {
     const maxRow = await query<{ max: number | null }>(
       `SELECT MAX(sort_order) AS max FROM reporting_platform.project_contacts WHERE project_id = $1`,

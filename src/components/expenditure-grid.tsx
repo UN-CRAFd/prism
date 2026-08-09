@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels.json";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
@@ -490,6 +490,9 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
 
   const totalBudget = totalSub * (1 + rate);
   const availableBalance = grantSize ? grantSize - totalBudget : null;
+  // FMP requirement: the grant size and the total budget must reconcile to within
+  // $1 (rounding tolerance). Any larger gap — over or under — must be corrected.
+  const budgetMismatch = availableBalance !== null && Math.abs(availableBalance) >= 1;
 
   return (
     <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
@@ -594,6 +597,12 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                     {availableBalance !== null ? formatAmount(availableBalance) : "—"}
                   </span>
                 </div>
+                {budgetMismatch && (
+                  <div className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900">
+                    <AlertTriangle className="size-3.5 shrink-0 mt-px" />
+                    <span>Adjust budget: difference between Grant Size and Total budget must be &lt;$1.</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -97,8 +97,10 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
   { value: "sdg", label: labels.sections.sdg },
   { value: "risk", label: labels.sections.risk },
   { value: "indicators", label: labels.sections.indicators },
+  // "Budgets" is the prodoc-editor label for the expenditure section (the report
+  // editor keeps "Expenditure"); it sits before the workplan tab here.
+  { value: "expenditure", label: "Budgets" },
   { value: "workplan", label: labels.sections.workplan },
-  { value: "expenditure", label: labels.sections.expenditure },
   { value: "signatures", label: labels.sections.signatures },
   { value: "surveys", label: labels.sections.surveys, muted: true, adminOnly: true },
 ];

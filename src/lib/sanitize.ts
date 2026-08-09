@@ -20,6 +20,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
     "strong", "em", "b", "i", "u",
     "a", "div", "span",
     "h1", "h2", "h3", "h4", "h5", "h6",
+    "table", "thead", "tbody", "tr", "th", "td",
   ],
   allowedAttributes: {
     a: ["href", "title", "target", "rel"],

@@ -7,7 +7,7 @@
 
 import DOMPurify from "dompurify";
 
-const HTML_TAG = /<(p|br|ul|ol|li|strong|em|b|i|u|a|div|span|h[1-6])\b/i;
+const HTML_TAG = /<(p|br|ul|ol|li|strong|em|b|i|u|a|div|span|h[1-6]|table|thead|tbody|tr|th|td)\b/i;
 
 // Allowlist mirrors the server-side sanitizer (lib/sanitize.ts) and the editor's
 // tag set. Kept in sync deliberately — both are the same trust boundary.
@@ -16,6 +16,7 @@ const ALLOWED_TAGS = [
   "strong", "em", "b", "i", "u",
   "a", "div", "span",
   "h1", "h2", "h3", "h4", "h5", "h6",
+  "table", "thead", "tbody", "tr", "th", "td",
 ];
 const ALLOWED_ATTR = ["href", "title", "target", "rel"];
 

@@ -244,6 +244,28 @@ body::-webkit-scrollbar {
   color: #1d4ed8;
   text-decoration: underline;
 }
+.rte-content table,
+.rich-html table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 0.5rem;
+  font-size: 0.95em;
+}
+.rte-content th,
+.rte-content td,
+.rich-html th,
+.rich-html td {
+  border: 1px solid var(--border, #d4d4d8);
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  min-width: 2.5rem;
+}
+.rte-content th,
+.rich-html th {
+  background: var(--muted, #f4f4f5);
+  font-weight: 600;
+}
 
 /* Rendered rich content in read views / print — same formatting, no height box. */
 .rich-html > :first-child {

@@ -185,11 +185,23 @@ export function SectionTableEditor({
     return payload;
   }, [fields]);
 
+  // Does any word-limited field on this row exceed its cap? Over-limit rows are
+  // held back from saving and surface as an autosave error (see flush).
+  const isOverLimit = useCallback(
+    (row: RowState) =>
+      fields.some((f) => f.maxWords && f.type !== "links" && countWords(row.values[f.key] ?? "") > f.maxWords),
+    [fields]
+  );
+
   // Save every dirty row. New rows (no id) POST once — tracked by client key so a
   // re-entrant flush can't double-create — the rest PATCH. A row's dirty flag is
   // only cleared if its content hasn't changed since we snapshotted it, so edits
-  // made mid-save aren't lost.
+  // made mid-save aren't lost. A row that exceeds a word limit is left unsaved
+  // (and dirty) and, after the valid rows persist, we throw so the shared autosave
+  // indicator reports an error — the user can type past the limit but it won't save
+  // until shortened.
   const flush = useCallback(async () => {
+    let overLimit = false;
     for (const row of rowsRef.current) {
       if (!row.dirty) continue;
       const effectiveId = row.id ?? idByKeyRef.current.get(row.key) ?? null;
@@ -199,6 +211,7 @@ export function SectionTableEditor({
         f.type === "links" ? row.links[f.key].every((l) => !l.trim()) : !(row.values[f.key] ?? "").trim()
       );
       if (effectiveId === null && isEmpty) continue;
+      if (isOverLimit(row)) { overLimit = true; continue; }
       const payload = buildPayload(row);
       const snapshot = JSON.stringify(payload);
       const clear = (r: RowState, extra: Partial<RowState>): RowState =>
@@ -224,7 +237,9 @@ export function SectionTableEditor({
         setRows((prev) => prev.map((r) => clear(r, { id: effectiveId })));
       }
     }
-  }, [endpoint, reportId, requiredField, buildPayload, kind]);
+    // Valid rows are now saved; flag the over-limit ones so autosave shows an error.
+    if (overLimit) throw new Error("Some entries exceed their word limit");
+  }, [endpoint, reportId, fields, buildPayload, isOverLimit, kind]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
 
@@ -309,10 +324,11 @@ export function SectionTableEditor({
                         <div className={cn(
                           "text-[11px] text-right",
                           countWords(row.values[f.key]) > f.maxWords
-                            ? "text-amber-600 font-medium"
+                            ? "text-destructive font-medium"
                             : "text-muted-foreground"
                         )}>
                           Words: {countWords(row.values[f.key])}/{f.maxWords}
+                          {countWords(row.values[f.key]) > f.maxWords && " — over limit, won't save until shortened"}
                         </div>
                       )}
                     </div>

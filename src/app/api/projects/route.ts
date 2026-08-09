@@ -87,10 +87,23 @@ export async function POST(request: Request) {
     );
     const project = inserted.rows[0];
 
-    await client.query(
+    const prodoc = await client.query<{ id: number }>(
       `INSERT INTO reporting_platform.reports (project_id, year, data_type)
-       VALUES ($1, $2, 'prodoc')`,
+       VALUES ($1, $2, 'prodoc')
+       RETURNING id`,
       [project.id, prodocYearFor(project_start_date)]
+    );
+
+    // Prepopulate the prodoc's indicators tab with every standard (admin-defined)
+    // indicator. Partners then remove the ones irrelevant to their project rather
+    // than starting from an empty tab. Annual/final reports later inherit these
+    // lines from the prodoc via copyProdocBaseline.
+    await client.query(
+      `INSERT INTO reporting_platform.indicator_data (report_id, indicator_id, sort_order)
+       SELECT $1, i.id, ROW_NUMBER() OVER (ORDER BY i.name)
+         FROM reporting_platform.indicators i
+        WHERE i.is_standard AND i.archived_at IS NULL`,
+      [prodoc.rows[0].id]
     );
 
     await client.query("COMMIT");

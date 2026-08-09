@@ -13,8 +13,8 @@ const prodocSections = [
     required: "Yes",
   },
   {
-    name: "SDG Targets",
-    what: "Select the Sustainable Development Goal targets your project contributes to, and assign each a focus percentage. The percentages should add up to 100%.",
+    name: "Indicators",
+    what: "The standard CRAF'd indicators are already listed for you — remove any that are not relevant to your project, and add your own custom indicators if needed. For each, set the baseline year and value and the target year and value. Used to track progress in annual reports.",
     required: "Yes",
   },
   {
@@ -23,18 +23,13 @@ const prodocSections = [
     required: "Recommended",
   },
   {
-    name: "Indicators",
-    what: "Baseline year and value, target year and value for each indicator. Used to track progress in annual reports.",
+    name: "Budgets",
+    what: "Budgets per participating organization, disaggregated by year, in compliance with UNSDG Budget Categories. Must equal the total approved project amount.",
     required: "Yes",
   },
   {
     name: "Workplan",
     what: "Quarter-grid showing outcomes, outputs, and activities from RBM as rows. Tick the quarters in which each item is planned.",
-    required: "Yes",
-  },
-  {
-    name: "Expenditure",
-    what: "Budgets per participating organization, disaggregated by year, in compliance with UNSDG Budget Categories. Must equal the total approved project amount.",
     required: "Yes",
   },
   {
@@ -106,13 +101,18 @@ export function ProjectDocumentPage() {
           narrative. Write substantive responses and include hyperlinks to
           publicly accessible documents where relevant.
         </Step>
-        <Step number={4} title="Select your SDG Targets">
-          Open <strong>SDG Targets</strong>. Pick a Sustainable Development Goal
-          from the first dropdown, choose a specific target beneath it, then
-          click <strong>Add</strong>. For each selected target, enter a{" "}
-          <strong>focus percentage</strong> reflecting how much of the project
-          contributes to it. The percentages should add up to{" "}
-          <strong>100%</strong> — a running total tells you how far off you are.
+        <Step number={4} title="Review your Indicators">
+          The <strong>standard CRAF&apos;d indicators are already listed</strong>{" "}
+          for you. Delete any that do not apply to your project, and click{" "}
+          <strong>Add</strong> to create your own custom indicators — a custom
+          indicator requires a <strong>name</strong>, a{" "}
+          <strong>description</strong>, and a{" "}
+          <strong>means of verification</strong>. For each indicator, enter the{" "}
+          <strong>Baseline Year</strong> (project start) and{" "}
+          <strong>Baseline Value</strong>, then the{" "}
+          <strong>Target Year</strong> (project end) and{" "}
+          <strong>Target Value</strong>. These values are used to track progress
+          in annual reports.
         </Step>
         <Step number={5} title="Add risks in Risk Management">
           Click <strong>Add New Risk</strong> to create a risk entry. For each
@@ -121,12 +121,12 @@ export function ProjectDocumentPage() {
           Regulatory, or Strategic), and describe the measures taken to
           mitigate it.
         </Step>
-        <Step number={6} title="Define your Indicators">
-          For each indicator, enter the <strong>Baseline Year</strong> (project
-          start) and <strong>Baseline Value</strong>, then the{" "}
-          <strong>Target Year</strong> (project end) and{" "}
-          <strong>Target Value</strong>. These values are used to track
-          progress in annual reports.
+        <Step number={6} title="Enter your Budgets">
+          Enter budgets per participating organization (if applicable),
+          disaggregated by year, in compliance with UNSDG Budget Categories.
+          All budget totals must equal the exact amount approved for the
+          project — the difference between the Grant Size and the Total budget
+          must be under $1, or the section flags a budget adjustment.
         </Step>
         <Step number={7} title="Fill in the Workplan grid">
           The Workplan is a spreadsheet-like grid automatically populated from
@@ -137,13 +137,7 @@ export function ProjectDocumentPage() {
           where the corresponding outcome, output, or activity is planned to
           take place.
         </Step>
-        <Step number={8} title="Enter Expenditure budgets">
-          Enter budgets per participating organization (if applicable),
-          disaggregated by year, in compliance with UNSDG Budget Categories.
-          All expenditure totals must equal the exact amount approved for the
-          project.
-        </Step>
-        <Step number={9} title="Sign off in Signatures">
+        <Step number={8} title="Sign off in Signatures">
           Once every section is complete, open the <strong>Signatures</strong>{" "}
           tab and sign for your project contacts. The CRAF&apos;d Secretariat
           signs its own line. See the <strong>Signatures</strong> section of

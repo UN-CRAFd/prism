@@ -8,7 +8,7 @@ const terms = [
   },
   {
     term: "Project Document (ProDoc)",
-    def: "Your project's core reference document: general information, narratives, SDG targets, risks, indicators, workplan, budget, and signatures. Must be completed before funding is disbursed.",
+    def: "Your project's core reference document: general information, narratives, indicators, risks, budgets, workplan, and signatures. Must be completed before funding is disbursed.",
   },
   {
     term: "Report",

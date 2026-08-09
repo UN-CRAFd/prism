@@ -95,6 +95,18 @@ export function HowToUsePage() {
                 ]} />
               </SubSection>
 
+              <SubSection title="Indicators">
+                <p className="mb-1">
+                  The standard CRAF&apos;d indicators are already listed for you — remove any that are not relevant, and add your own custom indicators as needed (a custom indicator requires a name, a description, and a means of verification). For each indicator, provide the following:
+                </p>
+                <Bullets items={[
+                  "Baseline Year — the year when the project starts.",
+                  "Target Year — the end of the project.",
+                  "Baseline Value — the value of the indicator in the baseline year.",
+                  "Target Value — the value of the indicator in the target year.",
+                ]} />
+              </SubSection>
+
               <SubSection title="Risk Management">
                 <p className="mb-1">
                   Select <strong>Add New Risk</strong> to add potential risks facing your project. For each risk, provide the following:
@@ -106,13 +118,13 @@ export function HowToUsePage() {
                 ]} />
               </SubSection>
 
-              <SubSection title="Indicators">
-                <p className="mb-1">Define the indicators for your project. For each indicator, provide the following:</p>
+              <SubSection title="Budgets">
+                <p className="mb-1">Enter budgets according to the following requirements:</p>
                 <Bullets items={[
-                  "Baseline Year — the year when the project starts.",
-                  "Target Year — the end of the project.",
-                  "Baseline Value — the value of the indicator in the baseline year.",
-                  "Target Value — the value of the indicator in the target year.",
+                  "Budgets must be indicated per participating organization, if applicable.",
+                  "Disaggregated by year.",
+                  "In compliance with the UNSDG Budget Categories.",
+                  "All budget totals must equal the exact amount approved for the project — the difference between the Grant Size and the Total budget must be under $1.",
                 ]} />
               </SubSection>
 
@@ -122,16 +134,6 @@ export function HowToUsePage() {
                 </p>
                 <Bullets items={[
                   "Tick the Time Frame boxes to indicate when each activity will be conducted.",
-                ]} />
-              </SubSection>
-
-              <SubSection title="Expenditure">
-                <p className="mb-1">Enter expenditure budgets according to the following requirements:</p>
-                <Bullets items={[
-                  "Budgets must be indicated per participating organization, if applicable.",
-                  "Disaggregated by year.",
-                  "In compliance with the UNSDG Budget Categories.",
-                  "All expenditure totals must equal the exact amount approved for the project.",
                 ]} />
               </SubSection>
             </div>

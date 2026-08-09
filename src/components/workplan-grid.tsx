@@ -323,15 +323,15 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             quarters={quarters}
             leadCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[280px] align-bottom">Activity</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[90px] align-bottom">Report</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-3 py-2 text-muted-foreground min-w-[280px] align-bottom", HEAD_TEXT)}>Activity</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-2 py-2 text-muted-foreground min-w-[90px] align-bottom", HEAD_TEXT)}>Report</th>
               </>
             }
             trailCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[120px] align-bottom">Agent</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[110px] align-bottom">Progress update</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[200px] align-bottom">Comment</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Agent</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>
               </>
             }
           />
@@ -952,15 +952,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[320px] align-bottom">Activity</th>
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted text-left px-2 py-2 text-xs font-medium text-muted-foreground min-w-[100px] align-bottom">Timeline</th>}
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-3 py-2 text-muted-foreground min-w-[320px] align-bottom", HEAD_TEXT)}>Activity</th>
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-2 py-2 text-muted-foreground min-w-[100px] align-bottom", HEAD_TEXT)}>Timeline</th>}
                 </>
               }
               trailCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[120px] align-bottom">Agent</th>
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[110px] align-bottom">Progress update</th>}
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 bg-muted px-2 py-2 text-xs font-medium text-muted-foreground min-w-[200px] align-bottom">Comment</th>}
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Agent</th>
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>}
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>}
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted px-2 py-2 w-10 align-bottom" />
                 </>
               }

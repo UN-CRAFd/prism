@@ -91,12 +91,12 @@ interface LibraryIndicator {
 
 // Surveys sits last and is muted — it's an admin-only baseline concern, so
 // partners never see it (filtered out in partner mode).
-const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean }[] = [
+const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean; hidden?: boolean }[] = [
   { value: "general", label: labels.sections.general },
   { value: "narratives", label: labels.sections.narratives },
-  { value: "sdg", label: labels.sections.sdg },
-  { value: "risk", label: labels.sections.risk },
+  { value: "sdg", label: labels.sections.sdg, hidden: true }, // hidden for now
   { value: "indicators", label: labels.sections.indicators },
+  { value: "risk", label: labels.sections.risk },
   // "Budgets" is the prodoc-editor label for the expenditure section (the report
   // editor keeps "Expenditure"); it sits before the workplan tab here.
   { value: "expenditure", label: "Budgets" },
@@ -116,8 +116,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   const isPartner = mode === "partner";
   const routeBase = isPartner ? "/partner/prodoc-editor" : "/admin/prodoc-editor";
-  // Partners never see the admin-only Surveys tab.
-  const sections = isPartner ? SECTIONS.filter((s) => !s.adminOnly) : SECTIONS;
+  // Partners never see the admin-only Surveys tab; `hidden` tabs are shelved for
+  // everyone (their render branch stays, so they can be re-enabled by dropping the flag).
+  const sections = SECTIONS.filter((s) => !s.hidden && (!isPartner || !s.adminOnly));
 
   const confirm = useConfirm();
   const [docs, setDocs] = useState<Prodoc[]>([]);

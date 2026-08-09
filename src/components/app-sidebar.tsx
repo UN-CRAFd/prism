@@ -24,6 +24,7 @@ import {
   Contact,
   MessageSquare,
   BookOpen,
+  ListChecks,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
@@ -59,6 +60,7 @@ const editorLinks = [
   { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: Edit },
   { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
+  { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
   { href: "/admin/comments", label: "Comments", icon: MessageSquare },
 ];
 

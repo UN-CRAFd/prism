@@ -361,6 +361,29 @@ CREATE TRIGGER surveys_updated_at
     BEFORE UPDATE ON surveys
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Standard survey questions (global library, keyed by report type) ─────────
+-- Admin-authored questions that seed EVERY new report of a given type, across all
+-- projects: one set for annual reports, one for final reports. Snapshotted into
+-- surveys(report_id, question) at report creation, independent of the prodoc's
+-- own project-specific survey questions.
+CREATE TABLE IF NOT EXISTS standard_survey_questions (
+    id          SERIAL           PRIMARY KEY,
+    report_type report_type_enum NOT NULL,
+    question    TEXT             NOT NULL,
+    sort_order  INTEGER          NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    UNIQUE (report_type, question)
+);
+
+CREATE INDEX IF NOT EXISTS standard_survey_questions_type_idx
+    ON standard_survey_questions(report_type);
+
+DROP TRIGGER IF EXISTS standard_survey_questions_updated_at ON standard_survey_questions;
+CREATE TRIGGER standard_survey_questions_updated_at
+    BEFORE UPDATE ON standard_survey_questions
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ── Indicators (master library) ──────────────────────────────────────────────
 -- Standard indicators are global (project_id IS NULL); custom indicators are
 -- created while editing a report and scoped to that project. archived_at

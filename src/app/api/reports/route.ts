@@ -117,6 +117,26 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
   );
 }
 
+// Seed the global standard survey questions for each new report's type (annual |
+// final) — these live in standard_survey_questions and apply across all projects,
+// independent of the prodoc's own project-specific survey questions. Matched by
+// report_type; ON CONFLICT dedupes against any identically-worded question already
+// copied from the prodoc baseline.
+async function copyStandardSurveyQuestions(client: PoolClient, reportIds: number[]) {
+  if (reportIds.length === 0) return;
+
+  await client.query(
+    `INSERT INTO reporting_platform.surveys (report_id, question)
+     SELECT nr.id, sq.question
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.standard_survey_questions sq
+         ON sq.report_type = nr.report_type
+      WHERE nr.id = ANY($1::int[])
+     ON CONFLICT (report_id, question) DO NOTHING`,
+    [reportIds]
+  );
+}
+
 // Populate expenditure entries for the report.
 // Creates one row per category. approved_amount is GENERATED — it derives both the
 // project and the year from the entry's report (report_id → reports), so budget
@@ -192,6 +212,7 @@ export async function POST(request: Request) {
       );
 
       await copyProdocBaseline(client, inserted.rows.map((r) => r.id));
+      await copyStandardSurveyQuestions(client, inserted.rows.map((r) => r.id));
       await populateExpenditureEntries(client, inserted.rows.map((r) => r.id));
 
       await client.query("COMMIT");
@@ -231,6 +252,7 @@ export async function POST(request: Request) {
     }
 
     await copyProdocBaseline(client, [inserted.rows[0].id]);
+    await copyStandardSurveyQuestions(client, [inserted.rows[0].id]);
     await populateExpenditureEntries(client, [inserted.rows[0].id]);
 
     await client.query("COMMIT");

@@ -26,6 +26,7 @@ interface AdminComment {
   created_at: string;
   year: number;
   report_type: "annual" | "final" | null;
+  data_type: "report" | "prodoc";
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string | null;
@@ -163,6 +164,7 @@ export default function AdminCommentsPage() {
                 project={c.project_short_name ?? c.project_title}
                 section={c.section}
                 itemLabel={c.item_label}
+                dataType={c.data_type}
                 className="!gap-1"
               />
               {/* Confirmation buttons right-aligned */}
@@ -195,9 +197,13 @@ export default function AdminCommentsPage() {
                 <Pencil className="size-3.5" />
               </button>
               <button
-                onClick={() => router.push(`/admin/report-editor/${toSlug(c)}/${c.year}/${c.section}`)}
+                onClick={() => router.push(
+                  c.data_type === "prodoc"
+                    ? `/admin/prodoc-editor/${toSlug(c)}/${c.section}`
+                    : `/admin/report-editor/${toSlug(c)}/${c.year}/${c.section}`
+                )}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="Open in report editor"
+                title={c.data_type === "prodoc" ? "Open in project document editor" : "Open in report editor"}
               >
                 <ArrowRight className="size-3.5" />
               </button>

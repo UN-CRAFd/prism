@@ -23,6 +23,7 @@ import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
+import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
 
@@ -489,6 +490,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const stickyHeadStyle = fillHeight ? { boxShadow: "inset 0 -1px 0 var(--border)" } : undefined;
 
   return (
+    // Reuse the report editor's comment thread system for the project document:
+    // comments are keyed on a reports.id, and a prodoc IS a reports row, so the
+    // same provider/route power admin↔partner comments here with no new backend.
+    // Partners are read-only (view + confirm addressed); admins add/resolve/delete.
+    <CommentsProvider
+      reportId={selectedProdocId ? Number(selectedProdocId) : null}
+      enabled={!!selectedProdocId}
+      readOnly={isPartner}
+    >
     <div className="flex flex-col h-full">
 
       {/* Header */}
@@ -615,6 +625,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
         )}
 
+        {/* Section-level comment thread for finalizing the project document: admins
+            leave a note on the current section for the partner to address, partners
+            see and confirm it. `item_id` null anchors it to the whole section. Kept
+            OUTSIDE the read-only fieldset below so admins can still comment on an
+            Under Review document and partners can still confirm on a locked one.
+            (Partners see nothing here until a comment exists — ItemComments self-hides.)
+            The table sections (surveys/risk/indicators) instead carry per-item
+            comments on each row, mirroring the report editor, so they're excluded here. */}
+        {selectedProdocId && !sectionLoading &&
+          !["surveys", "risk", "indicators"].includes(selectedSection) && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+            {!isPartner && <span>Comment on this section:</span>}
+            <ItemComments section={selectedSection} itemId={null} />
+          </div>
+        )}
+
         {/* Two complementary read-only mechanisms lock a view-only prodoc, mirroring
             the report editor:
             (1) the disabled <fieldset> natively locks every native control inside
@@ -688,6 +714,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                         <>
                           <p className="flex-1 text-sm">{s.question}</p>
                           <div className="flex items-center gap-2 shrink-0">
+                            <ItemComments section="surveys" itemId={s.id} />
                             <button onClick={() => { setEditingId(s.id); setEditingText(s.question); }} className="text-muted-foreground hover:text-foreground transition-colors">
                               <Pencil className="size-3.5" />
                             </button>
@@ -754,14 +781,19 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           ) : (
                             <>
                               <td className="px-4 py-3 align-top">
-                                <p className="text-sm font-medium">{risk.risk_name}</p>
-                                {risk.risk_category && risk.risk_category.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    {risk.risk_category.map((cat, ci) => (
-                                      <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
-                                    ))}
+                                <div className="flex items-start gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">{risk.risk_name}</p>
+                                    {risk.risk_category && risk.risk_category.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {risk.risk_category.map((cat, ci) => (
+                                          <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
+                                  <ItemComments section="risk" itemId={risk.id} />
+                                </div>
                               </td>
                               <td className="px-4 py-3 align-top">
                                 {risk.approved_mitigation
@@ -838,10 +870,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
                                 <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{num}.</td>
                               <td className="px-4 py-3">
-                                <p className="text-sm font-medium">{line.indicator_name}</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
-                                  {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                                <div className="flex items-start gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">{line.indicator_name}</p>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
+                                      {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                                    </div>
+                                  </div>
+                                  <ItemComments section="indicators" itemId={line.id} />
                                 </div>
                               </td>
                               <td className="px-4 py-3">
@@ -915,5 +952,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </ReadOnlyProvider>
       </div>
     </div>
+    </CommentsProvider>
   );
 }

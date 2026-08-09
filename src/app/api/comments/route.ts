@@ -6,7 +6,8 @@ import { logger } from "@/lib/logger";
 // Admin comments on report items (polymorphic — see migrations/032).
 //   GET ?reportId=<id>                → all comments for a report (editor)
 //   GET ?partnerShortName=<name>      → the partner's OUTSTANDING comments across
-//                                       their reports (resolved ones are hidden —
+//                                       their reports AND project documents
+//                                       (resolved ones are hidden —
 //                                       once CRAF'd confirms, the partner is done
 //                                       with it) + project/year context + a live
 //                                       entry label (partner home feed)
@@ -112,11 +113,13 @@ export async function GET(req: NextRequest) {
 
   try {
     if (scope === "admin") {
-      // Every report comment across all partners, with context for the admin
-      // Comments tab. Live entry labels resolved like the partner feed.
+      // Every comment across all partners — reports AND project documents — with
+      // context for the admin Comments tab. `data_type` lets the UI mark prodoc
+      // comments as being on a project document. Live entry labels resolved like
+      // the partner feed.
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.created_at,
-                r.year, r.report_type,
+                r.year, r.report_type, r.data_type,
                 p.project_title,
                 p.short_name  AS project_short_name,
                 pt.short_name AS partner_short_name
@@ -124,7 +127,6 @@ export async function GET(req: NextRequest) {
            JOIN reporting_platform.reports  r  ON r.id  = c.report_id
            JOIN reporting_platform.projects p  ON p.id  = r.project_id
            JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-          WHERE r.data_type = 'report'
           ORDER BY c.created_at DESC`,
         []
       );
@@ -145,15 +147,14 @@ export async function GET(req: NextRequest) {
     if (partnerShortName) {
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.created_at,
-                r.year, r.report_type,
+                r.year, r.report_type, r.data_type,
                 p.project_title,
                 p.short_name AS project_short_name
            FROM reporting_platform.item_comments c
            JOIN reporting_platform.reports  r  ON r.id  = c.report_id
            JOIN reporting_platform.projects p  ON p.id  = r.project_id
            JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-          WHERE r.data_type = 'report'
-            AND LOWER(pt.short_name) = LOWER($1)
+          WHERE LOWER(pt.short_name) = LOWER($1)
             AND c.resolved = FALSE
           ORDER BY c.partner_addressed ASC, c.created_at DESC`,
         [partnerShortName]

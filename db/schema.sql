@@ -87,25 +87,6 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE section_type AS ENUM (
-        'general',
-        'narratives',
-        'risk',
-        'indicators',
-        'workplan',
-        'expenditure',
-        'surveys',
-        'key_achievements',
-        'partnerships',
-        'results',
-        'lessons_learned',
-        'external_coverage',
-        'testimonials'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
     CREATE TYPE funding_type_enum AS ENUM (
         'In Cash',
         'In Kind'
@@ -324,10 +305,13 @@ CREATE TRIGGER reports_updated_at
 -- Polymorphic: (section, item_id) is a soft FK to any section table's row;
 -- item_id NULL = a section-level comment. report_id has a real FK so comments
 -- cascade with the report and load in one indexed query. Threaded (many per item).
+-- `section` is a free-form key set by the client (report/prodoc section tabs plus
+-- sub-tab anchors like 'overview', 'transfers', 'complementary', 'signatures'), so
+-- it is TEXT rather than a fixed enum.
 CREATE TABLE IF NOT EXISTS item_comments (
     id         SERIAL       PRIMARY KEY,
     report_id  INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    section    section_type NOT NULL,
+    section    TEXT         NOT NULL,
     item_id    INTEGER,
     body       TEXT         NOT NULL,
     resolved          BOOLEAN NOT NULL DEFAULT FALSE,  -- CRAF'd-side confirmation

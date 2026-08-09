@@ -30,6 +30,7 @@ interface FeedbackComment {
   partner_addressed: boolean;
   year: number;
   report_type: "annual" | "final" | null;
+  data_type: "report" | "prodoc";
   project_title: string;
   project_short_name: string | null;
 }
@@ -279,8 +280,11 @@ export default function PartnerHomePage() {
                   {comments.map((c) => {
                     const slug = (c.project_short_name ?? c.project_title).toLowerCase();
                     const done = c.partner_addressed;
+                    const href = c.data_type === "prodoc"
+                      ? `/partner/prodoc-editor/${slug}/${c.section}`
+                      : `/partner/report-editor/${slug}/${c.year}/${c.section}`;
                     return (
-                      <div key={c.id} className={cn("px-4 py-3 transition-colors cursor-pointer hover:bg-accent/60", done && "bg-muted/20")} onClick={() => router.push(`/partner/report-editor/${slug}/${c.year}/${c.section}`)}>
+                      <div key={c.id} className={cn("px-4 py-3 transition-colors cursor-pointer hover:bg-accent/60", done && "bg-muted/20")} onClick={() => router.push(href)}>
                         <div className="w-full flex items-start gap-3 text-left">
                           <MessageSquare className={cn("size-4 mt-0.5 shrink-0", done ? "text-muted-foreground/40" : "text-amber-500")} />
                           <div className="flex-1 min-w-0">
@@ -292,6 +296,7 @@ export default function PartnerHomePage() {
                                 project={c.project_short_name ?? c.project_title}
                                 section={c.section}
                                 itemLabel={c.item_label}
+                                dataType={c.data_type}
                                 className="!gap-1"
                               />
                               {done ? (

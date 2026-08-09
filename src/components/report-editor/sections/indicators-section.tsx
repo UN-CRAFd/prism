@@ -67,6 +67,9 @@ export interface IndicatorsSectionProps {
   isAdmin: boolean;
   deletingIndicatorLineId: number | null;
   handleIndicatorDelete: (row: IndicatorMatrixRow) => void;
+
+  // Freeze the column headers to the top while the matrix body scrolls.
+  fillHeight?: boolean;
 }
 
 export function IndicatorsSection({
@@ -90,9 +93,10 @@ export function IndicatorsSection({
   isAdmin,
   deletingIndicatorLineId,
   handleIndicatorDelete,
+  fillHeight = false,
 }: IndicatorsSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       {/* Add a custom, partner-defined indicator (project-scoped) */}
       <div className="flex gap-2">
         <Input placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newIndicatorName.trim()) handleIndicatorAdd(); }} className="flex-[5]" />
@@ -122,6 +126,7 @@ export function IndicatorsSection({
 
         return (
       <MatrixTableShell
+        fillHeight={fillHeight}
         minWidth={IND_FROZEN_WIDTH}
         leadingCols={[
           { label: labels.indicators.columns.indicator, style: ifz("ind", 30) },

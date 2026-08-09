@@ -160,6 +160,8 @@ interface ContributorMatrixProps {
   pushCommand: (cmd: HistoryCommand) => void;
   onSaveStateChange?: (s: SaveState) => void;
   onError: (msg: string | null) => void;
+  // Freeze the column headers to the top while the matrix body scrolls.
+  fillHeight?: boolean;
 }
 
 // Owns the state map + load/add/delete/update logic and the debounced autosave.
@@ -491,7 +493,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   const grandTotal = rows.reduce((s, r) => s + rowSubtotal(r), 0);
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", props.fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       {/* Add a blank row — the partner fills every field inline below */}
       <div>
         <Button onClick={onAdd} disabled={adding} size="sm">
@@ -505,6 +507,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
         </div>
       ) : (
         <MatrixTableShell
+          fillHeight={props.fillHeight}
           minWidth={TRANSFER_FROZEN_WIDTH}
           leadingCols={[
             { label: config.labels.identityColumn, style: tfz("org", 30) },

@@ -15,6 +15,7 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
+import { CURRENT_YEAR_HEAD } from "@/components/report-editor/matrix-table";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenditure reporting grid. Stored inputs are approved annual budgets (admin)
@@ -65,6 +66,10 @@ function fz(key: keyof typeof FCOL, z = 20): CSSProperties {
   return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
 }
 
+// A collapsed border vanishes under a sticky cell; redraw it with an inset shadow.
+const HEAD_SHADOW = "inset 0 -1px 0 var(--border)"; // bottom
+const HEAD_SHADOW_L = "inset 1px 0 0 var(--border), inset 0 -1px 0 var(--border)"; // left + bottom
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner editor — enter the current report year's expenditure + comments
 // ═══════════════════════════════════════════════════════════════════════════
@@ -74,9 +79,12 @@ interface EditState { exp: string; comment: string; dirty: boolean }
 export function ExpenditurePartnerEditor({
   reportId,
   onSaveStateChange,
+  fillHeight = false,
 }: {
   reportId: number;
   onSaveStateChange?: (s: SaveState) => void;
+  // Freeze the column headers to the top while the grid body scrolls.
+  fillHeight?: boolean;
 }) {
   const [data, setData] = useState<ExpenditurePayload | null>(null);
   const [edits, setEdits] = useState<Record<number, EditState>>({});
@@ -220,22 +228,22 @@ export function ExpenditurePartnerEditor({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
       <table className="text-sm border-separate border-spacing-0" style={{ minWidth: FROZEN_WIDTH }}>
         <thead>
           <tr className="text-xs">
-            <th rowSpan={2} style={fz("cat", 30)} className="text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom">Budget categories</th>
-            <th colSpan={3} style={{ position: "sticky", left: FCOL.app.left, zIndex: 30 }} className="px-2 py-2 text-center font-semibold text-muted-foreground border-r border-b bg-neutral-100">Total</th>
+            <th rowSpan={2} style={fillHeight ? { ...fz("cat", 40), top: 0 } : fz("cat", 30)} className={cn("text-left px-3 py-2 font-medium text-muted-foreground border-r border-b bg-neutral-100 align-bottom", fillHeight && "sticky")}>Budget categories</th>
+            <th colSpan={3} style={fillHeight ? { position: "sticky", left: FCOL.app.left, top: 0, zIndex: 40 } : { position: "sticky", left: FCOL.app.left, zIndex: 30 }} className={cn("px-2 py-2 text-center font-semibold text-muted-foreground border-r border-b bg-neutral-100", fillHeight && "h-8")}>Total</th>
             {years.map((y) => (
-              <th key={y} colSpan={4} className={cn("px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b", y === currentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")}>{y}</th>
+              <th key={y} colSpan={4} className={cn("px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b", y === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>{y}</th>
             ))}
           </tr>
           <tr className="text-[11px] text-muted-foreground">
-            <th style={fz("app", 30)} className="px-2 py-1.5 text-right font-medium border-b bg-neutral-50">Approved total budget</th>
-            <th style={fz("exp", 30)} className="px-2 py-1.5 text-right font-medium border-b bg-neutral-50">Total expenditure</th>
-            <th style={fz("diff", 30)} className="px-2 py-1.5 text-right font-medium border-r border-b bg-neutral-50">Difference</th>
+            <th style={fillHeight ? { ...fz("app", 40), top: 32 } : fz("app", 30)} className={cn("px-2 py-1.5 text-right font-medium border-b bg-neutral-50", fillHeight && "sticky")}>Approved total budget</th>
+            <th style={fillHeight ? { ...fz("exp", 40), top: 32 } : fz("exp", 30)} className={cn("px-2 py-1.5 text-right font-medium border-b bg-neutral-50", fillHeight && "sticky")}>Total expenditure</th>
+            <th style={fillHeight ? { ...fz("diff", 40), top: 32 } : fz("diff", 30)} className={cn("px-2 py-1.5 text-right font-medium border-r border-b bg-neutral-50", fillHeight && "sticky")}>Difference</th>
             {years.map((y) => (
-              <FragmentYearHead key={y} current={y === currentYear} />
+              <FragmentYearHead key={y} current={y === currentYear} fillHeight={fillHeight} />
             ))}
           </tr>
         </thead>
@@ -280,13 +288,14 @@ export function ExpenditurePartnerEditor({
 }
 
 // Header sub-cells for one year (approved / expenditure / difference / comment).
-function FragmentYearHead({ current }: { current: boolean }) {
+function FragmentYearHead({ current, fillHeight = false }: { current: boolean; fillHeight?: boolean }) {
+  const sticky = fillHeight && "sticky top-8 z-30";
   return (
     <>
-      <th className={cn("px-2 py-1.5 text-right font-medium border-l border-b min-w-[100px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Approved annual budget</th>
-      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[100px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Annual expenditure</th>
-      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[90px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Difference</th>
-      <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[160px]", current ? "bg-crafd-yellow/20" : "bg-neutral-50")}>Comment</th>
+      <th className={cn("px-2 py-1.5 text-right font-medium border-l border-b min-w-[100px]", current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Approved annual budget</th>
+      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[100px]", current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Annual expenditure</th>
+      <th className={cn("px-2 py-1.5 text-right font-medium border-b min-w-[90px]", current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Difference</th>
+      <th className={cn("px-2 py-1.5 text-left font-medium border-b min-w-[160px]", current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Comment</th>
     </>
   );
 }
@@ -348,7 +357,7 @@ function FooterYearCells({ approved, exp, strong }: { approved: number; exp: num
 // Admin editor — approved annual budgets per category × year + indirect rate
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectId: number; isAdmin?: boolean }) {
+export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight = false }: { projectId: number; isAdmin?: boolean; fillHeight?: boolean }) {
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);
   const [years, setYears] = useState<number[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({}); // `${catId}-${year}` → string
@@ -483,7 +492,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
   const availableBalance = grantSize ? grantSize - totalBudget : null;
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
       {years.length === 0 ? (
@@ -492,16 +501,16 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true }: { projectI
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border">
+          <div className={cn("rounded-xl border", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
             <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Approved annual budget (USD) per category</p>
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b bg-muted/40">
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground min-w-[220px]">Budget categories</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW } : undefined} className={cn("text-left px-3 py-2 text-xs font-semibold text-muted-foreground min-w-[220px]", fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Budget categories</th>
                   {years.map((y) => (
-                    <th key={y} className="px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]">{y}</th>
+                    <th key={y} style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]", fillHeight && "sticky top-0 z-10 bg-neutral-100")}>{y}</th>
                   ))}
-                  <th className="px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]">Total</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right text-xs font-semibold border-l min-w-[110px]", fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total</th>
                 </tr>
               </thead>
               <tbody>

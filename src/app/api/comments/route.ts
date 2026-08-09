@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
 //                                       once CRAF'd confirms, the partner is done
 //                                       with it) + project/year context + a live
 //                                       entry label (partner home feed)
-//   POST   { reportId, section, itemId?, body, author? }
+//   POST   { reportId, section, itemId?, body }   (author = authenticated user)
 //   PATCH  { id, body?, resolved? }
 //   DELETE ?id=<id>
 
@@ -179,12 +179,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reportId, section and body are required" }, { status: 400 });
   }
   const itemId = body.itemId == null ? null : Number(body.itemId);
-  const author = typeof body.author === "string" ? body.author : null;
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
   const gate = await guardReport(session, reportId);
   if (gate) return gate;
+
+  // Author is the authenticated identity, never taken from the request body —
+  // otherwise any caller could post a comment attributed to someone else
+  // ("CRAF'd Secretariat", another partner, etc.). session.name is the trusted
+  // display name minted at login.
+  const author = session.name;
 
   try {
     const rows = await query(

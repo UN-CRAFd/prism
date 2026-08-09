@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Loader2, PenLine, Check, X, Users, ShieldCheck } from "lucide-react";
 import labels from "@/lib/labels.json";
 
@@ -32,11 +32,6 @@ interface Signature {
   contact_id: number | null;
   signed_by: string | null;
   signed_at: string;
-}
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function SignaturesEditor({
@@ -122,7 +117,7 @@ export function SignaturesEditor({
     <div className="flex items-center gap-2 shrink-0">
       <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-2.5 py-1 text-xs font-medium">
         <Check className="size-3.5" />
-        {s.signedOn} · {fmtDate(sig.signed_at)}
+        {s.signedOn} · {formatDate(sig.signed_at)}
       </span>
       {canRemove && (
         <button

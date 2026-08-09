@@ -153,6 +153,13 @@ CREATE TABLE IF NOT EXISTS partners (
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- short_name is a login identifier: the login query matches `lower(short_name)`
+-- with LIMIT 1, so two rows differing only in case ("ACME" / "acme") would make
+-- login pick an arbitrary account. Enforce case-insensitive uniqueness. (Fails
+-- to apply if existing data already holds such duplicates — dedupe first.)
+CREATE UNIQUE INDEX IF NOT EXISTS partners_short_name_lower_uq
+    ON partners (lower(short_name));
+
 DROP TRIGGER IF EXISTS partners_updated_at ON partners;
 CREATE TRIGGER partners_updated_at
     BEFORE UPDATE ON partners
@@ -609,6 +616,12 @@ CREATE TABLE IF NOT EXISTS expenditure_categories (
     sort_order INTEGER     NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Category names must be unique — they are the human-facing key and duplicates
+-- would produce ambiguous budget/expenditure rows. (Fails to apply if existing
+-- data already holds duplicates — dedupe first.)
+CREATE UNIQUE INDEX IF NOT EXISTS expenditure_categories_name_uq
+    ON expenditure_categories (name);
 
 CREATE TABLE IF NOT EXISTS expenditure_budgets (
     id              SERIAL       PRIMARY KEY,

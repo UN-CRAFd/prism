@@ -46,6 +46,11 @@ function toSlug(r: Report): string {
   return (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
 }
 
+// Quant tables that scroll inside their own bounded box with a frozen column
+// header (rather than scrolling with the whole page). The section fills the
+// leftover height so the header stays pinned while the body scrolls.
+const FILL_HEIGHT_SECTIONS = new Set(["workplan", "indicators", "transfers", "complementary", "expenditure"]);
+
 export interface ReportEditorProps {
   // "partner" filters reports to the logged-in partner and is editable;
   // "admin" shows every report and (with forceReadOnly) is a read-only mirror.
@@ -789,6 +794,9 @@ export function ReportEditor({
   const parentManaged = ["surveys", "overview", "risk", "indicators"].includes(params.section);
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
 
+  // Sections whose table freezes its column header inside a bounded scroll box.
+  const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
+
   return (
     <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"}>
     <div className="flex flex-col h-full bg-background">
@@ -943,7 +951,7 @@ export function ReportEditor({
 
       {/* Content — the workplan fills the leftover height and scrolls inside its
           own box (single scroller, frozen header); every other tab scrolls here. */}
-      <div className={cn("flex-1 px-8 py-6", params.section === "workplan" ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
+      <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {/* Tab instructions — only while the report is editable */}
         {params.section !== "overview" && params.section !== "testimonials" && !sectionLoading && !notFound && !readOnly && (
           <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
@@ -979,8 +987,8 @@ export function ReportEditor({
             stays at its default (block) display for the same cascade reason — the
             workplan's flex layout lives on the inner wrapper. */}
         <ReadOnlyProvider readOnly={readOnly}>
-        <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", params.section === "workplan" && "flex-1 min-h-0")}>
-        <div className={cn("min-w-0", params.section === "workplan" && "flex flex-col h-full min-h-0")}>
+        <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", fillHeight && "flex-1 min-h-0")}>
+        <div className={cn("min-w-0", fillHeight && "flex flex-col h-full min-h-0")}>
         {notFound ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
@@ -1048,6 +1056,7 @@ export function ReportEditor({
             isAdmin={mode === "admin"}
             deletingIndicatorLineId={deletingIndicatorLineId}
             handleIndicatorDelete={handleIndicatorDelete}
+            fillHeight={fillHeight}
           />
 
         ) : params.section === "transfers" ? (
@@ -1060,6 +1069,7 @@ export function ReportEditor({
               pushCommand={pushCommand}
               onSaveStateChange={setChildSaveState}
               onError={setError}
+              fillHeight={fillHeight}
             />
           ) : null
 
@@ -1073,6 +1083,7 @@ export function ReportEditor({
               pushCommand={pushCommand}
               onSaveStateChange={setChildSaveState}
               onError={setError}
+              fillHeight={fillHeight}
             />
           ) : null
 
@@ -1107,6 +1118,7 @@ export function ReportEditor({
             <ExpenditurePartnerEditor
               reportId={reportId}
               onSaveStateChange={setChildSaveState}
+              fillHeight={fillHeight}
             />
           ) : null
 

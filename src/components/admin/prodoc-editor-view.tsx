@@ -470,6 +470,20 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     selectedSection === "risk" ? loadingRisk :
     selectedSection === "indicators" ? loadingIndicators : false;
 
+  // Quant tables that scroll inside their own bounded box with a frozen column
+  // header (matching the report editor), so the header stays pinned while the
+  // body scrolls rather than scrolling with the whole page.
+  const fillHeight =
+    !!selectedProdocId &&
+    ["workplan", "expenditure", "indicators", "risk"].includes(selectedSection);
+
+  // Frozen column header for the inline risk/indicators tables: pin each header
+  // cell to the top of the bounded scroll box. The tables are border-collapse,
+  // so the collapsed bottom border vanishes on sticky cells — an inset box-shadow
+  // redraws it. Opaque bg keeps scrolled rows from showing through.
+  const stickyHead = fillHeight ? "sticky top-0 z-10 bg-neutral-100" : "";
+  const stickyHeadStyle = fillHeight ? { boxShadow: "inset 0 -1px 0 var(--border)" } : undefined;
+
   return (
     <div className="flex flex-col h-full">
 
@@ -578,8 +592,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         })}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto px-8 py-6">
+      {/* Content — quant tables fill the leftover height and scroll inside their
+          own box (single scroller, frozen header); every other section scrolls here. */}
+      <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {error && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {error}
@@ -610,7 +625,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             The header status dropdown sits outside this subtree so admins can still
             reopen a closed prodoc. */}
         <ReadOnlyProvider readOnly={readOnly}>
-        <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
+        <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", fillHeight && "flex-1 min-h-0")}>
+        <div className={cn("min-w-0", fillHeight && "flex flex-col h-full min-h-0")}>
         {!selectedProdocId ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
@@ -685,7 +701,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "risk" ? (
-          <div className="space-y-4">
+          <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
             <div className="flex gap-2">
               <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1" />
               <Input placeholder={labels.placeholders.riskCategories} value={newRiskCategory} onChange={(e) => setNewRiskCategory(e.target.value)} className="flex-1" />
@@ -699,14 +715,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 {labels.adminEditor.emptyRisks}
               </div>
             ) : (
-              <div className="rounded-xl border bg-card overflow-hidden">
+              <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-hidden")}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">{labels.risk.columns.number}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-96">{labels.risk.columns.risk}</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.risk.columns.approvedMitigation}</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28">{labels.risk.columns.actions}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8", stickyHead)}>{labels.risk.columns.number}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-96", stickyHead)}>{labels.risk.columns.risk}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", stickyHead)}>{labels.risk.columns.approvedMitigation}</th>
+                      <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28", stickyHead)}>{labels.risk.columns.actions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -770,7 +786,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "indicators" ? (
-          <div className="space-y-4">
+          <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
             <div className="max-w-xl">
               <Combobox
                 items={indicatorComboItems}
@@ -786,17 +802,17 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 {labels.adminEditor.emptyIndicators}
               </div>
             ) : (
-              <div className="rounded-xl border bg-card overflow-x-auto">
+              <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">{labels.indicators.columns.number}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.indicators.columns.indicator}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.baselineValue}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.baselineYear}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.indicators.columns.targetValue}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.indicators.columns.targetYear}</th>
-                        <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-16">{labels.indicators.columns.actions}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8", stickyHead)}>{labels.indicators.columns.number}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", stickyHead)}>{labels.indicators.columns.indicator}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32", stickyHead)}>{labels.indicators.columns.baselineValue}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24", stickyHead)}>{labels.indicators.columns.baselineYear}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32", stickyHead)}>{labels.indicators.columns.targetValue}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24", stickyHead)}>{labels.indicators.columns.targetYear}</th>
+                        <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-xs font-medium text-muted-foreground w-16", stickyHead)}>{labels.indicators.columns.actions}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -886,10 +902,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} readOnly={readOnly} /> : null
 
         ) : selectedSection === "workplan" ? (
-          selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} /> : null
+          selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} fillHeight={fillHeight} /> : null
         ) : selectedSection === "expenditure" ? (
-          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} /> : null
+          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} fillHeight={fillHeight} /> : null
         ) : null}
+        </div>
         </fieldset>
         </ReadOnlyProvider>
       </div>

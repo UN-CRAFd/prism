@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
 import labels from "@/lib/labels.json";
+import { formatDate } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 import { getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
@@ -79,8 +80,7 @@ function fmtUsd(v: number | null): string {
 }
 function fmtDate(s: string | null): string {
   if (!s) return "—";
-  const d = new Date(s);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(s);
 }
 const num = (v: unknown): number => {
   const n = Number(v);

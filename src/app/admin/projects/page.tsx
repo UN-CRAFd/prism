@@ -413,22 +413,22 @@ export default function ProjectsPage() {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
-          <p className="text-lg font-semibold leading-snug line-clamp-2">
-            {p.project_title}
-            {p.mptfo_project_number && (
-              <a
-                href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[11px] font-medium text-blue-600 hover:underline"
-                title="Open on MPTF Office Gateway"
-              >
-                MPTFO
-                <ExternalLink className="size-3" />
-              </a>
-            )}
-          </p>
+          {/* Title is clamped to 2 lines; keep the MPTFO link OUTSIDE the clamp so
+              a long title can't clip it away. */}
+          <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
+          {p.mptfo_project_number && (
+            <a
+              href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-600 hover:underline"
+              title="Open on MPTF Office Gateway"
+            >
+              MPTFO
+              <ExternalLink className="size-3" />
+            </a>
+          )}
         </div>
         <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
       </div>

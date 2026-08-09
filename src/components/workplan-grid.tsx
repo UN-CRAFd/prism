@@ -18,6 +18,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
+import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import {
   WORKPLAN_STATUSES,
   WORKPLAN_STATUS_COLORS,
@@ -112,7 +113,7 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
       <tr>
         {leadCols}
         {groups.map((g) => (
-          <th key={g.year} colSpan={g.quarters.length} style={{ boxShadow: HEAD_SHADOW_L }} className="sticky top-0 z-20 h-8 bg-muted px-1 py-2 text-center text-xs font-semibold">
+          <th key={g.year} colSpan={g.quarters.length} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 h-8 bg-muted px-1 py-2 text-center", HEAD_TEXT)}>
             {g.year}
           </th>
         ))}
@@ -121,7 +122,7 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
       <tr>
         {groups.map((g) =>
           g.quarters.map((q, i) => (
-            <th key={q.key} style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW }} className="sticky top-8 z-20 bg-muted px-1 py-1 text-center text-[11px] font-medium text-muted-foreground w-9">
+            <th key={q.key} style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW }} className={cn("sticky top-8 z-20 bg-muted px-1 py-1 text-center text-muted-foreground w-9", SUBHEAD_TEXT)}>
               {q.q}
             </th>
           ))

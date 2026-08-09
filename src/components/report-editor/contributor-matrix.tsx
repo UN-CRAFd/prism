@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { MatrixTableShell } from "@/components/report-editor/matrix-table";
+import { MatrixTableShell, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { PARTNER_TYPES, activityLabel, formatAmount } from "@/lib/transfers";
 import { FUNDING_TYPES, FUNDING_TYPE_COLORS } from "@/lib/complementary";
@@ -521,7 +521,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             { label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth },
           ]}
           trailingCols={[
-            { label: config.labels.subTotalColumn, className: "px-3 py-2 text-right font-medium text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]" },
+            { label: config.labels.subTotalColumn, className: `px-3 py-2 text-right ${HEAD_TEXT} text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]` },
             { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
           ]}
         >

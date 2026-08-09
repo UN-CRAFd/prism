@@ -11,8 +11,15 @@ import { cn } from "@/lib/utils";
 
 export const MATRIX_TABLE = "w-full text-sm border-separate border-spacing-0";
 
+// Unified column-header typography for every quant table (report + prodoc).
+// HEAD_TEXT: primary column headers (row labels, year groups, single-row heads).
+// SUBHEAD_TEXT: the second header row (year → sub-columns / quarters).
+// Both bold, one step larger than the old text-xs/text-[11px] headers.
+export const HEAD_TEXT = "text-sm font-bold";
+export const SUBHEAD_TEXT = "text-xs font-bold";
+
 // Shared header-cell base for a frozen leading column.
-const HEAD_CELL = "px-3 py-2 font-medium text-muted-foreground border-b bg-neutral-100 align-bottom";
+const HEAD_CELL = `px-3 py-2 ${HEAD_TEXT} text-muted-foreground border-b bg-neutral-100 align-bottom`;
 
 // Current-year header highlight. An OPAQUE blend (crafd-yellow 20% mixed into
 // white — visually identical to bg-crafd-yellow/20 over the white card) so that
@@ -80,7 +87,8 @@ export function MatrixTableShell({
                 key={year}
                 colSpan={subCols.length}
                 className={cn(
-                  "px-2 py-2 text-center font-semibold text-muted-foreground border-l border-b",
+                  "px-2 py-2 text-center text-muted-foreground border-l border-b",
+                  HEAD_TEXT,
                   year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100",
                   fillHeight && "sticky top-0 z-30 h-8"
                 )}
@@ -103,7 +111,7 @@ export function MatrixTableShell({
                   {subCols.map((sc, i) => (
                     <th
                       key={i}
-                      className={cn("px-2 py-1.5 text-left font-medium border-b", i === 0 && "border-l", sc.minWidth, bg, fillHeight && "sticky top-8 z-30")}
+                      className={cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, i === 0 && "border-l", sc.minWidth, bg, fillHeight && "sticky top-8 z-30")}
                     >
                       {sc.label}
                     </th>

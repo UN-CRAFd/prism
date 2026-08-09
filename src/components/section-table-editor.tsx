@@ -45,7 +45,8 @@ export interface SectionSpec {
   requiredField: string; // drives the "incomplete" count for the tab badge
   addLabel: string;
   emptyText?: string; // empty-state row (omitted for sections seeded to `min`)
-  min?: number; // seed empty rows up to this many
+  min?: number; // hard floor: rows can't be deleted below this many
+  seed?: number; // seed empty rows up to this many on load (convenience only; unlike `min`, these stay deletable)
   max?: number; // cap the number of rows
   kind?: string; // optional sub-kind filter/tag (e.g. testimonials leadership|partner)
 }
@@ -108,7 +109,7 @@ export function SectionTableEditor({
   onSaveStateChange?: (s: SaveState) => void;
   commentSection?: string;
 }) {
-  const { endpoint, fields, requiredField, addLabel, emptyText, min, max, kind } = spec;
+  const { endpoint, fields, requiredField, addLabel, emptyText, min, seed, max, kind } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
 
   const confirm = useConfirm();
@@ -161,14 +162,15 @@ export function SectionTableEditor({
           dirty: false,
         };
       });
-      while (min && loaded.length < min) loaded.push(emptyRow(false));
+      const seedTo = Math.max(min ?? 0, seed ?? 0);
+      while (loaded.length < seedTo) loaded.push(emptyRow(false));
       setRows(loaded);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, [endpoint, reportId, fields, linkKeys, min, emptyRow, kind]);
+  }, [endpoint, reportId, fields, linkKeys, min, seed, emptyRow, kind]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -423,7 +425,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     endpoint: "/api/external-coverage",
     requiredField: "description",
     addLabel: labels.partnerEditor.addCoverage,
-    min: 3,
+    seed: 3,
     fields: [
       { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: labels.externalCoverage.types, headClass: "w-44" },
       { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]" },

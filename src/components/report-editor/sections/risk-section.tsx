@@ -2,6 +2,7 @@
 
 import { Loader2, ChevronRight, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels.json";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -98,16 +99,16 @@ export function RiskSection({
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/30">
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-12">{labels.risk.columns.number}</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{labels.risk.columns.risk}</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.risk.columns.likelihood}</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32">{labels.risk.columns.impact}</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-28">{labels.risk.columns.riskLevel}</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.approvedMitigation}</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{labels.risk.columns.updatedMitigation}</th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.revision}</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground w-24">{labels.risk.columns.actions}</th>
+            <tr className={cn("border-b bg-muted/30", HEAD_TEXT)}>
+              <th className="text-left px-4 py-3 text-muted-foreground w-12">{labels.risk.columns.number}</th>
+              <th className="text-left px-4 py-3 text-muted-foreground">{labels.risk.columns.risk}</th>
+              <th className="text-left px-4 py-3 text-muted-foreground w-32">{labels.risk.columns.likelihood}</th>
+              <th className="text-left px-4 py-3 text-muted-foreground w-32">{labels.risk.columns.impact}</th>
+              <th className="text-left px-4 py-3 text-muted-foreground w-28">{labels.risk.columns.riskLevel}</th>
+              <th className="text-left px-4 py-3 text-muted-foreground w-72">{labels.risk.columns.approvedMitigation}</th>
+              <th className="text-left px-4 py-3 text-muted-foreground w-72">{labels.risk.columns.updatedMitigation}</th>
+              <th className="text-center px-4 py-3 text-muted-foreground w-24">{labels.risk.columns.revision}</th>
+              <th className="text-right px-4 py-3 text-muted-foreground w-24">{labels.risk.columns.actions}</th>
             </tr>
           </thead>
           <tbody className="divide-y">

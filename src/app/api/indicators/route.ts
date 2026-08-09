@@ -87,6 +87,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "project_id is required for custom indicators" }, { status: 400 });
   }
 
+  // For custom (partner-defined) indicators, description and means of verification
+  // are mandatory alongside the name.
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const meansOfVerification = typeof body.means_of_verification === "string" ? body.means_of_verification.trim() : "";
+  if (!isStandard) {
+    if (!description) {
+      return NextResponse.json({ error: "description is required for custom indicators" }, { status: 400 });
+    }
+    if (!meansOfVerification) {
+      return NextResponse.json({ error: "means_of_verification is required for custom indicators" }, { status: 400 });
+    }
+  }
+
   // Standard (library) indicators are admin-owned; custom ones must belong to a
   // project the caller owns.
   const session = await requireSession();
@@ -108,8 +121,8 @@ export async function POST(req: NextRequest) {
                  is_standard, project_id, archived_at, created_at, updated_at`,
       [
         name,
-        body.description || null,
-        body.means_of_verification || null,
+        description || null,
+        meansOfVerification || null,
         body.category || null,
         body.cycle || null,
         isStandard,

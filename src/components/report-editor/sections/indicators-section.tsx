@@ -49,6 +49,10 @@ export interface IndicatorsSectionProps {
   // Add-a-custom-indicator form
   newIndicatorName: string;
   setNewIndicatorName: (v: string) => void;
+  newIndicatorDescription: string;
+  setNewIndicatorDescription: (v: string) => void;
+  newIndicatorMeansOfVerification: string;
+  setNewIndicatorMeansOfVerification: (v: string) => void;
   newIndicatorBaselineValue: string;
   setNewIndicatorBaselineValue: (v: string) => void;
   newIndicatorBaselineYear: string;
@@ -79,6 +83,10 @@ export function IndicatorsSection({
   indicatorStates,
   newIndicatorName,
   setNewIndicatorName,
+  newIndicatorDescription,
+  setNewIndicatorDescription,
+  newIndicatorMeansOfVerification,
+  setNewIndicatorMeansOfVerification,
   newIndicatorBaselineValue,
   setNewIndicatorBaselineValue,
   newIndicatorBaselineYear,
@@ -95,18 +103,32 @@ export function IndicatorsSection({
   handleIndicatorDelete,
   fillHeight = false,
 }: IndicatorsSectionProps) {
+  // Name, description and means of verification are all mandatory for a
+  // partner-defined custom indicator; baseline/target remain optional.
+  const canAddIndicator =
+    !!newIndicatorName.trim() &&
+    !!newIndicatorDescription.trim() &&
+    !!newIndicatorMeansOfVerification.trim();
+
   return (
     <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
-      {/* Add a custom, partner-defined indicator (project-scoped) */}
-      <div className="flex gap-2">
-        <Input placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newIndicatorName.trim()) handleIndicatorAdd(); }} className="flex-[5]" />
-        <Input placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-        <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1.0]" />
-        <Input placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-        <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1.0]" />
-        <Button onClick={handleIndicatorAdd} disabled={addingIndicator || !newIndicatorName.trim()} size="sm" className="shrink-0">
-          {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-        </Button>
+      {/* Add a custom, partner-defined indicator (project-scoped). Name,
+          description and means of verification are required. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) handleIndicatorAdd(); }} className="flex-[2]" />
+          <Input required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2]" />
+          <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2]" />
+        </div>
+        <div className="flex gap-2">
+          <Input placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
+          <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1.0]" />
+          <Input placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
+          <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1.0]" />
+          <Button onClick={handleIndicatorAdd} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
+            {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+          </Button>
+        </div>
       </div>
 
       {indicatorRows.length === 0 ? (

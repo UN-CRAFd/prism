@@ -107,6 +107,8 @@ export function ReportEditor({
 
   // Custom indicators: partners may define their own (project-scoped) indicators.
   const [newIndicatorName, setNewIndicatorName] = useState("");
+  const [newIndicatorDescription, setNewIndicatorDescription] = useState("");
+  const [newIndicatorMeansOfVerification, setNewIndicatorMeansOfVerification] = useState("");
   const [newIndicatorBaselineValue, setNewIndicatorBaselineValue] = useState("");
   const [newIndicatorBaselineYear, setNewIndicatorBaselineYear] = useState("");
   const [newIndicatorTargetValue, setNewIndicatorTargetValue] = useState("");
@@ -581,7 +583,8 @@ export function ReportEditor({
   // this report. Partners cannot pick from the standard library — only add their own.
   async function handleIndicatorAdd() {
     const projectId = reports.find((r) => r.id === reportId)?.project_id;
-    if (!newIndicatorName.trim() || !reportId || !projectId) return;
+    // Name, description and means of verification are all mandatory.
+    if (!newIndicatorName.trim() || !newIndicatorDescription.trim() || !newIndicatorMeansOfVerification.trim() || !reportId || !projectId) return;
     setAddingIndicator(true);
     setError(null);
     try {
@@ -589,7 +592,13 @@ export function ReportEditor({
       const indRes = await fetch("/api/indicators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newIndicatorName.trim(), is_standard: false, project_id: projectId }),
+        body: JSON.stringify({
+          name: newIndicatorName.trim(),
+          description: newIndicatorDescription.trim(),
+          means_of_verification: newIndicatorMeansOfVerification.trim(),
+          is_standard: false,
+          project_id: projectId,
+        }),
       });
       if (!indRes.ok) throw new Error("Failed to create indicator");
       const indicator = await indRes.json();
@@ -610,6 +619,8 @@ export function ReportEditor({
       if (!lineRes.ok) throw new Error("Failed to add indicator to report");
 
       setNewIndicatorName("");
+      setNewIndicatorDescription("");
+      setNewIndicatorMeansOfVerification("");
       setNewIndicatorBaselineValue("");
       setNewIndicatorBaselineYear("");
       setNewIndicatorTargetValue("");
@@ -1055,6 +1066,10 @@ export function ReportEditor({
             indicatorStates={indicatorStates}
             newIndicatorName={newIndicatorName}
             setNewIndicatorName={setNewIndicatorName}
+            newIndicatorDescription={newIndicatorDescription}
+            setNewIndicatorDescription={setNewIndicatorDescription}
+            newIndicatorMeansOfVerification={newIndicatorMeansOfVerification}
+            setNewIndicatorMeansOfVerification={setNewIndicatorMeansOfVerification}
             newIndicatorBaselineValue={newIndicatorBaselineValue}
             setNewIndicatorBaselineValue={setNewIndicatorBaselineValue}
             newIndicatorBaselineYear={newIndicatorBaselineYear}

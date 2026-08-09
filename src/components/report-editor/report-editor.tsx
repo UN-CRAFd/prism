@@ -20,7 +20,7 @@ import { WorkplanPartnerEditor } from "@/components/workplan-grid";
 import { SectionTableEditor, SECTION_SPECS } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
-import { REPORT_SECTION_GROUPS } from "@/lib/report-sections";
+import { REPORT_SECTION_GROUPS, GROUP_STYLES } from "@/lib/report-sections";
 import { CommentsProvider } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
 import type { Report } from "@/lib/types";
@@ -931,20 +931,33 @@ export function ReportEditor({
 
       {/* Section tabs — shown in the admin mirror (the partner nav uses the sidebar). */}
       {showSectionTabs && selectedReport && (
-        <div className="border-b px-8 flex flex-wrap gap-1 shrink-0">
-          {REPORT_SECTION_GROUPS.flatMap((g) => g.sections).map((s) => (
-            <button
-              key={s.value}
-              onClick={() => handleSectionChange(s.value)}
-              className={cn(
-                "px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-                params.section === s.value
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {s.label}
-            </button>
+        <div className="border-b px-8 flex flex-wrap items-center gap-1 shrink-0">
+          {REPORT_SECTION_GROUPS.map((grp, i) => (
+            <div key={grp.label} className="flex flex-wrap items-center gap-1">
+              {/* Group label + divider so the two groups read as distinct even
+                  when none of their tabs is active. */}
+              {i > 0 && <span className="mx-2 h-5 w-px bg-border" aria-hidden />}
+              <span className={cn(
+                "px-1 text-[10px] font-semibold uppercase tracking-wider",
+                GROUP_STYLES[grp.label].header
+              )}>
+                {grp.label}
+              </span>
+              {grp.sections.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => handleSectionChange(s.value)}
+                  className={cn(
+                    "px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                    params.section === s.value
+                      ? GROUP_STYLES[grp.label].tabActive
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}

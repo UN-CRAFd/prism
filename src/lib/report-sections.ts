@@ -12,6 +12,33 @@ export interface ReportSection {
   group: ReportSectionGroup;
 }
 
+// Per-group accent colors, so the two report-section groups are visually
+// distinct wherever they're listed. Shared by the partner sidebar sub-menu and
+// the admin tab bar so the colors can never drift. Qualitative keeps the CRAF'd
+// brand yellow; Quantitative uses a contrasting blue. Class strings are written
+// out in full (not composed) so Tailwind's scanner keeps them.
+export interface GroupStyle {
+  /** Active pill in the partner sidebar (soft tinted background + colored text). */
+  sidebarActive: string;
+  /** Active underline tab in the admin tab bar. */
+  tabActive: string;
+  /** Group header / label text. */
+  header: string;
+}
+
+export const GROUP_STYLES: Record<ReportSectionGroup, GroupStyle> = {
+  Qualitative: {
+    sidebarActive: "bg-crafd-yellow/10 text-crafd-yellow",
+    tabActive: "border-crafd-yellow text-crafd-yellow",
+    header: "text-crafd-yellow",
+  },
+  Quantitative: {
+    sidebarActive: "bg-sky-500/10 text-sky-600",
+    tabActive: "border-sky-500 text-sky-600",
+    header: "text-sky-600",
+  },
+};
+
 export const REPORT_SECTIONS: ReportSection[] = [
   // Qualitative: Overview → External Coverage
   { value: "overview", label: labels.sections.overview, group: "Qualitative" },

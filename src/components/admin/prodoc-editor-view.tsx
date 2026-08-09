@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels.json";
@@ -719,10 +720,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8", stickyHead)}>{labels.risk.columns.number}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-96", stickyHead)}>{labels.risk.columns.risk}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", stickyHead)}>{labels.risk.columns.approvedMitigation}</th>
-                      <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-xs font-medium text-muted-foreground w-28", stickyHead)}>{labels.risk.columns.actions}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT, stickyHead)}>{labels.risk.columns.number}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT, stickyHead)}>{labels.risk.columns.risk}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT, stickyHead)}>{labels.risk.columns.approvedMitigation}</th>
+                      <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT, stickyHead)}>{labels.risk.columns.actions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -806,13 +807,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30">
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8", stickyHead)}>{labels.indicators.columns.number}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", stickyHead)}>{labels.indicators.columns.indicator}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32", stickyHead)}>{labels.indicators.columns.baselineValue}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24", stickyHead)}>{labels.indicators.columns.baselineYear}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-32", stickyHead)}>{labels.indicators.columns.targetValue}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground w-24", stickyHead)}>{labels.indicators.columns.targetYear}</th>
-                        <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-xs font-medium text-muted-foreground w-16", stickyHead)}>{labels.indicators.columns.actions}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.number}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.indicator}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.baselineValue}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-24", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.baselineYear}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.targetValue}</th>
+                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-24", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.targetYear}</th>
+                        <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-muted-foreground w-16", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.actions}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">

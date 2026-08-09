@@ -26,7 +26,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { REPORT_SECTION_GROUPS, parseReportPath } from "@/lib/report-sections";
+import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -334,7 +334,10 @@ export function AppSidebar() {
                             <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                               {REPORT_SECTION_GROUPS.map((grp) => (
                                 <div key={grp.label} className="flex flex-col gap-0.5">
-                                  <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                  <p className={cn(
+                                    "px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                                    GROUP_STYLES[grp.label].header
+                                  )}>
                                     {grp.label}
                                   </p>
                                   {grp.sections.map((s) => {
@@ -346,7 +349,7 @@ export function AppSidebar() {
                                         className={cn(
                                           "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition-colors",
                                           secActive
-                                            ? "bg-crafd-yellow/10 text-crafd-yellow font-medium"
+                                            ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
                                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                         )}
                                       >

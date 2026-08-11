@@ -3,21 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { Loader2 } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Loader2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
+import { ItemComments } from "@/components/report-editor/comments-context";
 import { richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels.json";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per
-// narrative question (defined in labels.json), each with a main answer and an
-// editable comment. Debounced autosave via the shared useAutosave controller,
-// with a single AutosaveIndicator — matching the report editor.
+// narrative question, each with a main answer and an editable comment. The
+// question set is a per-project snapshot taken from the admin's standard narrative
+// questions at project creation (project_narratives carries the key + label +
+// order), so it is loaded with the answers rather than read from labels.json.
+// Debounced autosave via the shared useAutosave controller, with a single
+// AutosaveIndicator — matching the report editor.
 
-const QUESTIONS = labels.narratives.questions;
 const MAX_CHARS = 4500;
 
+type Question = { id: number; key: string; label: string; description: string | null };
 type Entry = { answer: string; comment: string };
 const EMPTY: Entry = { answer: "", comment: "" };
 
@@ -32,14 +37,22 @@ export function NarrativesAdminEditor({
   // parent shows the amber view-only bar instead).
   readOnly?: boolean;
 }) {
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Question set is loaded per-project (the snapshot); keep it in a ref so the
+  // autosave flush closure always sees the current list.
+  const questionsRef = useRef<Question[]>([]);
+  questionsRef.current = questions;
   const entriesRef = useRef<Record<string, Entry>>({});
   entriesRef.current = entries;
   // Last value persisted for each key — used to detect dirty entries.
   const savedRef = useRef<Record<string, Entry>>({});
+  // Label + description per key, sent on PATCH so a fresh row keeps its snapshot.
+  const labelRef = useRef<Record<string, string>>({});
+  const descRef = useRef<Record<string, string | null>>({});
 
   const entryOf = (key: string): Entry => entries[key] ?? EMPTY;
 
@@ -47,10 +60,22 @@ export function NarrativesAdminEditor({
     setLoading(true); setError(null);
     fetch(`/api/project-narratives?project_id=${projectId}`)
       .then((r) => { if (!r.ok) throw new Error("Failed to load narratives"); return r.json(); })
-      .then((rows: { narrative_key: string; answer: string | null; comment: string | null }[]) => {
+      .then((rows: { id: number; narrative_key: string; label: string | null; description: string | null; answer: string | null; comment: string | null }[]) => {
         const map: Record<string, Entry> = {};
-        for (const row of rows) map[row.narrative_key] = { answer: row.answer ?? "", comment: row.comment ?? "" };
+        const labelMap: Record<string, string> = {};
+        const descMap: Record<string, string | null> = {};
+        const qs: Question[] = [];
+        for (const row of rows) {
+          map[row.narrative_key] = { answer: row.answer ?? "", comment: row.comment ?? "" };
+          const label = row.label ?? row.narrative_key;
+          labelMap[row.narrative_key] = label;
+          descMap[row.narrative_key] = row.description;
+          qs.push({ id: row.id, key: row.narrative_key, label, description: row.description });
+        }
+        setQuestions(qs);
         setEntries(map);
+        labelRef.current = labelMap;
+        descRef.current = descMap;
         savedRef.current = JSON.parse(JSON.stringify(map));
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Unknown error"))
@@ -60,14 +85,14 @@ export function NarrativesAdminEditor({
   // Save every dirty narrative. A key's saved snapshot is only advanced once the
   // PATCH succeeds, so edits made mid-save aren't lost.
   const flush = useCallback(async () => {
-    for (const q of QUESTIONS) {
+    for (const q of questionsRef.current) {
       const cur = entriesRef.current[q.key] ?? EMPTY;
       const saved = savedRef.current[q.key] ?? EMPTY;
       if (cur.answer === saved.answer && cur.comment === saved.comment) continue;
       const res = await fetch("/api/project-narratives", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId, narrative_key: q.key, answer: cur.answer, comment: cur.comment }),
+        body: JSON.stringify({ project_id: projectId, narrative_key: q.key, label: labelRef.current[q.key], description: descRef.current[q.key], answer: cur.answer, comment: cur.comment }),
       });
       if (!res.ok) throw new Error("Failed to save");
       savedRef.current[q.key] = { ...cur };
@@ -112,7 +137,13 @@ export function NarrativesAdminEditor({
         </div>
       )}
 
-      {QUESTIONS.map((q, i) => {
+      {questions.length === 0 && (
+        <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+          No narrative sections. Add them in the admin Narrative Questions editor.
+        </div>
+      )}
+
+      {questions.map((q, i) => {
         const { answer, comment } = entryOf(q.key);
         return (
           <div
@@ -124,7 +155,23 @@ export function NarrativesAdminEditor({
           >
             <div className="flex items-start gap-3">
               <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-              <label className="text-sm font-medium leading-snug flex-1">{q.label}</label>
+              <label className="text-sm font-medium leading-snug flex items-center gap-1.5 flex-1">
+                {q.label}
+                {q.description && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground shrink-0" aria-label={q.description}>
+                        <Info className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs whitespace-pre-line">{q.description}</TooltipContent>
+                  </Tooltip>
+                )}
+              </label>
+              {/* Per-narrative admin↔partner comment thread, keyed on the prodoc
+                  report + this narrative row (reuses the report editor's comment
+                  infra — no new backend). */}
+              <ItemComments section="narratives" itemId={q.id} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

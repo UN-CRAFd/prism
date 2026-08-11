@@ -61,6 +61,7 @@ const editorLinks = [
   { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
+  { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
   { href: "/admin/comments", label: "Comments", icon: MessageSquare },
 ];
 

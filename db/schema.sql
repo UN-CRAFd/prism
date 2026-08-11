@@ -374,6 +374,40 @@ CREATE TRIGGER standard_survey_questions_updated_at
     BEFORE UPDATE ON standard_survey_questions
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Standard narrative questions (global library) ────────────────────────────
+-- Admin-authored library of project-document narrative questions (Background &
+-- Relevance, Theory of Change, …). Snapshotted into project_narratives at project
+-- creation (see /api/projects): every new project copies the current set — key,
+-- label and sort_order — so partners have a set to fill out and later edits to the
+-- library leave existing projects untouched. Mirrors standard_survey_questions.
+CREATE TABLE IF NOT EXISTS standard_narrative_questions (
+    id            SERIAL      PRIMARY KEY,
+    narrative_key TEXT        NOT NULL UNIQUE,
+    label         TEXT        NOT NULL,
+    description   TEXT,
+    sort_order    INTEGER     NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS standard_narrative_questions_updated_at ON standard_narrative_questions;
+CREATE TRIGGER standard_narrative_questions_updated_at
+    BEFORE UPDATE ON standard_narrative_questions
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- Seed with the default question set (idempotent).
+INSERT INTO standard_narrative_questions (narrative_key, label, sort_order) VALUES
+    ('background_relevance', 'Background & Relevance', 1),
+    ('theory_of_change',     'Theory of Change', 2),
+    ('crafd_principles',     'Alignment with and Commitment to CRAF''d Principles', 3),
+    ('methodology',          'Methodology', 4),
+    ('ecosystem_impact',     'CRAF''d Data Ecosystem Impact & Use Cases', 5),
+    ('sustainability',       'Sustainability', 6),
+    ('scalability',          'Scalability', 7),
+    ('innovation',           'Innovation', 8),
+    ('cost_effectiveness',   'Cost Effectiveness', 9)
+ON CONFLICT (narrative_key) DO NOTHING;
+
 -- ── Indicators (master library) ──────────────────────────────────────────────
 -- Standard indicators are global (project_id IS NULL); custom indicators are
 -- created while editing a report and scoped to that project. archived_at
@@ -784,12 +818,18 @@ CREATE INDEX IF NOT EXISTS complementary_data_activities_activity_idx
 
 -- ── Project narratives ───────────────────────────────────────────────────────
 -- Project-level proposal narratives (Background & Relevance, Theory of Change,
--- CRAF'd Principles, Methodology, …). One row per (project, narrative_key); the
--- question label for each key lives in labels.json so the set can evolve in code.
+-- CRAF'd Principles, Methodology, …). One row per (project, narrative_key),
+-- snapshotted from standard_narrative_questions at project creation. `label` and
+-- `sort_order` are copied onto the row so the project keeps its own self-contained
+-- set even after the library question is edited or removed (same contract as
+-- surveys copying standard_survey_questions.question).
 CREATE TABLE IF NOT EXISTS project_narratives (
     id            SERIAL       PRIMARY KEY,
     project_id    INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     narrative_key TEXT         NOT NULL,
+    label         TEXT,
+    description   TEXT,
+    sort_order    INTEGER      NOT NULL DEFAULT 0,
     answer        TEXT,
     comment       TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

@@ -3,7 +3,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
-import labels from "@/lib/labels.json";
 import { formatDate } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
@@ -46,7 +45,7 @@ const PRINT_CSS = `
 
 interface ProdocData {
   meta: Record<string, unknown>;
-  narratives: { narrative_key: string; answer: string }[];
+  narratives: { narrative_key: string; label: string | null; answer: string }[];
   risks: {
     risk_name: string; likelihood: number | null; impact: number | null;
     approved_mitigation: string | null; categories: string[];
@@ -68,10 +67,6 @@ interface ProdocData {
   };
   sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number; priority?: string }[];
 }
-
-const NARRATIVE_LABELS: Record<string, string> = Object.fromEntries(
-  labels.narratives.questions.map((q) => [q.key, q.label])
-);
 
 function fmtUsd(v: number | null): string {
   if (v == null) return "—";
@@ -313,7 +308,7 @@ export default function ProdocPrintPage() {
             {data.narratives.map((n) => (
               <div key={n.narrative_key} data-block className="avoid-break" style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>
-                  {NARRATIVE_LABELS[n.narrative_key] || n.narrative_key}
+                  {n.label || n.narrative_key}
                 </div>
                 <div
                   className="rich-html"

@@ -48,10 +48,10 @@ export async function GET(
 
     const [narratives, risks, indicators, activities, budgets, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
       query(
-        `SELECT narrative_key, answer
+        `SELECT narrative_key, label, answer
            FROM reporting_platform.project_narratives
           WHERE project_id = $1 AND answer IS NOT NULL AND answer <> ''
-          ORDER BY id`,
+          ORDER BY sort_order, id`,
         [projectId]
       ),
       query(

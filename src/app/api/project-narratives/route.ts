@@ -22,10 +22,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, project_id, narrative_key, answer, comment
+      `SELECT id, project_id, narrative_key, label, description, sort_order, answer, comment
          FROM reporting_platform.project_narratives
         WHERE project_id = $1
-        ORDER BY id`,
+        ORDER BY sort_order, id`,
       [projectId]
     );
     return NextResponse.json(rows);
@@ -52,12 +52,19 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const rows = await query(
-      `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, answer, comment)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, label, description, answer, comment)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (project_id, narrative_key)
        DO UPDATE SET answer = EXCLUDED.answer, comment = EXCLUDED.comment
-       RETURNING id, project_id, narrative_key, answer, comment`,
-      [project_id, narrative_key, sanitizeRichText((body.answer as string) || null) ?? null, (body.comment as string) || null]
+       RETURNING id, project_id, narrative_key, label, description, sort_order, answer, comment`,
+      [
+        project_id,
+        narrative_key,
+        typeof body.label === "string" ? body.label : null,
+        typeof body.description === "string" ? body.description : null,
+        sanitizeRichText((body.answer as string) || null) ?? null,
+        (body.comment as string) || null,
+      ]
     );
     return NextResponse.json(rows[0]);
   } catch (err) {

@@ -106,6 +106,18 @@ export async function POST(request: Request) {
       [prodoc.rows[0].id]
     );
 
+    // Snapshot the admin-authored narrative question set onto the project so its
+    // project-document narratives tab opens with the current sections to fill out.
+    // label + sort_order are copied so later edits to the library leave this
+    // project untouched (mirrors survey seeding from standard_survey_questions).
+    await client.query(
+      `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, label, description, sort_order)
+       SELECT $1, sq.narrative_key, sq.label, sq.description, sq.sort_order
+         FROM reporting_platform.standard_narrative_questions sq
+        ORDER BY sq.sort_order, sq.id`,
+      [project.id]
+    );
+
     await client.query("COMMIT");
     return NextResponse.json(project, { status: 201 });
   } catch (err) {

@@ -557,10 +557,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             OUTSIDE the read-only fieldset below so admins can still comment on an
             Under Review document and partners can still confirm on a locked one.
             (Partners see nothing here until a comment exists — ItemComments self-hides.)
-            The table sections (risk/indicators) instead carry per-item
-            comments on each row, mirroring the report editor, so they're excluded here. */}
+            The risk/indicators tables and the narratives cards instead carry
+            per-item comments on each row, mirroring the report editor, so they're
+            excluded here. */}
         {selectedProdocId && !sectionLoading &&
-          !["risk", "indicators"].includes(selectedSection) && (
+          !["risk", "indicators", "narratives"].includes(selectedSection) && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
             {!isPartner && <span>Comment on this section:</span>}
             <ItemComments section={selectedSection} itemId={null} />

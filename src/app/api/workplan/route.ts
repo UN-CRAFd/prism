@@ -4,12 +4,17 @@ import { quarterFromDate } from "@/lib/workplan";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
-// ── Per-report workplan progress (partner-owned) ─────────────────────────────
+// ── Workplan progress, keyed by admin-managed update windows ─────────────────
 //
-// GET   ?reportId=  → { range: {start,end}, activities: [{...activity, entry}] }
-//                     where `entry` is this report's progress row (or null).
-// PATCH { reportId, activityId, updated_quarters, status, comment }
-//                   → upsert the entry for (reportId, activityId).
+// Progress rows attach to workplan_updates (project-level, [YEAR]+[code]) via
+// update_id, not to reports. report_id on an entry is write provenance only.
+//
+// GET   ?reportId=  → { range, updates:[…], activeUpdateId, activities:[{…,byUpdate}] }
+//                     Partners see non-hidden windows only.
+// PATCH { reportId, updateId, activityId, updated_quarters, status, comment }
+//                   → upsert the entry for (updateId, activityId), gated so
+//                     partners may only write the active, visible window while
+//                     their report is Open.
 
 function toQuartersOrNull(v: unknown): string[] | null {
   if (v === null || v === undefined) return null;
@@ -17,24 +22,23 @@ function toQuartersOrNull(v: unknown): string[] | null {
   return null;
 }
 
-// Flat cross-report listing (admin "Full Data" view): one row per workplan entry
-// (a report's progress on an activity) — i.e. one row per year-entry.
+// Flat cross-project listing (admin "Full Data" view): one row per workplan entry
+// (an activity's progress within an update window).
 const SELECT_ALL = `
   SELECT e.id, e.report_id, e.activity_id,
          e.updated_quarters, e.status, e.comment,
          a.outcome, a.objective_num, a.objective_text,
          a.activity_num, a.activity_text, a.implementing_agent,
          a.planned_quarters, a.sort_order,
-         r.year, r.report_type,
+         wu.year, wu.type_code,
          p.project_title, p.short_name AS project_short_name,
          pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
     FROM reporting_platform.workplan_entries e
     JOIN reporting_platform.workplan_activities a ON a.id = e.activity_id
-    JOIN reporting_platform.reports  r  ON r.id  = e.report_id
-    JOIN reporting_platform.projects p  ON p.id  = r.project_id
+    JOIN reporting_platform.workplan_updates  wu ON wu.id = e.update_id
+    JOIN reporting_platform.projects p  ON p.id  = wu.project_id
     JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-   WHERE r.data_type = 'report'
-   ORDER BY r.year DESC, pt.short_name, p.project_title, a.sort_order ASC, a.id ASC`;
+   ORDER BY wu.year DESC, pt.short_name, p.project_title, wu.sort_order, a.sort_order ASC, a.id ASC`;
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -75,7 +79,8 @@ export async function GET(req: NextRequest) {
     );
     if (!projRows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
-    const { project_id, year: currentYear, start_date, end_date } = projRows[0];
+    const { project_id, start_date, end_date } = projRows[0];
+    const isAdmin = session.role === "admin";
 
     // Project structure + baseline (admin-owned; read-only to partners).
     const activities = await query<Record<string, unknown> & { id: number }>(
@@ -95,26 +100,37 @@ export async function GET(req: NextRequest) {
       [project_id]
     );
 
-    // Every reporting year for this project — drives one progress line per report.
-    const yearRows = await query<{ year: number }>(
-      `SELECT DISTINCT year FROM reporting_platform.reports
-        WHERE project_id = $1 AND data_type = 'report' ORDER BY year ASC`,
+    // Admin-managed update windows — one progress line per window. Partners only
+    // see non-hidden windows.
+    const updates = await query<{
+      id: number;
+      year: number;
+      type_code: string;
+      sort_order: number;
+      is_active: boolean;
+      hidden: boolean;
+    }>(
+      `SELECT id, year, type_code, sort_order, is_active, hidden
+         FROM reporting_platform.workplan_updates
+        WHERE project_id = $1 ${isAdmin ? "" : "AND hidden = FALSE"}
+        ORDER BY sort_order, year, id`,
       [project_id]
     );
-    const years = yearRows.map((y) => y.year);
+    // The active window is only exposed if it's visible to this caller.
+    const activeUpdateId = updates.find((u) => u.is_active)?.id ?? null;
 
-    // Every report's progress entry across the project, pivoted per activity/year.
+    // Every window's progress entry, pivoted per activity/window.
     const entryRows = await query<{
       activity_id: number;
-      year: number;
+      update_id: number;
       updated_quarters: string[] | null;
       status: string | null;
       comment: string | null;
     }>(
-      `SELECT e.activity_id, r.year, e.updated_quarters, e.status, e.comment
+      `SELECT e.activity_id, e.update_id, e.updated_quarters, e.status, e.comment
          FROM reporting_platform.workplan_entries e
-         JOIN reporting_platform.reports r ON r.id = e.report_id
-        WHERE r.project_id = $1 AND r.data_type = 'report'`,
+         JOIN reporting_platform.workplan_updates wu ON wu.id = e.update_id
+        WHERE wu.project_id = $1`,
       [project_id]
     );
 
@@ -122,14 +138,14 @@ export async function GET(req: NextRequest) {
     for (const e of entryRows) {
       let m = byActivity.get(e.activity_id);
       if (!m) { m = {}; byActivity.set(e.activity_id, m); }
-      m[e.year] = { updated_quarters: e.updated_quarters ?? [], status: e.status, comment: e.comment };
+      m[e.update_id] = { updated_quarters: e.updated_quarters ?? [], status: e.status, comment: e.comment };
     }
 
     return NextResponse.json({
       range: { start: quarterFromDate(start_date), end: quarterFromDate(end_date) },
-      currentYear,
-      years,
-      activities: activities.map((a) => ({ ...a, byYear: byActivity.get(a.id) ?? {} })),
+      updates,
+      activeUpdateId,
+      activities: activities.map((a) => ({ ...a, byUpdate: byActivity.get(a.id) ?? {} })),
     });
   } catch (err) {
     logger.error("GET /api/workplan error:", err);
@@ -143,9 +159,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { reportId, activityId } = body;
-  if (!reportId || !activityId) {
-    return NextResponse.json({ error: "reportId and activityId required" }, { status: 400 });
+  const { reportId, updateId, activityId } = body;
+  if (!reportId || !updateId || !activityId) {
+    return NextResponse.json({ error: "reportId, updateId and activityId required" }, { status: 400 });
   }
 
   const session = await requireSession();
@@ -158,17 +174,48 @@ export async function PATCH(req: NextRequest) {
   const comment = (body.comment as string) || null;
 
   try {
+    // Validate the window against the report and enforce the edit gate. Partners
+    // may only write the active, visible window of the report's own project while
+    // that report is Open; admins bypass all four conditions.
+    const ctx = await query<{
+      window_project: number;
+      is_active: boolean;
+      hidden: boolean;
+      report_status: string;
+      report_project: number;
+    }>(
+      `SELECT wu.project_id AS window_project, wu.is_active, wu.hidden,
+              r.status AS report_status, r.project_id AS report_project
+         FROM reporting_platform.workplan_updates wu
+         CROSS JOIN reporting_platform.reports r
+        WHERE wu.id = $1 AND r.id = $2`,
+      [updateId, reportId]
+    );
+    if (!ctx.length) return NextResponse.json({ error: "Window or report not found" }, { status: 404 });
+    const c = ctx[0];
+
+    if (session.role !== "admin") {
+      const allowed =
+        c.is_active && !c.hidden && c.report_status === "Open" &&
+        c.window_project === c.report_project;
+      if (!allowed) {
+        return NextResponse.json({ error: "This update window is not editable" }, { status: 403 });
+      }
+    }
+
     const rows = await query(
       `INSERT INTO reporting_platform.workplan_entries
-         (report_id, activity_id, updated_quarters, status, comment)
-       VALUES ($1, $2, $3::jsonb, $4, $5)
-       ON CONFLICT (report_id, activity_id) DO UPDATE
+         (update_id, report_id, activity_id, updated_quarters, status, comment)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+       ON CONFLICT (update_id, activity_id) DO UPDATE
          SET updated_quarters = EXCLUDED.updated_quarters,
              status           = EXCLUDED.status,
              comment          = EXCLUDED.comment,
+             report_id        = EXCLUDED.report_id,
              updated_at       = NOW()
        RETURNING *`,
       [
+        updateId,
         reportId,
         activityId,
         updatedQuarters === null ? null : JSON.stringify(updatedQuarters),

@@ -15,15 +15,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown, ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import {
   WORKPLAN_STATUSES,
   WORKPLAN_STATUS_COLORS,
+  WORKPLAN_UPDATE_TYPES,
   quarterRange,
   groupQuartersByYear,
+  workplanUpdateWindowLabel,
   type WorkplanStatus,
 } from "@/lib/workplan";
 
@@ -134,12 +136,22 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner editor — read-only project structure + baseline (admin-owned), with
-// one progress line per reporting year. Every year is visible so the workplan's
-// evolution across reports is legible; only the currently-selected report's line
-// is editable (its checks, status and comment auto-save).
+// one progress line per admin-managed update window ([YEAR]+[TR/NCE/BR/AR/FR]).
+// Every visible window is shown so the workplan's evolution is legible; only the
+// admin-highlighted active window is editable (its checks, status and comment
+// auto-save), and only while the report is Open.
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface YearEntry {
+interface UpdateWindow {
+  id: number;
+  year: number;
+  type_code: string;
+  sort_order: number;
+  is_active: boolean;
+  hidden: boolean;
+}
+
+interface WindowEntry {
   updated_quarters: string[];
   status: string | null;
   comment: string | null;
@@ -155,13 +167,13 @@ interface MatrixActivity {
   implementing_agent: string | null;
   planned_quarters: string[];
   sort_order: number;
-  byYear: Record<number, YearEntry | undefined>;
+  byUpdate: Record<number, WindowEntry | undefined>;
 }
 
 interface WorkplanMatrix {
   range: Range;
-  currentYear: number;
-  years: number[];
+  updates: UpdateWindow[];
+  activeUpdateId: number | null;
   activities: MatrixActivity[];
 }
 
@@ -183,9 +195,11 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   // Autosave of the current report's progress (the only editable line).
   const progressRef = useRef<Record<number, ProgressState>>({});
   const dirtyRef = useRef<Set<number>>(new Set());
+  const activeUpdateRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushRef = useRef<() => void>(() => {});
   useEffect(() => { progressRef.current = progress; }, [progress]);
+  useEffect(() => { activeUpdateRef.current = data?.activeUpdateId ?? null; }, [data]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,9 +211,9 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
       setData(d);
       const prog: Record<number, ProgressState> = {};
       for (const a of d.activities) {
-        const cur = a.byYear[d.currentYear];
+        const cur = d.activeUpdateId != null ? a.byUpdate[d.activeUpdateId] : undefined;
         prog[a.id] = {
-          // Default this report's timeline to the baseline until the partner adjusts it.
+          // Default the active window's timeline to the baseline until adjusted.
           updated_quarters: cur?.updated_quarters ?? a.planned_quarters ?? [],
           status: (cur?.status as WorkplanStatus) ?? null,
           comment: cur?.comment ?? "",
@@ -218,6 +232,9 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   const flush = useCallback(async () => {
     const ids = Array.from(dirtyRef.current);
     if (!ids.length) return;
+    const updateId = activeUpdateRef.current;
+    // No active window ⇒ nothing is editable; drop any stray dirty ids.
+    if (updateId == null) { dirtyRef.current.clear(); return; }
     dirtyRef.current.clear();
     setSaveState("saving");
     try {
@@ -230,6 +247,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               reportId,
+              updateId,
               activityId,
               updated_quarters: s.updated_quarters,
               status: s.status,
@@ -305,16 +323,27 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     );
   }
 
-  const { activities, years, currentYear } = data;
+  const { activities, updates, activeUpdateId } = data;
   const totalCols = 2 + quarters.length + 3;
   let lastOutcome: string | null = null;
   let lastObjective: string | null = null;
 
   return (
     <div className={cn(fillHeight ? "flex flex-col flex-1 min-h-0" : "")}>
-      {!onSaveStateChange && (
-        <div className="flex justify-end mb-3">
-          <AutosaveIndicator state={saveState} />
+      <div className="flex items-start justify-between gap-4 mb-3">
+        {/* Fixed legend for the update-window type codes. */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {WORKPLAN_UPDATE_TYPES.map((t) => (
+            <span key={t.code}>
+              <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
+            </span>
+          ))}
+        </div>
+        {!onSaveStateChange && <AutosaveIndicator state={saveState} />}
+      </div>
+      {activeUpdateId == null && (
+        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          No active update window has been set for this project. Ask your administrator to add and activate one before entering progress.
         </div>
       )}
       <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
@@ -324,7 +353,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             leadCols={
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-3 py-2 text-muted-foreground min-w-[280px] align-bottom", HEAD_TEXT)}>Activity</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-2 py-2 text-muted-foreground min-w-[90px] align-bottom", HEAD_TEXT)}>Report</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-2 py-2 text-muted-foreground min-w-[100px] align-bottom", HEAD_TEXT)}>Update</th>
               </>
             }
             trailCols={
@@ -344,7 +373,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               if (objKey.trim() !== "|") lastObjective = objKey;
 
               const ps = progress[a.id];
-              const rowSpan = 1 + years.length; // baseline + one line per report year
+              const rowSpan = 1 + updates.length; // baseline + one line per update window
 
               return (
                 <Fragment key={a.id}>
@@ -380,23 +409,23 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     <td className="px-2 py-2 border-l text-muted-foreground/40 text-xs">—</td>
                   </tr>
 
-                  {/* One progress line per report year; only the current one edits */}
-                  {years.map((yr) => {
-                    const isCurrent = yr === currentYear;
-                    // The current year's line is the only editable one — and only
-                    // when the report itself is editable. When read-only it renders
-                    // exactly like a past year's line (badges / plain text), so a
+                  {/* One progress line per update window; only the active one edits */}
+                  {updates.map((u) => {
+                    const isActive = u.id === activeUpdateId;
+                    // The active window is the only editable line — and only when
+                    // the report itself is editable. When read-only it renders
+                    // exactly like a past window's line (badges / plain text), so a
                     // closed report can never be changed here regardless of whether
                     // the wrapping fieldset manages to disable the controls.
-                    const editable = isCurrent && !readOnly;
-                    const cell = a.byYear[yr];
-                    const checks = isCurrent ? (ps?.updated_quarters ?? []) : (cell?.updated_quarters ?? []);
-                    const status = (isCurrent ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
-                    const comment = isCurrent ? (ps?.comment ?? "") : (cell?.comment ?? "");
+                    const editable = isActive && !readOnly;
+                    const cell = a.byUpdate[u.id];
+                    const checks = isActive ? (ps?.updated_quarters ?? []) : (cell?.updated_quarters ?? []);
+                    const status = (isActive ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
+                    const comment = isActive ? (ps?.comment ?? "") : (cell?.comment ?? "");
                     return (
-                      <tr key={yr} className={cn("border-t", isCurrent && "bg-crafd-yellow/5")}>
+                      <tr key={u.id} className={cn("border-t", isActive && "bg-crafd-yellow/5")}>
                         <td className="px-2 py-2 text-[11px] font-medium whitespace-nowrap">
-                          <span className={cn(isCurrent ? "text-neutral-800" : "text-muted-foreground")}>{yr}</span>
+                          <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
                         </td>
                         {quarters.map((q, i) => (
                           <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
@@ -408,11 +437,11 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                           </td>
                         ))}
                         <td className="px-2 py-2 align-middle border-l">
-                          {/* Current-year status always renders the dropdown; when
-                              the report is read-only the surrounding <ReadOnlyProvider>
-                              disables it (same mechanism as every other section's
-                              select). Past years stay a plain badge. */}
-                          {isCurrent ? (
+                          {/* The active window's status always renders the dropdown;
+                              when the report is read-only the surrounding
+                              <ReadOnlyProvider> disables it (same mechanism as every
+                              other section's select). Past windows stay a plain badge. */}
+                          {isActive ? (
                             <Select value={status ?? "none"} onValueChange={(v) => updateProgress(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
                               <SelectTrigger className="h-8 px-1 w-[140px]">
                                 {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground text-sm">—</span>}
@@ -1157,6 +1186,220 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       <Button onClick={addOutcome} variant="outline" size="sm">
         <Plus className="size-4 mr-1" /> Add outcome
       </Button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Admin update-window manager — define the labelled progress windows partners
+// report against ([YEAR]+[TR/NCE/BR/AR/FR]), mark one active (the only one
+// partners may edit) and hide superseded windows. Rendered in the prodoc editor.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function WorkplanUpdatesManager({ projectId }: { projectId: number }) {
+  const confirm = useConfirm();
+  const wu = labels.workplanUpdates;
+  const [windows, setWindows] = useState<UpdateWindow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [newYear, setNewYear] = useState("");
+  const [newType, setNewType] = useState<string>(WORKPLAN_UPDATE_TYPES[0].code);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/workplan-updates?project_id=${projectId}`);
+      if (!res.ok) throw new Error(wu.loadFailed);
+      setWindows(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, wu.loadFailed]);
+  useEffect(() => { load(); }, [load]);
+
+  async function addWindow() {
+    const year = Number(newYear);
+    if (!Number.isInteger(year)) { setError(wu.invalidYear); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/workplan-updates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, year, type_code: newType }),
+      });
+      if (!res.ok) throw new Error(wu.saveFailed);
+      setNewYear("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : wu.saveFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function patchWindow(id: number, patch: Record<string, unknown>) {
+    setError(null);
+    const res = await fetch("/api/workplan-updates", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    if (!res.ok) { setError(wu.saveFailed); return; }
+    await load();
+  }
+
+  // Reorder by swapping sort_order with the neighbour (values are distinct).
+  async function move(index: number, dir: -1 | 1) {
+    const j = index + dir;
+    if (j < 0 || j >= windows.length) return;
+    const a = windows[index];
+    const b = windows[j];
+    setError(null);
+    const results = await Promise.all([
+      fetch("/api/workplan-updates", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: a.id, sort_order: b.sort_order }) }),
+      fetch("/api/workplan-updates", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, sort_order: a.sort_order }) }),
+    ]);
+    if (results.some((r) => !r.ok)) { setError(wu.saveFailed); }
+    await load();
+  }
+
+  async function remove(w: UpdateWindow) {
+    if (!await confirm({ message: wu.deleteConfirm })) return;
+    setError(null);
+    const res = await fetch(`/api/workplan-updates?id=${w.id}`, { method: "DELETE" });
+    if (!res.ok) { setError(wu.deleteFailed); return; }
+    await load();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold">{wu.title}</h3>
+        <p className="text-xs text-muted-foreground">{wu.description}</p>
+      </div>
+
+      {/* Fixed legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {WORKPLAN_UPDATE_TYPES.map((t) => (
+          <span key={t.code}>
+            <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
+          </span>
+        ))}
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-6 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/60 text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2 font-medium">{wu.colWindow}</th>
+                <th className="px-3 py-2 font-medium text-center w-24">{wu.colActive}</th>
+                <th className="px-3 py-2 font-medium text-center w-24">{wu.colHidden}</th>
+                <th className="px-3 py-2 font-medium text-center w-28">{wu.colOrder}</th>
+                <th className="px-3 py-2 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {windows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-muted-foreground">{wu.empty}</td>
+                </tr>
+              ) : (
+                windows.map((w, i) => (
+                  <tr key={w.id} className={cn("border-b last:border-b-0", w.is_active && "bg-crafd-yellow/5")}>
+                    <td className="px-3 py-2">
+                      <span className="font-medium">{workplanUpdateWindowLabel(w)}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{WORKPLAN_UPDATE_TYPES.find((t) => t.code === w.type_code)?.label}</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => !w.is_active && patchWindow(w.id, { is_active: true })}
+                        className={cn("inline-flex size-5 items-center justify-center rounded-full border", w.is_active ? "border-crafd-yellow bg-crafd-yellow text-black" : "border-neutral-300 text-transparent hover:border-neutral-400")}
+                        aria-pressed={w.is_active}
+                        aria-label={wu.colActive}
+                      >
+                        <Check className="size-3.5" strokeWidth={3} />
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => patchWindow(w.id, { hidden: !w.hidden })}
+                        className={cn("inline-flex items-center justify-center text-muted-foreground hover:text-foreground", w.hidden && "text-neutral-400")}
+                        aria-pressed={w.hidden}
+                        aria-label={wu.colHidden}
+                      >
+                        {w.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-1">
+                        <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label={wu.moveUp}>
+                          <ArrowUp className="size-4" />
+                        </button>
+                        <button type="button" onClick={() => move(i, 1)} disabled={i === windows.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label={wu.moveDown}>
+                          <ArrowDown className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <button type="button" onClick={() => remove(w)} className="text-muted-foreground hover:text-destructive" aria-label={wu.delete}>
+                        <Trash2 className="size-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add window */}
+      <div className="flex items-end gap-2">
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">{wu.year}</label>
+          <Input
+            type="number"
+            value={newYear}
+            onChange={(e) => setNewYear(e.target.value)}
+            placeholder="2025"
+            className="h-8 w-24 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">{wu.type}</label>
+          <Select value={newType} onValueChange={setNewType}>
+            <SelectTrigger className="h-8 w-[220px]">
+              <span className="text-sm">{WORKPLAN_UPDATE_TYPES.find((t) => t.code === newType)?.label ?? newType}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {WORKPLAN_UPDATE_TYPES.map((t) => (
+                <SelectItem key={t.code} value={t.code}>
+                  <span className="font-semibold mr-1">{t.code}</span> {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={addWindow} disabled={busy} size="sm" className="h-8 gap-1">
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} {wu.add}
+        </Button>
+      </div>
     </div>
   );
 }

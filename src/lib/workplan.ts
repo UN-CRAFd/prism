@@ -4,6 +4,30 @@
 export const WORKPLAN_STATUSES = ["Behind Schedule", "On Track", "Achieved"] as const;
 export type WorkplanStatus = (typeof WORKPLAN_STATUSES)[number];
 
+// Update-window types (the fixed legend). A window is labelled [YEAR] + [code].
+// Single source of truth for both the admin UI selects and server validation.
+export const WORKPLAN_UPDATE_TYPES = [
+  { code: "TR", label: "Tranche Release" },
+  { code: "NCE", label: "No-Cost Extension" },
+  { code: "BR", label: "Budget Revision" },
+  { code: "AR", label: "Annual Reporting" },
+  { code: "FR", label: "Final Report" },
+] as const;
+export type WorkplanUpdateType = (typeof WORKPLAN_UPDATE_TYPES)[number]["code"];
+export const WORKPLAN_UPDATE_TYPE_CODES: readonly string[] = WORKPLAN_UPDATE_TYPES.map((t) => t.code);
+
+const WORKPLAN_UPDATE_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  WORKPLAN_UPDATE_TYPES.map((t) => [t.code, t.label])
+);
+export function workplanUpdateTypeLabel(code: string): string {
+  return WORKPLAN_UPDATE_TYPE_LABELS[code] ?? code;
+}
+
+// Short row label for a window, e.g. "2025 · BR".
+export function workplanUpdateWindowLabel(u: { year: number; type_code: string }): string {
+  return `${u.year} · ${u.type_code}`;
+}
+
 // Colour treatments for the status badge, echoing the reference spreadsheet.
 export const WORKPLAN_STATUS_COLORS: Record<
   WorkplanStatus,

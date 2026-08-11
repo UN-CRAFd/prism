@@ -638,17 +638,43 @@ CREATE TRIGGER workplan_activities_updated_at
     BEFORE UPDATE ON workplan_activities
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- Admin-managed "update windows": labelled progress snapshots per project,
+-- [YEAR]+[TR/NCE/BR/AR/FR]. One window per project is active (the only one
+-- partners may edit); windows can be hidden from partners. Progress rows attach
+-- here, decoupled from reports (report_id on workplan_entries is provenance only).
+CREATE TABLE IF NOT EXISTS workplan_updates (
+    id          SERIAL       PRIMARY KEY,
+    project_id  INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    year        INTEGER      NOT NULL,
+    type_code   TEXT         NOT NULL CHECK (type_code IN ('TR','NCE','BR','AR','FR')),
+    sort_order  INTEGER      NOT NULL DEFAULT 0,
+    is_active   BOOLEAN      NOT NULL DEFAULT FALSE,
+    hidden      BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS workplan_updates_project_idx ON workplan_updates(project_id);
+-- At most one active window per project.
+CREATE UNIQUE INDEX IF NOT EXISTS workplan_updates_one_active_uq
+    ON workplan_updates(project_id) WHERE is_active;
+DROP TRIGGER IF EXISTS workplan_updates_updated_at ON workplan_updates;
+CREATE TRIGGER workplan_updates_updated_at
+    BEFORE UPDATE ON workplan_updates
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 CREATE TABLE IF NOT EXISTS workplan_entries (
     id               SERIAL       PRIMARY KEY,
-    report_id        INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    update_id        INTEGER      NOT NULL REFERENCES workplan_updates(id) ON DELETE CASCADE,
+    report_id        INTEGER      REFERENCES reports(id) ON DELETE SET NULL,  -- write provenance
     activity_id      INTEGER      NOT NULL REFERENCES workplan_activities(id) ON DELETE CASCADE,
     updated_quarters JSONB,                                     -- null = same as baseline
     status           workplan_status,
     comment          TEXT,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    UNIQUE (report_id, activity_id)
+    UNIQUE (update_id, activity_id)
 );
+CREATE INDEX IF NOT EXISTS workplan_entries_update_idx   ON workplan_entries(update_id);
 CREATE INDEX IF NOT EXISTS workplan_entries_report_idx   ON workplan_entries(report_id);
 CREATE INDEX IF NOT EXISTS workplan_entries_activity_idx ON workplan_entries(activity_id);
 DROP TRIGGER IF EXISTS workplan_entries_updated_at ON workplan_entries;

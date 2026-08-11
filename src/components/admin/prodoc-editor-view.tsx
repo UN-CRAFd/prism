@@ -14,7 +14,7 @@ import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels.json";
-import { WorkplanAdminEditor } from "@/components/workplan-grid";
+import { WorkplanAdminEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
 import { GeneralInfoAdminEditor } from "@/components/admin/general-info-editor";
@@ -848,7 +848,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} readOnly={readOnly} /> : null
 
         ) : selectedSection === "workplan" ? (
-          selectedDoc ? <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} fillHeight={fillHeight} /> : null
+          selectedDoc ? (
+            <div className={cn(fillHeight ? "flex flex-col gap-4 flex-1 min-h-0" : "space-y-4")}>
+              <WorkplanUpdatesManager projectId={selectedDoc.project_id} />
+              <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} fillHeight={fillHeight} />
+            </div>
+          ) : null
         ) : selectedSection === "expenditure" ? (
           selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} fillHeight={fillHeight} /> : null
         ) : null}

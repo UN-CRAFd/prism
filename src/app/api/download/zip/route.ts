@@ -174,20 +174,19 @@ const EXPORTS: Record<string, SectionExport> = {
 
   workplan: {
     headers: [
-      "year", "project_name", "partner", "outcome", "objective_num", "objective_text",
+      "year", "update_type", "project_name", "partner", "outcome", "objective_num", "objective_text",
       "activity_num", "activity_text", "implementing_agent", "planned_quarters", "updated_quarters", "status", "comment",
     ],
     sql: `
-      SELECT r.year, p.project_title AS project_name, pt.short_name AS partner,
+      SELECT wu.year, wu.type_code AS update_type, p.project_title AS project_name, pt.short_name AS partner,
         a.outcome, a.objective_num, a.objective_text, a.activity_num, a.activity_text, a.implementing_agent,
         a.planned_quarters, e.updated_quarters, e.status, e.comment
       FROM reporting_platform.workplan_entries e
       JOIN reporting_platform.workplan_activities a ON a.id = e.activity_id
-      JOIN reporting_platform.reports  r  ON r.id  = e.report_id
-      JOIN reporting_platform.projects p  ON p.id  = r.project_id
+      JOIN reporting_platform.workplan_updates  wu ON wu.id = e.update_id
+      JOIN reporting_platform.projects p  ON p.id  = wu.project_id
       JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-      WHERE r.data_type = 'report'
-      ORDER BY r.year, pt.short_name, p.project_title, a.sort_order, a.id`,
+      ORDER BY wu.year, pt.short_name, p.project_title, wu.sort_order, a.sort_order, a.id`,
   },
 
   expenditure: {

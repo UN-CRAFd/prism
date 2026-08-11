@@ -113,11 +113,15 @@ export async function GET(req: NextRequest) {
       listSection("lessons_learned", "lesson_learned", 1),
       listSection("external_coverage", "description", 3),
 
-      // Workplan — every activity has a progress status for this report.
+      // Workplan — every activity has a progress status in the project's ACTIVE
+      // update window. Progress is now project-level (per window), so this check
+      // is uniform across the project's reports; no active window ⇒ incomplete.
       query<Row>(
         `SELECT (SELECT COUNT(*) FROM reporting_platform.workplan_activities WHERE project_id = $2)::int AS activities,
                 (SELECT COUNT(*) FROM reporting_platform.workplan_activities a
-                   JOIN reporting_platform.workplan_entries e ON e.activity_id = a.id AND e.report_id = $1
+                   JOIN reporting_platform.workplan_entries e ON e.activity_id = a.id
+                   JOIN reporting_platform.workplan_updates wu
+                     ON wu.id = e.update_id AND wu.is_active AND wu.project_id = $2
                   WHERE a.project_id = $2 AND e.status IS NOT NULL)::int AS done`,
         [reportId, projectId]
       ).then((r) => n(r[0]?.activities) > 0 && n(r[0]?.done) === n(r[0]?.activities)),

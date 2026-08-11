@@ -53,6 +53,15 @@ interface TrancheForm {
 const tranchesSnapshot = (list: TrancheForm[]) =>
   JSON.stringify(list.map((t) => ({ amount: t.amount.trim(), tranche_date: t.tranche_date, comment: t.comment.trim() })));
 
+// Add whole months to a YYYY-MM-DD date, returning YYYY-MM-DD. Computed in UTC so
+// the string arithmetic never shifts across a day boundary from timezone offset.
+function addMonthsISO(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCMonth(base.getUTCMonth() + months);
+  return base.toISOString().slice(0, 10);
+}
+
 interface ProjectContact {
   id: number;
   contact_id: number;
@@ -178,6 +187,7 @@ export function GeneralInfoAdminEditor({
   // a single save indicator reflects everything on this tab. Each half only
   // writes when its own snapshot changed.
   const flush = useCallback(async () => {
+    setError(null);
     // Project columns.
     const snapshot = { ...formRef.current };
     const payload: Record<string, unknown> = {};
@@ -198,6 +208,23 @@ export function GeneralInfoAdminEditor({
     const curTranches = tranchesRef.current;
     const tSnap = tranchesSnapshot(curTranches);
     if (tSnap !== savedTranchesRef.current) {
+      // Guard: no tranche may fall outside the project period. Block the whole
+      // tranche write (project columns above already saved) until it's fixed.
+      const startBound = snapshot.project_start_date || null;
+      const dur = snapshot.project_duration_months.trim() === "" ? null : Number(snapshot.project_duration_months);
+      const endBound = startBound && dur != null && Number.isFinite(dur) ? addMonthsISO(startBound, dur) : null;
+      const outOfRange = curTranches.some((t) =>
+        t.tranche_date !== "" &&
+        ((startBound && t.tranche_date < startBound) || (endBound && t.tranche_date > endBound))
+      );
+      if (outOfRange) {
+        setError(
+          labels.generalInfo.tranches.dateOutOfRange
+            .replace("{start}", startBound ?? "—")
+            .replace("{end}", endBound ?? "—")
+        );
+        throw new Error("Tranche date out of range");
+      }
       const outgoing = curTranches
         .filter((t) => t.amount.trim() !== "" || t.tranche_date !== "" || t.comment.trim() !== "")
         .map((t) => ({
@@ -253,6 +280,23 @@ export function GeneralInfoAdminEditor({
 
   const trancheTotal = tranches.reduce((sum, t) => sum + (t.amount.trim() === "" ? 0 : Number(t.amount) || 0), 0);
   const grantSize = form.grant_size_usd.trim() === "" ? null : Number(form.grant_size_usd);
+
+  // Valid tranche-date window: project start → project end (start + duration).
+  // Either bound is only enforced once known; ISO date strings compare
+  // chronologically, so a lexicographic <, > is a date comparison.
+  const projectStartDate = form.project_start_date || null;
+  const durationForRange = form.project_duration_months.trim() === "" ? null : Number(form.project_duration_months);
+  const projectEndDate =
+    projectStartDate && durationForRange != null && Number.isFinite(durationForRange)
+      ? addMonthsISO(projectStartDate, durationForRange)
+      : null;
+  const trancheDateInvalid = (dateStr: string) => {
+    if (!dateStr) return false;
+    if (projectStartDate && dateStr < projectStartDate) return true;
+    if (projectEndDate && dateStr > projectEndDate) return true;
+    return false;
+  };
+  const hasInvalidTrancheDate = tranches.some((t) => trancheDateInvalid(t.tranche_date));
   const tranchesMatchGrant = grantSize != null && Math.abs(trancheTotal - grantSize) < 0.005;
   const fmtUsd = (n: number) =>
     n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -513,8 +557,14 @@ export function GeneralInfoAdminEditor({
                       <Input
                         type="date"
                         value={t.tranche_date}
+                        min={projectStartDate ?? undefined}
+                        max={projectEndDate ?? undefined}
                         onChange={(e) => setTranche(t._key, { tranche_date: e.target.value })}
-                        className="h-8 text-sm"
+                        className={cn(
+                          "h-8 text-sm",
+                          trancheDateInvalid(t.tranche_date) && "border-destructive focus-visible:ring-destructive"
+                        )}
+                        aria-invalid={trancheDateInvalid(t.tranche_date)}
                         aria-label={`${g.tranches.columns.date} ${i + 1}`}
                       />
                     </td>
@@ -570,6 +620,14 @@ export function GeneralInfoAdminEditor({
             {g.tranches.mismatch
               .replace("{grant}", fmtUsd(grantSize))
               .replace("{total}", fmtUsd(trancheTotal))}
+          </p>
+        )}
+
+        {hasInvalidTrancheDate && (
+          <p className="text-xs text-destructive">
+            {g.tranches.dateOutOfRange
+              .replace("{start}", projectStartDate ?? "—")
+              .replace("{end}", projectEndDate ?? "—")}
           </p>
         )}
 

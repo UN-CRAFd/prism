@@ -112,7 +112,8 @@
       "total": "Tranche total",
       "grantSize": "Funding amount",
       "matches": "Tranches match the funding amount.",
-      "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}."
+      "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}.",
+      "dateOutOfRange": "Tranche dates must fall within the project period ({start} – {end})."
     },
     "statusOptions": ["Idea", "Ongoing", "Operationally Closed", "Financially Closed", "Project Closed"],
     "relationshipOptions": ["Focal Point", "Project Manager"],

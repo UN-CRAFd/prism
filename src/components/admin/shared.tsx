@@ -1,12 +1,13 @@
 "use client";
 
-import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, type LucideIcon } from "lucide-react";
+import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 
@@ -42,16 +43,28 @@ export function Field({
   label,
   children,
   required,
+  hint,
 }: {
   label: string;
   children: React.ReactNode;
   required?: boolean;
+  hint?: string;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs">
+      <Label className="text-xs flex items-center gap-1">
         {label}
         {required && " *"}
+        {hint && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="text-muted-foreground hover:text-foreground" aria-label={hint}>
+                <Info className="size-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{hint}</TooltipContent>
+          </Tooltip>
+        )}
       </Label>
       {children}
     </div>

@@ -181,7 +181,7 @@ export default function PartnersPage() {
             onSubmit={handleSubmit}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Field label="Short name" required>
+              <Field label="Short name" required hint="Also used as the partner's login username.">
                 <Input value={shortName} onChange={(e) => setShortName(e.target.value.replace(/\s/g, ""))} placeholder="Acronym" />
               </Field>
               <Field label="Long name" required>

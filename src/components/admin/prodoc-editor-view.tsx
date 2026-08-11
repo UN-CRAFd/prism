@@ -31,9 +31,11 @@ const PRODOC_STATUSES = ["Open", "Under Review", "Closed"] as const;
 
 // ── Project Document Editor ──────────────────────────────────────────────────
 // Defines the baseline/template for a project on its project document (prodoc —
-// the single reports row with data_type='prodoc'). Surveys/risk/indicators are
-// stored against the prodoc id (a prodoc is a reports row); workplan + expenditure
-// plan are project-level. New reports snapshot these baselines at creation.
+// the single reports row with data_type='prodoc'). Risk/indicators are stored
+// against the prodoc id (a prodoc is a reports row); workplan + expenditure plan
+// are project-level. New reports snapshot these baselines at creation. (Survey
+// questions are not part of the prodoc — reports seed them from the admin's
+// standard survey questions / the project's previous report.)
 
 interface Prodoc {
   id: number;            // the prodoc's reports.id — used as the section reportId
@@ -44,14 +46,6 @@ interface Prodoc {
   project_start_date: string | null;
   project_duration_months: number | null;
   status: string | null; // Open | Under Review | Closed — gates editability
-}
-
-interface Survey {
-  id: number;
-  report_id: number;
-  question: string;
-  assessment: number | null;
-  context: string | null;
 }
 
 interface Risk {
@@ -90,8 +84,6 @@ interface LibraryIndicator {
   is_standard: boolean;
 }
 
-// Surveys sits last and is muted — it's an admin-only baseline concern, so
-// partners never see it (filtered out in partner mode).
 const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean; hidden?: boolean }[] = [
   { value: "general", label: labels.sections.general },
   { value: "narratives", label: labels.sections.narratives },
@@ -103,7 +95,6 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
   { value: "expenditure", label: "Budgets" },
   { value: "workplan", label: labels.sections.workplan },
   { value: "signatures", label: labels.sections.signatures },
-  { value: "surveys", label: labels.sections.surveys, muted: true, adminOnly: true },
 ];
 
 function toSlug(d: Prodoc) {
@@ -117,8 +108,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   const isPartner = mode === "partner";
   const routeBase = isPartner ? "/partner/prodoc-editor" : "/admin/prodoc-editor";
-  // Partners never see the admin-only Surveys tab; `hidden` tabs are shelved for
-  // everyone (their render branch stays, so they can be re-enabled by dropping the flag).
+  // Partners never see admin-only tabs; `hidden` tabs are shelved for everyone
+  // (their render branch stays, so they can be re-enabled by dropping the flag).
   const sections = SECTIONS.filter((s) => !s.hidden && (!isPartner || !s.adminOnly));
 
   const confirm = useConfirm();
@@ -128,15 +119,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
   const [error, setError] = useState<string | null>(null);
   const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
-
-  // Surveys
-  const [surveys, setSurveys] = useState<Survey[]>([]);
-  const [loadingSurveys, setLoadingSurveys] = useState(false);
-  const [newQuestion, setNewQuestion] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingText, setEditingText] = useState("");
 
   // Risk
   const [risks, setRisks] = useState<Risk[]>([]);
@@ -192,16 +174,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   // ── Load section data when document or section changes ──────────────────
 
-  const loadSurveys = useCallback(async (prodocId: string) => {
-    setLoadingSurveys(true); setError(null);
-    try {
-      const res = await fetch(`/api/surveys?reportId=${prodocId}`);
-      if (!res.ok) throw new Error("Failed to load surveys");
-      setSurveys(await res.json());
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
-    finally { setLoadingSurveys(false); }
-  }, []);
-
   const loadRisks = useCallback(async (prodocId: string) => {
     setLoadingRisk(true); setError(null);
     try {
@@ -228,14 +200,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   useEffect(() => {
     if (!selectedProdocId) return;
-    setSurveys([]); setRisks([]); setIndicatorLines([]); setLibrary([]);
-    if (selectedSection === "surveys") loadSurveys(selectedProdocId);
-    else if (selectedSection === "risk") loadRisks(selectedProdocId);
+    setRisks([]); setIndicatorLines([]); setLibrary([]);
+    if (selectedSection === "risk") loadRisks(selectedProdocId);
     else if (selectedSection === "indicators") {
       const doc = docs.find((d) => String(d.id) === selectedProdocId);
       if (doc) loadIndicators(selectedProdocId, doc.project_id);
     }
-  }, [selectedProdocId, selectedSection, docs, loadSurveys, loadRisks, loadIndicators]);
+  }, [selectedProdocId, selectedSection, docs, loadRisks, loadIndicators]);
 
   // ── Navigation ────────────────────────────────────────────────────────
 
@@ -245,60 +216,16 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   function handleDocChange(val: string) {
     setSelectedProdocId(val);
-    setSurveys([]); setRisks([]); setIndicatorLines([]); setLibrary([]);
+    setRisks([]); setIndicatorLines([]); setLibrary([]);
     const doc = docs.find((d) => String(d.id) === val);
     if (doc) pushUrl(doc, selectedSection);
   }
 
   function handleSectionChange(val: string) {
     setSelectedSection(val);
-    setSurveys([]); setRisks([]); setIndicatorLines([]); setLibrary([]);
+    setRisks([]); setIndicatorLines([]); setLibrary([]);
     const doc = docs.find((d) => String(d.id) === selectedProdocId);
     if (doc) pushUrl(doc, val);
-  }
-
-  // ── Surveys CRUD ────────────────────────────────────────────────────────
-
-  async function handleAdd() {
-    if (!newQuestion.trim() || !selectedProdocId) return;
-    setAdding(true); setError(null);
-    try {
-      const res = await fetch("/api/surveys", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId: Number(selectedProdocId), question: newQuestion }),
-      });
-      if (!res.ok) throw new Error("Failed to add question");
-      const created: Survey = await res.json();
-      setSurveys((prev) => [...prev, created]);
-      setNewQuestion("");
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
-    finally { setAdding(false); }
-  }
-
-  async function handleEditSave(id: number) {
-    if (!editingText.trim()) return;
-    setError(null);
-    try {
-      const res = await fetch("/api/surveys", {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, question: editingText }),
-      });
-      if (!res.ok) throw new Error("Failed to update question");
-      setSurveys((prev) => prev.map((s) => s.id === id ? { ...s, question: editingText } : s));
-      setEditingId(null); setEditingText("");
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
-  }
-
-  async function handleDelete(id: number) {
-    const survey = surveys.find((s) => s.id === id);
-    if (!await confirm({ message: `Delete the question "${survey?.question ?? "this survey question"}"? This cannot be undone.` })) return;
-    setDeletingId(id); setError(null);
-    try {
-      const res = await fetch(`/api/surveys?id=${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
-      setSurveys((prev) => prev.filter((s) => s.id !== id));
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
-    finally { setDeletingId(null); }
   }
 
   // ── Risk CRUD ───────────────────────────────────────────────────────────
@@ -471,7 +398,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }, [indicatorLines]);
 
   const sectionLoading =
-    selectedSection === "surveys" ? loadingSurveys :
     selectedSection === "risk" ? loadingRisk :
     selectedSection === "indicators" ? loadingIndicators : false;
 
@@ -631,10 +557,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             OUTSIDE the read-only fieldset below so admins can still comment on an
             Under Review document and partners can still confirm on a locked one.
             (Partners see nothing here until a comment exists — ItemComments self-hides.)
-            The table sections (surveys/risk/indicators) instead carry per-item
+            The table sections (risk/indicators) instead carry per-item
             comments on each row, mirroring the report editor, so they're excluded here. */}
         {selectedProdocId && !sectionLoading &&
-          !["surveys", "risk", "indicators"].includes(selectedSection) && (
+          !["risk", "indicators"].includes(selectedSection) && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
             {!isPartner && <span>Comment on this section:</span>}
             <ItemComments section={selectedSection} itemId={null} />
@@ -676,60 +602,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         ) : selectedSection === "general" ? (
           selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} isAdmin={!isPartner} readOnly={readOnly} /> : null
-
-        ) : selectedSection === "surveys" ? (
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder={labels.placeholders.newSurveyQuestion}
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-                className="flex-1"
-              />
-              <Button onClick={handleAdd} disabled={adding || !newQuestion.trim()} size="sm" className="shrink-0">
-                {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-              </Button>
-            </div>
-            {surveys.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                {labels.adminEditor.emptySurveys}
-              </div>
-            ) : (
-              <div className="rounded-xl border bg-card divide-y overflow-hidden">
-                {surveys.map((s, i) => {
-                  const isEditing = editingId === s.id;
-                  return (
-                    <div key={s.id} className="flex items-start gap-3 px-4 py-3.5">
-                      <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-                      {isEditing ? (
-                        <div className="flex-1 flex gap-2 items-start">
-                          <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="flex-1 text-sm min-h-[60px] resize-none" autoFocus />
-                          <div className="flex gap-2 shrink-0">
-                            <Button size="sm" variant="outline" onClick={() => handleEditSave(s.id)}>{labels.adminEditor.save}</Button>
-                            <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditingText(""); }}>{labels.common.cancel}</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="flex-1 text-sm">{s.question}</p>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <ItemComments section="surveys" itemId={s.id} />
-                            <button onClick={() => { setEditingId(s.id); setEditingText(s.question); }} className="text-muted-foreground hover:text-foreground transition-colors">
-                              <Pencil className="size-3.5" />
-                            </button>
-                            <button onClick={() => handleDelete(s.id)} disabled={deletingId === s.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
-                              {deletingId === s.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
         ) : selectedSection === "risk" ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>

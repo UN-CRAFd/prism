@@ -46,18 +46,13 @@ export async function GET(
     const meta = metaRows[0];
     const projectId = meta.project_id as number;
 
-    const [narratives, surveys, risks, indicators, activities, budgets, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
+    const [narratives, risks, indicators, activities, budgets, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
       query(
         `SELECT narrative_key, answer
            FROM reporting_platform.project_narratives
           WHERE project_id = $1 AND answer IS NOT NULL AND answer <> ''
           ORDER BY id`,
         [projectId]
-      ),
-      query(
-        `SELECT question FROM reporting_platform.surveys
-          WHERE report_id = $1 ORDER BY id`,
-        [id]
       ),
       query(
         `SELECT rm.risk_name, rm.likelihood, rm.impact, rm.approved_mitigation,
@@ -133,7 +128,7 @@ export async function GET(
       secretariat: { signed_at: (secretariatSig[0] as { signed_at: string } | undefined)?.signed_at ?? null },
     };
 
-    return NextResponse.json({ meta, narratives, surveys, risks, indicators, activities, budgets, signatures, sdgTargets });
+    return NextResponse.json({ meta, narratives, risks, indicators, activities, budgets, signatures, sdgTargets });
   } catch (err) {
     logger.error("GET /api/reports/[id]/prodoc-export error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });

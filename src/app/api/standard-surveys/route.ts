@@ -3,10 +3,12 @@ import { query } from "@/lib/db";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
-// Standard survey questions are the global library that seeds every new report of
-// a given type (annual | final), across all projects. Authoring them is an admin
-// concern only — every handler is admin-gated. New reports snapshot these at
-// creation (see copyStandardSurveyQuestions in /api/reports).
+// Standard survey questions are the global library that seeds a project's report
+// survey chain, keyed by type (annual | final), across all projects. Authoring
+// them is an admin concern only — every handler is admin-gated. Final reports and
+// each project's first annual report snapshot these at creation; later annual
+// reports copy the previous annual report instead (see seedReportSurveys in
+// /api/reports).
 
 const REPORT_TYPES = ["annual", "final"] as const;
 type ReportType = (typeof REPORT_TYPES)[number];

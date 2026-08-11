@@ -327,6 +327,9 @@ CREATE TRIGGER item_comments_updated_at
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- ── Surveys (one row per question per report) ────────────────────────────────
+-- Only reporting-year rows (data_type='report') carry surveys; prodocs do not.
+-- Seeded at report creation from standard_survey_questions or the prior annual
+-- report (see seedReportSurveys in /api/reports).
 CREATE TABLE IF NOT EXISTS surveys (
     id         SERIAL      PRIMARY KEY,
     report_id  INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
@@ -346,10 +349,13 @@ CREATE TRIGGER surveys_updated_at
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- ── Standard survey questions (global library, keyed by report type) ─────────
--- Admin-authored questions that seed EVERY new report of a given type, across all
+-- Admin-authored questions that seed a project's report survey chain, across all
 -- projects: one set for annual reports, one for final reports. Snapshotted into
--- surveys(report_id, question) at report creation, independent of the prodoc's
--- own project-specific survey questions.
+-- surveys(report_id, question) at report creation (see seedReportSurveys in
+-- /api/reports): a final report copies the FINAL set; a project's first annual
+-- report copies the ANNUAL set; each later annual report instead copies the
+-- previous annual report's questions, so edits carry forward. Surveys are not
+-- stored on the prodoc.
 CREATE TABLE IF NOT EXISTS standard_survey_questions (
     id          SERIAL           PRIMARY KEY,
     report_type report_type_enum NOT NULL,

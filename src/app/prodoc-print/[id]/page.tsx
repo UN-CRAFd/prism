@@ -47,7 +47,6 @@ const PRINT_CSS = `
 interface ProdocData {
   meta: Record<string, unknown>;
   narratives: { narrative_key: string; answer: string }[];
-  surveys: { question: string }[];
   risks: {
     risk_name: string; likelihood: number | null; impact: number | null;
     approved_mitigation: string | null; categories: string[];

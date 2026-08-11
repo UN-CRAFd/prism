@@ -18,7 +18,7 @@ interface StandardQuestion {
 }
 
 const TYPES: { value: ReportType; title: string; blurb: string }[] = [
-  { value: "annual", title: "Annual Reports", blurb: "Added to every annual report, for all projects." },
+  { value: "annual", title: "Annual Reports", blurb: "Seed each project's first annual report. Later annual reports copy the previous report." },
   { value: "final", title: "Final Reports", blurb: "Added to every final report, for all projects." },
 ];
 
@@ -82,7 +82,7 @@ export default function SurveyQuestionsPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Standard Survey Questions"
-        description="Questions that appear on every report of each type, across all projects"
+        description="Questions used to seed new reports of each type, across all projects"
       />
 
       <div className="flex-1 overflow-auto px-8 py-6">

@@ -70,9 +70,10 @@ function parseYear(value: unknown): number | null {
 }
 
 // Seed a freshly-created report from its project's project document (prodoc):
-// copy the baseline lines (survey questions, risk register, indicator lines with
-// their baselines/targets) so the report opens as a snapshot of the prodoc. The
-// partner then fills the per-report actuals (answers, scores, achieved values).
+// copy the baseline lines (risk register, indicator lines with their baselines/
+// targets) so the report opens as a snapshot of the prodoc. The partner then
+// fills the per-report actuals (scores, achieved values). Survey questions are
+// NOT part of the prodoc — they are seeded separately (see seedReportSurveys).
 // Project-level definitions (workplan, expenditure budgets, transfer partners,
 // complementary contributors) are shared by project_id and need no copy.
 //
@@ -80,17 +81,6 @@ function parseYear(value: unknown): number | null {
 // annual paths. Each new report is joined to its project's prodoc.
 async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
   if (reportIds.length === 0) return;
-
-  await client.query(
-    `INSERT INTO reporting_platform.surveys (report_id, question)
-     SELECT nr.id, s.question
-       FROM reporting_platform.reports nr
-       JOIN reporting_platform.reports pd
-         ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
-       JOIN reporting_platform.surveys s ON s.report_id = pd.id
-      WHERE nr.id = ANY($1::int[])`,
-    [reportIds]
-  );
 
   await client.query(
     `INSERT INTO reporting_platform.risk_management
@@ -117,22 +107,71 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
   );
 }
 
-// Seed the global standard survey questions for each new report's type (annual |
-// final) — these live in standard_survey_questions and apply across all projects,
-// independent of the prodoc's own project-specific survey questions. Matched by
-// report_type; ON CONFLICT dedupes against any identically-worded question already
-// copied from the prodoc baseline.
-async function copyStandardSurveyQuestions(client: PoolClient, reportIds: number[]) {
+// Seed a new report's survey questions. Surveys are not stored on the prodoc; the
+// template lives in standard_survey_questions (admin-authored, keyed by report
+// type) and flows forward through each project's report chain:
+//   • final report            → the standard FINAL questions
+//   • first annual report      → the standard ANNUAL questions
+//   • subsequent annual report → a copy of the previous annual report's questions,
+//     so edits to one year's survey carry into the next
+// Set-based over a list of new report ids; each report keys off its own
+// report_type, so it serves both the single and the annual-batch paths.
+// A brand-new report has no surveys yet, and the two inserts below are mutually
+// exclusive per report (annual-with-prior vs. everything else) and each source is
+// itself duplicate-free, so no de-dup is needed. (The live `surveys` table has no
+// UNIQUE(report_id, question), so an ON CONFLICT arbiter on those columns can't be
+// used regardless — the report re-insert is already guarded upstream.)
+async function seedReportSurveys(client: PoolClient, reportIds: number[]) {
   if (reportIds.length === 0) return;
 
+  // Annual reports that already have a prior annual report: copy that report's
+  // questions (the most recent earlier year), so template changes propagate forward.
+  await client.query(
+    `INSERT INTO reporting_platform.surveys (report_id, question)
+     SELECT nr.id, s.question
+       FROM reporting_platform.reports nr
+       JOIN LATERAL (
+         SELECT pr.id
+           FROM reporting_platform.reports pr
+          WHERE pr.project_id = nr.project_id
+            AND pr.data_type = 'report'
+            AND pr.report_type = 'annual'
+            AND pr.year < nr.year
+          ORDER BY pr.year DESC, pr.id DESC
+          LIMIT 1
+       ) prev ON TRUE
+       JOIN reporting_platform.surveys s ON s.report_id = prev.id
+      WHERE nr.id = ANY($1::int[])
+        AND nr.report_type = 'annual'
+      ORDER BY nr.id, s.id`,
+    [reportIds]
+  );
+
+  // The rest fall back to the global standard questions for their type: every
+  // final report, plus the first annual report of a project (no prior annual to
+  // copy from). Matched by report_type. The ::text casts bridge a live-schema
+  // drift where reports.report_type is TEXT while standard_survey_questions
+  // .report_type is the report_type_enum — a bare `=` would raise "operator does
+  // not exist: report_type_enum = text".
   await client.query(
     `INSERT INTO reporting_platform.surveys (report_id, question)
      SELECT nr.id, sq.question
        FROM reporting_platform.reports nr
        JOIN reporting_platform.standard_survey_questions sq
-         ON sq.report_type = nr.report_type
+         ON sq.report_type::text = nr.report_type::text
       WHERE nr.id = ANY($1::int[])
-     ON CONFLICT (report_id, question) DO NOTHING`,
+        AND (
+          nr.report_type = 'final'
+          OR NOT EXISTS (
+            SELECT 1
+              FROM reporting_platform.reports pr
+             WHERE pr.project_id = nr.project_id
+               AND pr.data_type = 'report'
+               AND pr.report_type = 'annual'
+               AND pr.year < nr.year
+          )
+        )
+      ORDER BY nr.id, sq.sort_order, sq.id`,
     [reportIds]
   );
 }
@@ -212,7 +251,7 @@ export async function POST(request: Request) {
       );
 
       await copyProdocBaseline(client, inserted.rows.map((r) => r.id));
-      await copyStandardSurveyQuestions(client, inserted.rows.map((r) => r.id));
+      await seedReportSurveys(client, inserted.rows.map((r) => r.id));
       await populateExpenditureEntries(client, inserted.rows.map((r) => r.id));
 
       await client.query("COMMIT");
@@ -252,7 +291,7 @@ export async function POST(request: Request) {
     }
 
     await copyProdocBaseline(client, [inserted.rows[0].id]);
-    await copyStandardSurveyQuestions(client, [inserted.rows[0].id]);
+    await seedReportSurveys(client, [inserted.rows[0].id]);
     await populateExpenditureEntries(client, [inserted.rows[0].id]);
 
     await client.query("COMMIT");

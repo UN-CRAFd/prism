@@ -660,12 +660,26 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
                           {isEditing ? (
                             <>
-                              <td colSpan={5} className="px-4 py-3 align-top">
+                              {/* Edit inline, keeping each field in its own column
+                                  (name + categories in Risk; likelihood/impact stay
+                                  the inline dropdowns; mitigation in its column). */}
+                              <td className="px-4 py-3 align-top">
                                 <div className="flex flex-col gap-2">
                                   <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
                                   <Input value={editingRiskCategory} onChange={(e) => setEditingRiskCategory(e.target.value)} placeholder={labels.placeholders.riskCategories} className="text-sm" />
-                                  <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
                                 </div>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
                               </td>
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">

@@ -7,7 +7,8 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, FileText, Trash2, Pencil, Check, X } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Plus, Loader2, FileText, Trash2, Pencil, Check, X, Info } from "lucide-react";
 import { PageHeader, ErrorBanner, LoadingState } from "@/components/admin/shared";
 
 interface NarrativeQuestion {
@@ -168,10 +169,17 @@ export default function NarrativeQuestionsPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex-1 min-w-0 mt-0.5">
+                          <div className="flex-1 min-w-0 mt-0.5 flex items-center gap-1.5">
                             <p className="text-sm">{q.label}</p>
                             {q.description && (
-                              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{q.description}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button type="button" className="text-muted-foreground hover:text-foreground shrink-0" aria-label={q.description}>
+                                    <Info className="size-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs whitespace-pre-line">{q.description}</TooltipContent>
+                              </Tooltip>
                             )}
                           </div>
                           <button

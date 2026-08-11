@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Building2, ExternalLink } from "lucide-react";
+import { Plus, Building2, ExternalLink, Check, X } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, SearchInput,
@@ -27,6 +27,49 @@ interface Partner {
   mail_account: string | null;
   created_at: string;
   projects: { id: number; project_title: string; short_name: string | null }[];
+}
+
+// -- Validation -------------------------------------------------------------
+
+function isValidEmail(v: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+}
+
+function isValidWebsite(v: string): boolean {
+  const s = v.trim();
+  try {
+    const u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+    return !!u.hostname && u.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
+
+// Input wrapper that shows a green check / red cross once the field has a value,
+// reflecting whether it passes `validate`.
+function ValidatedField({
+  value,
+  validate,
+  children,
+}: {
+  value: string;
+  validate: (v: string) => boolean;
+  children: React.ReactNode;
+}) {
+  const show = value.trim().length > 0;
+  const valid = show && validate(value);
+  return (
+    <div className="relative">
+      {children}
+      {show && (
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+          {valid
+            ? <Check className="size-4 text-green-600" />
+            : <X className="size-4 text-destructive" />}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // -- Sub-components ---------------------------------------------------------
@@ -122,6 +165,8 @@ export default function PartnersPage() {
 
   async function handleSubmit() {
     if (!shortName.trim() || !longName.trim()) { setFormError("Short name and long name are required"); return; }
+    if (mail.trim() && !isValidEmail(mail)) { setFormError("Please enter a valid email address"); return; }
+    if (website.trim() && !isValidWebsite(website)) { setFormError("Please enter a valid website URL"); return; }
     if (!editId && !password.trim()) { setFormError("Password is required for new partners"); return; }
     setSaving(true); setFormError(null);
     try {
@@ -188,10 +233,14 @@ export default function PartnersPage() {
                 <Input value={longName} onChange={(e) => setLongName(e.target.value)} placeholder="Full organization name" />
               </Field>
               <Field label="Website">
-                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.org" />
+                <ValidatedField value={website} validate={isValidWebsite}>
+                  <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.org" className="pr-9" />
+                </ValidatedField>
               </Field>
               <Field label="Email account">
-                <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@example.org" type="email" autoComplete="off" />
+                <ValidatedField value={mail} validate={isValidEmail}>
+                  <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@example.org" type="email" autoComplete="off" className="pr-9" />
+                </ValidatedField>
               </Field>
               <Field label={editId ? "Password (blank = keep current)" : "Password"} required={!editId}>
                 <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={editId ? "Unchanged" : ""} autoComplete="new-password" />

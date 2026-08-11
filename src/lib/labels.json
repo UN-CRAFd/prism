@@ -163,8 +163,6 @@
     ],
     "placeholder": "Enter the narrative text…",
     "answerLabel": "Narrative",
-    "commentLabel": "Comment",
-    "commentPlaceholder": "Add an internal comment…",
     "empty": "No project selected."
   },
   "assessment": {

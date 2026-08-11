@@ -18,6 +18,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown, ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
+import { ItemComments } from "@/components/report-editor/comments-context";
 import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import {
   WORKPLAN_STATUSES,
@@ -406,10 +407,15 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                   {/* Baseline row (admin-owned, read-only) */}
                   <tr className="border-t">
                     <td rowSpan={rowSpan} className="px-3 py-2 align-top border-r">
-                      <p className="text-sm font-medium leading-snug">
-                        {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
-                        {a.activity_text}
-                      </p>
+                      <div className="flex items-start gap-2">
+                        <p className="text-sm font-medium leading-snug flex-1">
+                          {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
+                          {a.activity_text}
+                        </p>
+                        {/* Per-activity comment thread (admin↔partner), keyed on this
+                            report + the activity row — same infra as risk/indicators. */}
+                        <ItemComments section="workplan" itemId={a.id} />
+                      </div>
                     </td>
                     <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">Baseline</td>
                     {quarters.map((q, i) => (
@@ -1087,6 +1093,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                             placeholder="Activity description…"
                             className="text-sm min-h-[36px] resize-y flex-1"
                           />
+                          {/* Per-activity comment thread — only once the activity has
+                              been persisted (an unsaved row has no id to key on). */}
+                          {row.id != null && (
+                            <span className="pt-1.5 shrink-0">
+                              <ItemComments section="workplan" itemId={row.id} />
+                            </span>
+                          )}
                         </div>
                       </td>
                     );
@@ -1209,15 +1222,35 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 // partners may edit) and hide superseded windows. Rendered in the prodoc editor.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function WorkplanUpdatesManager({ projectId }: { projectId: number }) {
+export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }: { projectId: number; startDate?: string | null; durationMonths?: number | null }) {
   const confirm = useConfirm();
   const wu = labels.workplanUpdates;
   const [windows, setWindows] = useState<UpdateWindow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newYear, setNewYear] = useState("");
   const [newType, setNewType] = useState<string>(WORKPLAN_UPDATE_TYPES[0].code);
+
+  // Only years inside the project period are selectable (no free-typed years).
+  // Mirrors reporting_platform.project_year_range: the year of each month the
+  // project is active (start … start + duration-1 months).
+  const years = useMemo(() => {
+    if (!startDate) return [];
+    const d = new Date(startDate);
+    const startYear = d.getFullYear();
+    const startMonth = d.getMonth();
+    const months = Math.max(durationMonths ?? 12, 1);
+    const set = new Set<number>();
+    for (let n = 0; n < months; n++) set.add(startYear + Math.floor((startMonth + n) / 12));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [startDate, durationMonths]);
+
+  // Default the add-window year to the first project year once known.
+  useEffect(() => {
+    if (!newYear && years.length) setNewYear(String(years[0]));
+  }, [years, newYear]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1290,19 +1323,55 @@ export function WorkplanUpdatesManager({ projectId }: { projectId: number }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold">{wu.title}</h3>
-        <p className="text-xs text-muted-foreground">{wu.description}</p>
-      </div>
+    <div className="rounded-xl border bg-card">
+      {/* Collapsible header — folds the whole window manager away. */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+      >
+        {collapsed ? <ChevronRight className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">{wu.title}</h3>
+          {!collapsed && <p className="text-xs text-muted-foreground">{wu.description}</p>}
+        </div>
+      </button>
 
-      {/* Fixed legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        {WORKPLAN_UPDATE_TYPES.map((t) => (
-          <span key={t.code}>
-            <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
-          </span>
-        ))}
+      {!collapsed && (
+      <div className="border-t px-4 py-3 space-y-3">
+      {/* Add window — controls sit above the list of existing windows. */}
+      <div className="flex items-end gap-2">
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">{wu.year}</label>
+          <Select value={newYear} onValueChange={setNewYear}>
+            <SelectTrigger className="h-8 w-24">
+              <span className="text-sm">{newYear || wu.year}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((y) => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">{wu.type}</label>
+          <Select value={newType} onValueChange={setNewType}>
+            <SelectTrigger className="h-8 w-[220px]">
+              <span className="text-sm">{WORKPLAN_UPDATE_TYPES.find((t) => t.code === newType)?.label ?? newType}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {WORKPLAN_UPDATE_TYPES.map((t) => (
+                <SelectItem key={t.code} value={t.code}>
+                  <span className="font-semibold mr-1">{t.code}</span> {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={addWindow} disabled={busy || !newYear} size="sm" className="h-8 gap-1">
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} {wu.add}
+        </Button>
       </div>
 
       {error && (
@@ -1382,37 +1451,16 @@ export function WorkplanUpdatesManager({ projectId }: { projectId: number }) {
         </div>
       )}
 
-      {/* Add window */}
-      <div className="flex items-end gap-2">
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">{wu.year}</label>
-          <Input
-            type="number"
-            value={newYear}
-            onChange={(e) => setNewYear(e.target.value)}
-            placeholder="2025"
-            className="h-8 w-24 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">{wu.type}</label>
-          <Select value={newType} onValueChange={setNewType}>
-            <SelectTrigger className="h-8 w-[220px]">
-              <span className="text-sm">{WORKPLAN_UPDATE_TYPES.find((t) => t.code === newType)?.label ?? newType}</span>
-            </SelectTrigger>
-            <SelectContent>
-              {WORKPLAN_UPDATE_TYPES.map((t) => (
-                <SelectItem key={t.code} value={t.code}>
-                  <span className="font-semibold mr-1">{t.code}</span> {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={addWindow} disabled={busy} size="sm" className="h-8 gap-1">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} {wu.add}
-        </Button>
+      {/* Legend for the update-window type codes — explanations below the list. */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {WORKPLAN_UPDATE_TYPES.map((t) => (
+          <span key={t.code}>
+            <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
+          </span>
+        ))}
       </div>
+      </div>
+      )}
     </div>
   );
 }

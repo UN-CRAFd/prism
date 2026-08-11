@@ -577,11 +577,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             OUTSIDE the read-only fieldset below so admins can still comment on an
             Under Review document and partners can still confirm on a locked one.
             (Partners see nothing here until a comment exists — ItemComments self-hides.)
-            The risk/indicators tables and the narratives cards instead carry
-            per-item comments on each row, mirroring the report editor, so they're
-            excluded here. */}
+            The risk/indicators tables, the narratives cards and the workplan
+            activities instead carry per-item comments on each row, mirroring the
+            report editor, so they're excluded here. */}
         {selectedProdocId && !sectionLoading &&
-          !["risk", "indicators", "narratives"].includes(selectedSection) && (
+          !["risk", "indicators", "narratives", "workplan"].includes(selectedSection) && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
             {!isPartner && <span>Comment on this section:</span>}
             <ItemComments section={selectedSection} itemId={null} />
@@ -850,7 +850,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         ) : selectedSection === "workplan" ? (
           selectedDoc ? (
             <div className={cn(fillHeight ? "flex flex-col gap-4 flex-1 min-h-0" : "space-y-4")}>
-              <WorkplanUpdatesManager projectId={selectedDoc.project_id} />
+              <WorkplanUpdatesManager
+                projectId={selectedDoc.project_id}
+                startDate={selectedDoc.project_start_date}
+                durationMonths={selectedDoc.project_duration_months}
+              />
               <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} fillHeight={fillHeight} />
             </div>
           ) : null

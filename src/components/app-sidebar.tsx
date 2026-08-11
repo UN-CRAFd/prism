@@ -34,20 +34,9 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // The guide is a single long page; sub-links scroll to section anchors on it.
-const wikiSections = [
-  { hash: "introduction", label: "Introduction" },
-  { hash: "getting-started", label: "Getting Started" },
-  { hash: "project-document", label: "Project Document" },
-  { hash: "report-editor", label: "Report Editor" },
-  { hash: "report-lifecycle", label: "Lifecycle & Statuses" },
-  { hash: "signatures", label: "Signatures & Sign-off" },
-  { hash: "comments", label: "Comments & Feedback" },
-  { hash: "contacts", label: "Contact Information" },
-  { hash: "exporting", label: "Exporting & Printing" },
-  { hash: "key-features", label: "Key Features" },
-  { hash: "glossary", label: "Glossary" },
-  { hash: "faq", label: "FAQ" },
-];
+// The section list is DB-driven (wiki_sections, editable at /admin/guide) — the
+// sidebar fetches it so nav stays in sync as admins add/reorder/hide/rename.
+type WikiSubLink = { hash: string; label: string };
 
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
@@ -63,6 +52,7 @@ const editorLinks = [
   { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
   { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
   { href: "/admin/comments", label: "Comments", icon: MessageSquare },
+  { href: "/admin/guide", label: "Guide", icon: BookOpen },
 ];
 
 const dataLinks = [
@@ -90,6 +80,8 @@ export function AppSidebar() {
   // Tracks the guide anchor currently in the URL so the matching sub-link stays
   // highlighted (the pathname alone can't distinguish guide sections).
   const [wikiHash, setWikiHash] = useState("");
+  // Guide sub-links, loaded from the DB (non-hidden sections, in order).
+  const [wikiSections, setWikiSections] = useState<WikiSubLink[]>([]);
   // Partner logo file may be .webp or .png; step through both before falling
   // back to the initial avatar.
   const [logoExt, setLogoExt] = useState<"webp" | "png" | "none">("webp");
@@ -98,6 +90,20 @@ export function AppSidebar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Load the guide section list (DB-driven sub-links). Fetched once mounted; the
+  // API filters hidden sections for non-admins.
+  useEffect(() => {
+    if (!mounted) return;
+    fetch("/api/wiki-sections")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { slug: string; title: string }[]) => {
+        if (Array.isArray(rows)) {
+          setWikiSections(rows.map((s) => ({ hash: s.slug, label: s.title })));
+        }
+      })
+      .catch(() => {});
+  }, [mounted]);
 
   // On the single-page guide, keep the active sub-link in sync with what's
   // actually on screen. A scroll-spy observer drives the highlight as the user
@@ -133,7 +139,7 @@ export function AppSidebar() {
       window.removeEventListener("hashchange", sync);
       observer.disconnect();
     };
-  }, [pathname]);
+  }, [pathname, wikiSections]);
 
   const isPartner = user?.role === "partner";
 

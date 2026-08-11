@@ -292,3 +292,21 @@ body::-webkit-scrollbar {
   color: #1d4ed8;
   text-decoration: underline;
 }
+.rich-html h1,
+.rich-html h2,
+.rich-html h3,
+.rich-html h4,
+.rich-html h5,
+.rich-html h6 {
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 1.25em 0 0.5em;
+  line-height: 1.3;
+}
+.rich-html h1 { font-size: 1.35em; }
+.rich-html h2 { font-size: 1.2em; }
+.rich-html h3 { font-size: 1.05em; }
+.rich-html h4,
+.rich-html h5,
+.rich-html h6 { font-size: 1em; }
+.rich-html > :first-child { margin-top: 0; }

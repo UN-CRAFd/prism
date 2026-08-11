@@ -501,5 +501,24 @@
       "partial": "Partial",
       "pending": "Pending"
     }
+  },
+  "guideEditor": {
+    "title": "Guide",
+    "description": "Edit the partner-facing Guide — every section's title, icon, and content",
+    "addSection": "Add section",
+    "newSectionTitle": "New section title…",
+    "titleLabel": "Section title",
+    "iconLabel": "Icon",
+    "bodyLabel": "Content",
+    "bodyPlaceholder": "Write the section content…",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "hide": "Hide from partners",
+    "show": "Show to partners",
+    "hidden": "Hidden",
+    "delete": "Delete section",
+    "deleteConfirm": "Delete this section from the Guide? Partners will no longer see it. This cannot be undone.",
+    "empty": "No Guide sections yet. Add one to get started.",
+    "hiddenNote": "Hidden — partners can't see this section."
   }
 }

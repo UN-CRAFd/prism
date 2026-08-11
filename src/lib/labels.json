@@ -35,7 +35,8 @@
     "complementary": "Complementary Funding",
     "narratives": "Narratives",
     "sdg": "SDG Targets",
-    "signatures": "Signatures"
+    "signatures": "Signatures",
+    "documents": "Documents"
   },
   "tabInstructions": {
     "general": "Edit the core project data, lifecycle status and description. Link the organization's applicants and the project contacts (focal points and project managers) below. Changes save automatically.",
@@ -54,7 +55,8 @@
     "complementary": "List the contributors that provided complementary funding to the project during this reporting period. For each contributor, provide its name, website and funding type (in cash or in kind), then enter the total contribution this year (USD) and link it to the workplan activities it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "narratives": "Enter the written narrative texts that make up the project document. Each field captures one narrative section from the proposal. Changes save automatically when you leave a field.",
     "sdg": "Select the Sustainable Development Goals and targets this project focuses on, and assign each a focus percentage. The percentages should add up to 100% across the project. Changes save automatically.",
-    "signatures": "Sign off on the project document. The partner signs for each project contact; the CRAF'd Secretariat is signed by the administrator. Signatures appear on the exported project document and can be removed if signed in error."
+    "signatures": "Sign off on the project document. The partner signs for each project contact; the CRAF'd Secretariat is signed by the administrator. Signatures appear on the exported project document and can be removed if signed in error.",
+    "documents": "Upload documents and annexes related to the project — agreements, budgets, logframes, reports and other supporting files. Choose a document type, optionally record the document's date, then select the file to upload."
   },
   "workplanUpdates": {
     "title": "Update windows",
@@ -86,6 +88,28 @@
     "emptyContacts": "No project contacts yet. Add contacts in the General Information tab.",
     "awaitingSecretariat": "Awaiting signature",
     "awaitingPartner": "Awaiting partner signature"
+  },
+  "documents": {
+    "uploadHeading": "Upload a document",
+    "listHeading": "Uploaded documents",
+    "upload": "Upload",
+    "delete": "Delete",
+    "typePlaceholder": "Select type…",
+    "allowedHint": "Allowed file types: PDF, Word, Excel, PowerPoint, CSV, text and images (PNG/JPG). Maximum {mb} MB per file.",
+    "empty": "No documents uploaded yet.",
+    "deleteConfirm": "Delete \"{name}\"? This permanently removes the uploaded file and cannot be undone.",
+    "errorNoType": "Please select a document type.",
+    "errorNoFile": "Please choose a file to upload.",
+    "errorType": "That file type is not allowed.",
+    "errorSize": "The file exceeds the {mb} MB limit.",
+    "columns": {
+      "type": "Type",
+      "date": "Document date",
+      "file": "File",
+      "size": "Size",
+      "uploaded": "Uploaded",
+      "actions": "Actions"
+    }
   },
   "generalInfo": {
     "detailsHeading": "Project data",

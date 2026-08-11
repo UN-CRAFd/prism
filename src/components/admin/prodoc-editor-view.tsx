@@ -20,6 +20,7 @@ import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
 import { GeneralInfoAdminEditor } from "@/components/admin/general-info-editor";
 import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
 import { SignaturesEditor } from "@/components/admin/signatures-editor";
+import { DocumentsEditor } from "@/components/admin/documents-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
@@ -103,6 +104,7 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
   { value: "expenditure", label: "Budgets" },
   { value: "workplan", label: labels.sections.workplan },
   { value: "signatures", label: labels.sections.signatures },
+  { value: "documents", label: labels.sections.documents },
 ];
 
 function toSlug(d: Prodoc) {
@@ -860,6 +862,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         ) : selectedSection === "signatures" ? (
           selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} readOnly={readOnly} /> : null
+
+        ) : selectedSection === "documents" ? (
+          selectedDoc ? <DocumentsEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null
 
         ) : selectedSection === "workplan" ? (
           selectedDoc ? (

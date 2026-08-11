@@ -919,6 +919,32 @@ CREATE TRIGGER prodoc_signatures_updated_at
     BEFORE UPDATE ON prodoc_signatures
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Project documents / annexes ──────────────────────────────────────────────
+-- Partner-uploaded documents attached to the project document (annexes, budgets,
+-- agreements, …). Project-scoped. The file bytes live in the `content` bytea
+-- column — the app has no external blob store, so uploads are capped small
+-- (enforced in the API, not the DB). NEVER SELECT content in list queries; it is
+-- read only by the single-file download route. doc_type is validated against the
+-- fixed list in src/lib/documents.ts (kept as TEXT so the list can evolve).
+CREATE TABLE IF NOT EXISTS project_documents (
+    id          SERIAL       PRIMARY KEY,
+    project_id  INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    doc_type    TEXT         NOT NULL,
+    doc_date    DATE,
+    file_name   TEXT         NOT NULL,
+    mime_type   TEXT,
+    size_bytes  INTEGER      NOT NULL,
+    content     BYTEA        NOT NULL,
+    uploaded_by TEXT,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS project_documents_project_idx ON project_documents(project_id);
+DROP TRIGGER IF EXISTS project_documents_updated_at ON project_documents;
+CREATE TRIGGER project_documents_updated_at
+    BEFORE UPDATE ON project_documents
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data
 -- ─────────────────────────────────────────────────────────────────────────────

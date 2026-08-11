@@ -10,6 +10,16 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -378,7 +388,9 @@ const SECTION_CONFIGS: SectionConfig[] = [
 export default function AdminFullDataPage() {
   const [section, setSection] = useState<Section>("surveys");
   const [reports, setReports] = useState<Report[]>([]);
-  const [selectedReportId, setSelectedReportId] = useState<string>("all");
+  // Report filter: an empty selection means "all reports"; otherwise the set of
+  // report ids to include. Multiple reports can be picked at once.
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
   const [rows, setRows] = useState<DataRow[]>([]);
@@ -420,17 +432,43 @@ export default function AdminFullDataPage() {
       .finally(() => setLoading(false));
   }, [section]);
 
-  const selectedReport = reports.find((r) => String(r.id) === selectedReportId);
+  // Reports grouped by their project for the filter dropdown.
+  const groupedReports = useMemo(() => {
+    const map = new Map<number, { label: string; reports: Report[] }>();
+    for (const r of reports) {
+      const g = map.get(r.project_id);
+      if (g) g.reports.push(r);
+      else map.set(r.project_id, { label: r.project_short_name || r.project_title, reports: [r] });
+    }
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [reports]);
+
+  function toggleReport(id: string) {
+    setSelectedReportIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  // Trigger label: none → "All reports"; one → that report; many → a count.
+  const reportFilterLabel = (() => {
+    if (selectedReportIds.length === 0) return "All reports";
+    if (selectedReportIds.length === 1) {
+      const r = reports.find((x) => String(x.id) === selectedReportIds[0]);
+      return r
+        ? `${r.report_type ?? "annual"} Report ${r.year} · ${r.project_short_name || r.project_title}`
+        : "1 report";
+    }
+    return `${selectedReportIds.length} reports selected`;
+  })();
 
   const filtered = useMemo(() => {
     let rs = rows;
-    if (selectedReportId !== "all") {
-      rs = rs.filter((r) => String(r[config.reportIdKey] ?? "") === selectedReportId);
+    if (selectedReportIds.length > 0) {
+      const set = new Set(selectedReportIds);
+      rs = rs.filter((r) => set.has(String(r[config.reportIdKey] ?? "")));
     }
     const q = search.trim().toLowerCase();
     if (q) rs = rs.filter((r) => rowText(r).includes(q));
     return rs;
-  }, [rows, selectedReportId, search, config.reportIdKey]);
+  }, [rows, selectedReportIds, search, config.reportIdKey]);
 
   const ctx: CellCtx = { expanded: (k) => expandedCells.has(k), toggle: toggleCell };
 
@@ -461,29 +499,43 @@ export default function AdminFullDataPage() {
           </SelectContent>
         </Select>
 
-        {/* Report */}
-        <Select value={selectedReportId} onValueChange={setSelectedReportId}>
-          <SelectTrigger className="w-[280px] h-9">
-            {selectedReport ? (
-              <span className="truncate capitalize">
-                {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {selectedReport.project_short_name || selectedReport.project_title}
+        {/* Report — multi-select, grouped by project. No selection = all reports. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-[280px] h-9 justify-between font-normal">
+              <span className={cn("truncate", selectedReportIds.length === 0 && "text-muted-foreground")}>
+                {reportFilterLabel}
               </span>
-            ) : (
-              <span className="text-muted-foreground">All reports</span>
-            )}
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All reports</SelectItem>
-            {reports.map((r) => (
-              <SelectItem key={r.id} value={String(r.id)}>
-                <div className="flex flex-col">
-                  <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
-                  <span className="text-xs text-muted-foreground">{r.project_short_name || r.project_title}</span>
-                </div>
-              </SelectItem>
+              <ChevronDown className="size-4 shrink-0 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[300px] max-h-[420px] overflow-y-auto">
+            <DropdownMenuCheckboxItem
+              checked={selectedReportIds.length === 0}
+              onCheckedChange={() => setSelectedReportIds([])}
+              onSelect={(e) => e.preventDefault()}
+            >
+              All reports
+            </DropdownMenuCheckboxItem>
+            {groupedReports.map((g) => (
+              <DropdownMenuGroup key={g.label}>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">{g.label}</DropdownMenuLabel>
+                {g.reports.map((r) => (
+                  <DropdownMenuCheckboxItem
+                    key={r.id}
+                    checked={selectedReportIds.includes(String(r.id))}
+                    onCheckedChange={() => toggleReport(String(r.id))}
+                    onSelect={(e) => e.preventDefault()}
+                    className="capitalize"
+                  >
+                    {r.report_type ?? "annual"} Report {r.year}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
             ))}
-          </SelectContent>
-        </Select>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Keyword search */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -519,7 +571,7 @@ export default function AdminFullDataPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
             <TableIcon className="size-8 opacity-30" />
             <p className="text-sm">
-              {search.trim() || selectedReportId !== "all" ? "No entries match your filters." : "No data found."}
+              {search.trim() || selectedReportIds.length > 0 ? "No entries match your filters." : "No data found."}
             </p>
           </div>
         ) : (

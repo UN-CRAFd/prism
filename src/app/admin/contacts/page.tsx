@@ -13,13 +13,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Contact, CornerDownRight, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Contact, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
   FilterBar, SearchInput,
 } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
-import { buildContactTree, flattenTree, descendantIds } from "@/lib/contact-tree";
 import labels from "@/lib/labels.json";
 
 const NONE = "none";
@@ -52,7 +51,6 @@ interface ProjectLink {
 interface PartnerContact {
   id: number;
   partner_id: number;
-  manager_id: number | null;
   name: string;
   role: string | null;
   email: string | null;
@@ -88,7 +86,6 @@ export default function ContactsPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
-  const [managerId, setManagerId] = useState(NONE);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,7 +112,7 @@ export default function ContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setPartnerId(""); setName(""); setRole(""); setEmail(""); setManagerId(NONE);
+    setPartnerId(""); setName(""); setRole(""); setEmail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -124,7 +121,6 @@ export default function ContactsPage() {
     setName(c.name);
     setRole(c.role || "");
     setEmail(c.email || "");
-    setManagerId(c.manager_id != null ? String(c.manager_id) : NONE);
     setEditId(c.id); setShowForm(true); setFormError(null);
   }
 
@@ -133,10 +129,9 @@ export default function ContactsPage() {
     if (!name.trim()) { setFormError("Name is required"); return; }
     setSaving(true); setFormError(null);
     try {
-      const manager_id = managerId === NONE ? null : Number(managerId);
       const body = editId
-        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null, manager_id }
-        : { partner_id: Number(partnerId), name: name.trim(), role: role.trim() || null, email: email.trim() || null, manager_id };
+        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null }
+        : { partner_id: Number(partnerId), name: name.trim(), role: role.trim() || null, email: email.trim() || null };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,7 +146,7 @@ export default function ContactsPage() {
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
-    if (!await confirm({ message: "Delete this contact? People they manage move up to the next level." })) return;
+    if (!await confirm({ message: "Delete this contact?" })) return;
     const res = await fetch(`/api/partner-contacts?id=${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();
@@ -188,12 +183,6 @@ export default function ContactsPage() {
     setLinks((prev) => prev.filter((l) => l.id !== id));
   }
 
-  // Manager picker: same-partner contacts, excluding the contact itself and
-  // anyone it already manages (so you can't create a loop).
-  const samePartner = contacts.filter((c) => String(c.partner_id) === partnerId);
-  const blocked = editId != null ? descendantIds(samePartner, editId) : new Set<number>();
-  const managerOptions = samePartner.filter((c) => c.id !== editId && !blocked.has(c.id));
-
   // Project links for the contact being edited, and the projects available to
   // link (same partner org, not already linked).
   const editLinks = editId != null ? links.filter((l) => l.contact_id === editId) : [];
@@ -213,18 +202,15 @@ export default function ContactsPage() {
     );
   }, [contacts, search]);
 
-  // One group per partner (contacts already arrive ordered by partner), each
-  // flattened into a manager → reports list with a depth for indentation.
-  const groups: { partnerId: number; label: string; rows: { node: PartnerContact; depth: number }[] }[] = [];
+  // One group per partner (contacts already arrive ordered by partner).
+  const groups: { partnerId: number; label: string; rows: PartnerContact[] }[] = [];
   for (const c of filteredContacts) {
     let g = groups.find((x) => x.partnerId === c.partner_id);
     if (!g) {
       g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", rows: [] };
       groups.push(g);
     }
-  }
-  for (const g of groups) {
-    g.rows = flattenTree(buildContactTree(filteredContacts.filter((c) => c.partner_id === g.partnerId)));
+    g.rows.push(c);
   }
 
   return (
@@ -254,7 +240,7 @@ export default function ContactsPage() {
             onCancel={resetForm}
             onSubmit={handleSubmit}
           >
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Field label="Partner" required>
                 <Select value={partnerId} onValueChange={setPartnerId} disabled={!!editId}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select partner" /></SelectTrigger>
@@ -275,19 +261,6 @@ export default function ContactsPage() {
               </Field>
               <Field label="Email">
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
-              </Field>
-              <Field label="Manager">
-                <Select value={managerId} onValueChange={setManagerId} disabled={!partnerId}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}><span className="text-muted-foreground">— None (top level)</span></SelectItem>
-                    {managerOptions.map((m) => (
-                      <SelectItem key={m.id} value={String(m.id)}>
-                        {m.name}{m.role ? ` — ${m.role}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </Field>
             </div>
 
@@ -408,14 +381,9 @@ export default function ContactsPage() {
                           </button>
                         </TableCell>
                       </TableRow>
-                      {!isCollapsed && g.rows.map(({ node: c, depth }) => (
+                      {!isCollapsed && g.rows.map((c) => (
                         <TableRow key={c.id}>
-                          <TableCell className="font-medium">
-                            <span className="flex items-center" style={{ paddingLeft: depth * 22 }}>
-                              {depth > 0 && <CornerDownRight className="size-3.5 mr-1.5 shrink-0 text-muted-foreground/50" />}
-                              {c.name}
-                            </span>
-                          </TableCell>
+                          <TableCell className="font-medium">{c.name}</TableCell>
                           <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
                           <TableCell className="text-muted-foreground text-xs break-all">
                             {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}

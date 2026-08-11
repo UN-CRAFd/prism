@@ -40,7 +40,7 @@ const keyFeatures = [
   {
     title: "Contact Information",
     badge: "Admin",
-    desc: "Manage your organization's team contacts, roles, and manager hierarchy through the Contact Information section.",
+    desc: "Manage your organization's team contacts, roles, and email addresses through the Contact Information section.",
   },
 ];
 

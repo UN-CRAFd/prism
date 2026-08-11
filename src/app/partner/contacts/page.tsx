@@ -7,17 +7,11 @@ import { useAuth } from "@/lib/auth-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Plus, Contact } from "lucide-react";
 import {
   Field, LoadingState, ErrorBanner, FormShell, HoverActions, PageHeader,
 } from "@/components/admin/shared";
-import { buildContactTree, descendantIds, type TreeNode } from "@/lib/contact-tree";
 import labels from "@/lib/labels.json";
-
-const NONE = "none";
 
 interface Partner {
   id: number;
@@ -28,44 +22,9 @@ interface Partner {
 interface PartnerContact {
   id: number;
   partner_id: number;
-  manager_id: number | null;
   name: string;
   role: string | null;
   email: string | null;
-}
-
-// One box in the organigram + its reports, nested with a connector line.
-function OrgNode({
-  node,
-  onEdit,
-  onDelete,
-}: {
-  node: TreeNode<PartnerContact>;
-  onEdit: (c: PartnerContact) => void;
-  onDelete: (id: number) => void;
-}) {
-  const c = node.node;
-  return (
-    <div>
-      <div className="group flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2.5">
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{c.name}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {c.role || "—"}
-            {c.email ? ` · ${c.email}` : ""}
-          </p>
-        </div>
-        <HoverActions onEdit={() => onEdit(c)} onDelete={() => onDelete(c.id)} />
-      </div>
-      {node.children.length > 0 && (
-        <div className="ml-6 mt-3 space-y-3 border-l-2 border-border/60 pl-6">
-          {node.children.map((ch) => (
-            <OrgNode key={ch.node.id} node={ch} onEdit={onEdit} onDelete={onDelete} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function PartnerContactsPage() {
@@ -84,7 +43,6 @@ export default function PartnerContactsPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
-  const [managerId, setManagerId] = useState(NONE);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -119,7 +77,7 @@ export default function PartnerContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setName(""); setRole(""); setEmail(""); setManagerId(NONE);
+    setName(""); setRole(""); setEmail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -127,7 +85,6 @@ export default function PartnerContactsPage() {
     setName(c.name);
     setRole(c.role || "");
     setEmail(c.email || "");
-    setManagerId(c.manager_id != null ? String(c.manager_id) : NONE);
     setEditId(c.id); setShowForm(true); setFormError(null);
   }
 
@@ -136,10 +93,9 @@ export default function PartnerContactsPage() {
     if (!editId && partnerId == null) { setFormError("Organization not loaded yet"); return; }
     setSaving(true); setFormError(null);
     try {
-      const manager_id = managerId === NONE ? null : Number(managerId);
       const body = editId
-        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null, manager_id }
-        : { partner_id: partnerId, name: name.trim(), role: role.trim() || null, email: email.trim() || null, manager_id };
+        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null }
+        : { partner_id: partnerId, name: name.trim(), role: role.trim() || null, email: email.trim() || null };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,16 +110,11 @@ export default function PartnerContactsPage() {
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
-    if (!await confirm({ message: "Delete this contact? People they manage move up to the next level." })) return;
+    if (!await confirm({ message: "Delete this contact?" })) return;
     const res = await fetch(`/api/partner-contacts?id=${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();
   }
-
-  // Manager picker: everyone except the contact itself and anyone it manages.
-  const blocked = editId != null ? descendantIds(contacts, editId) : new Set<number>();
-  const managerOptions = contacts.filter((c) => c.id !== editId && !blocked.has(c.id));
-  const roots = buildContactTree(contacts);
 
   return (
     <div className="flex flex-col h-full">
@@ -188,7 +139,7 @@ export default function PartnerContactsPage() {
             onCancel={resetForm}
             onSubmit={handleSubmit}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Name" required>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={labels.common.placeholders.fullName} />
               </Field>
@@ -197,19 +148,6 @@ export default function PartnerContactsPage() {
               </Field>
               <Field label="Email">
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
-              </Field>
-              <Field label="Manager">
-                <Select value={managerId} onValueChange={setManagerId}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}><span className="text-muted-foreground">— None (top level)</span></SelectItem>
-                    {managerOptions.map((m) => (
-                      <SelectItem key={m.id} value={String(m.id)}>
-                        {m.name}{m.role ? ` — ${m.role}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </Field>
             </div>
           </FormShell>
@@ -224,8 +162,17 @@ export default function PartnerContactsPage() {
           </div>
         ) : (
           <div className="max-w-2xl space-y-3">
-            {roots.map((r) => (
-              <OrgNode key={r.node.id} node={r} onEdit={startEdit} onDelete={handleDelete} />
+            {contacts.map((c) => (
+              <div key={c.id} className="group flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{c.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {c.role || "—"}
+                    {c.email ? ` · ${c.email}` : ""}
+                  </p>
+                </div>
+                <HoverActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
+              </div>
             ))}
           </div>
         )}

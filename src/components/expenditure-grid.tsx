@@ -31,6 +31,7 @@ interface ExpenditurePayload {
   currentYear: number;
   categories: ExpenditureCategory[];
   years: number[];
+  reportYears: number[];
   budgets: BudgetRow[];
   expenditure: ExpRow[];
 }
@@ -190,6 +191,12 @@ export function ExpenditurePartnerEditor({
 
   const { categories, years, currentYear, indirectRate } = data;
 
+  // A year's expenditure columns show only when a report exists for it (the
+  // current report year always qualifies). Years without a report show just the
+  // approved annual budget.
+  const reportYearSet = new Set(data.reportYears);
+  const hasReport = (year: number) => year === currentYear || reportYearSet.has(year);
+
   const budFor = (year: number, catId: number) => budgetMap[year]?.[catId] ?? null;
   const expFor = (year: number, catId: number): number | null =>
     year === currentYear ? parseAmount(edits[catId]?.exp ?? "") : (storedExpMap[year]?.[catId] ?? null);
@@ -218,6 +225,7 @@ export function ExpenditurePartnerEditor({
         <td style={fz("diff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={appT - expT} kind="diff" /></td>
         {years.map((y) => {
           const ap = withIndirect(sumApproved(y), mult);
+          if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} />;
           const ex = withIndirect(sumExp(y), mult);
           return (
             <FooterYearCells key={y} approved={ap} exp={ex} strong={strong} />
@@ -235,16 +243,18 @@ export function ExpenditurePartnerEditor({
             <th rowSpan={2} style={fillHeight ? { ...fz("cat", 40), top: 0 } : fz("cat", 30)} className={cn("text-left px-3 py-2 text-muted-foreground border-r border-b bg-neutral-100 align-bottom", HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
             <th colSpan={3} style={fillHeight ? { position: "sticky", left: FCOL.app.left, top: 0, zIndex: 40 } : { position: "sticky", left: FCOL.app.left, zIndex: 30 }} className={cn("px-2 py-2 text-center text-muted-foreground border-r border-b bg-neutral-100", HEAD_TEXT, fillHeight && "h-8")}>Total</th>
             {years.map((y) => (
-              <th key={y} colSpan={4} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>{y}</th>
+              <th key={y} colSpan={hasReport(y) ? 4 : 1} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>{y}</th>
             ))}
           </tr>
           <tr className="text-muted-foreground">
             <th style={fillHeight ? { ...fz("app", 40), top: 32 } : fz("app", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Approved total budget</th>
             <th style={fillHeight ? { ...fz("exp", 40), top: 32 } : fz("exp", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Total expenditure</th>
             <th style={fillHeight ? { ...fz("diff", 40), top: 32 } : fz("diff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Difference</th>
-            {years.map((y) => (
-              <FragmentYearHead key={y} current={y === currentYear} fillHeight={fillHeight} />
-            ))}
+            {years.map((y) =>
+              hasReport(y)
+                ? <FragmentYearHead key={y} current={y === currentYear} fillHeight={fillHeight} />
+                : <ApprovedOnlyHead key={y} fillHeight={fillHeight} />
+            )}
           </tr>
         </thead>
         <tbody>
@@ -258,8 +268,10 @@ export function ExpenditurePartnerEditor({
                 <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} /></td>
                 <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
                 {years.map((y) => {
-                    const editable = y === currentYear;
                     const ap = budFor(y, c.id);
+                    // Years without a report show only the approved annual budget.
+                    if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} />;
+                    const editable = y === currentYear;
                     const ex = expFor(y, c.id);
                     return (
                       <YearCells
@@ -298,6 +310,21 @@ function FragmentYearHead({ current, fillHeight = false }: { current: boolean; f
       <th className={cn("px-2 py-1.5 text-left border-b min-w-[160px]", SUBHEAD_TEXT, current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Comment</th>
     </>
   );
+}
+
+// Header sub-cell for a non-current year: only the approved annual budget is
+// shown (partners can't enter expenditure/comments for years that aren't their
+// current report year).
+function ApprovedOnlyHead({ fillHeight = false }: { fillHeight?: boolean }) {
+  const sticky = fillHeight && "sticky top-8 z-30";
+  return (
+    <th className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, "bg-neutral-50", sticky)}>Approved annual budget</th>
+  );
+}
+
+// Body / footer cell for a non-current year: only the approved annual budget.
+function ApprovedOnlyCell({ approved }: { approved: number | null }) {
+  return <td className="px-2 py-2 text-right border-l border-t"><Num value={approved} kind="approved" /></td>;
 }
 
 // Body cells for one year on a category row.

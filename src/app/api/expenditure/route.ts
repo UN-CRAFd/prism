@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 // Per-report expenditure matrix (partner-owned).
 //
 // GET   ?reportId=  → { indirectRate, currentYear, categories, years,
-//                       budgets: [...], expenditure: [...] }
+//                       reportYears, budgets: [...], expenditure: [...] }
 // PATCH { reportId, categoryId, annual_expenditure, comment } → upsert one entry
 
 function toAmount(v: unknown): number | null {
@@ -70,11 +70,27 @@ export async function GET(req: NextRequest) {
       `SELECT id, name, sort_order FROM reporting_platform.expenditure_categories
         ORDER BY sort_order ASC, id ASC`
     );
-    const years = await query<{ year: number }>(
-      `SELECT DISTINCT year FROM reporting_platform.reports
-        WHERE project_id = $1 AND data_type = 'report' ORDER BY year ASC`,
+    // Every year the admin can budget for — the full project period (same source
+    // the admin budget editor uses) — so all year-wise budgets show in the report
+    // editor even for years whose report hasn't been created yet. The current
+    // report year is always included (it may fall outside the derived range).
+    const range = await query<{ years: number[] }>(
+      `SELECT reporting_platform.project_year_range(p.project_start_date, p.project_duration_months) AS years
+         FROM reporting_platform.projects p WHERE p.id = $1`,
       [project_id]
     );
+    const yearSet = new Set<number>(range[0]?.years ?? []);
+    yearSet.add(year);
+    const years = Array.from(yearSet).sort((a, b) => a - b);
+    // Years that actually have a report: their expenditure columns are shown
+    // (read-only unless it's the current report year); years without a report
+    // show the approved budget only.
+    const reportYearRows = await query<{ year: number }>(
+      `SELECT DISTINCT year FROM reporting_platform.reports
+        WHERE project_id = $1 AND data_type = 'report'`,
+      [project_id]
+    );
+    const reportYears = reportYearRows.map((r) => r.year);
     const budgets = await query<{ category_id: number; year: number; approved_amount: string | null }>(
       `SELECT category_id, year, approved_amount
          FROM reporting_platform.expenditure_budgets WHERE project_id = $1`,
@@ -95,7 +111,8 @@ export async function GET(req: NextRequest) {
       indirectRate: Number(indirect_cost_rate),
       currentYear: year,
       categories,
-      years: years.map((y) => y.year),
+      years,
+      reportYears,
       budgets: budgets.map((b) => ({ ...b, approved_amount: toAmount(b.approved_amount) })),
       expenditure: expenditure.map((e) => ({ ...e, annual_expenditure: toAmount(e.annual_expenditure) })),
     });

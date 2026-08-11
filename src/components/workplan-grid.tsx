@@ -22,6 +22,7 @@ import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table
 import {
   WORKPLAN_STATUSES,
   WORKPLAN_STATUS_COLORS,
+  WORKPLAN_STATUS_DESCRIPTIONS,
   WORKPLAN_UPDATE_TYPES,
   quarterRange,
   groupQuartersByYear,
@@ -66,6 +67,18 @@ function StatusBadge({ value }: { value: WorkplanStatus }) {
   return (
     <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold whitespace-nowrap", c.bg, c.text, c.border)}>
       {value}
+    </span>
+  );
+}
+
+// Dropdown option: the coloured status name plus its one-line meaning, matching
+// the reference progress legend.
+function StatusOption({ value }: { value: WorkplanStatus }) {
+  const c = WORKPLAN_STATUS_COLORS[value];
+  return (
+    <span className={cn("inline-flex w-full items-center rounded-md border px-2 py-0.5 text-xs whitespace-nowrap", c.bg, c.text, c.border)}>
+      <span className="font-semibold">{value}</span>
+      <span className="opacity-90">&nbsp;– {WORKPLAN_STATUS_DESCRIPTIONS[value]}</span>
     </span>
   );
 }
@@ -444,12 +457,12 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                           {isActive ? (
                             <Select value={status ?? "none"} onValueChange={(v) => updateProgress(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
                               <SelectTrigger className="h-8 px-1 w-[140px]">
-                                {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground text-sm">—</span>}
+                                {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground text-sm">Select progress</span>}
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
                                 {WORKPLAN_STATUSES.map((st) => (
-                                  <SelectItem key={st} value={st}><StatusBadge value={st} /></SelectItem>
+                                  <SelectItem key={st} value={st}><StatusOption value={st} /></SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -1138,12 +1151,12 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                               disabled={!canProgress}
                             >
                               <SelectTrigger className="h-8 px-1 w-[140px]">
-                                {ps?.status ? <StatusBadge value={ps.status} /> : <span className="text-muted-foreground text-sm">—</span>}
+                                {ps?.status ? <StatusBadge value={ps.status} /> : <span className="text-muted-foreground text-sm">Select progress</span>}
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
                                 {WORKPLAN_STATUSES.map((st) => (
-                                  <SelectItem key={st} value={st}><StatusBadge value={st} /></SelectItem>
+                                  <SelectItem key={st} value={st}><StatusOption value={st} /></SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>

@@ -668,7 +668,9 @@ CREATE TABLE IF NOT EXISTS workplan_entries (
     report_id        INTEGER      REFERENCES reports(id) ON DELETE SET NULL,  -- write provenance
     activity_id      INTEGER      NOT NULL REFERENCES workplan_activities(id) ON DELETE CASCADE,
     updated_quarters JSONB,                                     -- null = same as baseline
-    status           workplan_status,
+    -- Progress scale (best → worst). TEXT + CHECK rather than an enum so the label
+    -- set lives in one place (src/lib/workplan.ts) and stays easy to evolve.
+    status           TEXT         CHECK (status IN ('Achieved', 'On Track', 'Delayed', 'At Risk', 'Suspended')),
     comment          TEXT,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

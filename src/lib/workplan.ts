@@ -1,8 +1,19 @@
 // Workplan domain helpers: quarter-key math + status metadata.
 // Quarter keys are self-describing strings in the form "YYYY-Qn" (e.g. "2024-Q3").
 
-export const WORKPLAN_STATUSES = ["Behind Schedule", "On Track", "Achieved"] as const;
+// Progress scale for a workplan activity, ordered best → worst as shown in the
+// dropdown. Stored verbatim in workplan_entries.status (TEXT + CHECK).
+export const WORKPLAN_STATUSES = ["Achieved", "On Track", "Delayed", "At Risk", "Suspended"] as const;
 export type WorkplanStatus = (typeof WORKPLAN_STATUSES)[number];
+
+// One-line meaning shown beside the status name in the progress dropdown.
+export const WORKPLAN_STATUS_DESCRIPTIONS: Record<WorkplanStatus, string> = {
+  "Achieved": "Results fully met.",
+  "On Track": "Progress aligns with plan.",
+  "Delayed": "Timeline not met.",
+  "At Risk": "Minor revision required.",
+  "Suspended": "Activity halted.",
+};
 
 // Update-window types (the fixed legend). A window is labelled [YEAR] + [code].
 // Single source of truth for both the admin UI selects and server validation.
@@ -33,9 +44,11 @@ export const WORKPLAN_STATUS_COLORS: Record<
   WorkplanStatus,
   { bg: string; text: string; border: string }
 > = {
-  "Behind Schedule": { bg: "bg-red-50", text: "text-red-700", border: "border-red-300" },
-  "On Track": { bg: "bg-green-50", text: "text-green-700", border: "border-green-300" },
   "Achieved": { bg: "bg-green-700", text: "text-white", border: "border-green-700" },
+  "On Track": { bg: "bg-green-100", text: "text-green-800", border: "border-green-300" },
+  "Delayed": { bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300" },
+  "At Risk": { bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-300" },
+  "Suspended": { bg: "bg-red-700", text: "text-white", border: "border-red-700" },
 };
 
 export interface Quarter {

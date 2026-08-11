@@ -8,8 +8,8 @@ import { logger } from "@/lib/logger";
 // (project_id, narrative_key); the question set/labels live in labels.json.
 //
 //   GET   ?project_id=X            → all narrative rows for the project
-//   PATCH { project_id, narrative_key, answer, comment }
-//                                  → upsert the answer + comment for one key
+//   PATCH { project_id, narrative_key, answer }
+//                                  → upsert the answer for one key
 
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("project_id");
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, project_id, narrative_key, label, description, sort_order, answer, comment
+      `SELECT id, project_id, narrative_key, label, description, sort_order, answer
          FROM reporting_platform.project_narratives
         WHERE project_id = $1
         ORDER BY sort_order, id`,
@@ -52,18 +52,17 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const rows = await query(
-      `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, label, description, answer, comment)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, label, description, answer)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (project_id, narrative_key)
-       DO UPDATE SET answer = EXCLUDED.answer, comment = EXCLUDED.comment
-       RETURNING id, project_id, narrative_key, label, description, sort_order, answer, comment`,
+       DO UPDATE SET answer = EXCLUDED.answer
+       RETURNING id, project_id, narrative_key, label, description, sort_order, answer`,
       [
         project_id,
         narrative_key,
         typeof body.label === "string" ? body.label : null,
         typeof body.description === "string" ? body.description : null,
         sanitizeRichText((body.answer as string) || null) ?? null,
-        (body.comment as string) || null,
       ]
     );
     return NextResponse.json(rows[0]);

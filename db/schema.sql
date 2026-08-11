@@ -859,7 +859,6 @@ CREATE TABLE IF NOT EXISTS project_narratives (
     description   TEXT,
     sort_order    INTEGER      NOT NULL DEFAULT 0,
     answer        TEXT,
-    comment       TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, narrative_key)

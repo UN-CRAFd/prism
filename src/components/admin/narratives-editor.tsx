@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Loader2, Info } from "lucide-react";
@@ -13,7 +12,7 @@ import labels from "@/lib/labels.json";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per
-// narrative question, each with a main answer and an editable comment. The
+// narrative question, each with a main answer. The
 // question set is a per-project snapshot taken from the admin's standard narrative
 // questions at project creation (project_narratives carries the key + label +
 // order), so it is loaded with the answers rather than read from labels.json.
@@ -23,8 +22,8 @@ import labels from "@/lib/labels.json";
 const MAX_CHARS = 4500;
 
 type Question = { id: number; key: string; label: string; description: string | null };
-type Entry = { answer: string; comment: string };
-const EMPTY: Entry = { answer: "", comment: "" };
+type Entry = { answer: string };
+const EMPTY: Entry = { answer: "" };
 
 export function NarrativesAdminEditor({
   projectId,
@@ -60,13 +59,13 @@ export function NarrativesAdminEditor({
     setLoading(true); setError(null);
     fetch(`/api/project-narratives?project_id=${projectId}`)
       .then((r) => { if (!r.ok) throw new Error("Failed to load narratives"); return r.json(); })
-      .then((rows: { id: number; narrative_key: string; label: string | null; description: string | null; answer: string | null; comment: string | null }[]) => {
+      .then((rows: { id: number; narrative_key: string; label: string | null; description: string | null; answer: string | null }[]) => {
         const map: Record<string, Entry> = {};
         const labelMap: Record<string, string> = {};
         const descMap: Record<string, string | null> = {};
         const qs: Question[] = [];
         for (const row of rows) {
-          map[row.narrative_key] = { answer: row.answer ?? "", comment: row.comment ?? "" };
+          map[row.narrative_key] = { answer: row.answer ?? "" };
           const label = row.label ?? row.narrative_key;
           labelMap[row.narrative_key] = label;
           descMap[row.narrative_key] = row.description;
@@ -88,11 +87,11 @@ export function NarrativesAdminEditor({
     for (const q of questionsRef.current) {
       const cur = entriesRef.current[q.key] ?? EMPTY;
       const saved = savedRef.current[q.key] ?? EMPTY;
-      if (cur.answer === saved.answer && cur.comment === saved.comment) continue;
+      if (cur.answer === saved.answer) continue;
       const res = await fetch("/api/project-narratives", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId, narrative_key: q.key, label: labelRef.current[q.key], description: descRef.current[q.key], answer: cur.answer, comment: cur.comment }),
+        body: JSON.stringify({ project_id: projectId, narrative_key: q.key, label: labelRef.current[q.key], description: descRef.current[q.key], answer: cur.answer }),
       });
       if (!res.ok) throw new Error("Failed to save");
       savedRef.current[q.key] = { ...cur };
@@ -112,7 +111,7 @@ export function NarrativesAdminEditor({
   const isDirty = (key: string) => {
     const saved = savedRef.current[key] ?? EMPTY;
     const cur = entryOf(key);
-    return saved.answer !== cur.answer || saved.comment !== cur.comment;
+    return saved.answer !== cur.answer;
   };
 
   if (loading) {
@@ -144,7 +143,7 @@ export function NarrativesAdminEditor({
       )}
 
       {questions.map((q, i) => {
-        const { answer, comment } = entryOf(q.key);
+        const { answer } = entryOf(q.key);
         return (
           <div
             key={q.key}
@@ -174,41 +173,29 @@ export function NarrativesAdminEditor({
               <ItemComments section="narratives" itemId={q.id} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Narrative answer */}
-              <div className="lg:col-span-2 space-y-1.5">
-                <p className="text-xs text-muted-foreground">{labels.narratives.answerLabel}</p>
-                <RichTextEditor
-                  value={answer}
-                  onChange={(html) => update(q.key, { answer: html })}
-                  placeholder={labels.narratives.placeholder}
-                  disabled={readOnly}
-                />
-                {(() => {
-                  const len = richTextLength(answer);
-                  return (
-                    <div
-                      className={cn(
-                        "text-[11px] text-right tabular-nums",
-                        len >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
-                      )}
-                    >
-                      {len.toLocaleString()}/{MAX_CHARS.toLocaleString()} characters
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Comment */}
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground">{labels.narratives.commentLabel}</p>
-                <Textarea
-                  value={comment}
-                  onChange={(e) => update(q.key, { comment: e.target.value })}
-                  placeholder={labels.narratives.commentPlaceholder}
-                  className="min-h-[180px] resize-y text-sm leading-relaxed"
-                />
-              </div>
+            {/* Narrative answer (internal comments now live in the speech-bubble
+                thread above, via ItemComments). */}
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">{labels.narratives.answerLabel}</p>
+              <RichTextEditor
+                value={answer}
+                onChange={(html) => update(q.key, { answer: html })}
+                placeholder={labels.narratives.placeholder}
+                disabled={readOnly}
+              />
+              {(() => {
+                const len = richTextLength(answer);
+                return (
+                  <div
+                    className={cn(
+                      "text-[11px] text-right tabular-nums",
+                      len >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
+                    )}
+                  >
+                    {len.toLocaleString()}/{MAX_CHARS.toLocaleString()} characters
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );

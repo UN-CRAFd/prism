@@ -24,8 +24,16 @@ import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
+import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
+import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
 import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
+
+function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
+  const key = computeRiskLevelKey(likelihood, impact);
+  if (!key) return <span className="text-muted-foreground text-sm">—</span>;
+  return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
+}
 
 const PRODOC_STATUSES = ["Open", "Under Review", "Closed"] as const;
 
@@ -271,6 +279,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       setRisks((prev) => prev.filter((r) => r.id !== id));
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setDeletingRiskId(null); }
+  }
+
+  // Likelihood/impact are inline dropdowns (no edit mode) — save immediately on
+  // change, optimistic like the indicator baseline/target cells.
+  async function updateRiskAssessment(id: number, patch: { likelihood?: number | null; impact?: number | null }) {
+    setRisks((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setError(null);
+    const res = await fetch("/api/risk", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    if (!res.ok) setError("Failed to save risk assessment");
   }
 
   // ── Indicators CRUD ───────────────────────────────────────────────────────
@@ -625,6 +645,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                     <tr className="border-b bg-muted/30">
                       <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT, stickyHead)}>{labels.risk.columns.number}</th>
                       <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT, stickyHead)}>{labels.risk.columns.risk}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.risk.columns.likelihood}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.risk.columns.impact}</th>
+                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-28", HEAD_TEXT, stickyHead)}>{labels.risk.columns.riskLevel}</th>
                       <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT, stickyHead)}>{labels.risk.columns.approvedMitigation}</th>
                       <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT, stickyHead)}>{labels.risk.columns.actions}</th>
                     </tr>
@@ -637,7 +660,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
                           {isEditing ? (
                             <>
-                              <td colSpan={2} className="px-4 py-3 align-top">
+                              <td colSpan={5} className="px-4 py-3 align-top">
                                 <div className="flex flex-col gap-2">
                                   <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
                                   <Input value={editingRiskCategory} onChange={(e) => setEditingRiskCategory(e.target.value)} placeholder={labels.placeholders.riskCategories} className="text-sm" />
@@ -667,6 +690,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   </div>
                                   <ItemComments section="risk" itemId={risk.id} />
                                 </div>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
                               </td>
                               <td className="px-4 py-3 align-top">
                                 {risk.approved_mitigation

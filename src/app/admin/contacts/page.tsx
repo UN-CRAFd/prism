@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Contact, CornerDownRight, Trash2, ChevronDown, ChevronRight, Building2 } from "lucide-react";
+import { Plus, Contact, CornerDownRight, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
   FilterBar, SearchInput,
@@ -47,23 +47,6 @@ interface ProjectLink {
   is_applicant: boolean;
   project_title: string;
   project_short_name: string | null;
-}
-
-// Small partner logo, served from /logos/<short_name>.<webp|png>; falls back to
-// a generic building icon when no logo file exists.
-function PartnerLogo({ shortName }: { shortName: string | null }) {
-  const [extension, setExtension] = useState<"webp" | "png" | "none">("webp");
-  if (!shortName || extension === "none") {
-    return <Building2 className="size-5 text-muted-foreground/40 shrink-0" />;
-  }
-  return (
-    <img
-      src={`/logos/${shortName.toLowerCase()}.${extension}`}
-      alt={shortName}
-      className="h-6 w-auto max-w-24 object-contain shrink-0"
-      onError={() => setExtension(extension === "webp" ? "png" : "none")}
-    />
-  );
 }
 
 interface PartnerContact {
@@ -232,11 +215,11 @@ export default function ContactsPage() {
 
   // One group per partner (contacts already arrive ordered by partner), each
   // flattened into a manager → reports list with a depth for indentation.
-  const groups: { partnerId: number; label: string; shortName: string | null; rows: { node: PartnerContact; depth: number }[] }[] = [];
+  const groups: { partnerId: number; label: string; rows: { node: PartnerContact; depth: number }[] }[] = [];
   for (const c of filteredContacts) {
     let g = groups.find((x) => x.partnerId === c.partner_id);
     if (!g) {
-      g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", shortName: c.partner_short_name, rows: [] };
+      g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", rows: [] };
       groups.push(g);
     }
   }
@@ -394,74 +377,75 @@ export default function ContactsPage() {
             <p className="text-sm">No contacts match your search.</p>
           </div>
         ) : (
-          <div className="space-y-8">
-            {groups.map((g) => {
-              const isCollapsed = collapsed.has(g.partnerId);
-              return (
-              <div key={g.partnerId}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(g.partnerId)}
-                  className="mb-2 flex items-center gap-3 w-full text-left rounded-md py-1 hover:bg-muted/40 transition-colors"
-                >
-                  {isCollapsed
-                    ? <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    : <ChevronDown className="size-4 text-muted-foreground shrink-0" />}
-                  <PartnerLogo shortName={g.shortName} />
-                  <h3 className="text-lg font-bold flex-1">{g.label}</h3>
-                  <span className="text-sm text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
-                </button>
-                {!isCollapsed && (
-                <Table className="table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[22%]">Name</TableHead>
-                      <TableHead className="w-[14%]">Role</TableHead>
-                      <TableHead className="w-[22%]">Email</TableHead>
-                      <TableHead>Projects</TableHead>
-                      <TableHead className="w-20" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {g.rows.map(({ node: c, depth }) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-medium">
-                          <span className="flex items-center" style={{ paddingLeft: depth * 22 }}>
-                            {depth > 0 && <CornerDownRight className="size-3.5 mr-1.5 shrink-0 text-muted-foreground/50" />}
-                            {c.name}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs break-all">
-                          {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const cl = links.filter((l) => l.contact_id === c.id);
-                            if (cl.length === 0) return <Dash />;
-                            return (
-                              <div className="flex flex-wrap gap-1">
-                                {cl.map((l) => (
-                                  <Badge key={l.id} variant="outline" className="text-xs font-normal" title={l.relationship ?? undefined}>
-                                    {l.project_short_name || l.project_title}
-                                    {l.is_applicant && <span className="ml-1 text-blue-600">•</span>}
-                                  </Badge>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          <RowActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
+          <div className="rounded-lg border overflow-hidden">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[24%]">Name</TableHead>
+                  <TableHead className="w-[16%]">Role</TableHead>
+                  <TableHead className="w-[22%]">Email</TableHead>
+                  <TableHead>Projects</TableHead>
+                  <TableHead className="w-20" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groups.map((g) => {
+                  const isCollapsed = collapsed.has(g.partnerId);
+                  return (
+                    <Fragment key={g.partnerId}>
+                      <TableRow className="border-t-2 hover:bg-transparent">
+                        <TableCell colSpan={5} className="bg-muted/50 p-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(g.partnerId)}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-muted transition-colors"
+                          >
+                            {isCollapsed
+                              ? <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                              : <ChevronDown className="size-4 text-muted-foreground shrink-0" />}
+                            <span className="text-sm font-bold">{g.label}</span>
+                            <span className="text-xs text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "contact" : "contacts"}</span>
+                          </button>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                )}
-              </div>
-              );
-            })}
+                      {!isCollapsed && g.rows.map(({ node: c, depth }) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="font-medium">
+                            <span className="flex items-center" style={{ paddingLeft: depth * 22 }}>
+                              {depth > 0 && <CornerDownRight className="size-3.5 mr-1.5 shrink-0 text-muted-foreground/50" />}
+                              {c.name}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs break-all">
+                            {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const cl = links.filter((l) => l.contact_id === c.id);
+                              if (cl.length === 0) return <Dash />;
+                              return (
+                                <div className="flex flex-wrap gap-1">
+                                  {cl.map((l) => (
+                                    <Badge key={l.id} variant="outline" className="text-xs font-normal" title={l.relationship ?? undefined}>
+                                      {l.project_short_name || l.project_title}
+                                      {l.is_applicant && <span className="ml-1 text-blue-600">•</span>}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            <RowActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

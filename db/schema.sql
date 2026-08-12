@@ -644,6 +644,10 @@ CREATE TABLE IF NOT EXISTS expenditure_budgets (
     category_id     INTEGER      NOT NULL REFERENCES expenditure_categories(id) ON DELETE CASCADE,
     year            SMALLINT     NOT NULL,
     approved_amount NUMERIC(15,2),
+    -- Optional admin note explaining what a given category×year budget covers
+    -- (e.g. "Travel 2026: field visits to 3 sites"). Surfaces read-only in the
+    -- report editor and the printed project document.
+    description     TEXT,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, category_id, year)

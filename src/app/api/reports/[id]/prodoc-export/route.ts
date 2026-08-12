@@ -86,7 +86,7 @@ export async function GET(
         [projectId]
       ),
       query(
-        `SELECT ec.name AS category_name, ec.sort_order, eb.year, eb.approved_amount
+        `SELECT ec.name AS category_name, ec.sort_order, eb.year, eb.approved_amount, eb.description
            FROM reporting_platform.expenditure_budgets eb
            JOIN reporting_platform.expenditure_categories ec ON ec.id = eb.category_id
           WHERE eb.project_id = $1

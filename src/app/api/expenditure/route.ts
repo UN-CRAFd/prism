@@ -91,8 +91,8 @@ export async function GET(req: NextRequest) {
       [project_id]
     );
     const reportYears = reportYearRows.map((r) => r.year);
-    const budgets = await query<{ category_id: number; year: number; approved_amount: string | null }>(
-      `SELECT category_id, year, approved_amount
+    const budgets = await query<{ category_id: number; year: number; approved_amount: string | null; description: string | null }>(
+      `SELECT category_id, year, approved_amount, description
          FROM reporting_platform.expenditure_budgets WHERE project_id = $1`,
       [project_id]
     );

@@ -582,9 +582,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             (Partners see nothing here until a comment exists — ItemComments self-hides.)
             The risk/indicators tables, the narratives cards and the workplan
             activities instead carry per-item comments on each row, mirroring the
-            report editor, so they're excluded here. */}
+            report editor, so they're excluded here. Budgets carry their per-cell
+            year × category notes instead, so the section thread is excluded too. */}
         {selectedProdocId && !sectionLoading &&
-          !["risk", "indicators", "narratives", "workplan"].includes(selectedSection) && (
+          !["risk", "indicators", "narratives", "workplan", "expenditure"].includes(selectedSection) && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
             {!isPartner && <span>Comment on this section:</span>}
             <ItemComments section={selectedSection} itemId={null} />

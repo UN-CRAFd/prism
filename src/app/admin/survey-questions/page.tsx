@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Loader2, ListChecks, Trash2 } from "lucide-react";
 import { PageHeader, ErrorBanner, LoadingState } from "@/components/admin/shared";
+import { optionItems } from "@/lib/options";
 
-type ReportType = "annual" | "final";
+type ReportType = string;
 
 interface StandardQuestion {
   id: number;
@@ -17,10 +18,12 @@ interface StandardQuestion {
   question: string;
 }
 
-const TYPES: { value: ReportType; title: string; blurb: string }[] = [
-  { value: "annual", title: "Annual Reports", blurb: "Seed each project's first annual report. Later annual reports copy the previous report." },
-  { value: "final", title: "Final Reports", blurb: "Added to every final report, for all projects." },
-];
+// Per-type explanatory blurbs. Keyed by report-type value; unknown/added types
+// fall back to a generic line. Titles come from the editable option labels.
+const TYPE_BLURBS: Record<string, string> = {
+  annual: "Seed each project's first annual report. Later annual reports copy the previous report.",
+  final: "Added to every final report, for all projects.",
+};
 
 export default function SurveyQuestionsPage() {
   const confirm = useConfirm();
@@ -29,7 +32,8 @@ export default function SurveyQuestionsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Per-type "new question" drafts and busy flags.
-  const [drafts, setDrafts] = useState<Record<ReportType, string>>({ annual: "", final: "" });
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const types = optionItems("reportType");
   const [adding, setAdding] = useState<ReportType | null>(null);
 
   const load = useCallback(async () => {
@@ -49,7 +53,7 @@ export default function SurveyQuestionsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleAdd(reportType: ReportType) {
-    const question = drafts[reportType].trim();
+    const question = (drafts[reportType] ?? "").trim();
     if (!question) return;
     setAdding(reportType);
     setError(null);
@@ -92,13 +96,14 @@ export default function SurveyQuestionsPage() {
           <LoadingState />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {TYPES.map((t) => {
+            {types.map((t) => {
               const list = questions.filter((q) => q.report_type === t.value);
+              const blurb = TYPE_BLURBS[t.value] ?? `Standard questions added to every ${t.label.toLowerCase()} report, for all projects.`;
               return (
                 <section key={t.value} className="rounded-xl border bg-card flex flex-col">
                   <div className="border-b px-5 py-3.5">
-                    <h2 className="text-sm font-semibold">{t.title}</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">{t.blurb}</p>
+                    <h2 className="text-sm font-semibold">{t.label}</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">{blurb}</p>
                   </div>
 
                   {list.length === 0 ? (
@@ -127,14 +132,14 @@ export default function SurveyQuestionsPage() {
                   <div className="border-t px-5 py-3 flex gap-2 mt-auto">
                     <Input
                       placeholder="Add a standard question…"
-                      value={drafts[t.value]}
+                      value={drafts[t.value] ?? ""}
                       onChange={(e) => setDrafts((prev) => ({ ...prev, [t.value]: e.target.value }))}
                       onKeyDown={(e) => { if (e.key === "Enter") handleAdd(t.value); }}
                       className="flex-1"
                     />
                     <Button
                       onClick={() => handleAdd(t.value)}
-                      disabled={adding === t.value || !drafts[t.value].trim()}
+                      disabled={adding === t.value || !(drafts[t.value] ?? "").trim()}
                       size="sm"
                       className="shrink-0"
                     >

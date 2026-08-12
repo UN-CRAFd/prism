@@ -1,37 +1,33 @@
 // Workplan domain helpers: quarter-key math + status metadata.
 // Quarter keys are self-describing strings in the form "YYYY-Qn" (e.g. "2024-Q3").
 
-// Progress scale for a workplan activity, ordered best → worst as shown in the
-// dropdown. Stored verbatim in workplan_entries.status (TEXT + CHECK).
-export const WORKPLAN_STATUSES = ["Achieved", "On Track", "Delayed", "At Risk", "Suspended"] as const;
-export type WorkplanStatus = (typeof WORKPLAN_STATUSES)[number];
+import { optionValues, optionItems, optionLabel, optionDescription } from "@/lib/options";
+
+// Status values are admin-editable (Settings → Dropdown options), so this is a
+// plain string rather than a fixed union.
+export type WorkplanStatus = string;
+
+// Progress scale for a workplan activity (ordered as configured), read live from
+// the options registry. Stored verbatim in workplan_entries.status.
+export function workplanStatuses(): string[] {
+  return optionValues("workplanStatus");
+}
 
 // One-line meaning shown beside the status name in the progress dropdown.
-export const WORKPLAN_STATUS_DESCRIPTIONS: Record<WorkplanStatus, string> = {
-  "Achieved": "Results fully met.",
-  "On Track": "Progress aligns with plan.",
-  "Delayed": "Timeline not met.",
-  "At Risk": "Minor revision required.",
-  "Suspended": "Activity halted.",
-};
+export function workplanStatusDescription(status: string): string {
+  return optionDescription("workplanStatus", status);
+}
 
-// Update-window types (the fixed legend). A window is labelled [YEAR] + [code].
-// Single source of truth for both the admin UI selects and server validation.
-export const WORKPLAN_UPDATE_TYPES = [
-  { code: "TR", label: "Tranche Release" },
-  { code: "NCE", label: "No-Cost Extension" },
-  { code: "BR", label: "Budget Revision" },
-  { code: "AR", label: "Annual Reporting" },
-  { code: "FR", label: "Final Report" },
-] as const;
-export type WorkplanUpdateType = (typeof WORKPLAN_UPDATE_TYPES)[number]["code"];
-export const WORKPLAN_UPDATE_TYPE_CODES: readonly string[] = WORKPLAN_UPDATE_TYPES.map((t) => t.code);
-
-const WORKPLAN_UPDATE_TYPE_LABELS: Record<string, string> = Object.fromEntries(
-  WORKPLAN_UPDATE_TYPES.map((t) => [t.code, t.label])
-);
+// Update-window types (the configurable legend). A window is labelled [YEAR] + [code].
+// The stored code is the option `value`; the full name is the option `label`.
+export function workplanUpdateTypes(): { code: string; label: string }[] {
+  return optionItems("workplanUpdateType").map((i) => ({ code: i.value, label: i.label }));
+}
+export function workplanUpdateTypeCodes(): string[] {
+  return optionValues("workplanUpdateType");
+}
 export function workplanUpdateTypeLabel(code: string): string {
-  return WORKPLAN_UPDATE_TYPE_LABELS[code] ?? code;
+  return optionLabel("workplanUpdateType", code);
 }
 
 // Short row label for a window, e.g. "2025 · BR".
@@ -39,17 +35,20 @@ export function workplanUpdateWindowLabel(u: { year: number; type_code: string }
   return `${u.year} · ${u.type_code}`;
 }
 
-// Colour treatments for the status badge, echoing the reference spreadsheet.
-export const WORKPLAN_STATUS_COLORS: Record<
-  WorkplanStatus,
-  { bg: string; text: string; border: string }
-> = {
+// Colour treatments for the status badge, echoing the reference spreadsheet. Kept
+// in code (valid Tailwind classes) and keyed by the status text; unknown/added
+// statuses fall back to a neutral treatment.
+const WORKPLAN_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   "Achieved": { bg: "bg-green-700", text: "text-white", border: "border-green-700" },
   "On Track": { bg: "bg-green-100", text: "text-green-800", border: "border-green-300" },
   "Delayed": { bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300" },
   "At Risk": { bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-300" },
   "Suspended": { bg: "bg-red-700", text: "text-white", border: "border-red-700" },
 };
+const WORKPLAN_STATUS_FALLBACK_COLOR = { bg: "bg-zinc-100", text: "text-zinc-700", border: "border-zinc-300" };
+export function workplanStatusColor(status: string): { bg: string; text: string; border: string } {
+  return WORKPLAN_STATUS_COLORS[status] ?? WORKPLAN_STATUS_FALLBACK_COLOR;
+}
 
 export interface Quarter {
   key: string; // "2024-Q3"

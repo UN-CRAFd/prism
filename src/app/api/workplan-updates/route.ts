@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
-import { WORKPLAN_UPDATE_TYPE_CODES } from "@/lib/workplan";
+import { workplanUpdateTypeCodes } from "@/lib/workplan";
+import { loadOptionOverrides } from "@/lib/option-settings";
 import { logger } from "@/lib/logger";
 
 // ── Workplan update windows (admin-owned) ────────────────────────────────────
@@ -59,7 +60,8 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(year)) {
     return NextResponse.json({ error: "year must be an integer" }, { status: 400 });
   }
-  if (!WORKPLAN_UPDATE_TYPE_CODES.includes(typeCode)) {
+  await loadOptionOverrides(); // editable update-type codes reflect admin overrides
+  if (!workplanUpdateTypeCodes().includes(typeCode)) {
     return NextResponse.json({ error: "invalid type_code" }, { status: 400 });
   }
 

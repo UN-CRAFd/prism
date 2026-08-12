@@ -29,14 +29,13 @@ import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
 import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
+import { optionValues } from "@/lib/options";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
   if (!key) return <span className="text-muted-foreground text-sm">—</span>;
   return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
 }
-
-const PRODOC_STATUSES = ["Open", "Under Review", "Closed"] as const;
 
 // ── Project Document Editor ──────────────────────────────────────────────────
 // Defines the baseline/template for a project on its project document (prodoc —
@@ -458,14 +457,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <h1 className="text-2xl font-bold font-qanelas">{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
             {!isPartner && selectedDoc && (
               <Select value={selectedDoc.status ?? "Open"} onValueChange={handleStatusChange}>
-                <SelectTrigger className={`!h-7 w-fit shrink-0 px-2.5 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle((selectedDoc.status as "Open" | "Under Review" | "Closed") ?? "Open")}`}>
+                <SelectTrigger className={`!h-7 w-fit shrink-0 px-2.5 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(selectedDoc.status ?? "Open")}`}>
                   <span className="flex items-center gap-1 whitespace-nowrap">
                     {readOnly && <Lock className="size-3" />}
                     <SelectValue />
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {PRODOC_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}

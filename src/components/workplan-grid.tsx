@@ -21,10 +21,11 @@ import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import {
-  WORKPLAN_STATUSES,
-  WORKPLAN_STATUS_COLORS,
-  WORKPLAN_STATUS_DESCRIPTIONS,
-  WORKPLAN_UPDATE_TYPES,
+  workplanStatuses,
+  workplanStatusColor,
+  workplanStatusDescription,
+  workplanUpdateTypes,
+  workplanUpdateTypeLabel,
   quarterRange,
   groupQuartersByYear,
   workplanUpdateWindowLabel,
@@ -64,7 +65,7 @@ interface Range {
 // ── Shared bits ────────────────────────────────────────────────────────────
 
 function StatusBadge({ value }: { value: WorkplanStatus }) {
-  const c = WORKPLAN_STATUS_COLORS[value];
+  const c = workplanStatusColor(value);
   return (
     <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold whitespace-nowrap", c.bg, c.text, c.border)}>
       {value}
@@ -75,11 +76,12 @@ function StatusBadge({ value }: { value: WorkplanStatus }) {
 // Dropdown option: the coloured status name plus its one-line meaning, matching
 // the reference progress legend.
 function StatusOption({ value }: { value: WorkplanStatus }) {
-  const c = WORKPLAN_STATUS_COLORS[value];
+  const c = workplanStatusColor(value);
+  const description = workplanStatusDescription(value);
   return (
     <span className={cn("inline-flex w-full items-center rounded-md border px-2 py-0.5 text-xs whitespace-nowrap", c.bg, c.text, c.border)}>
       <span className="font-semibold">{value}</span>
-      <span className="opacity-90">&nbsp;– {WORKPLAN_STATUS_DESCRIPTIONS[value]}</span>
+      {description && <span className="opacity-90">&nbsp;– {description}</span>}
     </span>
   );
 }
@@ -347,7 +349,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
       <div className="flex items-start justify-between gap-4 mb-3">
         {/* Fixed legend for the update-window type codes. */}
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          {WORKPLAN_UPDATE_TYPES.map((t) => (
+          {workplanUpdateTypes().map((t) => (
             <span key={t.code}>
               <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
             </span>
@@ -467,7 +469,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                {WORKPLAN_STATUSES.map((st) => (
+                                {workplanStatuses().map((st) => (
                                   <SelectItem key={st} value={st}><StatusOption value={st} /></SelectItem>
                                 ))}
                               </SelectContent>
@@ -1168,7 +1170,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                {WORKPLAN_STATUSES.map((st) => (
+                                {workplanStatuses().map((st) => (
                                   <SelectItem key={st} value={st}><StatusOption value={st} /></SelectItem>
                                 ))}
                               </SelectContent>
@@ -1231,7 +1233,7 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newYear, setNewYear] = useState("");
-  const [newType, setNewType] = useState<string>(WORKPLAN_UPDATE_TYPES[0].code);
+  const [newType, setNewType] = useState<string>(() => workplanUpdateTypes()[0]?.code ?? "");
 
   // Only years inside the project period are selectable (no free-typed years).
   // Mirrors reporting_platform.project_year_range: the year of each month the
@@ -1358,10 +1360,10 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
           <label className="block text-xs text-muted-foreground mb-1">{wu.type}</label>
           <Select value={newType} onValueChange={setNewType}>
             <SelectTrigger className="h-8 w-[220px]">
-              <span className="text-sm">{WORKPLAN_UPDATE_TYPES.find((t) => t.code === newType)?.label ?? newType}</span>
+              <span className="text-sm">{workplanUpdateTypeLabel(newType)}</span>
             </SelectTrigger>
             <SelectContent>
-              {WORKPLAN_UPDATE_TYPES.map((t) => (
+              {workplanUpdateTypes().map((t) => (
                 <SelectItem key={t.code} value={t.code}>
                   <span className="font-semibold mr-1">{t.code}</span> {t.label}
                 </SelectItem>
@@ -1404,7 +1406,7 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
                   <tr key={w.id} className={cn("border-b last:border-b-0", w.is_active && "bg-crafd-yellow/5")}>
                     <td className="px-3 py-2">
                       <span className="font-medium">{workplanUpdateWindowLabel(w)}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{WORKPLAN_UPDATE_TYPES.find((t) => t.code === w.type_code)?.label}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{workplanUpdateTypeLabel(w.type_code)}</span>
                     </td>
                     <td className="px-3 py-2 text-center">
                       <button
@@ -1453,7 +1455,7 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
 
       {/* Legend for the update-window type codes — explanations below the list. */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        {WORKPLAN_UPDATE_TYPES.map((t) => (
+        {workplanUpdateTypes().map((t) => (
           <span key={t.code}>
             <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
           </span>

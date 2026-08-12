@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
+import { loadOptionOverrides } from "@/lib/option-settings";
+import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
-const VALID_STATUSES = new Set(["Open", "Closed", "Under Review"]);
 
 // GET /api/reports/[id]
 export async function GET(
@@ -54,13 +55,16 @@ export async function PUT(
 
     const body = await request.json();
 
+    await loadOptionOverrides(); // editable report statuses reflect admin overrides
+    const validStatuses = new Set(optionValues("reportStatus"));
+
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
 
     for (const field of ALLOWED_FIELDS) {
       if (body[field] === undefined) continue;
-      if (field === "status" && !VALID_STATUSES.has(body[field] as string)) {
+      if (field === "status" && !validStatuses.has(body[field] as string)) {
         return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
       }
       setClauses.push(`${field} = $${idx++}`);

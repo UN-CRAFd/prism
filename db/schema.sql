@@ -22,74 +22,18 @@ CREATE SCHEMA IF NOT EXISTS reporting_platform;
 SET search_path TO reporting_platform;
 
 -- ── ENUM Types ──────────────────────────────────────────────────────────────
-DO $$ BEGIN
-    CREATE TYPE project_status AS ENUM (
-        'Idea',
-        'Ongoing',
-        'Operationally Closed',
-        'Financially Closed',
-        'Project Closed'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE report_status AS ENUM (
-        'Open',
-        'Closed',
-        'Under Review'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
+-- Dropdown choice columns (project/report status, report type, indicator
+-- category/cycle, workplan status, funding type, document/partner type, lessons
+-- category, external-coverage type, contact role, SDG priority) are plain TEXT
+-- rather than ENUM/CHECK, because their allowed values are admin-editable at
+-- runtime via Settings → Dropdown options (see src/lib/options.ts). The app is
+-- the single source of truth for the option lists; the DB only stores the text.
+-- (Existing databases: run db/make-dropdowns-editable.sql to drop the old
+-- enums/checks.)
 DO $$ BEGIN
     CREATE TYPE data_type_enum AS ENUM (
         'report',
         'prodoc'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE report_type_enum AS ENUM (
-        'annual',
-        'final'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE indicator_category_enum AS ENUM (
-        'Data Outputs & Quality',
-        'Analytics Products',
-        'Access & Usage',
-        'Reach & Influence',
-        'Capacity & Partnerships'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE indicator_cycle_enum AS ENUM (
-        'yearly',
-        'at_closure'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE workplan_status AS ENUM (
-        'Behind Schedule',
-        'On Track',
-        'Achieved'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE funding_type_enum AS ENUM (
-        'In Cash',
-        'In Kind'
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -170,7 +114,7 @@ CREATE TABLE IF NOT EXISTS projects (
     project_title           VARCHAR(500)  NOT NULL,
     short_name              VARCHAR(50),
     description             TEXT,
-    status                  project_status NOT NULL DEFAULT 'Ongoing'::project_status,
+    status                  TEXT           NOT NULL DEFAULT 'Ongoing',
     mptfo_project_number    TEXT,
     grant_size_usd          NUMERIC(15,2),
     project_start_date      DATE,
@@ -200,7 +144,7 @@ CREATE TABLE IF NOT EXISTS project_contacts (
     id           SERIAL       PRIMARY KEY,
     project_id   INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     contact_id   INTEGER      NOT NULL REFERENCES partner_contacts(id) ON DELETE CASCADE,
-    relationship TEXT         CHECK (relationship IN ('Focal Point', 'Project Manager')),
+    relationship TEXT,
     is_applicant BOOLEAN      NOT NULL DEFAULT FALSE,
     sort_order   INTEGER      NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -272,9 +216,9 @@ CREATE TABLE IF NOT EXISTS reports (
     year                   SMALLINT       NOT NULL CHECK (year BETWEEN 2020 AND 2050),
     report_submission_date DATE,
     authorized             BOOLEAN        NOT NULL DEFAULT FALSE,
-    status                 report_status  NOT NULL DEFAULT 'Open'::report_status,
+    status                 TEXT           NOT NULL DEFAULT 'Open',
     data_type              data_type_enum NOT NULL DEFAULT 'report'::data_type_enum,
-    report_type            report_type_enum,
+    report_type            TEXT,
     mptfo_report_link      TEXT,
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
@@ -356,7 +300,7 @@ CREATE TRIGGER surveys_updated_at
 -- stored on the prodoc.
 CREATE TABLE IF NOT EXISTS standard_survey_questions (
     id          SERIAL           PRIMARY KEY,
-    report_type report_type_enum NOT NULL,
+    report_type TEXT NOT NULL,
     question    TEXT             NOT NULL,
     sort_order  INTEGER          NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
@@ -415,8 +359,8 @@ CREATE TABLE IF NOT EXISTS indicators (
     name                  TEXT                    NOT NULL,
     description           TEXT,
     means_of_verification TEXT,
-    category              indicator_category_enum,
-    cycle                 indicator_cycle_enum,
+    category              TEXT,
+    cycle                 TEXT,
     is_standard           BOOLEAN                 NOT NULL DEFAULT TRUE,
     project_id            INTEGER                 REFERENCES projects(id) ON DELETE CASCADE,
     archived_at           TIMESTAMPTZ,
@@ -442,7 +386,7 @@ CREATE TABLE IF NOT EXISTS indicator_data (
     target_value   TEXT,
     target_year    SMALLINT       CHECK (target_year BETWEEN 2000 AND 2050),
     achieved_value TEXT,
-    status         workplan_status,
+    status         TEXT,
     comment        TEXT,
     sort_order     SMALLINT       NOT NULL DEFAULT 1,
     created_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
@@ -549,14 +493,7 @@ CREATE TRIGGER results_updated_at
 CREATE TABLE IF NOT EXISTS lessons_learned (
     id                  SERIAL      PRIMARY KEY,
     report_id           INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    category            TEXT        CHECK (category IN (
-        'Operational Efficiency',
-        'Risk Management',
-        'Partnership Development',
-        'Technical Innovation',
-        'Advocacy & Influence',
-        'Other'
-    )),
+    category            TEXT,
     lesson_learned      TEXT,
     adjustment_informed TEXT,
     sort_order          SMALLINT    NOT NULL DEFAULT 1,
@@ -572,14 +509,7 @@ CREATE TRIGGER lessons_learned_updated_at
 CREATE TABLE IF NOT EXISTS external_coverage (
     id              SERIAL      PRIMARY KEY,
     report_id       INTEGER     NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    type            TEXT        CHECK (type IN (
-        'Media Coverage',
-        'Academic Publication',
-        'Policy Brief',
-        'Conference Presentation',
-        'Online Article',
-        'Other'
-    )),
+    type            TEXT,
     description     TEXT,
     reach_indicator TEXT,
     links           TEXT,
@@ -656,7 +586,7 @@ CREATE TABLE IF NOT EXISTS workplan_updates (
     id          SERIAL       PRIMARY KEY,
     project_id  INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     year        INTEGER      NOT NULL,
-    type_code   TEXT         NOT NULL CHECK (type_code IN ('TR','NCE','BR','AR','FR')),
+    type_code   TEXT         NOT NULL,
     sort_order  INTEGER      NOT NULL DEFAULT 0,
     is_active   BOOLEAN      NOT NULL DEFAULT FALSE,
     hidden      BOOLEAN      NOT NULL DEFAULT FALSE,
@@ -680,7 +610,7 @@ CREATE TABLE IF NOT EXISTS workplan_entries (
     updated_quarters JSONB,                                     -- null = same as baseline
     -- Progress scale (best → worst). TEXT + CHECK rather than an enum so the label
     -- set lives in one place (src/lib/workplan.ts) and stays easy to evolve.
-    status           TEXT         CHECK (status IN ('Achieved', 'On Track', 'Delayed', 'At Risk', 'Suspended')),
+    status           TEXT,
     comment          TEXT,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -813,7 +743,7 @@ CREATE TABLE IF NOT EXISTS complementary_contributors (
     project_id       INTEGER           NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     contributor_name TEXT,
     website          TEXT,
-    funding_type     funding_type_enum,
+    funding_type     TEXT,
     sort_order       INTEGER           NOT NULL DEFAULT 0,
     archived_at      TIMESTAMPTZ,
     created_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
@@ -891,7 +821,7 @@ CREATE TABLE IF NOT EXISTS project_sdg_targets (
     sdg_goal     SMALLINT     NOT NULL CHECK (sdg_goal BETWEEN 1 AND 17),
     target_code  TEXT         NOT NULL,
     percentage   NUMERIC(5,2) NOT NULL DEFAULT 0 CHECK (percentage >= 0 AND percentage <= 100),
-    priority     TEXT         NOT NULL DEFAULT 'primary' CHECK (priority IN ('primary', 'secondary')),
+    priority     TEXT         NOT NULL DEFAULT 'primary',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, target_code)

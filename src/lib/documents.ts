@@ -4,17 +4,19 @@
 // The app stores file bytes in a Postgres bytea column with no external blob
 // store, so uploads are deliberately capped small.
 
-export const DOCUMENT_TYPES = [
-  "Annex",
-  "Agreement / Contract",
-  "Budget",
-  "Logframe / Results Framework",
-  "Report",
-  "Correspondence",
-  "Other",
-] as const;
+import { optionValues } from "@/lib/options";
 
-export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+// Document types are admin-editable (Settings → Dropdown options); read live.
+export function documentTypes(): string[] {
+  return optionValues("documentType");
+}
+
+export type DocumentType = string;
+
+/** Whether `value` is one of the currently-configured document types. */
+export function isDocumentType(value: string): boolean {
+  return documentTypes().includes(value);
+}
 
 // Allowed file extensions (lower-case, no dot). Validation is by extension — it
 // is robust across browsers/OSes that report inconsistent MIME types.

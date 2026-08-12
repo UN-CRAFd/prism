@@ -3,8 +3,9 @@ import { query } from "@/lib/db";
 import { requireSession, guardProject, guardProjectRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import {
-  DOCUMENT_TYPES, MAX_DOC_BYTES, MAX_DOC_MB, isAllowedDocExtension,
+  isDocumentType, MAX_DOC_BYTES, MAX_DOC_MB, isAllowedDocExtension,
 } from "@/lib/documents";
+import { loadOptionOverrides } from "@/lib/option-settings";
 
 // Project documents / annexes uploaded against a project's project document.
 // Project-scoped; file bytes stored in the project_documents.content bytea column.
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
   const file = form.get("file");
 
   if (!projectId) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
-  if (!DOCUMENT_TYPES.includes(docType as (typeof DOCUMENT_TYPES)[number])) {
+  await loadOptionOverrides(); // ensure editable document types reflect admin overrides
+  if (!isDocumentType(docType)) {
     return NextResponse.json({ error: "A valid document type is required" }, { status: 400 });
   }
   if (!(file instanceof File) || file.size === 0) {
@@ -123,7 +125,8 @@ export async function PATCH(req: NextRequest) {
   const sets: string[] = [];
   const values: unknown[] = [];
   if (typeof body.doc_type === "string") {
-    if (!DOCUMENT_TYPES.includes(body.doc_type as (typeof DOCUMENT_TYPES)[number])) {
+    await loadOptionOverrides(); // ensure editable document types reflect admin overrides
+    if (!isDocumentType(body.doc_type)) {
       return NextResponse.json({ error: "A valid document type is required" }, { status: 400 });
     }
     values.push(body.doc_type); sets.push(`doc_type = $${values.length}`);

@@ -5,6 +5,8 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { getLabelOverrides } from "@/lib/label-settings";
 import { applyLabelOverrides } from "@/lib/labels";
+import { getOptionOverrides } from "@/lib/option-settings";
+import { applyOptionOverrides } from "@/lib/options";
 
 const qanelas = localFont({
   src: [
@@ -42,9 +44,14 @@ export default async function RootLayout({
   // Load admin label overrides once per full page render: patch the server-side
   // labels singleton (for SSR) and inject the same overrides as a global so the
   // client patches its copy before hydration — server and client render match.
-  const labelOverrides = await getLabelOverrides();
+  const [labelOverrides, optionOverrides] = await Promise.all([
+    getLabelOverrides(),
+    getOptionOverrides(),
+  ]);
   applyLabelOverrides(labelOverrides);
+  applyOptionOverrides(optionOverrides);
   const hasLabelOverrides = Object.keys(labelOverrides).length > 0;
+  const hasOptionOverrides = Object.keys(optionOverrides).length > 0;
 
   return (
     <html lang="en" className={`${qanelas.variable} ${roboto.variable}`}>
@@ -55,6 +62,14 @@ export default async function RootLayout({
             // `<` is escaped so the JSON can never break out of the script tag.
             dangerouslySetInnerHTML={{
               __html: `window.__LABEL_OVERRIDES__=${JSON.stringify(labelOverrides).replace(/</g, "\\u003c")}`,
+            }}
+          />
+        )}
+        {hasOptionOverrides && (
+          <script
+            // Same pre-hydration trick for dropdown options (see lib/options.ts).
+            dangerouslySetInnerHTML={{
+              __html: `window.__OPTION_OVERRIDES__=${JSON.stringify(optionOverrides).replace(/</g, "\\u003c")}`,
             }}
           />
         )}

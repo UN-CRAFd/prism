@@ -1,0 +1,152 @@
+{
+  "projectStatus": {
+    "label": "Project status",
+    "description": "Lifecycle status of a project. Shown in the General Info editor and the Projects list.",
+    "kind": "flat",
+    "items": [
+      { "value": "Idea", "label": "Idea" },
+      { "value": "Ongoing", "label": "Ongoing" },
+      { "value": "Operationally Closed", "label": "Operationally Closed" },
+      { "value": "Financially Closed", "label": "Financially Closed" },
+      { "value": "Project Closed", "label": "Project Closed" }
+    ]
+  },
+  "projectRole": {
+    "label": "Contact role",
+    "description": "Role a contact can hold on a project (in General Info and Contacts).",
+    "kind": "flat",
+    "items": [
+      { "value": "Focal Point", "label": "Focal Point" },
+      { "value": "Project Manager", "label": "Project Manager" }
+    ]
+  },
+  "reportStatus": {
+    "label": "Report status",
+    "description": "Workflow status of a report or project document (Open / Under Review / Closed).",
+    "kind": "flat",
+    "items": [
+      { "value": "Open", "label": "Open" },
+      { "value": "Under Review", "label": "Under Review" },
+      { "value": "Closed", "label": "Closed" }
+    ]
+  },
+  "reportType": {
+    "label": "Report type",
+    "description": "Kind of report. The value is stored in the database and used in the API.",
+    "kind": "keyed",
+    "items": [
+      { "value": "annual", "label": "Annual" },
+      { "value": "final", "label": "Final" }
+    ]
+  },
+  "indicatorCategory": {
+    "label": "Indicator category",
+    "description": "Grouping category for indicators in the indicators admin.",
+    "kind": "flat",
+    "items": [
+      { "value": "Data Outputs & Quality", "label": "Data Outputs & Quality" },
+      { "value": "Analytics Products", "label": "Analytics Products" },
+      { "value": "Access & Usage", "label": "Access & Usage" },
+      { "value": "Reach & Influence", "label": "Reach & Influence" },
+      { "value": "Capacity & Partnerships", "label": "Capacity & Partnerships" }
+    ]
+  },
+  "workplanStatus": {
+    "label": "Workplan status",
+    "description": "Progress status for a workplan activity, ordered best to worst. The optional description shows beside the status name in the dropdown.",
+    "kind": "flat",
+    "hasDescription": true,
+    "items": [
+      { "value": "Achieved", "label": "Achieved", "description": "Results fully met." },
+      { "value": "On Track", "label": "On Track", "description": "Progress aligns with plan." },
+      { "value": "Delayed", "label": "Delayed", "description": "Timeline not met." },
+      { "value": "At Risk", "label": "At Risk", "description": "Minor revision required." },
+      { "value": "Suspended", "label": "Suspended", "description": "Activity halted." }
+    ]
+  },
+  "workplanUpdateType": {
+    "label": "Workplan update types",
+    "description": "Update-window types. The value is a short code (e.g. TR) shown in row labels; the label is the full name.",
+    "kind": "keyed",
+    "items": [
+      { "value": "TR", "label": "Tranche Release" },
+      { "value": "NCE", "label": "No-Cost Extension" },
+      { "value": "BR", "label": "Budget Revision" },
+      { "value": "AR", "label": "Annual Reporting" },
+      { "value": "FR", "label": "Final Report" }
+    ]
+  },
+  "documentType": {
+    "label": "Document type",
+    "description": "Category for uploaded project documents (annexes).",
+    "kind": "flat",
+    "items": [
+      { "value": "Annex", "label": "Annex" },
+      { "value": "Agreement / Contract", "label": "Agreement / Contract" },
+      { "value": "Budget", "label": "Budget" },
+      { "value": "Logframe / Results Framework", "label": "Logframe / Results Framework" },
+      { "value": "Report", "label": "Report" },
+      { "value": "Correspondence", "label": "Correspondence" },
+      { "value": "Other", "label": "Other" }
+    ]
+  },
+  "externalCoverageType": {
+    "label": "External coverage type",
+    "description": "Type of external coverage in the External Coverage section.",
+    "kind": "flat",
+    "items": [
+      { "value": "Events & Presentations", "label": "Events & Presentations" },
+      { "value": "Publications & Reports", "label": "Publications & Reports" },
+      { "value": "News Coverage", "label": "News Coverage" },
+      { "value": "Peer-Reviewed Journals", "label": "Peer-Reviewed Journals" },
+      { "value": "Case Studies", "label": "Case Studies" },
+      { "value": "Other", "label": "Other" }
+    ]
+  },
+  "lessonsCategory": {
+    "label": "Lessons-learned category",
+    "description": "Category for entries in the Lessons Learned section.",
+    "kind": "flat",
+    "items": [
+      { "value": "Communications", "label": "Communications" },
+      { "value": "Financial", "label": "Financial" },
+      { "value": "Organizational", "label": "Organizational" },
+      { "value": "Operational", "label": "Operational" },
+      { "value": "Methodology", "label": "Methodology" },
+      { "value": "Partnership", "label": "Partnership" },
+      { "value": "Other", "label": "Other" }
+    ]
+  },
+  "transferPartnerType": {
+    "label": "Transfer partner type",
+    "description": "Type of receiving organisation in the Transfers to Implementing Partners section.",
+    "kind": "flat",
+    "items": [
+      { "value": "United Nations Entities", "label": "United Nations Entities" },
+      { "value": "Inter-Governmental Organization", "label": "Inter-Governmental Organization" },
+      { "value": "International NGO", "label": "International NGO" },
+      { "value": "Local NGO", "label": "Local NGO" },
+      { "value": "Academic & Research Institutions", "label": "Academic & Research Institutions" },
+      { "value": "Private Sector", "label": "Private Sector" },
+      { "value": "Government", "label": "Government" }
+    ]
+  },
+  "complementaryFundingType": {
+    "label": "Complementary funding type",
+    "description": "Contribution type in the Complementary Funding section.",
+    "kind": "flat",
+    "items": [
+      { "value": "In Cash", "label": "In Cash" },
+      { "value": "In Kind", "label": "In Kind" }
+    ]
+  },
+  "sdgPriority": {
+    "label": "SDG priority",
+    "description": "Whether an SDG target link is a primary or secondary contribution.",
+    "kind": "keyed",
+    "items": [
+      { "value": "primary", "label": "Primary" },
+      { "value": "secondary", "label": "Secondary" }
+    ]
+  }
+}

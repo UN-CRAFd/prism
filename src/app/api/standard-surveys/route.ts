@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { loadOptionOverrides } from "@/lib/option-settings";
+import { optionValues } from "@/lib/options";
 
 // Standard survey questions are the global library that seeds a project's report
 // survey chain, keyed by type (annual | final), across all projects. Authoring
@@ -10,11 +12,10 @@ import { logger } from "@/lib/logger";
 // reports copy the previous annual report instead (see seedReportSurveys in
 // /api/reports).
 
-const REPORT_TYPES = ["annual", "final"] as const;
-type ReportType = (typeof REPORT_TYPES)[number];
-
-function isReportType(v: unknown): v is ReportType {
-  return typeof v === "string" && (REPORT_TYPES as readonly string[]).includes(v);
+// Report types are admin-editable (Settings → Dropdown options). Callers must
+// `await loadOptionOverrides()` first so this reflects the stored overrides.
+function isReportType(v: unknown): v is string {
+  return typeof v === "string" && optionValues("reportType").includes(v);
 }
 
 // GET /api/standard-surveys[?report_type=annual|final]
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
   if (gate instanceof NextResponse) return gate;
 
   const reportType = req.nextUrl.searchParams.get("report_type");
+  await loadOptionOverrides();
   const values: unknown[] = [];
   let where = "";
   if (isReportType(reportType)) {
@@ -56,8 +58,9 @@ export async function POST(req: NextRequest) {
   }
 
   const question = typeof body.question === "string" ? body.question.trim() : "";
+  await loadOptionOverrides();
   if (!isReportType(body.report_type)) {
-    return NextResponse.json({ error: "report_type must be 'annual' or 'final'" }, { status: 400 });
+    return NextResponse.json({ error: "report_type is not a valid value" }, { status: 400 });
   }
   if (!question) {
     return NextResponse.json({ error: "question is required" }, { status: 400 });

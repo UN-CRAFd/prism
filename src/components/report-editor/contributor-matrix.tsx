@@ -12,8 +12,9 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { FALLBACK_COLORS } from "@/lib/risk";
-import { PARTNER_TYPES, activityLabel, formatAmount } from "@/lib/transfers";
-import { FUNDING_TYPES, FUNDING_TYPE_COLORS } from "@/lib/complementary";
+import { optionValues } from "@/lib/options";
+import { activityLabel, formatAmount } from "@/lib/transfers";
+import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -87,7 +88,7 @@ export interface ContributorMatrixConfig {
   amountField: string;              // "amount_transferred" | "contribution_amount"
   activityField: string;            // "linked_activity_id" | "linked_activity_ids"
   activityMode: "single" | "multi"; // single Select vs multi-select dropdown
-  typeOptions: string[];            // PARTNER_TYPES | FUNDING_TYPES
+  typeOptionsKey: string;           // options-registry key resolved live at render
   typeBadgeColors?: Record<string, { bg: string; text: string; border: string }>;
   deleteAriaLabel: string;
   deleteConfirm: (name: string) => string;
@@ -591,7 +592,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none"><span className="text-muted-foreground">{config.labels.selectType}</span></SelectItem>
-                          {config.typeOptions.map((t) => (
+                          {optionValues(config.typeOptionsKey).map((t) => (
                             <SelectItem key={t} value={t}>
                               {config.typeBadgeColors ? <Badge colors={config.typeBadgeColors[t] ?? FALLBACK_COLORS}>{t}</Badge> : t}
                             </SelectItem>
@@ -689,7 +690,7 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
   amountField: "amount_transferred",
   activityField: "linked_activity_id",
   activityMode: "single",
-  typeOptions: PARTNER_TYPES,
+  typeOptionsKey: "transferPartnerType",
   deleteAriaLabel: "Delete transfer",
   deleteConfirm: (name) => `Delete transfer for "${name}"? You can undo this with the Undo button.`,
   messages: {
@@ -729,7 +730,7 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
   amountField: "contribution_amount",
   activityField: "linked_activity_ids",
   activityMode: "multi",
-  typeOptions: FUNDING_TYPES,
+  typeOptionsKey: "complementaryFundingType",
   typeBadgeColors: FUNDING_TYPE_COLORS,
   deleteAriaLabel: "Delete contribution",
   deleteConfirm: (name) => `Delete contribution from "${name}"? You can undo this with the Undo button.`,

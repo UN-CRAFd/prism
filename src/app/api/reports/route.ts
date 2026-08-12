@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { PoolClient } from "pg";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
+import { loadOptionOverrides } from "@/lib/option-settings";
+import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 
 const MIN_YEAR = 2020;
@@ -303,7 +305,18 @@ export async function POST(request: Request) {
   }
   const submissionDate = (body.report_submission_date as string) || null;
   const dataType = body.data_type === "prodoc" ? "prodoc" : "report";
-  const reportType = body.report_type === "final" ? "final" : "annual";
+  // Report types are admin-editable (Settings → Dropdown options). Accept any
+  // configured value for a single report; fall back to "annual" (or the first
+  // configured type) when unspecified/unknown. The annual batch below always
+  // creates "annual" reports regardless, since its seeding logic is annual-specific.
+  await loadOptionOverrides();
+  const reportTypeValues = optionValues("reportType");
+  const reportType =
+    typeof body.report_type === "string" && reportTypeValues.includes(body.report_type)
+      ? body.report_type
+      : reportTypeValues.includes("annual")
+        ? "annual"
+        : reportTypeValues[0] ?? "annual";
 
   // Project documents are created automatically with their project (exactly one
   // per project), so they can't be added by hand here.
@@ -325,7 +338,7 @@ export async function POST(request: Request) {
          SELECT pr.id, $1, $2, $3, $4 FROM reporting_platform.projects pr
          ON CONFLICT (project_id, year, data_type) DO NOTHING
          RETURNING id`,
-        [year, submissionDate, dataType, reportType]
+        [year, submissionDate, dataType, "annual"]
       );
 
       const totalProjects = await client.query<{ count: number }>(

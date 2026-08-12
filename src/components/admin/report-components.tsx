@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
+import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
 
@@ -178,9 +179,9 @@ export function ReportCard({
             </span>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Open">Open</SelectItem>
-            <SelectItem value="Under Review">Under Review</SelectItem>
-            <SelectItem value="Closed">Closed</SelectItem>
+            {optionValues("reportStatus").map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -246,7 +247,7 @@ export function CreateReportForm({
   const [projectId, setProjectId] = useState<string>("");
   const [year, setYear] = useState<string>("");
   const [submissionDate, setSubmissionDate] = useState<string>("");
-  const [reportType, setReportType] = useState<string>("annual");
+  const [reportType, setReportType] = useState<string>(() => optionValues("reportType")[0] ?? "annual");
   const [projectYears, setProjectYears] = useState<number[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
 
@@ -280,7 +281,7 @@ export function CreateReportForm({
     setYear("");
     setProjectYears([]);
     setSubmissionDate("");
-    setReportType("annual");
+    setReportType(optionValues("reportType")[0] ?? "annual");
     setFormError(null);
   }
 
@@ -359,8 +360,9 @@ export function CreateReportForm({
               <Select value={reportType} onValueChange={setReportType}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="annual">Annual</SelectItem>
-                  <SelectItem value="final">Final</SelectItem>
+                  {optionItems("reportType").map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>

@@ -20,6 +20,7 @@ import {
 } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import labels from "@/lib/labels";
+import { optionValues } from "@/lib/options";
 
 const NONE = "none";
 const RELATIONSHIP_NONE = "__none__";
@@ -300,7 +301,7 @@ export default function ContactsPage() {
                                 <SelectTrigger className="w-full h-8 text-sm"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
-                                  {g.relationshipOptions.map((r) => (
+                                  {optionValues("projectRole").map((r) => (
                                     <SelectItem key={r} value={r}>{r}</SelectItem>
                                   ))}
                                 </SelectContent>

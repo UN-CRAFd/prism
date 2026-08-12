@@ -11,7 +11,7 @@ import { formatDate } from "@/lib/utils";
 import { Loader2, Upload, FileText, Download, Trash2 } from "lucide-react";
 import labels from "@/lib/labels";
 import {
-  DOCUMENT_TYPES, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
+  documentTypes, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
 } from "@/lib/documents";
 
 // ── Documents / annexes editor ────────────────────────────────────────────────
@@ -157,7 +157,7 @@ export function DocumentsEditor({
               <Select value={docType} onValueChange={setDocType}>
                 <SelectTrigger className="w-full"><SelectValue placeholder={d.typePlaceholder} /></SelectTrigger>
                 <SelectContent>
-                  {DOCUMENT_TYPES.map((t) => (
+                  {documentTypes().map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>

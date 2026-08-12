@@ -161,8 +161,6 @@
       "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}.",
       "dateOutOfRange": "Tranche dates must fall within the project period ({start} – {end})."
     },
-    "statusOptions": ["Idea", "Ongoing", "Operationally Closed", "Financially Closed", "Project Closed"],
-    "relationshipOptions": ["Focal Point", "Project Manager"],
     "relationshipNone": "— No role —",
     "applicantLabel": "Applicant",
     "contactSearchPlaceholder": "Link an existing contact or type a new name…",
@@ -297,7 +295,6 @@
     }
   },
   "externalCoverage": {
-    "types": ["Events & Presentations", "Publications & Reports", "News Coverage", "Peer-Reviewed Journals", "Case Studies", "Other"],
     "columns": {
       "type": "Type",
       "description": "Description",
@@ -311,7 +308,6 @@
     }
   },
   "lessons": {
-    "categories": ["Communications", "Financial", "Organizational", "Operational", "Methodology", "Partnership", "Other"],
     "columns": {
       "category": "Category",
       "lessonLearned": "Lesson Learned",
@@ -383,15 +379,6 @@
   "transfers": {
     "title": "Transfers to implementing partners",
     "currency": "USD",
-    "partnerTypes": [
-      "United Nations Entities",
-      "Inter-Governmental Organization",
-      "International NGO",
-      "Local NGO",
-      "Academic & Research Institutions",
-      "Private Sector",
-      "Government"
-    ],
     "columns": {
       "organizationName": "State organization name",
       "website": "Share website link",
@@ -409,7 +396,6 @@
   "complementary": {
     "title": "Complementary funding for the project",
     "currency": "USD",
-    "fundingTypes": ["In Cash", "In Kind"],
     "columns": {
       "contributorName": "State contributor name",
       "website": "Share website link",

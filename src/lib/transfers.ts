@@ -1,10 +1,12 @@
-import labels from "@/lib/labels";
+import { optionValues } from "@/lib/options";
 
 // Transfers to implementing partners: the receiving organisation's "type" is a
-// free string chosen from a fixed list (same pattern as external-coverage types
-// and lessons categories — stored verbatim, no slug mapping needed).
+// free string chosen from an admin-editable list (Settings → Dropdown options),
+// stored verbatim with no slug mapping.
 
-export const PARTNER_TYPES: string[] = labels.transfers.partnerTypes;
+export function partnerTypes(): string[] {
+  return optionValues("transferPartnerType");
+}
 
 export interface ActivityRef {
   id: number;

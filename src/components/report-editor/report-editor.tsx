@@ -23,6 +23,7 @@ import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/aut
 import { REPORT_SECTION_GROUPS, GROUP_STYLES } from "@/lib/report-sections";
 import { CommentsProvider } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
+import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG } from "@/components/report-editor/contributor-matrix";
 import {
@@ -838,9 +839,9 @@ export function ReportEditor({
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Open">Open</SelectItem>
-                      <SelectItem value="Under Review">Under Review</SelectItem>
-                      <SelectItem value="Closed">Closed</SelectItem>
+                      {optionValues("reportStatus").map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 ) : (

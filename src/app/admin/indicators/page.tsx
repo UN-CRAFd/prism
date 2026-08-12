@@ -19,6 +19,7 @@ import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
 import { CYCLE_KEYS, cycleLabel } from "@/lib/indicators";
+import { optionValues } from "@/lib/options";
 import labels from "@/lib/labels";
 
 interface IndicatorUsage {
@@ -63,14 +64,6 @@ function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
 }
 
 const NONE = "none";
-
-const INDICATOR_CATEGORIES = [
-  "Data Outputs & Quality",
-  "Analytics Products",
-  "Access & Usage",
-  "Reach & Influence",
-  "Capacity & Partnerships",
-] as const;
 
 export default function IndicatorsPage() {
   const [indicators, setIndicators] = useState<Indicator[]>([]);
@@ -210,7 +203,7 @@ export default function IndicatorsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}><span className="text-muted-foreground">—</span></SelectItem>
-                    {INDICATOR_CATEGORIES.map((cat) => (
+                    {optionValues("indicatorCategory").map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
                   </SelectContent>

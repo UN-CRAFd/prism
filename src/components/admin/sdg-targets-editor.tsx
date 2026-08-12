@@ -10,6 +10,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { SDG_GOALS, getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
+import { optionValues, optionItems } from "@/lib/options";
 import labels from "@/lib/labels";
 
 // ── SDG Targets editor ────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ import labels from "@/lib/labels";
 // autosave via useAutosave, persisting the whole set with a single PUT — the same
 // AutosaveIndicator the report editor uses.
 
-type Priority = "primary" | "secondary";
+type Priority = string;
 type Selected = { sdg_goal: number; target_code: string; percentage: number; priority: Priority };
 
 const snapshot = (list: Selected[]) =>
@@ -88,7 +89,7 @@ export function SdgTargetsEditor({
     if (selected.some((s) => s.target_code === pickTarget)) return;
     const found = getSdgTarget(pickTarget);
     if (!found) return;
-    mutate([...selected, { sdg_goal: found.goal.goal, target_code: pickTarget, percentage: 0, priority: "primary" }]);
+    mutate([...selected, { sdg_goal: found.goal.goal, target_code: pickTarget, percentage: 0, priority: optionValues("sdgPriority")[0] ?? "primary" }]);
     setPickTarget("");
   };
 
@@ -196,13 +197,14 @@ export function SdgTargetsEditor({
         </div>
       ) : (
         <div className="rounded-xl border bg-card divide-y overflow-hidden">
-          {(["primary", "secondary"] as const).map((group) => {
+          {optionItems("sdgPriority").map((groupItem) => {
+            const group = groupItem.value;
             const rows = selected.filter((s) => s.priority === group);
             if (rows.length === 0) return null;
             return (
               <div key={group} className="divide-y">
                 <div className="px-4 py-2 bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {group === "primary" ? "Primary goals" : "Secondary goals"}
+                  {`${groupItem.label} goals`}
                 </div>
                 {rows.map((s) => {
                   const goal = getSdgGoal(s.sdg_goal);
@@ -231,8 +233,9 @@ export function SdgTargetsEditor({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="primary">Primary</SelectItem>
-                          <SelectItem value="secondary">Secondary</SelectItem>
+                          {optionItems("sdgPriority").map((p) => (
+                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <div className="flex items-center gap-1.5 shrink-0">

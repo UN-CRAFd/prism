@@ -13,6 +13,7 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import { cn } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText } from "lucide-react";
 import labels from "@/lib/labels";
+import { optionValues } from "@/lib/options";
 
 // ── General Information editor ─────────────────────────────────────────────────
 // The first project-document tab. Edits core project data (name, MPTFO number,
@@ -414,7 +415,7 @@ export function GeneralInfoAdminEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {g.statusOptions.map((s) => (
+                {optionValues("projectStatus").map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
@@ -706,7 +707,7 @@ export function GeneralInfoAdminEditor({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
-                          {g.relationshipOptions.map((r) => (
+                          {optionValues("projectRole").map((r) => (
                             <SelectItem key={r} value={r}>{r}</SelectItem>
                           ))}
                         </SelectContent>

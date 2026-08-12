@@ -20,15 +20,18 @@ import {
   FilterBar, FilterSelect, ALL,
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
+import { optionValues } from "@/lib/options";
 import { formatDate, timeAgo } from "@/lib/utils";
 
-// Prodoc uses the same status set as reports (it IS a reports row).
-const PRODOC_STATUSES: ReportStatus[] = ["Open", "Under Review", "Closed"];
-const PRODOC_STATUS_ICONS: Record<ReportStatus, ReactNode> = {
+// Prodoc uses the same status set as reports (it IS a reports row). Values are
+// admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
+// is keyed by the known values, with a neutral fallback for any added value.
+const PRODOC_STATUS_ICONS: Record<string, ReactNode> = {
   Open:           <CircleDot className="size-3 shrink-0 text-blue-700" />,
   "Under Review": <Clock className="size-3 shrink-0 text-amber-700" />,
   Closed:         <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
 };
+const PRODOC_STATUS_FALLBACK_ICON: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
 
 // -- Types ------------------------------------------------------------------
 
@@ -38,12 +41,7 @@ interface Partner {
   long_name: string | null;
 }
 
-type ProjectStatus =
-  | "Idea"
-  | "Ongoing"
-  | "Operationally Closed"
-  | "Financially Closed"
-  | "Project Closed";
+type ProjectStatus = string;
 
 interface Project {
   id: number;
@@ -81,30 +79,26 @@ interface ProjectRevision {
   created_at: string;
 }
 
-// Project STATUS presentation — matches the CHECK constraint in db/schema.sql.
-const PROJECT_STATUSES: ProjectStatus[] = [
-  "Idea",
-  "Ongoing",
-  "Operationally Closed",
-  "Financially Closed",
-  "Project Closed",
-];
-
-const STATUS_STYLES: Record<ProjectStatus, string> = {
+// Project STATUS presentation. Values are admin-editable via Settings → Dropdown
+// options ("projectStatus"); style/icon maps are keyed by the known values, with
+// neutral fallbacks applied for any added value.
+const STATUS_STYLES: Record<string, string> = {
   Idea:                   "bg-violet-50 text-violet-700 border-violet-200",
   Ongoing:                "bg-blue-50 text-blue-700 border-blue-200",
   "Operationally Closed": "bg-amber-50 text-amber-700 border-amber-200",
   "Financially Closed":   "bg-orange-50 text-orange-700 border-orange-200",
   "Project Closed":       "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
+const STATUS_STYLE_FALLBACK = "bg-zinc-100 text-zinc-600 border-zinc-200";
 
-const STATUS_ICONS: Record<ProjectStatus, ReactNode> = {
+const STATUS_ICONS: Record<string, ReactNode> = {
   Idea:                   <Lightbulb className="size-3 shrink-0 text-violet-700" />,
   Ongoing:                <CircleDot className="size-3 shrink-0 text-blue-700" />,
   "Operationally Closed": <PauseCircle className="size-3 shrink-0 text-amber-700" />,
   "Financially Closed":   <Banknote className="size-3 shrink-0 text-orange-700" />,
   "Project Closed":       <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
 };
+const STATUS_ICON_FALLBACK: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
 
 function durationLabel(months: number | null): string | null {
   return months && months > 0 ? `${months} months` : null;
@@ -401,7 +395,8 @@ export default function ProjectsPage() {
     }
     const entries = Array.from(map.entries());
     if (groupMode === "status") {
-      return entries.sort((a, b) => PROJECT_STATUSES.indexOf(a[0] as ProjectStatus) - PROJECT_STATUSES.indexOf(b[0] as ProjectStatus));
+      const order = optionValues("projectStatus");
+      return entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
     }
     return entries.sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered, groupMode]);
@@ -436,14 +431,14 @@ export default function ProjectsPage() {
       {/* Project status — straight below the title, with the no-cost extension beside it */}
       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
         <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-          <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
+          <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
             <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-              {STATUS_ICONS[p.status]}
+              {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
               <SelectValue />
             </span>
           </SelectTrigger>
           <SelectContent>
-            {PROJECT_STATUSES.map((s) => (
+            {optionValues("projectStatus").map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
@@ -511,12 +506,12 @@ export default function ProjectsPage() {
             <Select value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
               <SelectTrigger title="Project document status" className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}>
                 <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                  {PRODOC_STATUS_ICONS[pd.status]}
+                  {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
                   <SelectValue />
                 </span>
               </SelectTrigger>
               <SelectContent>
-                {PRODOC_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
@@ -571,7 +566,7 @@ export default function ProjectsPage() {
           onChange={setFilterStatus}
           allLabel="All statuses"
           width={190}
-          options={PROJECT_STATUSES.map((s) => ({ value: s, label: s }))}
+          options={optionValues("projectStatus").map((s) => ({ value: s, label: s }))}
         />
         {view === "grid" && (
           <FilterSelect
@@ -690,14 +685,14 @@ export default function ProjectsPage() {
                   <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
                   <TableCell>
                     <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-                      <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status]}`}>
+                      <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
                         <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                          {STATUS_ICONS[p.status]}
+                          {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
                           <SelectValue />
                         </span>
                       </SelectTrigger>
                       <SelectContent>
-                        {PROJECT_STATUSES.map((s) => (
+                        {optionValues("projectStatus").map((s) => (
                           <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}
                       </SelectContent>
@@ -737,12 +732,12 @@ export default function ProjectsPage() {
                             className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(prodocByProject[p.id]!.status)}`}
                           >
                             <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                              {PRODOC_STATUS_ICONS[prodocByProject[p.id]!.status]}
+                              {PRODOC_STATUS_ICONS[prodocByProject[p.id]!.status] ?? PRODOC_STATUS_FALLBACK_ICON}
                               <SelectValue />
                             </span>
                           </SelectTrigger>
                           <SelectContent>
-                            {PRODOC_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       )}

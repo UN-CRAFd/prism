@@ -139,6 +139,7 @@ type MatrixRawRow = {
   contribution_amount: string | null;
   linked_activity_ids: number[] | null;
   sort_order: number;
+  master_sort: number;
   report_year: number;
   is_current: boolean;
   contributor_name: string | null;
@@ -156,31 +157,34 @@ async function getMatrix(reportId: string) {
   }
   const { project_id: projectId, year: currentYear } = meta[0];
 
+  // Every contribution line across the whole project, all years — so a contributor
+  // entered in any report shows in every year's matrix (prior years read-only).
   const rows = await query<MatrixRawRow>(
     `SELECT d.id, d.report_id, d.contributor_id,
             d.contribution_amount, ${ACTIVITY_IDS_AGG}, d.sort_order,
+            c.sort_order AS master_sort,
             r.year AS report_year, (r.id = $2) AS is_current,
             c.contributor_name, c.website, c.funding_type
        FROM reporting_platform.complementary_data d
        JOIN reporting_platform.reports r ON r.id = d.report_id
        JOIN reporting_platform.complementary_contributors c ON c.id = d.contributor_id
       WHERE r.project_id = $1
-        AND d.contributor_id IN (
-          SELECT contributor_id FROM reporting_platform.complementary_data WHERE report_id = $2
-        )
       ORDER BY r.year ASC`,
     [projectId, reportId]
   );
 
-  // Row skeleton + order come from the current report's lines.
+  // One skeleton row per project contributor that has data in ANY year, ordered by
+  // the project-level (master) order so rows stay put across years. The current
+  // report may not have a line yet → currentLineId is null (created on first edit).
   const byContributor = new Map<number, Record<string, unknown>>();
-  for (const r of rows.filter((r) => r.is_current).sort((a, b) => a.sort_order - b.sort_order)) {
+  for (const r of [...rows].sort((a, b) => a.master_sort - b.master_sort)) {
+    if (byContributor.has(r.contributor_id)) continue;
     byContributor.set(r.contributor_id, {
       contributor_id: r.contributor_id,
       contributor_name: r.contributor_name,
       website: r.website,
       funding_type: r.funding_type,
-      currentLineId: r.id,
+      currentLineId: null,
       byYear: {} as Record<number, unknown>,
     });
   }
@@ -190,6 +194,7 @@ async function getMatrix(reportId: string) {
     yearsSet.add(r.report_year);
     const row = byContributor.get(r.contributor_id);
     if (!row) continue;
+    if (r.is_current) row.currentLineId = r.id;
     (row.byYear as Record<number, unknown>)[r.report_year] = {
       id: r.id,
       report_id: r.report_id,

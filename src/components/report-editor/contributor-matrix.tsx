@@ -133,7 +133,9 @@ interface MatrixRow {
   name: string | null;
   website: string | null;
   type: string | null;
-  currentLineId: number;
+  // Null when this organisation exists in the project (from another year) but has
+  // no line on the current report yet — created on the first current-year edit.
+  currentLineId: number | null;
   byYear: Record<number, YearCell | undefined>;
 }
 
@@ -150,7 +152,7 @@ interface RowState {
 }
 
 type RawCell = { id: number; report_id: number } & Record<string, unknown>;
-type RawRow = { currentLineId: number; website: string | null; byYear: Record<number, RawCell | undefined> } & Record<string, unknown>;
+type RawRow = { currentLineId: number | null; website: string | null; byYear: Record<number, RawCell | undefined> } & Record<string, unknown>;
 type MatrixResponse = { years: number[]; currentYear: number | null; rows: RawRow[]; activities: ContributorActivity[] };
 
 interface ContributorMatrixProps {
@@ -252,6 +254,15 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     [config.activityField]: config.activityMode === "single" ? (activityIds[0] ?? null) : activityIds,
   }), [config]);
 
+  // POST body to create the current-year line for an entity that so far only has
+  // data in other years (create-on-type). Carries the just-typed amount/activities.
+  const createBody = useCallback((entityId: number, amount: string, activityIds: number[]) => ({
+    reportId,
+    [config.entityIdField]: entityId,
+    [config.amountField]: amount || null,
+    [config.activityField]: config.activityMode === "single" ? (activityIds[0] ?? null) : activityIds,
+  }), [reportId, config]);
+
   // Save every dirty master + cell. A dirty flag is only cleared if the content is
   // unchanged since the snapshot, so edits made mid-save aren't dropped.
   const flush = useCallback(async () => {
@@ -262,15 +273,29 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     const cellSnap = new Map(dirtyCells.map((r) => [r.entityId, JSON.stringify({ a: states[r.entityId].amount, l: states[r.entityId].activityIds })]));
 
     const ok = (r: Response) => { if (!r.ok) throw new Error(labels.common.saveFailed); };
+    // Entities surfaced as prior-year context that just got a current-year edit have
+    // no line yet — create one (with the typed values) before the parallel saves.
+    const createdLineIds = new Map<number, number>();
     try {
+      for (const r of dirtyCells) {
+        if (r.currentLineId != null) continue;
+        const st = states[r.entityId];
+        const res = await fetch(config.dataEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(createBody(r.entityId, st.amount, st.activityIds)) });
+        ok(res);
+        const created = await res.json();
+        createdLineIds.set(r.entityId, created.id as number);
+      }
+
       await Promise.all([
         ...dirtyMasters.map((r) => {
           const st = states[r.entityId];
           return fetch(config.masterEndpoint, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(masterBody(r.entityId, st)) }).then(ok);
         }),
-        ...dirtyCells.map((r) => {
+        // Existing current-year lines are PATCHed; freshly-created ones were already
+        // persisted with their values by the POST above, so they're skipped here.
+        ...dirtyCells.filter((r) => r.currentLineId != null).map((r) => {
           const st = states[r.entityId];
-          return fetch(config.dataEndpoint, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cellBody(r.currentLineId, st.amount, st.activityIds)) }).then(ok);
+          return fetch(config.dataEndpoint, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cellBody(r.currentLineId as number, st.amount, st.activityIds)) }).then(ok);
         }),
       ]);
     } catch (e) {
@@ -278,13 +303,16 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
       throw e;
     }
 
+    // Record the new line ids so the next flush PATCHes instead of re-creating.
+    if (createdLineIds.size) setRows((prev) => prev.map((r) => createdLineIds.has(r.entityId) ? { ...r, currentLineId: createdLineIds.get(r.entityId)! } : r));
+
     if (dirtyMasters.length || dirtyCells.length) setStates((prev) => {
       const n = { ...prev };
       for (const r of dirtyMasters) { const cur = prev[r.entityId]; if (cur && JSON.stringify({ n: cur.name, w: cur.website, t: cur.type }) === masterSnap.get(r.entityId)) n[r.entityId] = { ...n[r.entityId], masterDirty: false }; }
       for (const r of dirtyCells) { const cur = prev[r.entityId]; if (cur && JSON.stringify({ a: cur.amount, l: cur.activityIds }) === cellSnap.get(r.entityId)) n[r.entityId] = { ...n[r.entityId], cellDirty: false }; }
       return n;
     });
-  }, [reportId, rows, states, config, onError, masterBody, cellBody]);
+  }, [reportId, rows, states, config, onError, masterBody, cellBody, createBody]);
 
   const autosave = useAutosave(flush, { onStateChange: onSaveStateChange });
   const { schedule } = autosave;
@@ -353,16 +381,26 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     const st = states[entityId];
     const amount = st?.amount ?? "";
     const activityIds = st?.activityIds ?? [];
+    // Context-only row (data only in other years, no line on this report yet):
+    // there's nothing to delete server-side — just discard any un-persisted
+    // current-year edit so the row reverts to read-only context.
+    if (row.currentLineId == null) {
+      setStates((prev) => prev[entityId]
+        ? { ...prev, [entityId]: { ...prev[entityId], amount: "", activityIds: [], cellDirty: false } }
+        : prev);
+      return;
+    }
+    const currentLineId = row.currentLineId;
     const hasContent = amount || activityIds.length > 0 || row.name?.trim();
     if (hasContent && !await confirm({ message: config.deleteConfirm(row.name ?? ""), confirmLabel: "Delete" })) return;
     setDeleting(entityId);
     onError(null);
     try {
-      const res = await fetch(`${config.dataEndpoint}?id=${row.currentLineId}`, { method: "DELETE" });
+      const res = await fetch(`${config.dataEndpoint}?id=${currentLineId}`, { method: "DELETE" });
       if (!res.ok) throw new Error(config.messages.deleteLine);
       await load();
 
-      let lineId = row.currentLineId;
+      let lineId = currentLineId;
       pushCommand({
         undo: async () => {
           try {

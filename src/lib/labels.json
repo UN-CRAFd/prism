@@ -11,6 +11,7 @@
     "columns": {
       "links": "Links / Materials"
     },
+    "imageStandards": "Image standards: Please label and upload all required photos below in a PNG format here with a minimum resolution of 3000x2000px (>1.5 MB) or send via email/download link to maintain quality. For examples, refer to CRAF'd Annual Report. Please also provide credits in your submitted photos and videos in the respective tables below.",
     "placeholders": {
       "url": "https://…",
       "organizationName": "Organization name…",

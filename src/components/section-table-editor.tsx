@@ -12,7 +12,8 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Trash2, X } from "lucide-react";
+import { Info, Loader2, Plus, Trash2, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
@@ -435,7 +436,24 @@ export function SectionTableEditor({
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
             {fields.map((f) => (
               <th key={f.key} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", f.headClass)}>
-                {f.header}
+                {/* Photo/link columns collect images & materials — surface the CRAF'd
+                    image standards behind an info icon so contributors upload/label
+                    them correctly. */}
+                {f.type === "photo" || f.type === "links" ? (
+                  <span className="inline-flex items-center gap-1">
+                    {f.header}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="size-3.5 flex-shrink-0 cursor-help text-muted-foreground/70" aria-label="Image standards" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs whitespace-normal font-normal normal-case leading-relaxed">
+                        {labels.common.imageStandards}
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                ) : (
+                  f.header
+                )}
               </th>
             ))}
             <th className="w-10 px-4 py-3" />

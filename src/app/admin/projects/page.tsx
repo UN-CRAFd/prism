@@ -619,7 +619,7 @@ export default function ProjectsPage() {
                 <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Short name" />
               </Field>
               <Field label="MPTFO project number">
-                <Input value={mptfo} onChange={(e) => setMptfo(e.target.value.replace(/\D/g, ""))} placeholder="00140841" inputMode="numeric" />
+                <Input value={mptfo} onChange={(e) => setMptfo(e.target.value.replace(/\D/g, ""))} placeholder="MPTFO Number" inputMode="numeric" />
               </Field>
               <Field label="Grant size (USD)">
                 <Input

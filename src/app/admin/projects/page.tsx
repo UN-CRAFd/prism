@@ -20,7 +20,7 @@ import {
   FilterBar, FilterSelect, ALL,
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
-import { formatDate } from "@/lib/utils";
+import { formatDate, timeAgo } from "@/lib/utils";
 
 // Prodoc uses the same status set as reports (it IS a reports row).
 const PRODOC_STATUSES: ReportStatus[] = ["Open", "Under Review", "Closed"];
@@ -140,8 +140,8 @@ export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  // project_id → its prodoc { report id, status } (for Print / Open / status).
-  const [prodocByProject, setProdocByProject] = useState<Record<number, { id: number; status: ReportStatus }>>({});
+  // project_id → its prodoc { report id, status, last_edited } (for Print / Open / status).
+  const [prodocByProject, setProdocByProject] = useState<Record<number, { id: number; status: ReportStatus; last_edited: string | null }>>({});
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,8 +188,8 @@ export default function ProjectsPage() {
       if (!pRes.ok || !prRes.ok || !pdRes.ok) throw new Error("Failed to fetch data");
       setPartners(await pRes.json());
       setProjects(await prRes.json());
-      const prodocs: { id: number; project_id: number; status: ReportStatus }[] = await pdRes.json();
-      setProdocByProject(Object.fromEntries(prodocs.map((d) => [d.project_id, { id: d.id, status: d.status }])));
+      const prodocs: { id: number; project_id: number; status: ReportStatus; last_edited: string | null }[] = await pdRes.json();
+      setProdocByProject(Object.fromEntries(prodocs.map((d) => [d.project_id, { id: d.id, status: d.status, last_edited: d.last_edited }])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -372,7 +372,7 @@ export default function ProjectsPage() {
   // Set the prodoc's editable status (Open / Under Review / Closed) — same
   // status model as reports. Optimistic; persisted via PUT /api/reports/:id.
   async function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
-    setProdocByProject((prev) => ({ ...prev, [projectId]: { id: prodocId, status } }));
+    setProdocByProject((prev) => ({ ...prev, [projectId]: { ...prev[projectId], id: prodocId, status } }));
     await fetch(`/api/reports/${prodocId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -498,7 +498,14 @@ export default function ProjectsPage() {
 
       {/* ── Project Document ── status + open + print */}
       <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Project Document</p>
+        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
+          {pd?.last_edited && (
+            <span className="text-[11px] text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
+              edited {timeAgo(pd.last_edited)}
+            </span>
+          )}
+        </div>
         <div className="flex gap-1.5">
           {pd && (
             <Select value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
@@ -701,6 +708,7 @@ export default function ProjectsPage() {
                   <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
                     <div className="flex gap-1">
                       <button
                         onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
@@ -738,6 +746,12 @@ export default function ProjectsPage() {
                           </SelectContent>
                         </Select>
                       )}
+                    </div>
+                    {prodocByProject[p.id]?.last_edited && (
+                      <span className="text-[11px] text-muted-foreground" title={`Last edited ${formatDate(prodocByProject[p.id]!.last_edited!)}`}>
+                        edited {timeAgo(prodocByProject[p.id]!.last_edited!)}
+                      </span>
+                    )}
                     </div>
                   </TableCell>
                   <TableCell>

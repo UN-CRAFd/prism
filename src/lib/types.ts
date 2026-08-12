@@ -20,6 +20,7 @@ export interface Report {
   report_submission_date?: string | null;
   authorized?: boolean;
   data_type?: "report" | "prodoc";
+  last_edited?: string | null;
   partner_long_name?: string | null;
   indicator_count?: number;
   mptfo_project_number?: string | null;

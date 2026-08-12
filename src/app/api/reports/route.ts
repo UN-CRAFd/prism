@@ -7,6 +7,79 @@ import { logger } from "@/lib/logger";
 const MIN_YEAR = 2020;
 const MAX_YEAR = 2050;
 
+// "Last edited" is content-aware: a report/prodoc is far more than its `reports`
+// row — the real edits land in the section tables. So we take the GREATEST of the
+// report row's own updated_at and the newest updated_at across every child table.
+// (Postgres GREATEST ignores NULLs, so tables with no rows simply drop out.)
+//
+//  • report-scoped tables (report_id = r.id) count for every report AND the prodoc
+//  • project-scoped definition tables (project_id) count only for the prodoc, which
+//    IS the project definition — counting them for annual reports would make every
+//    year of a project share one timestamp (editing 2025's workplan would bump 2024).
+const REPORT_SCOPED_TABLES = [
+  "risk_management",
+  "indicator_data",
+  "key_achievements",
+  "partnerships",
+  "results",
+  "lessons_learned",
+  "external_coverage",
+  "testimonials",
+  "surveys",
+  "workplan_entries",
+  "expenditure_entries",
+  "transfer_data",
+  "complementary_data",
+];
+const PRODOC_PROJECT_SCOPED_TABLES = [
+  "project_narratives",
+  "project_sdg_targets",
+  "prodoc_signatures",
+  "workplan_activities",
+  "expenditure_budgets",
+  "indicators",
+];
+// The live DB has drifted from db/schema.sql (see the schema-consolidation note):
+// not every table actually carries `updated_at`. So we introspect once which of
+// our candidate tables really have the column and build the GREATEST expression
+// from just those — referencing a missing column would 500 the whole endpoint.
+// Cached module-side; the set only changes on a migration, never at runtime.
+let lastEditedExprCache: string | null = null;
+
+async function getLastEditedExpr(): Promise<string> {
+  if (lastEditedExprCache) return lastEditedExprCache;
+
+  const present = await query<{ table_name: string }>(
+    `SELECT table_name
+       FROM information_schema.columns
+      WHERE table_schema = 'reporting_platform'
+        AND column_name  = 'updated_at'
+        AND table_name   = ANY($1::text[])`,
+    [[...REPORT_SCOPED_TABLES, ...PRODOC_PROJECT_SCOPED_TABLES]]
+  );
+  const have = new Set(present.map((r) => r.table_name));
+
+  // r.updated_at anchors the list (reports always has it); each table that has an
+  // updated_at contributes its newest row. Postgres GREATEST ignores NULLs.
+  const parts = ["r.updated_at"];
+  for (const t of REPORT_SCOPED_TABLES) {
+    if (have.has(t)) {
+      parts.push(`(SELECT MAX(le.updated_at) FROM reporting_platform.${t} le WHERE le.report_id = r.id)`);
+    }
+  }
+  for (const t of PRODOC_PROJECT_SCOPED_TABLES) {
+    if (have.has(t)) {
+      parts.push(
+        `CASE WHEN r.data_type = 'prodoc' THEN (SELECT MAX(le.updated_at) FROM reporting_platform.${t} le WHERE le.project_id = r.project_id) END`
+      );
+    }
+  }
+  parts.push("CASE WHEN r.data_type = 'prodoc' THEN pr.updated_at END");
+
+  lastEditedExprCache = `GREATEST(\n        ${parts.join(",\n        ")}\n      )`;
+  return lastEditedExprCache;
+}
+
 // GET /api/reports — list all reports with project + partner info
 // Optional query param: ?data_type=report|prodoc
 export async function GET(request: Request) {
@@ -28,6 +101,7 @@ export async function GET(request: Request) {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
+    const lastEditedExpr = await getLastEditedExpr();
     const rows = await query(
       `SELECT
         r.id,
@@ -48,7 +122,8 @@ export async function GET(request: Request) {
         pr.project_duration_months,
         p.short_name                                    AS partner_short_name,
         p.long_name                                     AS partner_long_name,
-        p.organization_website
+        p.organization_website,
+        ${lastEditedExpr}                               AS last_edited
       FROM reporting_platform.reports r
       JOIN reporting_platform.projects pr ON pr.id = r.project_id
       JOIN reporting_platform.partners p  ON p.id  = pr.partner_id

@@ -23,7 +23,7 @@ import {
   Share2,
   Check,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, timeAgo } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
@@ -159,6 +159,11 @@ export function ReportCard({
         <p className="text-sm font-semibold leading-snug line-clamp-2">
           {report.project_title}
         </p>
+        {report.last_edited && (
+          <p className="mt-1 text-[11px] text-muted-foreground" title={`Last edited ${formatDate(report.last_edited)}`}>
+            edited {timeAgo(report.last_edited)}
+          </p>
+        )}
       </div>
 
       {/* Bottom: status | share | print | open. Status sizes to its label (so

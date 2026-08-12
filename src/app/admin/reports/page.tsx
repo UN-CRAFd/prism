@@ -24,7 +24,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { formatDate } from "@/lib/utils";
+import { formatDate, timeAgo } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import { PageHeader, ViewToggle, FilterBar, FilterSelect, ALL } from "@/components/admin/shared";
 import {
@@ -223,6 +223,7 @@ export default function ReportsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Auth</TableHead>
                 <TableHead>Due date</TableHead>
+                <TableHead>Last edited</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
@@ -263,6 +264,9 @@ export default function ReportsPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground" title={r.last_edited ? formatDate(r.last_edited) : undefined}>
+                    {r.last_edited ? timeAgo(r.last_edited) : "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>

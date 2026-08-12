@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { ArrowRight, FileText, ChevronRight } from "lucide-react";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
 
 function toSlug(report: Report): string {

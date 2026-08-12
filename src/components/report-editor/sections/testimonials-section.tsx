@@ -1,6 +1,6 @@
 "use client";
 
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { SectionTableEditor, TESTIMONIAL_SPECS } from "@/components/section-table-editor";
 import { type SaveState } from "@/components/autosave";
 

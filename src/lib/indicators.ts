@@ -1,4 +1,4 @@
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // Stable slugs stored in the DB (indicator_data.status CHECK, indicators.cycle CHECK).
 // Display text lives in labels.json so it stays editable without a migration.

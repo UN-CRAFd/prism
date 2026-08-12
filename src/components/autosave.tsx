@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 

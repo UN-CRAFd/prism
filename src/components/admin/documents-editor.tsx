@@ -9,7 +9,7 @@ import {
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { formatDate } from "@/lib/utils";
 import { Loader2, Upload, FileText, Download, Trash2 } from "lucide-react";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import {
   DOCUMENT_TYPES, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
 } from "@/lib/documents";

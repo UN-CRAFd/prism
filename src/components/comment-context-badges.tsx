@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 const SECTION_LABEL: Record<string, string> = {
   ...Object.fromEntries(REPORT_SECTIONS.map((s) => [s.value, s.label])),

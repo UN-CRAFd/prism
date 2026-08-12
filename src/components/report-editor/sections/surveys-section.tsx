@@ -2,7 +2,7 @@
 
 import { FileQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { ScaleSelect } from "@/components/report-editor/scale-select";

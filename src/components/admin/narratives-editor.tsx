@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { richTextLength } from "@/lib/richtext";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per

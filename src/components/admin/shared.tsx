@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // ── Page header ─────────────────────────────────────────────────────────────
 

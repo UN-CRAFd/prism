@@ -1,4 +1,4 @@
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // Complementary funding: the contribution is typed "In Cash" / "In Kind". The
 // activity-linking + amount formatting reuse the transfers helpers.

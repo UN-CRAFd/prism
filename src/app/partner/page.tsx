@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatDate } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import {
   AlertCircle,
   ArrowRight,

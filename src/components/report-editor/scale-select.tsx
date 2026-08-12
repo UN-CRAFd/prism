@@ -8,7 +8,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel } from "@/lib/risk";
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {

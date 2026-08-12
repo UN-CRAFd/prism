@@ -3,7 +3,7 @@
 import { Loader2, ChevronRight, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

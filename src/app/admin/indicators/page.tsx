@@ -19,7 +19,7 @@ import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
 import { CYCLE_KEYS, cycleLabel } from "@/lib/indicators";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 interface IndicatorUsage {
   report_id: number;

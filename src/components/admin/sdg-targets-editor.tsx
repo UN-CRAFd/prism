@@ -10,7 +10,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { SDG_GOALS, getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // ── SDG Targets editor ────────────────────────────────────────────────────────
 // Project-level SDG Target focus on the project document. Pick SDG targets

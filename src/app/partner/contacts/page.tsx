@@ -11,7 +11,7 @@ import { Plus, Contact } from "lucide-react";
 import {
   Field, LoadingState, ErrorBanner, FormShell, HoverActions, PageHeader,
 } from "@/components/admin/shared";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 interface Partner {
   id: number;

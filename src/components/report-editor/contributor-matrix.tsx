@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell, HEAD_TEXT } from "@/components/report-editor/matrix-table";

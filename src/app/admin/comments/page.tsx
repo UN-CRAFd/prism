@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared";
 import { CommentContextBadges } from "@/components/comment-context-badges";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 interface AdminComment {
   id: number;

@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import {
   ClipboardList,
   Building2,

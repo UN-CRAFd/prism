@@ -3,10 +3,11 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { KeyRound, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { KeyRound, Loader2, CheckCircle2, AlertCircle, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LabelsEditor } from "@/components/admin/labels-editor";
 
 const MIN_LENGTH = 8;
 
@@ -143,6 +144,23 @@ export default function AdminSettingsPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mt-8">
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center gap-3 mb-1">
+              <Tag className="size-5 text-amber-500 shrink-0" />
+              <h2 className="text-base font-semibold">Interface labels</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Override any user-facing text across the platform (field names, headings,
+              instructions, placeholders). Edited values apply everywhere on the next page
+              load; leave a field untouched to keep the default. Use{" "}
+              <span className="font-medium">Reset</span> to restore a single default or{" "}
+              <span className="font-medium">Reset all</span> to clear every override.
+            </p>
+            <LabelsEditor />
           </div>
         </div>
       </div>

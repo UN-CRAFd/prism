@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatDate } from "@/lib/utils";
 import { Loader2, PenLine, Check, X, Users, ShieldCheck } from "lucide-react";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
 // Sign-off on the project document. Project contacts (from the General

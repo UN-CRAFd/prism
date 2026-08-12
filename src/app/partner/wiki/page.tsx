@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { WikiShell, SectionHeading } from "@/components/partner/wiki/wiki-components";
 import { wikiIcon } from "@/lib/wiki";
 import { toDisplayHtml } from "@/lib/richtext";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 type Section = {
   id: number;

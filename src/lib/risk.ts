@@ -1,4 +1,4 @@
-import labels from "./labels.json";
+import labels from "./labels";
 
 /**
  * Single source of truth for risk-management domain logic.

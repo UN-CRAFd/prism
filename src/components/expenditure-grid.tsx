@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";

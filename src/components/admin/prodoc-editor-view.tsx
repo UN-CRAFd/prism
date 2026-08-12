@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { WorkplanAdminEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";

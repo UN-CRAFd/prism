@@ -12,7 +12,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { cn } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText } from "lucide-react";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // ── General Information editor ─────────────────────────────────────────────────
 // The first project-document tab. Edits core project data (name, MPTFO number,

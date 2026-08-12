@@ -1,4 +1,4 @@
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // Transfers to implementing partners: the receiving organisation's "type" is a
 // free string chosen from a fixed list (same pattern as external-coverage types

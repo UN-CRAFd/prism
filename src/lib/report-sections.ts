@@ -1,4 +1,4 @@
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // The ordered list of partner-report sections. Shared by the report-editor tab
 // bar and the sidebar sub-menu so the two can never drift. `value` is the URL
@@ -39,23 +39,26 @@ export const GROUP_STYLES: Record<ReportSectionGroup, GroupStyle> = {
   },
 };
 
+// `label` is a getter so it re-reads the (possibly admin-overridden) labels
+// singleton on every access, rather than snapshotting the default at module load
+// — the array itself is built once at import, before overrides are applied.
 export const REPORT_SECTIONS: ReportSection[] = [
   // Qualitative: Overview → External Coverage
-  { value: "overview", label: labels.sections.overview, group: "Qualitative" },
-  { value: "surveys", label: labels.sections.surveys, group: "Qualitative" },
-  { value: "achievements", label: labels.sections.keyAchievements, group: "Qualitative" },
-  { value: "partnerships", label: labels.sections.partnerships, group: "Qualitative" },
-  { value: "results", label: labels.sections.results, group: "Qualitative" },
-  { value: "lessons", label: labels.sections.lessons, group: "Qualitative" },
-  { value: "external-coverage", label: labels.sections.externalCoverage, group: "Qualitative" },
-  { value: "testimonials", label: labels.sections.testimonials, group: "Qualitative" },
+  { value: "overview", get label() { return labels.sections.overview; }, group: "Qualitative" },
+  { value: "surveys", get label() { return labels.sections.surveys; }, group: "Qualitative" },
+  { value: "achievements", get label() { return labels.sections.keyAchievements; }, group: "Qualitative" },
+  { value: "partnerships", get label() { return labels.sections.partnerships; }, group: "Qualitative" },
+  { value: "results", get label() { return labels.sections.results; }, group: "Qualitative" },
+  { value: "lessons", get label() { return labels.sections.lessons; }, group: "Qualitative" },
+  { value: "external-coverage", get label() { return labels.sections.externalCoverage; }, group: "Qualitative" },
+  { value: "testimonials", get label() { return labels.sections.testimonials; }, group: "Qualitative" },
   // Quantitative: Indicators → Complementary Funding
-  { value: "indicators", label: labels.sections.indicators, group: "Quantitative" },
-  { value: "workplan", label: labels.sections.workplan, group: "Quantitative" },
-  { value: "expenditure", label: labels.sections.expenditure, group: "Quantitative" },
-  { value: "risk", label: labels.sections.risk, group: "Quantitative" },
-  { value: "transfers", label: labels.sections.transfers, group: "Quantitative" },
-  { value: "complementary", label: labels.sections.complementary, group: "Quantitative" },
+  { value: "indicators", get label() { return labels.sections.indicators; }, group: "Quantitative" },
+  { value: "workplan", get label() { return labels.sections.workplan; }, group: "Quantitative" },
+  { value: "expenditure", get label() { return labels.sections.expenditure; }, group: "Quantitative" },
+  { value: "risk", get label() { return labels.sections.risk; }, group: "Quantitative" },
+  { value: "transfers", get label() { return labels.sections.transfers; }, group: "Quantitative" },
+  { value: "complementary", get label() { return labels.sections.complementary; }, group: "Quantitative" },
 ];
 
 // Sections grouped in order, for rendering group headers in the sidebar.

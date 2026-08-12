@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

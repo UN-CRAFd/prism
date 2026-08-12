@@ -15,7 +15,7 @@ import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
 import { SectionTableEditor, SECTION_SPECS } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";

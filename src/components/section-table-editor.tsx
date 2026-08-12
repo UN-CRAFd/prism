@@ -16,7 +16,7 @@ import { Info, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
 

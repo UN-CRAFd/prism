@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { PageHeader } from "@/components/admin/shared";
 import { GuideEditor } from "@/components/admin/guide-editor";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // Admin editor for the partner-facing Guide (wiki). Content is global — one set
 // of sections shared by all partners — so this is a standalone page rather than

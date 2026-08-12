@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
 import { WIKI_ICON_NAMES, wikiIcon, DEFAULT_WIKI_ICON } from "@/lib/wiki";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 // ── Guide (wiki) editor ───────────────────────────────────────────────────────
 // Admin editor for the partner-facing Guide. One card per section: title, icon,

@@ -19,7 +19,7 @@ import {
   FilterBar, SearchInput,
 } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 
 const NONE = "none";
 const RELATIONSHIP_NONE = "__none__";

@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { ShieldCheck } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import type { OverviewData } from "@/components/report-editor/types";
 

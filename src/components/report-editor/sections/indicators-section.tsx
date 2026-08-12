@@ -3,7 +3,7 @@
 import { Fragment, type CSSProperties } from "react";
 import { Loader2, Plus, Info, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import labels from "@/lib/labels.json";
+import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

@@ -49,19 +49,23 @@ let lastEditedExprCache: string | null = null;
 async function getLastEditedExpr(): Promise<string> {
   if (lastEditedExprCache) return lastEditedExprCache;
 
+  // reports/projects anchor the expression, so introspect them too — this DB may
+  // not carry updated_at anywhere yet (schema drift). Any table without the column
+  // is simply left out; if none have it, last_edited resolves to NULL (feature off).
   const present = await query<{ table_name: string }>(
     `SELECT table_name
        FROM information_schema.columns
       WHERE table_schema = 'reporting_platform'
         AND column_name  = 'updated_at'
         AND table_name   = ANY($1::text[])`,
-    [[...REPORT_SCOPED_TABLES, ...PRODOC_PROJECT_SCOPED_TABLES]]
+    [["reports", "projects", ...REPORT_SCOPED_TABLES, ...PRODOC_PROJECT_SCOPED_TABLES]]
   );
   const have = new Set(present.map((r) => r.table_name));
 
-  // r.updated_at anchors the list (reports always has it); each table that has an
-  // updated_at contributes its newest row. Postgres GREATEST ignores NULLs.
-  const parts = ["r.updated_at"];
+  // Each table that has an updated_at contributes its newest row.
+  // Postgres GREATEST ignores NULLs, so empty child tables simply drop out.
+  const parts: string[] = [];
+  if (have.has("reports")) parts.push("r.updated_at");
   for (const t of REPORT_SCOPED_TABLES) {
     if (have.has(t)) {
       parts.push(`(SELECT MAX(le.updated_at) FROM reporting_platform.${t} le WHERE le.report_id = r.id)`);
@@ -74,9 +78,12 @@ async function getLastEditedExpr(): Promise<string> {
       );
     }
   }
-  parts.push("CASE WHEN r.data_type = 'prodoc' THEN pr.updated_at END");
+  if (have.has("projects")) parts.push("CASE WHEN r.data_type = 'prodoc' THEN pr.updated_at END");
 
-  lastEditedExprCache = `GREATEST(\n        ${parts.join(",\n        ")}\n      )`;
+  lastEditedExprCache =
+    parts.length === 0
+      ? "NULL::timestamptz"
+      : `GREATEST(\n        ${parts.join(",\n        ")}\n      )`;
   return lastEditedExprCache;
 }
 

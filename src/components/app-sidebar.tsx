@@ -25,6 +25,7 @@ import {
   MessageSquare,
   BookOpen,
   ListChecks,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
@@ -463,6 +464,22 @@ export function AppSidebar() {
               </Link>
             );
           })}
+
+          <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Account
+          </p>
+          <Link
+            href="/admin/settings"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/admin/settings")
+                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Settings className="size-4" />
+            Settings
+          </Link>
         </nav>
       )}
 

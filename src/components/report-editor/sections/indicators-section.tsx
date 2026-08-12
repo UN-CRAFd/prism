@@ -121,9 +121,9 @@ export function IndicatorsSection({
           <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2]" />
         </div>
         <div className="flex gap-2">
-          <Input placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
+          <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
           <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1.0]" />
-          <Input placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
+          <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
           <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1.0]" />
           <Button onClick={handleIndicatorAdd} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
             {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
@@ -219,6 +219,7 @@ export function IndicatorsSection({
                         <Fragment key={year}>
                           <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
                             <Input
+                              type="number"
                               value={state.achieved_value}
                               onChange={(e) => updateIndicator(row.currentLineId, { achieved_value: e.target.value })}
                               placeholder={labels.placeholders.achievedValue}

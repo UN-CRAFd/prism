@@ -968,6 +968,22 @@ CREATE TRIGGER wiki_sections_updated_at
     BEFORE UPDATE ON wiki_sections
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── App settings ─────────────────────────────────────────────────────────────
+-- Small key/value store for runtime-editable configuration that must survive a
+-- redeploy (env vars cannot be changed from within the running app). Currently
+-- holds the admin login password hash under key 'admin_password_hash', set from
+-- the admin Settings page. Admin login falls back to the ADMIN_PASSWORD env var
+-- until a hash is stored here (see src/lib/admin-settings.ts).
+CREATE TABLE IF NOT EXISTS app_settings (
+    key         TEXT         PRIMARY KEY,
+    value       TEXT         NOT NULL,
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+DROP TRIGGER IF EXISTS app_settings_updated_at ON app_settings;
+CREATE TRIGGER app_settings_updated_at
+    BEFORE UPDATE ON app_settings
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data
 -- ─────────────────────────────────────────────────────────────────────────────

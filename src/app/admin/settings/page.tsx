@@ -74,12 +74,13 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="flex-1 px-8 py-8 space-y-8">
-        {/* Change admin password — single compact row */}
-        <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-4 flex flex-wrap items-end gap-3">
-          <div className="flex items-center gap-2 mr-1 shrink-0">
+        {/* Change admin password — heading above a single compact row */}
+        <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-6">
+          <div className="flex items-center gap-3 mb-4">
             <KeyRound className="size-5 text-amber-500 shrink-0" />
-            <h2 className="text-sm font-semibold whitespace-nowrap">Change admin password</h2>
+            <h2 className="text-base font-semibold">Change admin password</h2>
           </div>
+          <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1 min-w-[160px] flex-1">
             <Label htmlFor="current-password" className="text-xs">Current</Label>
             <Input
@@ -127,6 +128,7 @@ export default function AdminSettingsPage() {
           {!error && confirmPassword.length > 0 && confirmPassword !== newPassword && (
             <span className="text-sm text-red-600 basis-full">Passwords do not match.</span>
           )}
+          </div>
         </form>
 
         {/* Interface labels (left) + Dropdown options (right) */}

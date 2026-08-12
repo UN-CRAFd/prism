@@ -122,6 +122,7 @@
       "grantSize": "Funding amount (USD)",
       "startDate": "Start date",
       "durationMonths": "Duration (months)",
+      "expectedEndDate": "Expected end date",
       "keyword": "Keyword",
       "geographicScope": "Geographic scope",
       "universalMarkers": "Universal Markers",

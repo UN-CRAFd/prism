@@ -442,15 +442,31 @@ export function GeneralInfoAdminEditor({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
-            <Input
-              type="number" min="0" step="1"
-              value={form.project_duration_months}
-              onChange={(e) => setField("project_duration_months", e.target.value)}
-              placeholder={g.placeholders.durationMonths}
-              className="text-sm"
-            />
+          {/* Duration + computed end date: the second box is read-only and shows
+              start date + duration (projectEndDate, computed above). */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
+              <Input
+                type="number" min="0" step="1"
+                value={form.project_duration_months}
+                onChange={(e) => setField("project_duration_months", e.target.value)}
+                placeholder={g.placeholders.durationMonths}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">{g.fields.expectedEndDate}</label>
+              <Input
+                type="text"
+                readOnly
+                tabIndex={-1}
+                value={projectEndDate ? projectEndDate.split("-").reverse().join("/") : ""}
+                placeholder="—"
+                className="text-sm bg-muted/40 text-muted-foreground cursor-default"
+                aria-label={g.fields.expectedEndDate}
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -17,7 +17,7 @@ import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
-import { SectionTableEditor, SECTION_SPECS } from "@/components/section-table-editor";
+import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES } from "@/lib/report-sections";
@@ -70,6 +70,10 @@ export function ReportEditor({
   const params = useParams<{ project: string; year: string; section: string }>();
   const confirm = useConfirm();
   const router = useRouter();
+
+  // Built once per mount so the labels the specs read reflect admin overrides
+  // (see buildSectionSpecs); identity stays stable across re-renders.
+  const sectionSpecs = useMemo(() => buildSectionSpecs(), []);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [reportId, setReportId] = useState<number | null>(null);
@@ -1146,12 +1150,12 @@ export function ReportEditor({
             <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={setChildSaveState} />
           ) : null
 
-        ) : params.section in SECTION_SPECS ? (
+        ) : params.section in sectionSpecs ? (
           reportId ? (
             <SectionTableEditor
               key={params.section}
               reportId={reportId}
-              spec={SECTION_SPECS[params.section]}
+              spec={sectionSpecs[params.section]}
               onSaveStateChange={setChildSaveState}
               commentSection={params.section}
             />

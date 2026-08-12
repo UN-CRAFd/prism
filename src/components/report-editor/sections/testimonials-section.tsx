@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import labels from "@/lib/labels";
-import { SectionTableEditor, TESTIMONIAL_SPECS } from "@/components/section-table-editor";
+import { SectionTableEditor, buildTestimonialSpecs } from "@/components/section-table-editor";
 import { type SaveState } from "@/components/autosave";
 
 export interface TestimonialsSectionProps {
@@ -11,6 +12,7 @@ export interface TestimonialsSectionProps {
 }
 
 export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: TestimonialsSectionProps) {
+  const specs = useMemo(() => buildTestimonialSpecs(), []);
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -23,7 +25,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: T
         <SectionTableEditor
           key="testimonials-leadership"
           reportId={reportId}
-          spec={TESTIMONIAL_SPECS.leadership}
+          spec={specs.leadership}
           onSaveStateChange={onSaveStateChange}
           commentSection="testimonials"
         />
@@ -38,7 +40,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: T
         <SectionTableEditor
           key="testimonials-partner"
           reportId={reportId}
-          spec={TESTIMONIAL_SPECS.partner}
+          spec={specs.partner}
           onSaveStateChange={onSaveStateChange}
           commentSection="testimonials"
         />

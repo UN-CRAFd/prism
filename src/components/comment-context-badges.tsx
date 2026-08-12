@@ -3,14 +3,20 @@ import { cn } from "@/lib/utils";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
 import labels from "@/lib/labels";
 
-const SECTION_LABEL: Record<string, string> = {
-  ...Object.fromEntries(REPORT_SECTIONS.map((s) => [s.value, s.label])),
+// Resolve a section's display label live (reads the possibly-overridden labels
+// singleton at call time rather than snapshotting it at module load).
+function sectionLabelFor(section: string): string | undefined {
+  const reportSection = REPORT_SECTIONS.find((s) => s.value === section);
+  if (reportSection) return reportSection.label;
   // Prodoc-only sections that aren't in the report tab list.
-  general: labels.sections.general,
-  narratives: labels.sections.narratives,
-  signatures: labels.sections.signatures,
-  sdg: labels.sections.sdg,
-};
+  const extras: Record<string, string> = {
+    general: labels.sections.general,
+    narratives: labels.sections.narratives,
+    signatures: labels.sections.signatures,
+    sdg: labels.sections.sdg,
+  };
+  return extras[section];
+}
 
 // The prodoc editor relabels a couple of sections vs the report editor, so a
 // prodoc comment's badge matches what the partner sees in that editor.
@@ -46,7 +52,7 @@ export function CommentContextBadges({
     ? "Project Document"
     : `${rt.charAt(0).toUpperCase()}${rt.slice(1)} Report ${year}`;
   const sectionLabel =
-    (isProdoc && PRODOC_SECTION_LABEL[section]) || SECTION_LABEL[section] || section;
+    (isProdoc && PRODOC_SECTION_LABEL[section]) || sectionLabelFor(section) || section;
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>

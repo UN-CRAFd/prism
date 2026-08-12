@@ -566,7 +566,11 @@ export function SectionTableEditor({
 
 // ── Per-section specs ────────────────────────────────────────────────────────
 
-export const SECTION_SPECS: Record<string, SectionSpec> = {
+// Built lazily (not at module load) so the labels it reads reflect admin
+// overrides: called from the consumer's render via useMemo, which on the server
+// runs after the root layout has applied overrides — so SSR matches the client.
+export function buildSectionSpecs(): Record<string, SectionSpec> {
+  return {
   achievements: {
     endpoint: "/api/achievements",
     requiredField: "achievement",
@@ -626,7 +630,8 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
       { key: "links", header: labels.common.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-52" },
     ],
   },
-};
+  };
+}
 
 // Testimonials render two tables in one tab, distinguished by `kind`: one
 // leadership quote (exactly one, 25-word limit) and up to three partner/user
@@ -640,23 +645,25 @@ const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
   { key: "photo_credits", header: labels.testimonials.columns.photoCredits, type: "input", placeholder: labels.testimonials.placeholders.photoCredits, headClass: "w-40" },
 ];
 
-export const TESTIMONIAL_SPECS: Record<"leadership" | "partner", SectionSpec> = {
-  leadership: {
-    endpoint: "/api/testimonials",
-    kind: "leadership",
-    requiredField: "quote",
-    addLabel: labels.partnerEditor.addTestimonial,
-    min: 1,
-    max: 1,
-    fields: TESTIMONIAL_BASE_FIELDS(25),
-  },
-  partner: {
-    endpoint: "/api/testimonials",
-    kind: "partner",
-    requiredField: "quote",
-    addLabel: labels.partnerEditor.addTestimonial,
-    emptyText: labels.partnerEditor.emptyTestimonials,
-    max: 3,
-    fields: TESTIMONIAL_BASE_FIELDS(20),
-  },
-};
+export function buildTestimonialSpecs(): Record<"leadership" | "partner", SectionSpec> {
+  return {
+    leadership: {
+      endpoint: "/api/testimonials",
+      kind: "leadership",
+      requiredField: "quote",
+      addLabel: labels.partnerEditor.addTestimonial,
+      min: 1,
+      max: 1,
+      fields: TESTIMONIAL_BASE_FIELDS(25),
+    },
+    partner: {
+      endpoint: "/api/testimonials",
+      kind: "partner",
+      requiredField: "quote",
+      addLabel: labels.partnerEditor.addTestimonial,
+      emptyText: labels.partnerEditor.emptyTestimonials,
+      max: 3,
+      fields: TESTIMONIAL_BASE_FIELDS(20),
+    },
+  };
+}

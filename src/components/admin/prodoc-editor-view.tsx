@@ -93,18 +93,20 @@ interface LibraryIndicator {
   is_standard: boolean;
 }
 
+// `label` is a getter so it reflects admin label overrides applied after this
+// array is built at module load (see lib/labels.ts).
 const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean; hidden?: boolean }[] = [
-  { value: "general", label: labels.sections.general },
-  { value: "narratives", label: labels.sections.narratives },
-  { value: "sdg", label: labels.sections.sdg, hidden: true }, // hidden for now
-  { value: "indicators", label: labels.sections.indicators },
-  { value: "risk", label: labels.sections.risk },
+  { value: "general", get label() { return labels.sections.general; } },
+  { value: "narratives", get label() { return labels.sections.narratives; } },
+  { value: "sdg", get label() { return labels.sections.sdg; }, hidden: true }, // hidden for now
+  { value: "indicators", get label() { return labels.sections.indicators; } },
+  { value: "risk", get label() { return labels.sections.risk; } },
   // "Budgets" is the prodoc-editor label for the expenditure section (the report
   // editor keeps "Expenditure"); it sits before the workplan tab here.
   { value: "expenditure", label: "Budgets" },
-  { value: "workplan", label: labels.sections.workplan },
-  { value: "signatures", label: labels.sections.signatures },
-  { value: "documents", label: labels.sections.documents },
+  { value: "workplan", get label() { return labels.sections.workplan; } },
+  { value: "signatures", get label() { return labels.sections.signatures; } },
+  { value: "documents", get label() { return labels.sections.documents; } },
 ];
 
 function toSlug(d: Prodoc) {

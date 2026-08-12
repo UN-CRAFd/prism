@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, type CSSProperties } from "react";
-import { Loader2, Plus, Info, Layers, Trash2 } from "lucide-react";
+import { Fragment, type CSSProperties } from "react";
+import { Loader2, Plus, Info, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { Textarea } from "@/components/ui/textarea";
@@ -135,18 +135,7 @@ export function IndicatorsSection({
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
           {labels.partnerEditor.emptyIndicators}
         </div>
-      ) : (() => {
-        const grouped = useMemo(() => {
-          const map = new Map<string, typeof indicatorRows>();
-          for (const row of indicatorRows) {
-            const cat = row.category || "(No category)";
-            if (!map.has(cat)) map.set(cat, []);
-            map.get(cat)!.push(row);
-          }
-          return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-        }, [indicatorRows]);
-
-        return (
+      ) : (
       <MatrixTableShell
         fillHeight={fillHeight}
         minWidth={IND_FROZEN_WIDTH}
@@ -167,17 +156,7 @@ export function IndicatorsSection({
         ]}
       >
           <tbody>
-            {grouped.map(([category, rows]) => [
-              <tr key={`cat-${category}`} className="bg-muted/40">
-                <td colSpan={3 + indicatorYears.length * 3 + 1} style={ifz("ind")} className="px-3 py-2.5">
-                  <div className="flex items-center gap-2 font-semibold text-sm">
-                    <Layers className="size-3.5 text-muted-foreground" />
-                    {category}
-                    <span className="text-xs text-muted-foreground font-normal">({rows.length})</span>
-                  </div>
-                </td>
-              </tr>,
-              ...rows.map((row) => {
+            {indicatorRows.map((row) => {
               const state = indicatorStates[row.currentLineId];
               if (!state) return null;
               return (
@@ -291,12 +270,10 @@ export function IndicatorsSection({
                   </td>
                 </tr>
               );
-            }),
-            ]).flat()}
+            })}
           </tbody>
       </MatrixTableShell>
-        );
-      })()}
+      )}
     </div>
   );
 }

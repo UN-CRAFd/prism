@@ -11,6 +11,10 @@ import { logger } from "@/lib/logger";
 const FIELDS = ["quote", "person_name", "person_title", "photo_label", "photo_link", "photo_credits"] as const;
 const KIND_MAX: Record<string, number> = { leadership: 1, partner: 3 };
 
+// Columns returned to the client — the text FIELDS plus uploaded-photo metadata,
+// but NEVER the photo_content bytes (those stream from the [id]/photo route).
+const RETURN_COLS = `id, report_id, kind, ${FIELDS.join(", ")}, photo_file_name, photo_mime_type, photo_size_bytes, sort_order`;
+
 function isKind(v: unknown): v is "leadership" | "partner" {
   return v === "leadership" || v === "partner";
 }
@@ -32,7 +36,7 @@ export async function GET(req: NextRequest) {
         where += " AND kind = $2";
       }
       const rows = await query(
-        `SELECT id, report_id, kind, ${FIELDS.join(", ")}, sort_order
+        `SELECT ${RETURN_COLS}
            FROM reporting_platform.testimonials
           WHERE ${where}
           ORDER BY sort_order ASC, id ASC`,
@@ -46,7 +50,8 @@ export async function GET(req: NextRequest) {
     if (gate instanceof NextResponse) return gate;
     const rows = await query(
       `SELECT
-         t.id, t.report_id, t.kind, ${FIELDS.map((f) => `t.${f}`).join(", ")}, t.sort_order,
+         t.id, t.report_id, t.kind, ${FIELDS.map((f) => `t.${f}`).join(", ")},
+         t.photo_file_name, t.photo_mime_type, t.photo_size_bytes, t.sort_order,
          r.year, r.report_type,
          p.project_title, p.short_name AS project_short_name,
          pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
@@ -102,7 +107,7 @@ export async function POST(req: NextRequest) {
     const rows = await query(
       `INSERT INTO reporting_platform.testimonials (${cols.join(", ")})
        VALUES (${placeholders})
-       RETURNING *`,
+       RETURNING ${RETURN_COLS}`,
       values
     );
     return NextResponse.json(rows[0], { status: 201 });
@@ -129,13 +134,18 @@ export async function PATCH(req: NextRequest) {
   if (gate) return gate;
 
   try {
+    // Typing an external link removes any uploaded photo (mutually exclusive).
+    const clearPhoto = typeof body.photo_link === "string" && body.photo_link.trim() !== "";
+    const clearClause = clearPhoto
+      ? ", photo_content = NULL, photo_mime_type = NULL, photo_file_name = NULL, photo_size_bytes = NULL"
+      : "";
     const setClause = FIELDS.map((f, i) => `${f} = $${i + 1}`).join(", ");
     const values = [...FIELDS.map((f) => body[f] ?? null), id];
     const rows = await query(
       `UPDATE reporting_platform.testimonials
-          SET ${setClause}, updated_at = NOW()
+          SET ${setClause}${clearClause}, updated_at = NOW()
         WHERE id = $${FIELDS.length + 1}
-      RETURNING *`,
+      RETURNING ${RETURN_COLS}`,
       values
     );
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });

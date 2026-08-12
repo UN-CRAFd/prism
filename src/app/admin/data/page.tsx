@@ -272,7 +272,13 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { header: "Quote", headClass: "w-[32%]", cell: (r, ctx) => trunc(r.quote, `quote-${r.id}`, ctx) },
       { header: "Person", headClass: "w-[140px]", cell: (r) => <p className="break-words font-medium">{(r.person_name as string) || "—"}</p> },
       { header: "Title", headClass: "w-[160px]", cell: (r) => <p className="break-words text-muted-foreground">{(r.person_title as string) || "—"}</p> },
-      { header: "Photo", cell: (r) => (r.photo_link ? <LinksList raw={r.photo_link as string} /> : <span className="text-muted-foreground">{(r.photo_label as string) || "—"}</span>) },
+      { header: "Photo", cell: (r) => (
+        r.photo_link
+          ? <LinksList raw={r.photo_link as string} />
+          : r.photo_file_name
+            ? <a href={`/api/testimonials/${r.id}/photo`} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 break-all">{r.photo_file_name as string}</a>
+            : <span className="text-muted-foreground">{(r.photo_label as string) || "—"}</span>
+      ) },
     ],
   },
   {

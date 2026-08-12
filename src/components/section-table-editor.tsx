@@ -17,6 +17,7 @@ import { ItemComments } from "@/components/report-editor/comments-context";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels.json";
 import { useAutosave, type SaveState } from "@/components/autosave";
+import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config-driven editor for the repeatable "list of items under a report" sections
@@ -26,7 +27,7 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 // onSaveStateChange so the parent can render a single shared indicator.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SectionFieldType = "input" | "textarea" | "select" | "links";
+export type SectionFieldType = "input" | "textarea" | "select" | "links" | "photo";
 
 export interface SectionField {
   key: string;
@@ -98,6 +99,121 @@ function MultiLinkInput({
   );
 }
 
+// A testimonial photo is EITHER an external URL (photo_link) OR an uploaded image
+// (bytes on the testimonials row, served from /api/testimonials/[id]/photo). The
+// two are mutually exclusive — choosing one clears the other. Upload needs a saved
+// row id, so a brand-new row is persisted (ensureId) before the file is sent.
+function PhotoField({
+  rowId,
+  endpoint,
+  photoLink,
+  photoFileName,
+  onLinkChange,
+  ensureId,
+  onUploaded,
+  onRemoved,
+}: {
+  rowId: number | null;
+  endpoint: string;
+  photoLink: string;
+  photoFileName: string;
+  onLinkChange: (value: string) => void;
+  ensureId: () => Promise<number | null>;
+  onUploaded: (fileName: string) => void;
+  onRemoved: () => void;
+}) {
+  const p = labels.testimonials.photo;
+  const [mode, setMode] = useState<"link" | "upload">(photoFileName ? "upload" : "link");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function pick(file: File | null) {
+    if (!file) return;
+    setError(null);
+    if (!isAllowedImageExtension(file.name)) { setError(p.errorType); return; }
+    if (file.size > MAX_PHOTO_BYTES) { setError(p.errorSize.replace("{mb}", String(MAX_PHOTO_MB))); return; }
+    setBusy(true);
+    try {
+      const id = await ensureId();
+      if (!id) throw new Error(p.errorSave);
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`${endpoint}/${id}/photo`, { method: "POST", body });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || p.errorSave); }
+      const saved: { photo_file_name: string } = await res.json();
+      onUploaded(saved.photo_file_name);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : p.errorSave);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function remove() {
+    setBusy(true); setError(null);
+    try {
+      if (rowId) {
+        const res = await fetch(`${endpoint}/${rowId}/photo`, { method: "DELETE" });
+        if (!res.ok) throw new Error(p.errorSave);
+      }
+      onRemoved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : p.errorSave);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="inline-flex rounded-md border p-0.5 text-xs">
+        {(["link", "upload"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={cn("px-2 py-0.5 rounded transition-colors", mode === m ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")}
+          >
+            {m === "link" ? p.linkTab : p.uploadTab}
+          </button>
+        ))}
+      </div>
+
+      {mode === "link" ? (
+        <Input value={photoLink} onChange={(e) => onLinkChange(e.target.value)} placeholder={labels.common.placeholders.url} className="text-sm" />
+      ) : photoFileName ? (
+        <div className="space-y-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${endpoint}/${rowId}/photo`} alt={photoFileName} className="h-16 w-16 rounded object-cover border" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground truncate max-w-[8rem]" title={photoFileName}>{photoFileName}</span>
+            <button type="button" onClick={remove} disabled={busy} className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1 disabled:opacity-50">
+              {busy ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />} {p.remove}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <input
+            ref={fileRef}
+            type="file"
+            accept={IMAGE_ACCEPT}
+            disabled={busy}
+            onChange={(e) => pick(e.target.files?.[0] ?? null)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent text-sm outline-none cursor-pointer file:cursor-pointer file:mr-3 file:h-full file:border-0 file:bg-muted file:px-3 file:text-xs file:font-medium disabled:opacity-50"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {busy ? <span className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> …</span> : p.hint.replace("{mb}", String(MAX_PHOTO_MB))}
+          </p>
+        </div>
+      )}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 export function SectionTableEditor({
   reportId,
   spec,
@@ -144,15 +260,19 @@ export function SectionTableEditor({
       const data: ApiRow[] = await res.json();
       keyRef.current = 0;
       idByKeyRef.current = new Map();
+      const hasPhoto = fields.some((f) => f.type === "photo");
       const loaded: RowState[] = data.map((r) => {
         const key = ++keyRef.current;
         idByKeyRef.current.set(key, r.id);
         return {
           key,
           id: r.id,
-          values: Object.fromEntries(
-            fields.filter((f) => f.type !== "links").map((f) => [f.key, (r[f.key] as string) ?? ""])
-          ),
+          values: Object.fromEntries([
+            ...fields.filter((f) => f.type !== "links").map((f) => [f.key, (r[f.key] as string) ?? ""]),
+            // photo_file_name is read-only metadata (not a spec field) telling the
+            // photo cell an uploaded image exists; carried alongside the fields.
+            ...(hasPhoto ? [["photo_file_name", (r.photo_file_name as string) ?? ""]] : []),
+          ]),
           links: Object.fromEntries(
             linkKeys.map((k) => {
               const raw = r[k] as string | null;
@@ -184,6 +304,24 @@ export function SectionTableEditor({
     }
     return payload;
   }, [fields]);
+
+  // Persist a row immediately (used by the photo upload, which needs a server id
+  // before it can attach bytes — even for an otherwise-empty new row that the
+  // debounced autosave would skip). Returns the id, or throws on failure.
+  const forceCreateRow = useCallback(async (row: RowState): Promise<number | null> => {
+    const existing = row.id ?? idByKeyRef.current.get(row.key) ?? null;
+    if (existing !== null) return existing;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reportId, ...(kind ? { kind } : {}), ...buildPayload(row) }),
+    });
+    if (!res.ok) throw new Error("Failed to save row");
+    const saved: { id: number } = await res.json();
+    idByKeyRef.current.set(row.key, saved.id);
+    setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, id: saved.id } : r)));
+    return saved.id;
+  }, [endpoint, reportId, kind, buildPayload]);
 
   // Does any word-limited field on this row exceed its cap? Over-limit rows are
   // held back from saving and surface as an autosave error (see flush).
@@ -253,6 +391,11 @@ export function SectionTableEditor({
   function mutateLinks(i: number, key: string, fn: (arr: string[]) => string[]) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, links: { ...r.links, [key]: fn(r.links[key]) }, dirty: true } : r)));
     schedule();
+  }
+  // Sync locally-known values (e.g. photo metadata) without marking the row dirty
+  // or scheduling a save — the server already persisted these via the photo route.
+  function patchRowValues(rowKey: number, patch: Record<string, string>) {
+    setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, values: { ...r.values, ...patch } } : r)));
   }
   function addRow() {
     if (max !== undefined && rows.length >= max) return;
@@ -332,6 +475,22 @@ export function SectionTableEditor({
                         </div>
                       )}
                     </div>
+                  ) : f.type === "photo" ? (
+                    <PhotoField
+                      rowId={row.id}
+                      endpoint={endpoint}
+                      photoLink={row.values[f.key] ?? ""}
+                      photoFileName={row.values["photo_file_name"] ?? ""}
+                      onLinkChange={(val) => {
+                        updateField(i, f.key, val);
+                        // A link supersedes any uploaded photo (mutually exclusive);
+                        // reflect that locally — the API clears the bytes on save.
+                        if (val.trim()) patchRowValues(row.key, { photo_file_name: "" });
+                      }}
+                      ensureId={() => forceCreateRow(rowsRef.current.find((r) => r.key === row.key) ?? row)}
+                      onUploaded={(fileName) => patchRowValues(row.key, { photo_file_name: fileName, [f.key]: "" })}
+                      onRemoved={() => patchRowValues(row.key, { photo_file_name: "" })}
+                    />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
                       <SelectTrigger className="w-full h-9 text-sm">
@@ -459,7 +618,7 @@ const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
   { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40" },
   { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44" },
   { key: "photo_label", header: labels.testimonials.columns.photoLabel, type: "input", placeholder: labels.testimonials.placeholders.photoLabel, headClass: "w-40" },
-  { key: "photo_link", header: labels.testimonials.columns.photoLink, type: "input", placeholder: labels.common.placeholders.url, headClass: "w-48" },
+  { key: "photo_link", header: labels.testimonials.columns.photoLink, type: "photo", placeholder: labels.common.placeholders.url, headClass: "w-56" },
   { key: "photo_credits", header: labels.testimonials.columns.photoCredits, type: "input", placeholder: labels.testimonials.placeholders.photoCredits, headClass: "w-40" },
 ];
 

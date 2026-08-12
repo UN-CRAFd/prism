@@ -603,12 +603,24 @@ CREATE TABLE IF NOT EXISTS testimonials (
     person_name   TEXT,
     person_title  TEXT,
     photo_label   TEXT,
+    -- The photo is EITHER an external URL (photo_link) OR an uploaded file stored
+    -- as bytes below (same bytea mechanism as project_documents). Mutually
+    -- exclusive: setting one clears the other (enforced in the API).
     photo_link    TEXT,
+    photo_content    BYTEA,
+    photo_mime_type  TEXT,
+    photo_file_name  TEXT,
+    photo_size_bytes INTEGER,
     photo_credits TEXT,
     sort_order    SMALLINT     NOT NULL DEFAULT 1,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+-- Idempotent add for databases created before uploaded testimonial photos existed.
+ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS photo_content    BYTEA;
+ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS photo_mime_type  TEXT;
+ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS photo_file_name  TEXT;
+ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS photo_size_bytes INTEGER;
 CREATE INDEX IF NOT EXISTS testimonials_report_id_idx ON testimonials(report_id);
 DROP TRIGGER IF EXISTS testimonials_updated_at ON testimonials;
 CREATE TRIGGER testimonials_updated_at

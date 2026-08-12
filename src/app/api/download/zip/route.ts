@@ -133,8 +133,10 @@ const EXPORTS: Record<string, SectionExport> = {
   },
 
   testimonials: {
-    headers: ["year", "project_name", "partner", "kind", "quote", "person_name", "person_title", "photo_label", "photo_link", "photo_credits"],
-    sql: reportScoped("testimonials", "t", "report_id", "t.kind, t.quote, t.person_name, t.person_title, t.photo_label, t.photo_link, t.photo_credits", "t.kind, t.sort_order, t.id"),
+    // photo_link = external URL; photo_file = uploaded image's file name (the two
+    // are mutually exclusive — a CSV can't embed the bytes, so its name is recorded).
+    headers: ["year", "project_name", "partner", "kind", "quote", "person_name", "person_title", "photo_label", "photo_link", "photo_file", "photo_credits"],
+    sql: reportScoped("testimonials", "t", "report_id", "t.kind, t.quote, t.person_name, t.person_title, t.photo_label, t.photo_link, t.photo_file_name AS photo_file, t.photo_credits", "t.kind, t.sort_order, t.id"),
   },
 
   risk: {

@@ -274,7 +274,7 @@
       "personName": "Name of person quoted",
       "personTitle": "Title of person quoted",
       "photoLabel": "Photo label",
-      "photoLink": "Photo link",
+      "photoLink": "Photo",
       "photoCredits": "Photo credits"
     },
     "placeholders": {
@@ -283,6 +283,15 @@
       "personTitle": "Role / position",
       "photoLabel": "How to label the person in the photo",
       "photoCredits": "Photographer / source"
+    },
+    "photo": {
+      "linkTab": "Link",
+      "uploadTab": "Upload",
+      "remove": "Remove",
+      "hint": "PNG, JPG or WEBP · max {mb} MB",
+      "errorType": "That image type is not allowed (PNG, JPG or WEBP).",
+      "errorSize": "Image exceeds the {mb} MB limit.",
+      "errorSave": "Couldn't save the testimonial. Please try again."
     }
   },
   "externalCoverage": {

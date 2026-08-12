@@ -51,3 +51,19 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// ── Image uploads (testimonial photos) ──────────────────────────────────────
+// Photos are stored as bytes on the testimonials row (same bytea mechanism as
+// documents) and served back as an <img>. Images only, capped smaller than docs.
+
+export const ALLOWED_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp"] as const;
+
+/** The `accept` attribute for an image <input type="file">. */
+export const IMAGE_ACCEPT = ALLOWED_IMAGE_EXTENSIONS.map((e) => `.${e}`).join(",");
+
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_PHOTO_MB = MAX_PHOTO_BYTES / (1024 * 1024);
+
+export function isAllowedImageExtension(name: string): boolean {
+  return (ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(fileExtension(name));
+}

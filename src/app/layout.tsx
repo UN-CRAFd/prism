@@ -23,6 +23,11 @@ const roboto = Roboto({
   display: "swap",
 });
 
+// Rendered per-request so admin label overrides (read from the DB in the layout
+// below) are always current — otherwise statically-prerendered pages would bake
+// in the build-time labels and never reflect changes.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "CRAF'd | PRISM",
   description:

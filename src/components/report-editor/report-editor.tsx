@@ -97,13 +97,13 @@ export function ReportEditor({
 
   // Risk CRUD (admin-parity): add / edit core fields / delete, all report-scoped.
   const [newRiskName, setNewRiskName] = useState("");
-  const [newRiskCategory, setNewRiskCategory] = useState("");
+  const [newRiskCategory, setNewRiskCategory] = useState<string[]>([]);
   const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
   const [addingRisk, setAddingRisk] = useState(false);
   const [deletingRiskId, setDeletingRiskId] = useState<number | null>(null);
   const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
   const [editingRiskName, setEditingRiskName] = useState("");
-  const [editingRiskCategory, setEditingRiskCategory] = useState("");
+  const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
   const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
 
   const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
@@ -449,7 +449,7 @@ export function ReportEditor({
       }));
       setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
       setNewRiskName("");
-      setNewRiskCategory("");
+      setNewRiskCategory([]);
       setNewRiskApprovedMitigation("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -461,14 +461,14 @@ export function ReportEditor({
   function startRiskEdit(risk: Risk) {
     setEditingRiskId(risk.id);
     setEditingRiskName(risk.risk_name);
-    setEditingRiskCategory(risk.risk_category?.join(", ") ?? "");
+    setEditingRiskCategory(risk.risk_category ?? []);
     setEditingRiskApprovedMitigation(risk.approved_mitigation ?? "");
   }
 
   function cancelRiskEdit() {
     setEditingRiskId(null);
     setEditingRiskName("");
-    setEditingRiskCategory("");
+    setEditingRiskCategory([]);
     setEditingRiskApprovedMitigation("");
   }
 

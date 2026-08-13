@@ -51,6 +51,22 @@
       { "value": "final", "label": "Final" }
     ]
   },
+  "riskCategory": {
+    "label": "Risk category",
+    "description": "Categories that can be assigned to a risk (multi-select) in the Risk Management section of reports and project documents.",
+    "kind": "flat",
+    "items": [
+      { "value": "Financial", "label": "Financial" },
+      { "value": "Operational", "label": "Operational" },
+      { "value": "Strategic", "label": "Strategic" },
+      { "value": "Governance", "label": "Governance" },
+      { "value": "Legal & Compliance", "label": "Legal & Compliance" },
+      { "value": "Reputational", "label": "Reputational" },
+      { "value": "Safety & Security", "label": "Safety & Security" },
+      { "value": "Environmental", "label": "Environmental" },
+      { "value": "Political", "label": "Political" }
+    ]
+  },
   "indicatorCategory": {
     "label": "Indicator category",
     "description": "Grouping category for indicators in the indicators admin.",

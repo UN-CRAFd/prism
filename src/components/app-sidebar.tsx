@@ -26,6 +26,8 @@ import {
   BookOpen,
   ListChecks,
   Settings,
+  FolderPen,
+  ClipboardPen,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
@@ -47,8 +49,8 @@ const administrationLinks = [
 ];
 
 const editorLinks = [
-  { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: Edit },
-  { href: "/admin/report-editor", label: "Report Editor", icon: Edit },
+  { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: FolderPen },
+  { href: "/admin/report-editor", label: "Report Editor", icon: ClipboardPen },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
   { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },

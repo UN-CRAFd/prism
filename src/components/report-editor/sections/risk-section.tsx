@@ -7,6 +7,7 @@ import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
@@ -26,8 +27,8 @@ export interface RiskSectionProps {
   // Add-a-risk form
   newRiskName: string;
   setNewRiskName: (v: string) => void;
-  newRiskCategory: string;
-  setNewRiskCategory: (v: string) => void;
+  newRiskCategory: string[];
+  setNewRiskCategory: (v: string[]) => void;
   newRiskApprovedMitigation: string;
   setNewRiskApprovedMitigation: (v: string) => void;
   addingRisk: boolean;
@@ -37,8 +38,8 @@ export interface RiskSectionProps {
   editingRiskId: number | null;
   editingRiskName: string;
   setEditingRiskName: (v: string) => void;
-  editingRiskCategory: string;
-  setEditingRiskCategory: (v: string) => void;
+  editingRiskCategory: string[];
+  setEditingRiskCategory: (v: string[]) => void;
   editingRiskApprovedMitigation: string;
   setEditingRiskApprovedMitigation: (v: string) => void;
   startRiskEdit: (risk: Risk) => void;
@@ -84,7 +85,9 @@ export function RiskSection({
       {/* Add a new risk (report-scoped, same as the admin editor) */}
       <div className="flex flex-wrap gap-2">
         <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1 min-w-[200px]" />
-        <Input placeholder={labels.placeholders.riskCategories} value={newRiskCategory} onChange={(e) => setNewRiskCategory(e.target.value)} className="flex-1 min-w-[160px]" />
+        <div className="flex-1 min-w-[160px]">
+          <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
+        </div>
         <Input placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="flex-1 min-w-[200px]" />
         <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
           {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
@@ -123,7 +126,7 @@ export function RiskSection({
                     <td colSpan={6} className="px-4 py-3 align-top">
                       <div className="flex flex-col gap-2">
                         <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
-                        <Input value={editingRiskCategory} onChange={(e) => setEditingRiskCategory(e.target.value)} placeholder={labels.placeholders.riskCategories} className="text-sm" />
+                        <MultiSelect optionKey="riskCategory" value={editingRiskCategory} onChange={setEditingRiskCategory} placeholder={labels.placeholders.riskCategories} />
                         <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
                       </div>
                     </td>
@@ -157,9 +160,11 @@ export function RiskSection({
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{risk.risk_name}</p>
                         {risk.risk_category && risk.risk_category.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {risk.risk_category.map((cat, ci) => (
-                              <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {risk.risk_category.map((cat) => (
+                              <span key={cat} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                {cat}
+                              </span>
                             ))}
                           </div>
                         )}

@@ -23,6 +23,7 @@ import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { DocumentsEditor } from "@/components/admin/documents-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
@@ -138,13 +139,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [risks, setRisks] = useState<Risk[]>([]);
   const [loadingRisk, setLoadingRisk] = useState(false);
   const [newRiskName, setNewRiskName] = useState("");
-  const [newRiskCategory, setNewRiskCategory] = useState("");
+  const [newRiskCategory, setNewRiskCategory] = useState<string[]>([]);
   const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
   const [addingRisk, setAddingRisk] = useState(false);
   const [deletingRiskId, setDeletingRiskId] = useState<number | null>(null);
   const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
   const [editingRiskName, setEditingRiskName] = useState("");
-  const [editingRiskCategory, setEditingRiskCategory] = useState("");
+  const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
   const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
 
   // Indicators
@@ -260,7 +261,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       if (!res.ok) throw new Error("Failed to add risk");
       const created: Risk = await res.json();
       setRisks((prev) => [...prev, created]);
-      setNewRiskName(""); setNewRiskCategory(""); setNewRiskApprovedMitigation("");
+      setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingRisk(false); }
   }
@@ -675,7 +676,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
             <div className="flex gap-2">
               <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1" />
-              <Input placeholder={labels.placeholders.riskCategories} value={newRiskCategory} onChange={(e) => setNewRiskCategory(e.target.value)} className="flex-1" />
+              <div className="flex-1">
+                <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
+              </div>
               <Input placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="flex-1" />
               <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
                 {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
@@ -713,7 +716,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <td className="px-4 py-3 align-top">
                                 <div className="flex flex-col gap-2">
                                   <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
-                                  <Input value={editingRiskCategory} onChange={(e) => setEditingRiskCategory(e.target.value)} placeholder={labels.placeholders.riskCategories} className="text-sm" />
+                                  <MultiSelect optionKey="riskCategory" value={editingRiskCategory} onChange={setEditingRiskCategory} placeholder={labels.placeholders.riskCategories} />
                                 </div>
                               </td>
                               <td className="px-4 py-3 align-top">
@@ -731,7 +734,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">
                                   <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory(""); setEditingRiskApprovedMitigation(""); }}>{labels.common.cancel}</Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); }}>{labels.common.cancel}</Button>
                                 </div>
                               </td>
                             </>
@@ -742,9 +745,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium">{risk.risk_name}</p>
                                     {risk.risk_category && risk.risk_category.length > 0 && (
-                                      <div className="flex flex-wrap gap-1 mt-1.5">
-                                        {risk.risk_category.map((cat, ci) => (
-                                          <span key={ci} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cat}</span>
+                                      <div className="mt-1.5 flex flex-wrap gap-1">
+                                        {risk.risk_category.map((cat) => (
+                                          <span key={cat} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                            {cat}
+                                          </span>
                                         ))}
                                       </div>
                                     )}
@@ -768,7 +773,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskCategory(risk.risk_category?.join(", ") ?? ""); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                                  <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskCategory(risk.risk_category ?? []); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); }} className="text-muted-foreground hover:text-foreground transition-colors">
                                     <Pencil className="size-3.5" />
                                   </button>
                                   <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">

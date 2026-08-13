@@ -28,6 +28,15 @@ function unauthorized() {
 function forbidden() {
   return NextResponse.json({ error: "You don't have access to this resource" }, { status: 403 });
 }
+function locked() {
+  return NextResponse.json(
+    { error: "This report is not open for editing" },
+    { status: 409 }
+  );
+}
+
+/** Public 403 helper for routes that hand-roll a party/role check (not ownership). */
+export { forbidden };
 
 /** Require any authenticated session. Returns the session or a 401 response. */
 export async function requireSession(): Promise<Session | NextResponse> {
@@ -56,6 +65,39 @@ async function orgOwnsReport(org: string, reportId: number | string): Promise<bo
     [reportId, org]
   );
   return rows.length > 0;
+}
+
+// ── Report status lock ───────────────────────────────────────────────────────
+// A report/prodoc is editable by a partner only while its status is "Open".
+// Once authorized it moves to "Under Review" and later "Closed", at which point
+// the partner side is read-only (only CRAF'd/admins may still write). The UI
+// hides the controls; these helpers enforce it on the server so a hand-crafted
+// request cannot mutate a locked report. Admins are never status-locked.
+const OPEN_STATUS = "Open";
+
+async function reportStatusById(reportId: number | string): Promise<string | null> {
+  const rows = await query<{ status: string }>(
+    `SELECT status FROM reporting_platform.reports WHERE id = $1 LIMIT 1`,
+    [reportId]
+  );
+  return rows.length ? rows[0].status : null;
+}
+
+// Status of the report a given section row belongs to (row → report join).
+async function reportStatusByRow(
+  table: string,
+  rowId: number | string
+): Promise<string | null> {
+  if (!IDENT.test(table)) throw new Error(`Invalid table identifier: ${table}`);
+  const rows = await query<{ status: string }>(
+    `SELECT r.status
+       FROM reporting_platform.${table} t
+       JOIN reporting_platform.reports r ON r.id = t.report_id
+      WHERE t.id = $1
+      LIMIT 1`,
+    [rowId]
+  );
+  return rows.length ? rows[0].status : null;
 }
 
 async function orgOwnsProject(org: string, projectId: number | string): Promise<boolean> {
@@ -138,14 +180,24 @@ async function orgOwnsPartnerRow(
 
 // ── Guards: return null when access is allowed, or a NextResponse to return. ──
 
-/** Allow admins; allow partners only for reports their org owns. */
+/**
+ * Allow admins; allow partners only for reports their org owns. Pass
+ * `{ requireOpen: true }` on writes so a partner cannot mutate a report that is
+ * Under Review / Closed (admins are never status-locked).
+ */
 export async function guardReport(
   session: Session,
-  reportId: number | string | null | undefined
+  reportId: number | string | null | undefined,
+  opts?: { requireOpen?: boolean }
 ): Promise<NextResponse | null> {
   if (session.role === "admin") return null;
   if (!session.org || !reportId) return forbidden();
-  return (await orgOwnsReport(session.org, reportId)) ? null : forbidden();
+  if (!(await orgOwnsReport(session.org, reportId))) return forbidden();
+  if (opts?.requireOpen) {
+    const status = await reportStatusById(reportId);
+    if (status !== OPEN_STATUS) return locked();
+  }
+  return null;
 }
 
 export async function guardProject(
@@ -166,15 +218,25 @@ export async function guardPartner(
   return (await orgOwnsPartner(session.org, partnerId)) ? null : forbidden();
 }
 
-/** Ownership for a row identified only by its primary key in a report-scoped table. */
+/**
+ * Ownership for a row identified only by its primary key in a report-scoped
+ * table. Pass `{ requireOpen: true }` on writes so a partner cannot mutate a row
+ * belonging to a report that is Under Review / Closed.
+ */
 export async function guardRow(
   session: Session,
   table: string,
-  rowId: number | string | null | undefined
+  rowId: number | string | null | undefined,
+  opts?: { requireOpen?: boolean }
 ): Promise<NextResponse | null> {
   if (session.role === "admin") return null;
   if (!session.org || !rowId) return forbidden();
-  return (await orgOwnsRow(session.org, table, rowId)) ? null : forbidden();
+  if (!(await orgOwnsRow(session.org, table, rowId))) return forbidden();
+  if (opts?.requireOpen) {
+    const status = await reportStatusByRow(table, rowId);
+    if (status !== OPEN_STATUS) return locked();
+  }
+  return null;
 }
 
 /**

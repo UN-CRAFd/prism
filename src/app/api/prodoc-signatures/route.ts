@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { requireSession, requireAdmin, guardProject, forbidden } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // Project-document sign-off. Two parties sign a prodoc:
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     party === "secretariat" ? await requireAdmin() : await requireSession();
   if (session instanceof NextResponse) return session;
   if (party === "contact" && session.role === "admin") {
-    return NextResponse.json({ error: "Only the partner can sign for their contacts" }, { status: 403 });
+    return forbidden();
   }
   const gate = await guardProject(session, projectId as string | number);
   if (gate) return gate;
@@ -118,22 +118,26 @@ export async function DELETE(req: NextRequest) {
       `SELECT project_id, party FROM reporting_platform.prodoc_signatures WHERE id = $1`,
       [id]
     );
-    if (rows.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    // Do NOT reveal existence to a caller who lacks access: an unauthorized
+    // request gets a uniform 403 whether or not the row exists, so it cannot
+    // probe for valid signature ids. Only after confirming access do we surface
+    // a 404 for a genuinely missing row.
+    if (rows.length === 0) {
+      return session.role === "admin"
+        ? NextResponse.json({ error: "Not found" }, { status: 404 })
+        : forbidden();
+    }
     const { project_id, party } = rows[0];
 
     // Only an admin may remove a Secretariat signature; only the owning partner
     // may remove a contact signature (admins sign/unsign the Secretariat only).
-    if (party === "secretariat" && session.role !== "admin") {
-      return NextResponse.json({ error: "You don't have access to this resource" }, { status: 403 });
-    }
-    if (party === "contact" && session.role === "admin") {
-      return NextResponse.json({ error: "Only the partner can sign for their contacts" }, { status: 403 });
-    }
+    if (party === "secretariat" && session.role !== "admin") return forbidden();
+    if (party === "contact" && session.role === "admin") return forbidden();
     const gate = await guardProject(session, project_id);
     if (gate) return gate;
 
     await query(`DELETE FROM reporting_platform.prodoc_signatures WHERE id = $1`, [id]);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("DELETE /api/prodoc-signatures error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });

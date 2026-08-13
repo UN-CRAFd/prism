@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardReport(session, reportId as string | number);
+  const gate = await guardReport(session, reportId as string | number, { requireOpen: true });
   if (gate) return gate;
 
   // The referenced transfer partner must belong to this report's own project;
@@ -256,7 +256,7 @@ export async function PATCH(req: NextRequest) {
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardRow(session, "transfer_data", id as string | number);
+  const gate = await guardRow(session, "transfer_data", id as string | number, { requireOpen: true });
   if (gate) return gate;
 
   const updates: string[] = [];
@@ -295,7 +295,7 @@ export async function DELETE(req: NextRequest) {
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardRow(session, "transfer_data", id);
+  const gate = await guardRow(session, "transfer_data", id, { requireOpen: true });
   if (gate) return gate;
 
   try {

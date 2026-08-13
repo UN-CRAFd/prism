@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import type { PoolClient } from "pg";
+import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { parseBody, invalidJson, badRequest, serverError, deleted, toNumber } from "@/lib/http";
 import { logger } from "@/lib/logger";
 
 // risk_category was normalized out of risk_management into the risk_categories
@@ -20,10 +22,12 @@ function normalizeCategories(v: unknown): string[] {
   return [];
 }
 
-async function syncCategories(riskId: number, categories: string[]) {
-  await query(`DELETE FROM reporting_platform.risk_categories WHERE risk_id = $1`, [riskId]);
+// Runs on a caller-supplied client so it can share the enclosing transaction —
+// the risk_management write and its category sync must commit together.
+async function syncCategories(client: PoolClient, riskId: number, categories: string[]) {
+  await client.query(`DELETE FROM reporting_platform.risk_categories WHERE risk_id = $1`, [riskId]);
   if (categories.length) {
-    await query(
+    await client.query(
       `INSERT INTO reporting_platform.risk_categories (risk_id, category)
        SELECT $1, unnest($2::text[])
        ON CONFLICT (risk_id, category) DO NOTHING`,
@@ -84,57 +88,55 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
+  const body = await parseBody(req);
+  if (!body) return invalidJson();
 
   const { reportId, risk_name, risk_category, approved_mitigation } = body;
   if (!reportId || !risk_name) {
-    return NextResponse.json({ error: "reportId and risk_name required" }, { status: 400 });
+    return badRequest("reportId and risk_name required");
   }
 
-  const session = await requireSession();
-  if (session instanceof NextResponse) return session;
-  const gate = await guardReport(session, reportId as string | number);
+  const gate = await guardReport(session, reportId as string | number, { requireOpen: true });
   if (gate) return gate;
 
   const categories = normalizeCategories(risk_category);
 
+  const client = await pool.connect();
   try {
-    const rows = await query<{ id: number }>(
+    await client.query("BEGIN");
+    const rows = await client.query<{ id: number }>(
       `INSERT INTO reporting_platform.risk_management (report_id, risk_name, approved_mitigation)
        VALUES ($1, $2, $3) RETURNING id`,
       [reportId, risk_name, (approved_mitigation as string) || null]
     );
-    const id = rows[0].id;
-    await syncCategories(id, categories);
+    const id = rows.rows[0].id;
+    await syncCategories(client, id, categories);
+    await client.query("COMMIT");
     return NextResponse.json(await fetchRisk(id), { status: 201 });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     logger.error("POST /api/risk error:", err);
-    return NextResponse.json({ error: "Request failed" }, { status: 500 });
+    return serverError();
+  } finally {
+    client.release();
   }
 }
 
 export async function PATCH(req: NextRequest) {
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const { id, ...fields } = body;
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardRow(session, "risk_management", id as string | number);
-  if (gate) return gate;
 
-  const toNum = (v: unknown) => {
-    if (v === null || v === undefined || v === "") return null;
-    const n = Number(v);
-    return isNaN(n) ? null : n;
-  };
+  const body = await parseBody(req);
+  if (!body) return invalidJson();
+
+  const { id, ...fields } = body;
+  if (!id) return badRequest("id required");
+
+  const gate = await guardRow(session, "risk_management", id as string | number, { requireOpen: true });
+  if (gate) return gate;
 
   // risk_category lives in the junction table, not on risk_management.
   const allowed = ["risk_name", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "project_revision"] as const;
@@ -144,7 +146,7 @@ export async function PATCH(req: NextRequest) {
   for (const field of allowed) {
     if (!(field in fields)) continue;
     let val: unknown = fields[field];
-    if (field === "likelihood" || field === "impact") val = toNum(val);
+    if (field === "likelihood" || field === "impact") val = toNumber(val);
     else if (field === "project_revision") val = Boolean(val);
     else val = val || null;
     values.push(val);
@@ -153,40 +155,48 @@ export async function PATCH(req: NextRequest) {
 
   const hasCategories = "risk_category" in fields;
   if (updates.length === 0 && !hasCategories) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    return badRequest("No fields to update");
   }
 
+  // The column update and the category sync must commit together.
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
     if (updates.length > 0) {
-      await query(
+      await client.query(
         `UPDATE reporting_platform.risk_management SET ${updates.join(", ")}, updated_at = NOW() WHERE id = $1`,
         values
       );
     }
     if (hasCategories) {
-      await syncCategories(Number(id), normalizeCategories(fields.risk_category));
+      await syncCategories(client, Number(id), normalizeCategories(fields.risk_category));
     }
+    await client.query("COMMIT");
     return NextResponse.json(await fetchRisk(Number(id)));
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     logger.error("PATCH /api/risk error:", err);
-    return NextResponse.json({ error: "Request failed" }, { status: 500 });
+    return serverError();
+  } finally {
+    client.release();
   }
 }
 
 export async function DELETE(req: NextRequest) {
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardRow(session, "risk_management", id);
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return badRequest("id required");
+  const gate = await guardRow(session, "risk_management", id, { requireOpen: true });
   if (gate) return gate;
 
   try {
+    // risk_categories cascade-delete via FK.
     await query(`DELETE FROM reporting_platform.risk_management WHERE id = $1`, [id]);
-    return NextResponse.json({ ok: true });
+    return deleted();
   } catch (err) {
     logger.error("DELETE /api/risk error:", err);
-    return NextResponse.json({ error: "Request failed" }, { status: 500 });
+    return serverError();
   }
 }

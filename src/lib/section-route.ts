@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport, guardRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { parseBody } from "@/lib/http";
 
 // Factory for the repeatable "list of items under a report" sections
 // (key achievements, partnerships, results, lessons learned, external coverage).
@@ -33,14 +34,6 @@ function assertIdent(name: string) {
   // These come from our own config (never user input), but validate anyway so a
   // typo can never produce malformed / unsafe SQL.
   if (!IDENT.test(name)) throw new Error(`Invalid SQL identifier: ${name}`);
-}
-
-async function parseBody(req: NextRequest): Promise<Record<string, unknown> | null> {
-  try {
-    return (await req.json()) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
 }
 
 export function makeSectionRoute(config: SectionConfig) {
@@ -110,7 +103,7 @@ export function makeSectionRoute(config: SectionConfig) {
     const reportId = body.reportId;
     if (!reportId) return NextResponse.json({ error: "reportId is required" }, { status: 400 });
 
-    const gate = await guardReport(session, reportId as string | number);
+    const gate = await guardReport(session, reportId as string | number, { requireOpen: true });
     if (gate) return gate;
 
     try {
@@ -154,7 +147,7 @@ export function makeSectionRoute(config: SectionConfig) {
     const { id } = body;
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-    const gate = await guardRow(session, table, id as string | number);
+    const gate = await guardRow(session, table, id as string | number, { requireOpen: true });
     if (gate) return gate;
 
     try {
@@ -183,7 +176,7 @@ export function makeSectionRoute(config: SectionConfig) {
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-    const gate = await guardRow(session, table, id);
+    const gate = await guardRow(session, table, id, { requireOpen: true });
     if (gate) return gate;
     try {
       await query(`DELETE FROM ${schemaTable} WHERE id = $1`, [id]);

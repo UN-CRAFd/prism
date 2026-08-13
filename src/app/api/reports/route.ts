@@ -5,6 +5,7 @@ import { requireSession, requireAdmin } from "@/lib/authz";
 import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
+import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
 
 const MIN_YEAR = 2020;
 const MAX_YEAR = 2050;
@@ -18,32 +19,8 @@ const MAX_YEAR = 2050;
 //  • project-scoped definition tables (project_id) count only for the prodoc, which
 //    IS the project definition — counting them for annual reports would make every
 //    year of a project share one timestamp (editing 2025's workplan would bump 2024).
-const REPORT_SCOPED_TABLES = [
-  "risk_management",
-  "indicator_data",
-  "key_achievements",
-  "partnerships",
-  "results",
-  "lessons_learned",
-  "external_coverage",
-  "testimonials",
-  "surveys",
-  "workplan_entries",
-  "expenditure_entries",
-  "transfer_data",
-  "complementary_data",
-];
-const PRODOC_PROJECT_SCOPED_TABLES = [
-  "project_narratives",
-  "project_sdg_targets",
-  "prodoc_signatures",
-  "workplan_activities",
-  "expenditure_budgets",
-  // NOTE: `indicators` is intentionally NOT here. It used to be project-scoped
-  // (WHERE le.project_id = r.project_id), but indicators are now a shared global
-  // vocabulary with no project_id — an indicator edit is no longer one project's
-  // prodoc edit, and referencing le.project_id here would break the query.
-];
+// The canonical table lists live in @/lib/report-tables so /api/reports and
+// /api/reports/activity can never drift (see REPORT_SCOPED_TABLES import above).
 // The live DB has drifted from db/schema.sql (see the schema-consolidation note):
 // not every table actually carries `updated_at`. So we introspect once which of
 // our candidate tables really have the column and build the GREATEST expression

@@ -60,10 +60,18 @@ export async function POST(request: Request) {
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     logger.error("POST /api/partners error:", err);
-    const msg = String(err);
-    if (msg.includes("duplicate key")) {
-      return NextResponse.json({ error: "A partner with this email already exists" }, { status: 409 });
+    // A unique-constraint violation can be on short_name (case-insensitive) or
+    // mail_account — report the field that actually collided rather than always
+    // blaming the email, and never surface the raw DB error to the client.
+    const constraint = (err as { constraint?: string })?.constraint ?? "";
+    const code = (err as { code?: string })?.code;
+    if (code === "23505" || String(err).includes("duplicate key")) {
+      const field = constraint.includes("mail_account") ? "email address" : "short name";
+      return NextResponse.json(
+        { error: `A partner with this ${field} already exists` },
+        { status: 409 }
+      );
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create partner" }, { status: 500 });
   }
 }

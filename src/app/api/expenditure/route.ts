@@ -135,7 +135,7 @@ export async function PATCH(req: NextRequest) {
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardReport(session, reportId as string | number);
+  const gate = await guardReport(session, reportId as string | number, { requireOpen: true });
   if (gate) return gate;
 
   try {

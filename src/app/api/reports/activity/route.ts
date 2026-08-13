@@ -2,12 +2,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { REPORT_SCOPED_TABLES } from "@/lib/report-tables";
 
 // GET /api/reports/activity?limit=5
 // Reports ordered by their most recent partner edit. A report's own updated_at
 // only bumps on overview/status changes, so "last edited" is the greatest
 // updated_at across every per-report section table (surveys, indicators, …).
 // Static route — resolves before /api/reports/[id].
+
+// The per-report child tables come from the shared registry so this endpoint and
+// /api/reports agree on the set. The live DB has drifted from db/schema.sql — not
+// every table actually carries `updated_at` (e.g. surveys historically lacked it)
+// — so we introspect once which of the registry tables really have the column and
+// UNION only those. Referencing a missing column would 500 the whole endpoint.
+// Cached module-side; the set only changes on a migration, never at runtime.
+let activityUnionCache: string | null = null;
+
+async function getActivityUnion(): Promise<string> {
+  if (activityUnionCache) return activityUnionCache;
+  const present = await query<{ table_name: string }>(
+    `SELECT table_name
+       FROM information_schema.columns
+      WHERE table_schema = 'reporting_platform'
+        AND column_name  = 'updated_at'
+        AND table_name   = ANY($1::text[])`,
+    [[...REPORT_SCOPED_TABLES]]
+  );
+  const have = new Set(present.map((r) => r.table_name));
+  const parts = REPORT_SCOPED_TABLES.filter((t) => have.has(t)).map(
+    (t) => `SELECT report_id, updated_at FROM reporting_platform.${t}`
+  );
+  // No child table has updated_at yet → an empty relation, so last_activity falls
+  // back to the report's own updated_at.
+  activityUnionCache =
+    parts.length > 0
+      ? parts.join("\n         UNION ALL ")
+      : `SELECT NULL::int AS report_id, NULL::timestamptz AS updated_at WHERE FALSE`;
+  return activityUnionCache;
+}
+
 export async function GET(req: NextRequest) {
   // Cross-tenant listing of every report's last activity — admin only.
   const gate = await requireAdmin();
@@ -16,23 +49,10 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit")) || 5, 1), 50);
 
   try {
+    const activityUnion = await getActivityUnion();
     const rows = await query(
-      // NOTE: surveys is intentionally excluded — the live table lacks an
-      // updated_at column (schema drift), so survey edits don't count toward
-      // last-activity yet. Add the column + trigger to include them.
       `WITH activity AS (
-         SELECT report_id, updated_at FROM reporting_platform.indicator_data
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.risk_management
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.key_achievements
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.partnerships
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.results
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.lessons_learned
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.external_coverage
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.testimonials
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.workplan_entries
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.expenditure_entries
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.transfer_data
-         UNION ALL SELECT report_id, updated_at FROM reporting_platform.complementary_data
+         ${activityUnion}
        )
        SELECT r.id, r.project_id, r.year, r.report_type, r.status, r.authorized, r.created_at,
               p.project_title,

@@ -17,7 +17,19 @@
     "kind": "flat",
     "items": [
       { "value": "Focal Point", "label": "Focal Point" },
-      { "value": "Project Manager", "label": "Project Manager" }
+      { "value": "Project Manager", "label": "Project Manager" },
+      { "value": "Signatory", "label": "Signatory" }
+    ]
+  },
+  "geographicScope": {
+    "label": "Geographic scope",
+    "description": "Geographic scope of a project (in General Info).",
+    "kind": "flat",
+    "items": [
+      { "value": "Global", "label": "Global" },
+      { "value": "Regional", "label": "Regional" },
+      { "value": "National", "label": "National" },
+      { "value": "Subnational", "label": "Subnational" }
     ]
   },
   "reportStatus": {

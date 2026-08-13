@@ -128,6 +128,7 @@
       "universalMarkers": "Universal Markers",
       "optionalMarkers": "Optional Markers",
       "fundSpecificMarkers": "Fund-Specific Markers",
+      "implementingPartners": "Participating organizations & implementing partners",
       "indirectCostRate": "Indirect support cost rate (%)",
       "description": "Description"
     },
@@ -137,10 +138,11 @@
       "grantSize": "0.00",
       "durationMonths": "e.g. 24",
       "keyword": "Comma-separated, e.g. Anticipatory Action, Early Warning",
-      "geographicScope": "e.g. Global, Continent, Region",
+      "geographicScope": "Select a scope…",
       "universalMarkers": "Comma-separated, e.g. Gender, Climate",
       "optionalMarkers": "Comma-separated markers",
       "fundSpecificMarkers": "Comma-separated markers",
+      "implementingPartners": "List the participating organizations and implementing partners…",
       "indirectCostRate": "7",
       "description": "Describe the project…"
     },
@@ -166,7 +168,9 @@
     "contactSearchPlaceholder": "Link an existing contact or type a new name…",
     "createContact": "Add contact",
     "contactName": "Name",
-    "contactRole": "Role",
+    "contactFirstName": "First name",
+    "contactLastName": "Last name",
+    "contactRole": "Org. position",
     "contactEmail": "Email",
     "emptyContacts": "No contacts linked yet. Search above to link or add one.",
     "columns": {

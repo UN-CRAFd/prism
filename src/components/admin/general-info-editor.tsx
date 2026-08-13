@@ -23,20 +23,24 @@ import { optionValues } from "@/lib/options";
 
 const g = labels.generalInfo;
 const RELATIONSHIP_NONE = "__none__";
+const GEO_SCOPE_NONE = "__none__";
 
-// Editable project columns, kept as strings in local form state.
+// Editable project columns, kept as strings in local form state. Follows the FMP
+// General Information flow: title, applicants, description, geographic scope,
+// participating orgs & implementing partners, programme/project cost, dates.
+// Thematic keywords and the marker fields are intentionally excluded.
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
-  "grant_size_usd", "project_start_date", "project_duration_months", "keyword", "geographic_scope",
-  "universal_markers", "optional_markers", "fund_specific_markers", "description",
+  "grant_size_usd", "project_start_date", "project_duration_months",
+  "geographic_scope", "implementing_partners", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
 
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
-  grant_size_usd: "", project_start_date: "", project_duration_months: "", keyword: "", geographic_scope: "",
-  universal_markers: "", optional_markers: "", fund_specific_markers: "", description: "",
+  grant_size_usd: "", project_start_date: "", project_duration_months: "",
+  geographic_scope: "", implementing_partners: "", description: "",
 };
 
 // A funding tranche in local form state. `_key` is a client-side row id (stable
@@ -75,17 +79,27 @@ interface ProjectContact {
 
 interface OrgContact { id: number; name: string; role: string | null; email: string | null }
 
+// The DB stores a single full `name`; the FMP applicant form splits it into
+// first / last. Split on the first space (everything after it is the last name),
+// and join them back with a single space, dropping any empty half.
+function splitName(full: string): { first: string; last: string } {
+  const trimmed = full.trim();
+  const i = trimmed.indexOf(" ");
+  if (i === -1) return { first: trimmed, last: "" };
+  return { first: trimmed.slice(0, i), last: trimmed.slice(i + 1).trim() };
+}
+function joinName(first: string, last: string): string {
+  return [first.trim(), last.trim()].filter(Boolean).join(" ");
+}
+
 function coerce(key: FieldKey, value: string): unknown {
   switch (key) {
     case "grant_size_usd": return value.trim() === "" ? null : Number(value);
     case "project_duration_months": return value.trim() === "" ? null : Number(value);
     case "project_start_date":
     case "mptfo_project_number":
-    case "keyword":
     case "geographic_scope":
-    case "universal_markers":
-    case "optional_markers":
-    case "fund_specific_markers":
+    case "implementing_partners":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
   }
@@ -146,11 +160,8 @@ export function GeneralInfoAdminEditor({
           grant_size_usd: p.grant_size_usd != null ? String(p.grant_size_usd) : "",
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
-          keyword: p.keyword ?? "",
           geographic_scope: p.geographic_scope ?? "",
-          universal_markers: p.universal_markers ?? "",
-          optional_markers: p.optional_markers ?? "",
-          fund_specific_markers: p.fund_specific_markers ?? "",
+          implementing_partners: p.implementing_partners ?? "",
           description: p.description ?? "",
         };
         setForm(loaded);
@@ -392,21 +403,25 @@ export function GeneralInfoAdminEditor({
   }
 
   return (
-    <div className="space-y-6">
+    // FMP General-Information order via flex `order-*`: the cards are authored
+    // below in a different sequence, but render as Title/data → Applicants →
+    // Programme & project cost (tranches).
+    <div className="flex flex-col gap-6">
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div className="order-first rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {!readOnly && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <div className="order-first rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
           {labels.tabInstructions.general}
         </div>
       )}
 
-      {/* Project data */}
-      <div className="rounded-xl border bg-card p-6 space-y-5">
+      {/* Project data (Title, dates, cost inputs, geographic scope, implementing
+          partners, description) — FMP order: first */}
+      <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{g.detailsHeading}</h3>
@@ -499,55 +514,32 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.keyword}</label>
-            <Input
-              value={form.keyword}
-              onChange={(e) => setField("keyword", e.target.value)}
-              placeholder={g.placeholders.keyword}
-              className="text-sm"
-            />
-          </div>
-
-          <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.geographicScope}</label>
-            <Input
-              value={form.geographic_scope}
-              onChange={(e) => setField("geographic_scope", e.target.value)}
-              placeholder={g.placeholders.geographicScope}
-              className="text-sm"
-            />
+            <Select
+              value={form.geographic_scope || GEO_SCOPE_NONE}
+              onValueChange={(v) => setField("geographic_scope", v === GEO_SCOPE_NONE ? "" : v)}
+            >
+              <SelectTrigger className="w-full text-sm">
+                <SelectValue placeholder={g.placeholders.geographicScope} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={GEO_SCOPE_NONE}>{g.placeholders.geographicScope}</SelectItem>
+                {optionValues("geographicScope").map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.universalMarkers}</label>
+            <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
             <Input
-              value={form.universal_markers}
-              onChange={(e) => setField("universal_markers", e.target.value)}
-              placeholder={g.placeholders.universalMarkers}
+              value={form.implementing_partners}
+              onChange={(e) => setField("implementing_partners", e.target.value)}
+              placeholder={g.placeholders.implementingPartners}
               className="text-sm"
             />
           </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.optionalMarkers}</label>
-            <Input
-              value={form.optional_markers}
-              onChange={(e) => setField("optional_markers", e.target.value)}
-              placeholder={g.placeholders.optionalMarkers}
-              className="text-sm"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.fundSpecificMarkers}</label>
-            <Input
-              value={form.fund_specific_markers}
-              onChange={(e) => setField("fund_specific_markers", e.target.value)}
-              placeholder={g.placeholders.fundSpecificMarkers}
-              className="text-sm"
-            />
-          </div>
-
         </div>
 
         <div className="space-y-1.5">
@@ -562,8 +554,8 @@ export function GeneralInfoAdminEditor({
         </div>
       </div>
 
-      {/* Funding tranches */}
-      <div className="rounded-xl border bg-card p-6 space-y-4">
+      {/* Programme & project cost — funding tranches (FMP order: last) */}
+      <div className="order-3 rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Coins className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{g.tranches.heading}</h3>
@@ -681,8 +673,8 @@ export function GeneralInfoAdminEditor({
         </Button>
       </div>
 
-      {/* Contacts */}
-      <div className="rounded-xl border bg-card p-6 space-y-4">
+      {/* Applicants — project contacts (FMP order: right after Title/data) */}
+      <div className="order-2 rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{g.contactsHeading}</h3>
@@ -721,13 +713,21 @@ export function GeneralInfoAdminEditor({
                       {editingContactId === c.id ? (
                         <div className="flex items-center gap-2">
                           <Input
-                            value={c.name}
-                            onChange={(e) => editContactField(c.id, { name: e.target.value })}
+                            value={splitName(c.name).first}
+                            onChange={(e) => editContactField(c.id, { name: joinName(e.target.value, splitName(c.name).last) })}
                             onBlur={() => commitContactIdentity(c.id)}
-                            placeholder={g.contactName}
+                            placeholder={g.contactFirstName}
                             className="h-8 flex-1 min-w-0 text-sm font-medium"
-                            aria-label={g.contactName}
+                            aria-label={g.contactFirstName}
                             autoFocus
+                          />
+                          <Input
+                            value={splitName(c.name).last}
+                            onChange={(e) => editContactField(c.id, { name: joinName(splitName(c.name).first, e.target.value) })}
+                            onBlur={() => commitContactIdentity(c.id)}
+                            placeholder={g.contactLastName}
+                            className="h-8 flex-1 min-w-0 text-sm font-medium"
+                            aria-label={g.contactLastName}
                           />
                           <Input
                             value={c.role ?? ""}

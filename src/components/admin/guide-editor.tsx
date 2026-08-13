@@ -4,9 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ArrowUp, ArrowDown, Eye, EyeOff, Trash2, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -190,7 +187,6 @@ export function GuideEditor() {
       )}
 
       {sections.map((s, i) => {
-        const Icon = wikiIcon(s.icon);
         const len = richTextLength(s.body_html);
         return (
           <div
@@ -200,11 +196,12 @@ export function GuideEditor() {
               s.hidden && "opacity-70 border-dashed"
             )}
           >
-            {/* Header row: icon + title + reorder / hide / delete controls */}
+            {/* Header row: icon picker + title + reorder / hide / delete controls */}
             <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/40 text-foreground">
-                <Icon className="size-4.5" />
-              </div>
+              <IconPicker
+                value={s.icon ?? DEFAULT_WIKI_ICON}
+                onChange={(name) => patchNow(s.id, { icon: name })}
+              />
               <div className="flex-1 space-y-1.5">
                 <Input
                   value={s.title}
@@ -216,24 +213,6 @@ export function GuideEditor() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <Select value={s.icon ?? DEFAULT_WIKI_ICON} onValueChange={(v) => patchNow(s.id, { icon: v })}>
-                  <SelectTrigger className="h-9 w-[140px] text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WIKI_ICON_NAMES.map((name) => {
-                      const OptIcon = wikiIcon(name);
-                      return (
-                        <SelectItem key={name} value={name}>
-                          <span className="flex items-center gap-2">
-                            <OptIcon className="size-3.5" /> {name}
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-
                 <div className="flex items-center rounded-md border overflow-hidden">
                   <button
                     onClick={() => move(s.id, -1)}
@@ -324,6 +303,77 @@ export function GuideEditor() {
           <AutosaveIndicator state={saveState} idleAsSaved />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Icon picker ───────────────────────────────────────────────────────────────
+// The section icon box doubles as a trigger: clicking it opens a compact grid of
+// the allowlisted icons (no labels). Picking one applies immediately and closes.
+// Self-contained popover — closes on outside click or Escape.
+function IconPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const Current = wikiIcon(value);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Choose section icon"
+        title="Choose section icon"
+        className="flex size-9 items-center justify-center rounded-lg border bg-muted/40 text-foreground transition-colors hover:bg-muted"
+      >
+        <Current className="size-4.5" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 grid w-[15rem] grid-cols-6 gap-1 rounded-lg border bg-popover p-2 shadow-lg">
+          {WIKI_ICON_NAMES.map((name) => {
+            const OptIcon = wikiIcon(name);
+            const selected = name === value;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => { onChange(name); setOpen(false); }}
+                aria-label={name}
+                title={name}
+                className={cn(
+                  "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors",
+                  selected
+                    ? "border-amber-400 bg-amber-100 text-amber-700"
+                    : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <OptIcon className="size-4" />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

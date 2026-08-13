@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { createMagicToken, verifyMagicToken, magicLinkEnabled } from "@/lib/magic-link";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
+import { createSessionToken, setSessionCookie } from "@/lib/session";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
@@ -167,15 +167,7 @@ export async function PUT(req: NextRequest) {
       org: ctx.partner_short_name,
       name: session.user.name || ctx.partner_short_name,
     });
-    const res = NextResponse.json(session);
-    res.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: Math.floor(SESSION_TTL_MS / 1000),
-    });
-    return res;
+    return setSessionCookie(NextResponse.json(session), token);
   } catch (err) {
     logger.error("PUT /api/auth/magic error:", err);
     return NextResponse.json({ error: "Login failed" }, { status: 500 });

@@ -121,7 +121,7 @@ export async function DELETE(
       }
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
-    return NextResponse.json({ deleted: id });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("DELETE /api/reports/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete report" }, { status: 500 });

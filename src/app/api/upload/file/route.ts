@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import pool from "@/lib/db";
 import { likelihoodFromText, impactFromText } from "@/lib/risk";
 import { requireAdmin } from "@/lib/authz";
+import { logger } from "@/lib/logger";
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -78,72 +79,87 @@ export async function POST(req: NextRequest) {
     let skipped = 0;
     const errors: string[] = [];
 
-    for (const row of rows) {
-      const { year, project_name, risk_name, risk_category, likelihood, impact,
-              approved_mitigation, updated_mitigation, project_revision } = row;
+    // The whole import is atomic: either every matched row (and its category
+    // rows) commits, or a DB failure rolls the entire file back — a half-imported
+    // batch is never left behind. Per-row skips (validation, no matching report)
+    // are not errors and don't abort the transaction.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (const row of rows) {
+        const { year, project_name, risk_name, risk_category, likelihood, impact,
+                approved_mitigation, updated_mitigation, project_revision } = row;
 
-      if (!year || !project_name || !risk_name) {
-        skipped++;
-        errors.push(`Skipped empty row (year="${year}", project_name="${project_name}", risk_name="${risk_name}")`);
-        continue;
-      }
+        if (!year || !project_name || !risk_name) {
+          skipped++;
+          errors.push(`Skipped empty row (year="${year}", project_name="${project_name}", risk_name="${risk_name}")`);
+          continue;
+        }
 
-      const yearNum = Number(year);
-      if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
-        skipped++;
-        errors.push(`Skipped row: invalid year "${year}" for project "${project_name}"`);
-        continue;
-      }
+        const yearNum = Number(year);
+        if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+          skipped++;
+          errors.push(`Skipped row: invalid year "${year}" for project "${project_name}"`);
+          continue;
+        }
 
-      const matches = await query<{ id: number }>(
-        `SELECT r.id
-         FROM reporting_platform.reports r
-         JOIN reporting_platform.projects p ON p.id = r.project_id
-         WHERE r.year = $1
-           AND r.data_type = 'report'
-           AND (p.project_title ILIKE $2 OR p.short_name ILIKE $2)
-         LIMIT 1`,
-        [yearNum, project_name.trim()]
-      );
-
-      if (matches.length === 0) {
-        skipped++;
-        errors.push(`No report found for year=${year}, project="${project_name}"`);
-        continue;
-      }
-
-      const reportId = matches[0].id;
-      const categories = risk_category
-        ? risk_category.split(",").map((c) => c.trim()).filter(Boolean)
-        : [];
-
-      // risk_category is normalized into the risk_categories junction table.
-      const created = await query<{ id: number }>(
-        `INSERT INTO reporting_platform.risk_management
-           (report_id, risk_name, likelihood, impact,
-            approved_mitigation, updated_mitigation, project_revision)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-        [
-          reportId,
-          risk_name.trim(),
-          likelihoodFromText(likelihood),
-          impactFromText(impact),
-          approved_mitigation || null,
-          updated_mitigation || null,
-          toProjectRevision(project_revision),
-        ]
-      );
-
-      if (categories.length) {
-        await query(
-          `INSERT INTO reporting_platform.risk_categories (risk_id, category)
-           SELECT $1, unnest($2::text[])
-           ON CONFLICT (risk_id, category) DO NOTHING`,
-          [created[0].id, categories]
+        const matches = await client.query<{ id: number }>(
+          `SELECT r.id
+           FROM reporting_platform.reports r
+           JOIN reporting_platform.projects p ON p.id = r.project_id
+           WHERE r.year = $1
+             AND r.data_type = 'report'
+             AND (p.project_title ILIKE $2 OR p.short_name ILIKE $2)
+           LIMIT 1`,
+          [yearNum, project_name.trim()]
         );
-      }
 
-      inserted++;
+        if (matches.rows.length === 0) {
+          skipped++;
+          errors.push(`No report found for year=${year}, project="${project_name}"`);
+          continue;
+        }
+
+        const reportId = matches.rows[0].id;
+        const categories = risk_category
+          ? risk_category.split(",").map((c) => c.trim()).filter(Boolean)
+          : [];
+
+        // risk_category is normalized into the risk_categories junction table.
+        const created = await client.query<{ id: number }>(
+          `INSERT INTO reporting_platform.risk_management
+             (report_id, risk_name, likelihood, impact,
+              approved_mitigation, updated_mitigation, project_revision)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+          [
+            reportId,
+            risk_name.trim(),
+            likelihoodFromText(likelihood),
+            impactFromText(impact),
+            approved_mitigation || null,
+            updated_mitigation || null,
+            toProjectRevision(project_revision),
+          ]
+        );
+
+        if (categories.length) {
+          await client.query(
+            `INSERT INTO reporting_platform.risk_categories (risk_id, category)
+             SELECT $1, unnest($2::text[])
+             ON CONFLICT (risk_id, category) DO NOTHING`,
+            [created.rows[0].id, categories]
+          );
+        }
+
+        inserted++;
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      logger.error("POST /api/upload/file (risk) error:", err);
+      return NextResponse.json({ error: "Import failed; no rows were saved" }, { status: 500 });
+    } finally {
+      client.release();
     }
 
     return NextResponse.json({ inserted, skipped, errors });
@@ -164,50 +180,62 @@ export async function POST(req: NextRequest) {
   let skipped = 0;
   const errors: string[] = [];
 
-  for (const row of rows) {
-    const { year, project_name, question, assessment, context } = row;
+  // Atomic import, same contract as the risk section above.
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const row of rows) {
+      const { year, project_name, question, assessment, context } = row;
 
-    if (!year || !project_name || !question) {
-      skipped++;
-      errors.push(`Skipped empty row (year="${year}", project_name="${project_name}", question="${question}")`);
-      continue;
+      if (!year || !project_name || !question) {
+        skipped++;
+        errors.push(`Skipped empty row (year="${year}", project_name="${project_name}", question="${question}")`);
+        continue;
+      }
+
+      const yearNum = Number(year);
+      if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+        skipped++;
+        errors.push(`Skipped row: invalid year "${year}" for project "${project_name}"`);
+        continue;
+      }
+
+      const matches = await client.query<{ id: number }>(
+        `SELECT r.id
+         FROM reporting_platform.reports r
+         JOIN reporting_platform.projects p ON p.id = r.project_id
+         WHERE r.year = $1
+           AND r.data_type = 'report'
+           AND (p.project_title ILIKE $2 OR p.short_name ILIKE $2)
+         LIMIT 1`,
+        [yearNum, project_name.trim()]
+      );
+
+      if (matches.rows.length === 0) {
+        skipped++;
+        errors.push(`No report found for year=${year}, project="${project_name}"`);
+        continue;
+      }
+
+      const reportId = matches.rows[0].id;
+      const assessmentVal = assessment ? Number(assessment) : null;
+      const contextVal = context || null;
+
+      await client.query(
+        `INSERT INTO reporting_platform.surveys (report_id, question, assessment, context)
+         VALUES ($1, $2, $3, $4)`,
+        [reportId, question, Number.isFinite(assessmentVal) ? assessmentVal : null, contextVal]
+      );
+
+      inserted++;
     }
-
-    const yearNum = Number(year);
-    if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
-      skipped++;
-      errors.push(`Skipped row: invalid year "${year}" for project "${project_name}"`);
-      continue;
-    }
-
-    const matches = await query<{ id: number }>(
-      `SELECT r.id
-       FROM reporting_platform.reports r
-       JOIN reporting_platform.projects p ON p.id = r.project_id
-       WHERE r.year = $1
-         AND r.data_type = 'report'
-         AND (p.project_title ILIKE $2 OR p.short_name ILIKE $2)
-       LIMIT 1`,
-      [yearNum, project_name.trim()]
-    );
-
-    if (matches.length === 0) {
-      skipped++;
-      errors.push(`No report found for year=${year}, project="${project_name}"`);
-      continue;
-    }
-
-    const reportId = matches[0].id;
-    const assessmentVal = assessment ? Number(assessment) : null;
-    const contextVal = context || null;
-
-    await query(
-      `INSERT INTO reporting_platform.surveys (report_id, question, assessment, context)
-       VALUES ($1, $2, $3, $4)`,
-      [reportId, question, Number.isFinite(assessmentVal) ? assessmentVal : null, contextVal]
-    );
-
-    inserted++;
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    logger.error("POST /api/upload/file (surveys) error:", err);
+    return NextResponse.json({ error: "Import failed; no rows were saved" }, { status: 500 });
+  } finally {
+    client.release();
   }
 
   return NextResponse.json({ inserted, skipped, errors });

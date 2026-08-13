@@ -82,7 +82,7 @@ export async function DELETE(
     if (rows.length === 0) {
       return NextResponse.json({ error: "Partner not found" }, { status: 404 });
     }
-    return NextResponse.json({ deleted: true });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("DELETE /api/partners/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete partner" }, { status: 500 });

@@ -138,7 +138,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     await client.query("COMMIT");
-    return NextResponse.json({ deleted: true });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     logger.error("DELETE /api/projects/[id] error:", err);

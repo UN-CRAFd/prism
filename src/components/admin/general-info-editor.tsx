@@ -531,13 +531,14 @@ export function GeneralInfoAdminEditor({
             </Select>
           </div>
 
-          <div className="space-y-1.5">
+          {/* Same row as geographic scope, filling all remaining columns. */}
+          <div className="space-y-1.5 col-span-full sm:col-span-2 lg:col-span-4">
             <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
             <Input
               value={form.implementing_partners}
               onChange={(e) => setField("implementing_partners", e.target.value)}
               placeholder={g.placeholders.implementingPartners}
-              className="text-sm"
+              className="text-sm w-full"
             />
           </div>
         </div>

@@ -79,9 +79,12 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
+    // Set updated_at explicitly rather than relying on the DB trigger — the live
+    // schema has drifted from db/schema.sql before, so don't assume the trigger
+    // exists. Harmless if it does (it just re-sets the same instant).
     const rows = await query(
       `UPDATE reporting_platform.complementary_contributors
-          SET ${updates.join(", ")}
+          SET ${updates.join(", ")}, updated_at = NOW()
         WHERE id = $1
       RETURNING *`,
       values

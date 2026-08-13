@@ -14,6 +14,8 @@
 // disabled and every guarded request is rejected.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { NextResponse } from "next/server";
+
 const SECRET = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "";
 
 export const SESSION_COOKIE = "crafd_session";
@@ -80,6 +82,30 @@ export async function createSessionToken(
   const body = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const sig = b64urlEncode(await sign(body));
   return `${body}.${sig}`;
+}
+
+// Single source of truth for the session-cookie attributes. Every login path
+// (password, share link) sets the cookie with exactly these flags; logout clears
+// it with the same attributes and maxAge 0. Callers build the NextResponse (so
+// they control the JSON body) and hand it here to stamp the cookie.
+const SESSION_COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+};
+
+export function setSessionCookie(res: NextResponse, token: string): NextResponse {
+  res.cookies.set(SESSION_COOKIE, token, {
+    ...SESSION_COOKIE_OPTS,
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+  });
+  return res;
+}
+
+export function clearSessionCookie(res: NextResponse): NextResponse {
+  res.cookies.set(SESSION_COOKIE, "", { ...SESSION_COOKIE_OPTS, maxAge: 0 });
+  return res;
 }
 
 export async function verifySessionToken(token: string | undefined | null): Promise<Session | null> {

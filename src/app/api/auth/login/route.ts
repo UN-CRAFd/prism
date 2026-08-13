@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { verifyAdminPassword } from "@/lib/admin-settings";
-import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS, type Session } from "@/lib/session";
+import { createSessionToken, setSessionCookie, type Session } from "@/lib/session";
 import { logger } from "@/lib/logger";
 
 const INVALID = { error: "Invalid username or password" };
@@ -21,15 +21,7 @@ async function loginResponse(user: {
     org: user.role === "admin" ? null : user.organization ?? user.id,
     name: user.name,
   });
-  const res = NextResponse.json({ user });
-  res.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: Math.floor(SESSION_TTL_MS / 1000),
-  });
-  return res;
+  return setSessionCookie(NextResponse.json({ user }), token);
 }
 
 export async function POST(request: Request) {

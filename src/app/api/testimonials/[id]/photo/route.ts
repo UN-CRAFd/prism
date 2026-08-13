@@ -30,7 +30,7 @@ export async function POST(
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardRow(session, "testimonials", id);
+  const gate = await guardRow(session, "testimonials", id, { requireOpen: true });
   if (gate) return gate;
 
   let form: FormData;
@@ -118,7 +118,7 @@ export async function DELETE(
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
-  const gate = await guardRow(session, "testimonials", id);
+  const gate = await guardRow(session, "testimonials", id, { requireOpen: true });
   if (gate) return gate;
 
   try {

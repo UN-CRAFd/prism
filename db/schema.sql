@@ -351,9 +351,13 @@ INSERT INTO standard_narrative_questions (narrative_key, label, sort_order) VALU
 ON CONFLICT (narrative_key) DO NOTHING;
 
 -- ── Indicators (master library) ──────────────────────────────────────────────
--- Standard indicators are global (project_id IS NULL); custom indicators are
--- created while editing a report and scoped to that project. archived_at
--- soft-deletes so historical reports never break.
+-- A single global vocabulary of indicators. `is_standard` is the only
+-- distinction: standard indicators are seeded into every prodoc by default,
+-- while custom ones (is_standard=false) are created while editing and then
+-- searchable/reusable from any project. Indicators are NOT project-scoped — the
+-- reference direction is one-way: reports/prodocs point at an indicator via
+-- indicator_data, never the reverse. archived_at soft-deletes so historical
+-- reports never break.
 CREATE TABLE IF NOT EXISTS indicators (
     id                    SERIAL                  PRIMARY KEY,
     name                  TEXT                    NOT NULL,
@@ -362,14 +366,10 @@ CREATE TABLE IF NOT EXISTS indicators (
     category              TEXT,
     cycle                 TEXT,
     is_standard           BOOLEAN                 NOT NULL DEFAULT TRUE,
-    project_id            INTEGER                 REFERENCES projects(id) ON DELETE CASCADE,
     archived_at           TIMESTAMPTZ,
     created_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
-    CHECK ( (is_standard AND project_id IS NULL) OR (NOT is_standard AND project_id IS NOT NULL) )
+    updated_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS indicators_project_idx ON indicators(project_id);
 
 DROP TRIGGER IF EXISTS indicators_updated_at ON indicators;
 CREATE TRIGGER indicators_updated_at
@@ -950,8 +950,8 @@ SELECT v.name, v.sort_order
  WHERE NOT EXISTS (SELECT 1 FROM expenditure_categories);
 
 -- Standard (global) indicators — the library every project starts from.
-INSERT INTO indicators (name, description, means_of_verification, category, cycle, is_standard, project_id)
-SELECT v.name, v.description, v.means_of_verification, v.category, v.cycle, TRUE, NULL
+INSERT INTO indicators (name, description, means_of_verification, category, cycle, is_standard)
+SELECT v.name, v.description, v.means_of_verification, v.category, v.cycle, TRUE
   FROM (VALUES
     ('Funding allocated for crisis action with the support of project outputs',
      'This indicator aims to measure the extent to which the project outputs are used to facilitate funding decisions related to crisis action.',

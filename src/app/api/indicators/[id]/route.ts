@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, guardProjectRow } from "@/lib/authz";
+import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS = [
@@ -11,17 +11,17 @@ const ALLOWED_FIELDS = [
   "cycle",
 ] as const;
 
-// PUT /api/indicators/[id] — partial update of a library indicator.
+// PUT /api/indicators/[id] — partial update of a library indicator. Indicators are
+// a shared global vocabulary, so editing an existing one is admin-only (partners
+// may create new customs but not rewrite entries other projects depend on).
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const session = await requireSession();
-    if (session instanceof NextResponse) return session;
-    const gate = await guardProjectRow(session, "indicators", id);
-    if (gate) return gate;
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
 
     const body = await request.json();
 
@@ -45,7 +45,7 @@ export async function PUT(
       `UPDATE reporting_platform.indicators SET ${setClauses.join(", ")}
         WHERE id = $${idx}
         RETURNING id, name, description, means_of_verification, category, cycle,
-                  is_standard, project_id, archived_at, created_at, updated_at`,
+                  is_standard, archived_at, created_at, updated_at`,
       values
     );
 
@@ -70,10 +70,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const session = await requireSession();
-    if (session instanceof NextResponse) return session;
-    const gate = await guardProjectRow(session, "indicators", id);
-    if (gate) return gate;
+    const gate = await requireAdmin();
+    if (gate instanceof NextResponse) return gate;
 
     const restore = new URL(request.url).searchParams.get("restore") === "1";
 

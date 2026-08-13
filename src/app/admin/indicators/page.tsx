@@ -37,7 +37,7 @@ interface Indicator {
   category: string | null;
   cycle: string | null;
   is_standard: boolean;
-  project_id: number | null;
+  usage_project_count?: number;
   archived_at: string | null;
   usage: IndicatorUsage[];
 }
@@ -166,7 +166,7 @@ export default function IndicatorsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Indicators" description="Manage the standard indicator library">
+      <PageHeader title="Indicators" description="Manage the shared indicator library — standard and partner-created custom indicators">
         <label className="flex items-center gap-2 text-xs text-muted-foreground mr-2 cursor-pointer">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="size-3.5 rounded" />
           Show archived
@@ -266,6 +266,13 @@ export default function IndicatorsPage() {
                   <TableRow key={ind.id} className={ind.archived_at ? "opacity-50" : ""}>
                     <TableCell className="font-medium">
                       {ind.name}
+                      {ind.is_standard ? (
+                        <Badge variant="secondary" className="ml-2 text-[10px]">Standard</Badge>
+                      ) : (
+                        <Badge variant="outline" className="ml-2 text-[10px]">
+                          Custom{ind.usage_project_count ? ` · ${ind.usage_project_count} project${ind.usage_project_count === 1 ? "" : "s"}` : ""}
+                        </Badge>
+                      )}
                       {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
                       {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 truncate" style={{ minWidth: 0 }} title={ind.description}>{truncateText(ind.description, 170)}</p>}
                       {ind.archived_at && <div className="mt-1"><UsageBadges usage={ind.usage} /></div>}
@@ -303,6 +310,13 @@ export default function IndicatorsPage() {
                 {ind.description && <p className="text-xs text-muted-foreground line-clamp-3">{ind.description}</p>}
                 {ind.archived_at && <UsageBadges usage={ind.usage} />}
                 <div className="flex flex-wrap gap-1 mt-auto pt-1">
+                  {ind.is_standard ? (
+                    <Badge variant="secondary" className="text-xs font-normal">Standard</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs font-normal">
+                      Custom{ind.usage_project_count ? ` · ${ind.usage_project_count} project${ind.usage_project_count === 1 ? "" : "s"}` : ""}
+                    </Badge>
+                  )}
                   {ind.category && <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge>}
                   {ind.cycle && <Badge variant="outline" className="text-xs font-normal">{cycleLabel(ind.cycle)}</Badge>}
                 </div>

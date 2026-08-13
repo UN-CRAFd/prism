@@ -7,8 +7,7 @@ INSERT INTO reporting_platform.indicators (
   means_of_verification,
   category,
   cycle,
-  is_standard,
-  project_id
+  is_standard
 ) VALUES
 (
   'Datasets made available to intended users',
@@ -16,8 +15,7 @@ INSERT INTO reporting_platform.indicators (
   'Dataset license metadata; repository access settings; project data portal access logs',
   'Data outputs & quality',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Datasets provided in non-proprietary formats',
@@ -25,8 +23,7 @@ INSERT INTO reporting_platform.indicators (
   'Dataset file format metadata on distribution platform; repository format list; accompanying codebook or data dictionary; schema documentation; internal release checklist',
   'Data outputs & quality',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Analytics products made available to intended users',
@@ -34,8 +31,7 @@ INSERT INTO reporting_platform.indicators (
   'Internal product registry; project website publication log; partner distribution records',
   'Analytics products',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Datasets and analytics products released with accessible code or methodology documentation',
@@ -43,8 +39,7 @@ INSERT INTO reporting_platform.indicators (
   'Public code repository; license file; README; dependency specification; verification of public accessibility',
   'Analytics products',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Datasets and analytics products with SADDD or other relevant disaggregation',
@@ -52,8 +47,7 @@ INSERT INTO reporting_platform.indicators (
   'Codebook; data dictionary; dataset inspection; internal release checklist; WG-SS documentation where applicable',
   'Data outputs & quality',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Unique downloads of project outputs',
@@ -61,8 +55,7 @@ INSERT INTO reporting_platform.indicators (
   'Download statistics; Google Analytics; data portal download logs; repository traffic reports',
   'Access & usage',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Unique users accessing the project outputs',
@@ -70,8 +63,7 @@ INSERT INTO reporting_platform.indicators (
   'Registered user records; user analytics; authenticated logins; survey-based user reporting; DOI tracking',
   'Access & usage',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'API calls to project data',
@@ -79,8 +71,7 @@ INSERT INTO reporting_platform.indicators (
   'API server logs; platform analytics; developer dashboards; cloud infrastructure monitoring',
   'Access & usage',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'External products referencing or incorporating project outputs',
@@ -88,8 +79,7 @@ INSERT INTO reporting_platform.indicators (
   'Citation monitoring; stakeholder-reported citations; web searches; partner reporting',
   'Reach & influence',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Knowledge and capacity building initiatives conducted as part of the project',
@@ -97,8 +87,7 @@ INSERT INTO reporting_platform.indicators (
   'Event registers; attendance lists; completion records; evaluation surveys; training portal logs; partner reports',
   'Capacity & partnerships',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Participants in knowledge and capacity building initiatives as part of the project',
@@ -106,8 +95,7 @@ INSERT INTO reporting_platform.indicators (
   'Event registers; attendance lists; training completion records; evaluation surveys; partner reports',
   'Capacity & partnerships',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Partners contributing to the project',
@@ -115,8 +103,7 @@ INSERT INTO reporting_platform.indicators (
   'Partner agreements; project reports; consortium documentation; data sharing records',
   'Capacity & partnerships',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Entities that use project outputs to support crisis action',
@@ -124,8 +111,7 @@ INSERT INTO reporting_platform.indicators (
   'Stakeholder surveys; interviews; humanitarian response plans; meeting minutes; published reports',
   'Reach & influence',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'People benefiting from crisis assistance informed by project outputs',
@@ -133,8 +119,7 @@ INSERT INTO reporting_platform.indicators (
   'Beneficiary surveys; project reports; partner utilisation reports; UN OCHA reports; third-party evaluations',
   'Reach & influence',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 ),
 (
   'Crisis funding informed by project outputs',
@@ -142,8 +127,7 @@ INSERT INTO reporting_platform.indicators (
   'Financial decision records; HRP funding tables; donor reports; Financial Tracking Service; IATI; donor data collection',
   'Reach & influence',
   'yearly',
-  TRUE,
-  NULL
+  TRUE
 )
 ON CONFLICT DO NOTHING;
 ```

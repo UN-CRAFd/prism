@@ -39,7 +39,10 @@ const PRODOC_PROJECT_SCOPED_TABLES = [
   "prodoc_signatures",
   "workplan_activities",
   "expenditure_budgets",
-  "indicators",
+  // NOTE: `indicators` is intentionally NOT here. It used to be project-scoped
+  // (WHERE le.project_id = r.project_id), but indicators are now a shared global
+  // vocabulary with no project_id — an indicator edit is no longer one project's
+  // prodoc edit, and referencing le.project_id here would break the query.
 ];
 // The live DB has drifted from db/schema.sql (see the schema-consolidation note):
 // not every table actually carries `updated_at`. So we introspect once which of

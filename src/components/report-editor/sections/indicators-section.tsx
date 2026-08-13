@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, type CSSProperties } from "react";
-import { Loader2, Plus, Info, Trash2 } from "lucide-react";
+import { Fragment, useState, type CSSProperties } from "react";
+import { Loader2, Plus, Info, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
   return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
@@ -64,6 +65,11 @@ export interface IndicatorsSectionProps {
   addingIndicator: boolean;
   handleIndicatorAdd: () => void;
 
+  // Reuse an existing indicator from the shared vocabulary (standard + other
+  // projects' customs, ranked by recurrence) instead of re-creating one.
+  indicatorComboItems: ComboboxItem[];
+  handleIndicatorSelectExisting: (indicatorId: number) => void;
+
   updateIndicator: (id: number, patch: Partial<IndicatorState>) => void;
 
   // Row removal. Admins may remove any indicator; partners only their own custom
@@ -97,6 +103,8 @@ export function IndicatorsSection({
   setNewIndicatorTargetYear,
   addingIndicator,
   handleIndicatorAdd,
+  indicatorComboItems,
+  handleIndicatorSelectExisting,
   updateIndicator,
   isAdmin,
   deletingIndicatorLineId,
@@ -110,26 +118,79 @@ export function IndicatorsSection({
     !!newIndicatorDescription.trim() &&
     !!newIndicatorMeansOfVerification.trim();
 
+  // The create panel is hidden until the user chooses "create a new one" from the
+  // search box (Combobox onCreate). At that point we pre-fill the typed text as the
+  // name and reveal the description / means-of-verification / baseline / target
+  // fields, which are required before the indicator can join the shared vocabulary.
+  const [creating, setCreating] = useState(false);
+
+  function openCreate(name: string) {
+    setNewIndicatorName(name);
+    setCreating(true);
+  }
+
+  function cancelCreate() {
+    setCreating(false);
+    setNewIndicatorName("");
+    setNewIndicatorDescription("");
+    setNewIndicatorMeansOfVerification("");
+    setNewIndicatorBaselineValue("");
+    setNewIndicatorBaselineYear("");
+    setNewIndicatorTargetValue("");
+    setNewIndicatorTargetYear("");
+  }
+
+  async function submitCreate() {
+    await handleIndicatorAdd();
+    setCreating(false);
+  }
+
   return (
     <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
-      {/* Add a custom, partner-defined indicator (project-scoped). Name,
-          description and means of verification are required. */}
+      {/* Search the shared vocabulary. Standard entries and recurring customs
+          (ranked by how many projects use them) are suggested first — picking one
+          standardizes indicators across projects. Typing a name that doesn't match
+          offers "create a new one", which opens the create panel below. */}
       <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) handleIndicatorAdd(); }} className="flex-[2]" />
-          <Input required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2]" />
-          <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2]" />
-        </div>
-        <div className="flex gap-2">
-          <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-          <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1.0]" />
-          <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-          <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1.0]" />
-          <Button onClick={handleIndicatorAdd} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
-            {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-          </Button>
+        <div className="max-w-xl">
+          <Combobox
+            items={indicatorComboItems}
+            placeholder={labels.placeholders.indicatorSearch}
+            onSelect={(item) => handleIndicatorSelectExisting(item.id)}
+            onCreate={openCreate}
+            createLabel={labels.adminEditor.createIndicator}
+            busy={addingIndicator}
+          />
         </div>
       </div>
+
+      {/* Create panel — only shown once the user opts to create a new custom
+          indicator from the search box. Name, description and means of verification
+          are required; it joins the shared vocabulary on save. */}
+      {creating && (
+        <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
+            <Button variant="ghost" size="sm" onClick={cancelCreate} className="h-7 px-2 text-muted-foreground">
+              <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) submitCreate(); }} className="flex-[2]" autoFocus />
+            <Input required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2]" />
+            <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2]" />
+          </div>
+          <div className="flex gap-2">
+            <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
+            <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1.0]" />
+            <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
+            <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1.0]" />
+            <Button onClick={submitCreate} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
+              {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {indicatorRows.length === 0 ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">

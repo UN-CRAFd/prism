@@ -73,6 +73,16 @@ export interface IndicatorYearCell {
   comment: string | null;
 }
 
+// A row from the shared indicator vocabulary (/api/indicators), used to search
+// for and reuse an existing indicator. `usage_project_count` = distinct projects
+// already referencing it, used to rank recurring customs as suggestions.
+export interface LibraryIndicator {
+  id: number;
+  name: string;
+  is_standard: boolean;
+  usage_project_count?: number;
+}
+
 export interface IndicatorMatrixRow {
   indicator_id: number;
   indicator_name: string;

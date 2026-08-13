@@ -199,20 +199,17 @@ export async function POST(req: NextRequest) {
   const gate = await guardReport(session, reportId as string | number);
   if (gate) return gate;
 
-  // The indicator must be a shared standard indicator (project_id IS NULL) or one
-  // belonging to this report's own project; otherwise a caller could attach (and
-  // read back) another project's custom indicator.
-  const scoped = await query(
-    `SELECT 1
-       FROM reporting_platform.indicators i
-       JOIN reporting_platform.reports r ON r.id = $2
-      WHERE i.id = $1 AND (i.project_id IS NULL OR i.project_id = r.project_id)
+  // Indicators are a shared global vocabulary, so any (non-archived) indicator may
+  // be attached to a report the caller owns. Just confirm the indicator exists.
+  const exists = await query(
+    `SELECT 1 FROM reporting_platform.indicators
+      WHERE id = $1 AND archived_at IS NULL
       LIMIT 1`,
-    [indicator_id, reportId]
+    [indicator_id]
   );
-  if (!scoped.length) {
+  if (!exists.length) {
     return NextResponse.json(
-      { error: "indicator_id is not available for this report's project" },
+      { error: "indicator_id not found" },
       { status: 400 }
     );
   }

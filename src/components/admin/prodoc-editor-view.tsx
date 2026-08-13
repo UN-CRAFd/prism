@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock, Printer } from "lucide-react";
+import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock, Printer, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -90,6 +90,9 @@ interface LibraryIndicator {
   id: number;
   name: string;
   is_standard: boolean;
+  // Distinct projects that already reference this indicator (via indicator_data).
+  // Used to rank recurring custom indicators as suggestions in the add flow.
+  usage_project_count?: number;
 }
 
 // `label` is a getter so it reflects admin label overrides applied after this
@@ -149,6 +152,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [library, setLibrary] = useState<LibraryIndicator[]>([]);
   const [loadingIndicators, setLoadingIndicators] = useState(false);
   const [addingIndicator, setAddingIndicator] = useState(false);
+  // Create-a-custom-indicator panel (revealed from the search box's "create new").
+  const [creatingIndicator, setCreatingIndicator] = useState(false);
+  const [newIndName, setNewIndName] = useState("");
+  const [newIndDescription, setNewIndDescription] = useState("");
+  const [newIndMeansOfVerification, setNewIndMeansOfVerification] = useState("");
 
   // ── Load project documents & pre-select from URL params ─────────────────
 
@@ -195,12 +203,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setLoadingRisk(false); }
   }, []);
 
-  const loadIndicators = useCallback(async (prodocId: string, projectId: number) => {
+  const loadIndicators = useCallback(async (prodocId: string) => {
     setLoadingIndicators(true); setError(null);
     try {
       const [linesRes, libRes] = await Promise.all([
         fetch(`/api/indicator-data?reportId=${prodocId}`),
-        fetch(`/api/indicators?project_id=${projectId}`),
+        // Indicators are a shared global vocabulary now — fetch the whole library.
+        fetch(`/api/indicators`),
       ]);
       if (!linesRes.ok || !libRes.ok) throw new Error("Failed to load indicators");
       setIndicatorLines(await linesRes.json());
@@ -214,10 +223,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     setRisks([]); setIndicatorLines([]); setLibrary([]);
     if (selectedSection === "risk") loadRisks(selectedProdocId);
     else if (selectedSection === "indicators") {
-      const doc = docs.find((d) => String(d.id) === selectedProdocId);
-      if (doc) loadIndicators(selectedProdocId, doc.project_id);
+      loadIndicators(selectedProdocId);
     }
-  }, [selectedProdocId, selectedSection, docs, loadRisks, loadIndicators]);
+  }, [selectedProdocId, selectedSection, loadRisks, loadIndicators]);
 
   // ── Navigation ────────────────────────────────────────────────────────
 
@@ -357,18 +365,42 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setAddingIndicator(false); }
   }
 
-  async function handleIndicatorCreate(name: string) {
+  // Opening the create panel from the search box — pre-fill the typed text as the
+  // name; description + means of verification are then required before saving.
+  function handleIndicatorCreate(name: string) {
+    setNewIndName(name);
+    setNewIndDescription("");
+    setNewIndMeansOfVerification("");
+    setCreatingIndicator(true);
+  }
+
+  function cancelIndicatorCreate() {
+    setCreatingIndicator(false);
+    setNewIndName(""); setNewIndDescription(""); setNewIndMeansOfVerification("");
+  }
+
+  // Indicators created here are always custom (partner-defined vocabulary), whether
+  // an admin or a partner is editing. They require a name, description and means of
+  // verification, then join the shared library and are attached to this document.
+  async function submitIndicatorCreate() {
     if (!selectedDoc) return;
+    if (!newIndName.trim() || !newIndDescription.trim() || !newIndMeansOfVerification.trim()) return;
     setAddingIndicator(true); setError(null);
     try {
       const res = await fetch("/api/indicators", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, is_standard: false, project_id: selectedDoc.project_id }),
+        body: JSON.stringify({
+          name: newIndName.trim(),
+          description: newIndDescription.trim(),
+          means_of_verification: newIndMeansOfVerification.trim(),
+          is_standard: false,
+        }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to create indicator"); }
       const created: LibraryIndicator = await res.json();
       setLibrary((prev) => [...prev, created]);
       await addIndicatorLine(created.id);
+      cancelIndicatorCreate();
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingIndicator(false); }
   }
@@ -402,9 +434,20 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     setIndicatorLines((prev) => prev.filter((l) => l.id !== id));
   }
 
+  // Suggestion ordering comes from the API (standard first, then custom indicators
+  // by how many distinct projects already use them). The hint surfaces that signal:
+  // standard entries read "Standard"; recurring customs read "Used by N projects".
   const indicatorComboItems: ComboboxItem[] = library
     .filter((lib) => !indicatorLines.some((l) => l.indicator_id === lib.id))
-    .map((lib) => ({ id: lib.id, label: lib.name, hint: lib.is_standard ? "Standard" : "Custom" }));
+    .map((lib) => ({
+      id: lib.id,
+      label: lib.name,
+      hint: lib.is_standard
+        ? "Standard"
+        : (lib.usage_project_count ?? 0) > 0
+        ? `Used by ${lib.usage_project_count} project${lib.usage_project_count === 1 ? "" : "s"}`
+        : "Custom",
+    }));
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -756,6 +799,34 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 busy={addingIndicator}
               />
             </div>
+
+            {/* Create panel — shown only after choosing "create a new one" from the
+                search box. Indicators created here are always custom; name,
+                description and means of verification are required. */}
+            {creatingIndicator && (
+              <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 max-w-3xl">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
+                  <Button variant="ghost" size="sm" onClick={cancelIndicatorCreate} className="h-7 px-2 text-muted-foreground">
+                    <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Input required placeholder={labels.placeholders.indicatorName} value={newIndName} onChange={(e) => setNewIndName(e.target.value)} className="flex-[2]" autoFocus />
+                  <Input required placeholder={labels.placeholders.indicatorDescription} value={newIndDescription} onChange={(e) => setNewIndDescription(e.target.value)} className="flex-[2]" />
+                  <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndMeansOfVerification} onChange={(e) => setNewIndMeansOfVerification(e.target.value)} className="flex-[2]" />
+                  <Button
+                    onClick={submitIndicatorCreate}
+                    disabled={addingIndicator || !newIndName.trim() || !newIndDescription.trim() || !newIndMeansOfVerification.trim()}
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {indicatorLines.length === 0 ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
                 {labels.adminEditor.emptyIndicators}

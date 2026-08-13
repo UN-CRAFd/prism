@@ -486,6 +486,7 @@
     "emptyIndicators": "No indicators added to this report yet. Search above to add one.",
     "addIndicator": "Add indicator",
     "createIndicator": "Create new indicator",
+    "cancel": "Cancel",
     "add": "Add",
     "save": "Save"
   },

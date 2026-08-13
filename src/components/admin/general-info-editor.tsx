@@ -11,7 +11,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { cn } from "@/lib/utils";
-import { Loader2, Plus, Trash2, Users, Coins, FileText } from "lucide-react";
+import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 
@@ -94,12 +94,12 @@ function coerce(key: FieldKey, value: string): unknown {
 export function GeneralInfoAdminEditor({
   projectId,
   onSaveStateChange,
+  isAdmin = true,
   readOnly = false,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
-  // isAdmin retained on the type for callers; the rate (the only admin-gated
-  // field) now lives in the Expenditure tab, so nothing here branches on it.
+  // The MPTFO project number is admin-owned; partners can view but not edit it.
   isAdmin?: boolean;
   // When the prodoc is view-only, the blue instructions box is hidden (the
   // parent shows the amber view-only bar instead).
@@ -110,6 +110,7 @@ export function GeneralInfoAdminEditor({
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [partnerId, setPartnerId] = useState<number | null>(null);
   const [contacts, setContacts] = useState<ProjectContact[]>([]);
+  const [editingContactId, setEditingContactId] = useState<number | null>(null);
   const [orgContacts, setOrgContacts] = useState<OrgContact[]>([]);
   const [tranches, setTranches] = useState<TrancheForm[]>([]);
   const [addingContact, setAddingContact] = useState(false);
@@ -118,6 +119,8 @@ export function GeneralInfoAdminEditor({
 
   const formRef = useRef<Form>(EMPTY_FORM);
   formRef.current = form;
+  const contactsRef = useRef<ProjectContact[]>([]);
+  contactsRef.current = contacts;
   const savedRef = useRef<Form>(EMPTY_FORM);
 
   // Tranches: current set (ref for the autosave flush), the last-saved snapshot,
@@ -345,6 +348,28 @@ export function GeneralInfoAdminEditor({
     if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); }
   }
 
+  // Edit the contact's identity (name / role / email) on the shared
+  // partner_contacts master record. Typing updates local state; the PATCH fires
+  // on blur. The endpoint rewrites all three fields at once, so we always send
+  // the full current identity to avoid nulling the untouched ones.
+  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "role" | "email">>) {
+    setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+
+  async function commitContactIdentity(id: number) {
+    const c = contactsRef.current.find((x) => x.id === id);
+    if (!c) return;
+    if (!c.name.trim()) { setError("Contact name cannot be empty."); return; }
+    setError(null);
+    const res = await fetch("/api/partner-contacts", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), role: c.role, email: c.email }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); return; }
+    // Keep the linked-contact combobox list in sync with the edited identity.
+    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), role: c.role, email: c.email } : oc)));
+  }
+
   async function unlinkContact(id: number) {
     const c = contacts.find((x) => x.id === id);
     if (!await confirm({ message: `Remove ${c?.name ?? "this contact"} from the project?`, confirmLabel: "Remove", variant: "default" })) return;
@@ -405,6 +430,9 @@ export function GeneralInfoAdminEditor({
               onChange={(e) => setField("mptfo_project_number", e.target.value)}
               placeholder={g.placeholders.mptfoNumber}
               className="text-sm"
+              // The MPTFO project number is admin-owned; partners see it read-only.
+              disabled={!isAdmin}
+              title={!isAdmin ? "The MPTFO project number is managed by the CRAF'd Secretariat." : undefined}
             />
           </div>
 
@@ -683,17 +711,50 @@ export function GeneralInfoAdminEditor({
                   <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{g.columns.contact}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-56">{g.columns.relationship}</th>
                   <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-28">{g.columns.applicant}</th>
-                  <th className="w-12 px-4 py-3" />
+                  <th className="w-20 px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {contacts.map((c) => (
                   <tr key={c.id} className="transition-colors hover:bg-muted/20">
                     <td className="px-4 py-3 align-middle">
-                      <p className="font-medium">{c.name}</p>
-                      {(c.role || c.email) && (
-                        <p className="text-xs text-muted-foreground">
-                          {[c.role, c.email].filter(Boolean).join(" · ")}
+                      {editingContactId === c.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={c.name}
+                            onChange={(e) => editContactField(c.id, { name: e.target.value })}
+                            onBlur={() => commitContactIdentity(c.id)}
+                            placeholder={g.contactName}
+                            className="h-8 flex-1 min-w-0 text-sm font-medium"
+                            aria-label={g.contactName}
+                            autoFocus
+                          />
+                          <Input
+                            value={c.role ?? ""}
+                            onChange={(e) => editContactField(c.id, { role: e.target.value || null })}
+                            onBlur={() => commitContactIdentity(c.id)}
+                            placeholder={g.contactRole}
+                            className="h-8 flex-1 min-w-0 text-sm"
+                            aria-label={g.contactRole}
+                          />
+                          <Input
+                            value={c.email ?? ""}
+                            onChange={(e) => editContactField(c.id, { email: e.target.value || null })}
+                            onBlur={() => commitContactIdentity(c.id)}
+                            placeholder={g.contactEmail}
+                            type="email"
+                            className="h-8 flex-1 min-w-0 text-sm"
+                            aria-label={g.contactEmail}
+                          />
+                        </div>
+                      ) : (
+                        <p className="truncate">
+                          <span className="font-medium">{c.name}</span>
+                          {(c.role || c.email) && (
+                            <span className="text-muted-foreground">
+                              {" · "}{[c.role, c.email].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
                         </p>
                       )}
                     </td>
@@ -722,14 +783,37 @@ export function GeneralInfoAdminEditor({
                         aria-label={g.applicantLabel}
                       />
                     </td>
-                    <td className="px-4 py-3 text-right align-middle">
-                      <button
-                        onClick={() => unlinkContact(c.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Remove contact"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => {
+                            if (editingContactId === c.id) {
+                              commitContactIdentity(c.id);
+                              setEditingContactId(null);
+                            } else {
+                              setEditingContactId(c.id);
+                            }
+                          }}
+                          className={cn(
+                            "transition-colors",
+                            editingContactId === c.id
+                              ? "text-green-600 hover:text-green-700"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          aria-label={editingContactId === c.id ? "Done editing contact" : "Edit contact"}
+                          title={editingContactId === c.id ? "Done" : "Edit"}
+                        >
+                          {editingContactId === c.id ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => unlinkContact(c.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="Remove contact"
+                          title="Remove"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

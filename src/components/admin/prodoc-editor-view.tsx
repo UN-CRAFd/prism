@@ -451,10 +451,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     <div className="flex flex-col h-full">
 
       {/* Header */}
-      <div className="border-b px-8 h-32 flex items-center justify-between shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold font-qanelas">{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
+      <div className="border-b px-8 h-32 flex items-center justify-between gap-4 shrink-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className="text-2xl font-bold font-qanelas truncate min-w-0" title={selectedDoc?.project_title}>{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
             {!isPartner && selectedDoc && (
               <Select value={selectedDoc.status ?? "Open"} onValueChange={handleStatusChange}>
                 <SelectTrigger className={`!h-7 w-fit shrink-0 px-2.5 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(selectedDoc.status ?? "Open")}`}>
@@ -478,7 +478,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {selectedProdocId && (selectedSection === "general" || selectedSection === "narratives" || selectedSection === "sdg") && (
             <AutosaveIndicator state={editorSaveState} idleAsSaved />
           )}

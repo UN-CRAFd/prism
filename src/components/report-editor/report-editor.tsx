@@ -818,8 +818,8 @@ export function ReportEditor({
     <div className="flex flex-col h-full bg-background">
 
       {/* Top bar */}
-      <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between shrink-0">
-        <div>
+      <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-4 shrink-0">
+        <div className="min-w-0 flex-1">
           <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.title}</p>
           {selectedReport ? (
             <>
@@ -854,14 +854,14 @@ export function ReportEditor({
                   </span>
                 )}
               </div>
-              <p className="text-neutral-400 text-sm mt-0.5">{selectedReport.project_title}</p>
+              <p className="text-neutral-400 text-sm mt-0.5 truncate" title={selectedReport.project_title}>{selectedReport.project_title}</p>
             </>
           ) : (
             <h1 className="text-2xl font-bold font-qanelas">{labels.partnerEditor.title}</h1>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {reportId && !sectionLoading && !notFound && (
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
           )}

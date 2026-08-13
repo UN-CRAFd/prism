@@ -2,12 +2,21 @@
 
 export const dynamic = "force-dynamic";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   UploadCloud, FileSpreadsheet, X,
-  Download, ArrowUpFromLine, ArrowDownToLine,
+  Download, ArrowUpFromLine, ArrowDownToLine, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -17,7 +26,9 @@ const UPLOAD_SECTIONS = [
   { value: "risk",    label: "Risk Management" },
 ];
 
-const DOWNLOAD_SECTIONS = [
+// Report-scoped sections (annual/final report data). Only meaningful when the
+// export includes reports.
+const REPORT_DOWNLOAD_SECTIONS = [
   { value: "overview",          label: "Overview" },
   { value: "surveys",           label: "Surveys" },
   { value: "achievements",      label: "Key Achievements" },
@@ -33,6 +44,29 @@ const DOWNLOAD_SECTIONS = [
   { value: "transfers",         label: "Transfers" },
   { value: "complementary",     label: "Complementary Funding" },
 ];
+
+// Prodoc (project-document) sections — project-scoped, no report year. Only
+// meaningful when the export includes prodocs.
+const PRODOC_DOWNLOAD_SECTIONS = [
+  { value: "prodoc_narratives",  label: "Narratives" },
+  { value: "prodoc_sdg_targets", label: "SDG Targets" },
+  { value: "prodoc_workplan",    label: "Baseline Workplan" },
+  { value: "prodoc_budgets",     label: "Baseline Budgets" },
+  { value: "prodoc_signatures",  label: "Signatures" },
+];
+
+type ExportType = "report" | "prodoc" | "both";
+
+// The "overview" section is report-scoped but adds project meta useful to any
+// export; the workplan section is report-only (baseline lives in prodoc_workplan).
+const REPORT_ONLY_SECTIONS = new Set(["workplan"]);
+
+interface ProjectOpt {
+  id: number;
+  project_title: string;
+  short_name: string | null;
+  partner_short_name: string;
+}
 
 const SCHEMA: Record<string, { required: string; optional?: string }> = {
   surveys: {
@@ -243,28 +277,163 @@ function ImportPanel() {
   );
 }
 
+// ── Section multi-select dropdown ────────────────────────────────────────────
+// A checkbox dropdown for one section group (report or prodoc). `selected` is
+// the full sections state; onToggle flips one value; the trigger summarizes how
+// many of this group's items are picked.
+
+function SectionMultiSelect({
+  label,
+  items,
+  selected,
+  onToggle,
+  onSetAll,
+}: {
+  label: string;
+  items: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  onSetAll: (values: string[], select: boolean) => void;
+}) {
+  const values = items.map((i) => i.value);
+  const count = values.filter((v) => selected.includes(v)).length;
+  const allSelected = count === values.length;
+  const triggerLabel =
+    count === 0 ? `No ${label.toLowerCase()}`
+    : allSelected ? `All ${label.toLowerCase()}`
+    : `${count} of ${values.length} selected`;
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full h-9 justify-between font-normal">
+            <span className={cn("truncate", count === 0 && "text-muted-foreground")}>{triggerLabel}</span>
+            <ChevronDown className="size-4 shrink-0 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[320px] max-h-[420px] overflow-y-auto">
+          <DropdownMenuCheckboxItem
+            checked={allSelected}
+            onCheckedChange={() => onSetAll(values, !allSelected)}
+            onSelect={(e) => e.preventDefault()}
+          >
+            {allSelected ? "Clear all" : "Select all"}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          {items.map((i) => (
+            <DropdownMenuCheckboxItem
+              key={i.value}
+              checked={selected.includes(i.value)}
+              onCheckedChange={() => onToggle(i.value)}
+              onSelect={(e) => e.preventDefault()}
+            >
+              {i.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 // ── Download panel ─────────────────────────────────────────────────────────
 
 function ExportPanel() {
-  const [sections, setSections] = useState<string[]>(DOWNLOAD_SECTIONS.map((s) => s.value));
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
+  // Empty = all projects.
+  const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([]);
+  // Reports and project documents are independent toggles; either or both.
+  const [wantReport, setWantReport] = useState(true);
+  const [wantProdoc, setWantProdoc] = useState(true);
+  const [sections, setSections] = useState<string[]>([
+    ...REPORT_DOWNLOAD_SECTIONS.map((s) => s.value),
+    ...PRODOC_DOWNLOAD_SECTIONS.map((s) => s.value),
+  ]);
+  const [includeDocuments, setIncludeDocuments] = useState(true);
+  const [includePhotos, setIncludePhotos] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
-  function toggle(val: string) {
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d) => setProjects(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  // The request's `type` param, derived from the two toggles.
+  const type: ExportType =
+    wantReport && wantProdoc ? "both" : wantProdoc ? "prodoc" : "report";
+
+  // The section values exposed by the chosen data type(s). Anything outside this
+  // set is never submitted, so a report-only section can't leak into a prodoc-only
+  // export.
+  const visibleValues = useMemo(() => {
+    const set = new Set<string>();
+    if (wantReport) REPORT_DOWNLOAD_SECTIONS.forEach((s) => set.add(s.value));
+    if (wantProdoc) PRODOC_DOWNLOAD_SECTIONS.forEach((s) => set.add(s.value));
+    return set;
+  }, [wantReport, wantProdoc]);
+
+  // Sections actually submitted: intersection of the user's picks with what the
+  // chosen type exposes (so a report-only section can't leak into a prodoc export).
+  const effectiveSections = useMemo(
+    () => sections.filter((s) => visibleValues.has(s) && !(REPORT_ONLY_SECTIONS.has(s) && !wantReport)),
+    [sections, visibleValues, wantReport]
+  );
+
+  function toggleSection(val: string) {
+    setSections((prev) => (prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]));
+  }
+
+  // Bulk select/clear a group's values in the sections state.
+  function setAllSections(values: string[], select: boolean) {
     setSections((prev) =>
-      prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
+      select ? [...new Set([...prev, ...values])] : prev.filter((s) => !values.includes(s))
     );
   }
 
-  const allSelected = sections.length === DOWNLOAD_SECTIONS.length;
+  function toggleProject(id: number) {
+    setSelectedProjectIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  // Projects grouped by partner for the dropdown.
+  const groupedProjects = useMemo(() => {
+    const map = new Map<string, ProjectOpt[]>();
+    for (const p of projects) {
+      const g = map.get(p.partner_short_name);
+      if (g) g.push(p);
+      else map.set(p.partner_short_name, [p]);
+    }
+    return Array.from(map.entries())
+      .map(([partner, items]) => ({ partner, items }))
+      .sort((a, b) => a.partner.localeCompare(b.partner));
+  }, [projects]);
+
+  const projectFilterLabel = (() => {
+    if (selectedProjectIds.length === 0) return "All projects";
+    if (selectedProjectIds.length === 1) {
+      const p = projects.find((x) => x.id === selectedProjectIds[0]);
+      return p ? p.short_name || p.project_title : "1 project";
+    }
+    return `${selectedProjectIds.length} projects selected`;
+  })();
 
   async function handleDownload() {
-    if (sections.length === 0) return;
+    if (effectiveSections.length === 0 && !includeDocuments && !includePhotos) return;
     setDownloading(true);
     setError("");
     try {
-      const params = sections.map((s) => `sections=${s}`).join("&");
-      const res = await fetch(`/api/download/zip?${params}`);
+      const params = new URLSearchParams();
+      params.set("type", type);
+      for (const s of effectiveSections) params.append("sections", s);
+      for (const id of selectedProjectIds) params.append("projects", String(id));
+      if (includeDocuments) params.set("documents", "true");
+      if (includePhotos) params.set("photos", "true");
+
+      const res = await fetch(`/api/download/zip?${params.toString()}`);
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error || "Download failed");
@@ -283,9 +452,10 @@ function ExportPanel() {
     }
   }
 
-  const selectedLabels = sections
-    .map((v) => DOWNLOAD_SECTIONS.find((s) => s.value === v)?.label)
-    .filter(Boolean);
+  // Need a data type chosen, and at least one section or file kind to include.
+  const nothingToExport =
+    (!wantReport && !wantProdoc) ||
+    (effectiveSections.length === 0 && !includeDocuments && !includePhotos);
 
   return (
     <div className="flex flex-col h-full">
@@ -296,51 +466,123 @@ function ExportPanel() {
         </div>
         <div>
           <p className="text-sm font-semibold">Export data</p>
-          <p className="text-xs text-muted-foreground">All reports, bundled as CSV files in a ZIP</p>
+          <p className="text-xs text-muted-foreground">Bundle CSVs and uploaded files into a ZIP</p>
         </div>
       </div>
 
       <div className="flex flex-col gap-5 pt-5 flex-1">
-        {/* Section toggles */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-muted-foreground">Sections to include</p>
-            <button
-              onClick={() => setSections(allSelected ? [] : DOWNLOAD_SECTIONS.map((s) => s.value))}
-              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {allSelected ? "Clear all" : "Select all"}
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {DOWNLOAD_SECTIONS.map((s) => {
-              const active = sections.includes(s.value);
-              return (
-                <button
-                  key={s.value}
-                  onClick={() => toggle(s.value)}
-                  className={cn(
-                    "flex items-center justify-center rounded-lg border px-3 py-2 text-left transition-colors font-medium text-sm",
-                    active
-                      ? "border-neutral-800 bg-neutral-900 text-white"
-                      : "border-border text-muted-foreground hover:border-neutral-400 hover:text-foreground"
-                  )}
+        {/* Scope: projects + type */}
+        <div className="flex flex-col gap-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Projects</p>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full h-9 justify-between font-normal">
+                  <span className={cn("truncate", selectedProjectIds.length === 0 && "text-muted-foreground")}>
+                    {projectFilterLabel}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[320px] max-h-[420px] overflow-y-auto">
+                <DropdownMenuCheckboxItem
+                  checked={selectedProjectIds.length === 0}
+                  onCheckedChange={() => setSelectedProjectIds([])}
+                  onSelect={(e) => e.preventDefault()}
                 >
-                  {s.label}
-                </button>
-              );
-            })}
+                  All projects
+                </DropdownMenuCheckboxItem>
+                {groupedProjects.map((g) => (
+                  <DropdownMenuGroup key={g.partner}>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">{g.partner}</DropdownMenuLabel>
+                    {g.items.map((p) => (
+                      <DropdownMenuCheckboxItem
+                        key={p.id}
+                        checked={selectedProjectIds.includes(p.id)}
+                        onCheckedChange={() => toggleProject(p.id)}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {p.short_name || p.project_title}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Include</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-sm">
+                <input type="checkbox" checked={wantReport} onChange={(e) => setWantReport(e.target.checked)} className="size-4" />
+                <span className="font-medium">Reports</span>
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-sm">
+                <input type="checkbox" checked={wantProdoc} onChange={(e) => setWantProdoc(e.target.checked)} className="size-4" />
+                <span className="font-medium">Project Docs</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Section dropdowns — one per selected data type */}
+        {(wantReport || wantProdoc) && (
+          <div className="flex flex-col gap-3">
+            {wantReport && (
+              <SectionMultiSelect
+                label="Report sections"
+                items={REPORT_DOWNLOAD_SECTIONS}
+                selected={sections}
+                onToggle={toggleSection}
+                onSetAll={setAllSections}
+              />
+            )}
+            {wantProdoc && (
+              <SectionMultiSelect
+                label="Project-document sections"
+                items={PRODOC_DOWNLOAD_SECTIONS}
+                selected={sections}
+                onToggle={toggleSection}
+                onSetAll={setAllSections}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Uploaded files */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Uploaded files</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-sm">
+              <input type="checkbox" checked={includeDocuments} onChange={(e) => setIncludeDocuments(e.target.checked)} className="size-4" />
+              <span className="font-medium">Documents</span>
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-sm">
+              <input type="checkbox" checked={includePhotos} onChange={(e) => setIncludePhotos(e.target.checked)} className="size-4" />
+              <span className="font-medium">Photos</span>
+            </label>
           </div>
         </div>
 
         {/* Summary */}
         <div className="rounded-lg bg-muted/40 border px-3.5 py-3">
-          {selectedLabels.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No sections selected — pick at least one above.</p>
+          {nothingToExport ? (
+            <p className="text-xs text-muted-foreground">Nothing selected — pick at least one section or file type.</p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{selectedLabels.length} section{selectedLabels.length !== 1 ? "s" : ""}</span>
-              {" "}will be exported: {selectedLabels.join(", ")}.
+              Exporting{" "}
+              <span className="font-medium text-foreground">{projectFilterLabel.toLowerCase()}</span>
+              {" · "}
+              <span className="font-medium text-foreground">{effectiveSections.length} section{effectiveSections.length !== 1 ? "s" : ""}</span>
+              {(includeDocuments || includePhotos) && (
+                <>
+                  {" · "}
+                  {[includeDocuments && "documents", includePhotos && "photos"].filter(Boolean).join(" + ")}
+                </>
+              )}
+              .
             </p>
           )}
         </div>
@@ -350,7 +592,7 @@ function ExportPanel() {
         <div className="mt-auto">
           <Button
             onClick={handleDownload}
-            disabled={sections.length === 0 || downloading}
+            disabled={nothingToExport || downloading}
             className="w-full"
             size="sm"
           >

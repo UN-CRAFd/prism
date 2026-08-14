@@ -1452,15 +1452,6 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
           </table>
         </div>
       )}
-
-      {/* Legend for the update-window type codes — explanations below the list. */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        {workplanUpdateTypes().map((t) => (
-          <span key={t.code}>
-            <span className="font-semibold text-neutral-700">{t.code}</span> {t.label}
-          </span>
-        ))}
-      </div>
       </div>
       )}
     </div>

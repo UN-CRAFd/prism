@@ -274,6 +274,66 @@ async function populateExpenditureEntries(client: PoolClient, reportIds: number[
   );
 }
 
+// Ensure each new report has its matching workplan update window, and make that
+// window the project's active one. Workplan progress attaches to admin-managed
+// update windows (workplan_updates), each labelled [YEAR]+[code]; a report with no
+// active window shows partners the "No active update window has been set" notice.
+// So we auto-create the window that corresponds to the report — annual → 'AR',
+// final → 'FR', keyed on (project_id, year, type_code), mirroring the migration-046
+// backfill mapping — then activate it so the partner can enter progress right away.
+//
+// Idempotent creation: a NOT EXISTS anti-join skips any (project, year, code)
+// window that already exists, so re-creating a report (or an admin having added the
+// window by hand) creates nothing. Exactly one report — and thus at most one new
+// window — is created per project in both the single and annual-batch paths, so
+// activating the freshly-inserted windows keeps the one-active-per-project invariant
+// (partial unique index workplan_updates_one_active_uq) after we clear the prior
+// active window for those projects.
+async function seedWorkplanUpdateWindows(client: PoolClient, reportIds: number[]) {
+  if (reportIds.length === 0) return;
+
+  const inserted = await client.query<{ id: number; project_id: number }>(
+    `INSERT INTO reporting_platform.workplan_updates (project_id, year, type_code, sort_order)
+     SELECT nr.project_id, nr.year,
+            CASE nr.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END AS type_code,
+            COALESCE(
+              (SELECT MAX(wu.sort_order) FROM reporting_platform.workplan_updates wu
+                WHERE wu.project_id = nr.project_id), 0)
+              + ROW_NUMBER() OVER (PARTITION BY nr.project_id ORDER BY nr.year, nr.id) AS sort_order
+       FROM reporting_platform.reports nr
+      WHERE nr.id = ANY($1::int[])
+        AND nr.data_type = 'report'
+        AND NOT EXISTS (
+          SELECT 1 FROM reporting_platform.workplan_updates wu
+           WHERE wu.project_id = nr.project_id
+             AND wu.year = nr.year
+             AND wu.type_code = CASE nr.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END
+        )
+     RETURNING id, project_id`,
+    [reportIds]
+  );
+
+  const newWindowIds = inserted.rows.map((r) => r.id);
+  if (newWindowIds.length === 0) return;
+
+  const projectIds = inserted.rows.map((r) => r.project_id);
+  // Clear the previously-active window on just these projects, then activate the
+  // new windows — order matters so the one-active partial unique index never sees
+  // two active rows for a project mid-statement.
+  await client.query(
+    `UPDATE reporting_platform.workplan_updates
+        SET is_active = FALSE
+      WHERE project_id = ANY($1::int[]) AND is_active AND id <> ALL($2::int[])`,
+    [projectIds, newWindowIds]
+  );
+  await client.query(
+    `UPDATE reporting_platform.workplan_updates
+        SET is_active = TRUE
+      WHERE id = ANY($1::int[])`,
+    [newWindowIds]
+  );
+}
+
 // POST /api/reports
 // Single report: { project_id, year, report_submission_date? }
 // Annual report (all projects): { year, annual: true, report_submission_date? }
@@ -341,6 +401,7 @@ export async function POST(request: Request) {
       await copyProdocBaseline(client, inserted.rows.map((r) => r.id));
       await seedReportSurveys(client, inserted.rows.map((r) => r.id));
       await populateExpenditureEntries(client, inserted.rows.map((r) => r.id));
+      await seedWorkplanUpdateWindows(client, inserted.rows.map((r) => r.id));
 
       await client.query("COMMIT");
       return NextResponse.json(
@@ -381,6 +442,7 @@ export async function POST(request: Request) {
     await copyProdocBaseline(client, [inserted.rows[0].id]);
     await seedReportSurveys(client, [inserted.rows[0].id]);
     await populateExpenditureEntries(client, [inserted.rows[0].id]);
+    await seedWorkplanUpdateWindows(client, [inserted.rows[0].id]);
 
     await client.query("COMMIT");
     return NextResponse.json(inserted.rows[0], { status: 201 });

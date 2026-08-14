@@ -83,15 +83,28 @@ export async function editorProjectIds(session: Session): Promise<number[]> {
 
 // ── Ownership checks (partner short_name === session.org) ────────────────────
 
-async function orgOwnsReport(org: string, reportId: number | string): Promise<boolean> {
+// A partner owns a report when it belongs to their org (by short_name). Editors
+// (implementing partners in project_editors) are granted PRODOC-ONLY rights, so
+// they also match — but only when the report is the project document
+// (data_type='prodoc'), never an actual reporting-year report.
+async function orgOwnsReport(
+  org: string,
+  reportId: number | string,
+  partnerId: number | null
+): Promise<boolean> {
   const rows = await query(
     `SELECT 1
        FROM reporting_platform.reports  r
        JOIN reporting_platform.projects p  ON p.id  = r.project_id
        JOIN reporting_platform.partners pt ON pt.id = p.partner_id
       WHERE r.id = $1 AND lower(pt.short_name) = lower($2)
+      UNION ALL
+      SELECT 1
+       FROM reporting_platform.reports r
+       JOIN reporting_platform.project_editors pe ON pe.project_id = r.project_id
+      WHERE r.id = $1 AND pe.partner_id = $3 AND r.data_type = 'prodoc'
       LIMIT 1`,
-    [reportId, org]
+    [reportId, org, partnerId]
   );
   return rows.length > 0;
 }
@@ -162,10 +175,13 @@ async function orgOwnsPartner(org: string, partnerId: number | string): Promise<
   return rows.length > 0;
 }
 
+// Row-level counterpart of orgOwnsReport: the org owns the row's report, OR an
+// editor may reach it when that report is a prodoc (data_type='prodoc').
 async function orgOwnsRow(
   org: string,
   table: string,
-  rowId: number | string
+  rowId: number | string,
+  partnerId: number | null
 ): Promise<boolean> {
   if (!IDENT.test(table)) throw new Error(`Invalid table identifier: ${table}`);
   const rows = await query(
@@ -175,8 +191,14 @@ async function orgOwnsRow(
        JOIN reporting_platform.projects p  ON p.id  = r.project_id
        JOIN reporting_platform.partners pt ON pt.id = p.partner_id
       WHERE t.id = $1 AND lower(pt.short_name) = lower($2)
+      UNION ALL
+      SELECT 1
+       FROM reporting_platform.${table} t
+       JOIN reporting_platform.reports r ON r.id = t.report_id
+       JOIN reporting_platform.project_editors pe ON pe.project_id = r.project_id
+      WHERE t.id = $1 AND pe.partner_id = $3 AND r.data_type = 'prodoc'
       LIMIT 1`,
-    [rowId, org]
+    [rowId, org, partnerId]
   );
   return rows.length > 0;
 }
@@ -241,7 +263,8 @@ export async function guardReport(
 ): Promise<NextResponse | null> {
   if (session.role === "admin") return null;
   if (!session.org || !reportId) return forbidden();
-  if (!(await orgOwnsReport(session.org, reportId))) return forbidden();
+  const partnerId = await resolvePartnerId(session);
+  if (!(await orgOwnsReport(session.org, reportId, partnerId))) return forbidden();
   if (opts?.requireOpen) {
     const status = await reportStatusById(reportId);
     if (status !== OPEN_STATUS) return locked();
@@ -281,7 +304,8 @@ export async function guardRow(
 ): Promise<NextResponse | null> {
   if (session.role === "admin") return null;
   if (!session.org || !rowId) return forbidden();
-  if (!(await orgOwnsRow(session.org, table, rowId))) return forbidden();
+  const partnerId = await resolvePartnerId(session);
+  if (!(await orgOwnsRow(session.org, table, rowId, partnerId))) return forbidden();
   if (opts?.requireOpen) {
     const status = await reportStatusByRow(table, rowId);
     if (status !== OPEN_STATUS) return locked();

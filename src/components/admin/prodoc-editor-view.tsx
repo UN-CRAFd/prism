@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock, Printer, X } from "lucide-react";
+import { Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -451,18 +451,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   // ── Render ──────────────────────────────────────────────────────────────
 
-  // Group indicators by category (must be at top level, not in conditional)
-  const groupedIndicators = useMemo(() => {
-    if (indicatorLines.length === 0) return [];
-    const map = new Map<string, typeof indicatorLines>();
-    for (const line of indicatorLines) {
-      const cat = line.category || "(No category)";
-      if (!map.has(cat)) map.set(cat, []);
-      map.get(cat)!.push(line);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [indicatorLines]);
-
   const sectionLoading =
     selectedSection === "risk" ? loadingRisk :
     selectedSection === "indicators" ? loadingIndicators : false;
@@ -866,20 +854,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {groupedIndicators.map(([category, lines]) => {
-                        let rowNum = 1;
-                        return [
-                          <tr key={`cat-${category}`} className="bg-muted/40">
-                            <td colSpan={7} className="px-4 py-2.5">
-                              <div className="flex items-center gap-2 font-semibold text-sm">
-                                <Layers className="size-3.5 text-muted-foreground" />
-                                {category}
-                                <span className="text-xs text-muted-foreground font-normal">({lines.length})</span>
-                              </div>
-                            </td>
-                          </tr>,
-                          ...lines.map((line) => {
-                            const num = rowNum++;
+                      {indicatorLines.map((line, i) => {
+                            const num = i + 1;
                             return (
                               <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
                                 <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{num}.</td>
@@ -938,8 +914,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                             </tr>
                             );
-                          }),
-                        ].flat();
                       })}
                     </tbody>
                   </table>

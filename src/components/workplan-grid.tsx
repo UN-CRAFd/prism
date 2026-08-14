@@ -1229,7 +1229,7 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
   const wu = labels.workplanUpdates;
   const [windows, setWindows] = useState<UpdateWindow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newYear, setNewYear] = useState("");

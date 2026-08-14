@@ -66,6 +66,24 @@ export async function POST(
        RETURNING id, project_id, revision_date, comment, created_at`,
       [id, revisionDate, comment]
     );
+
+    // Open the matching Budget Revision workplan-update window for the revision's
+    // year, if one doesn't already exist. Idempotent: a repeat revision in the
+    // same year reuses the existing window.
+    await query(
+      `INSERT INTO reporting_platform.workplan_updates (project_id, year, type_code, sort_order)
+       SELECT $1, EXTRACT(YEAR FROM $2::date)::int, 'BR',
+              COALESCE((SELECT MAX(sort_order) + 1 FROM reporting_platform.workplan_updates
+                         WHERE project_id = $1), 1)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM reporting_platform.workplan_updates
+           WHERE project_id = $1
+             AND year = EXTRACT(YEAR FROM $2::date)::int
+             AND type_code = 'BR'
+        )`,
+      [id, revisionDate]
+    );
+
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     logger.error("POST /api/projects/[id]/revisions error:", err);

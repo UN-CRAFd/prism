@@ -88,6 +88,23 @@ export async function POST(
       [next, id]
     );
 
+    // Open the matching No-Cost Extension workplan-update window for the current
+    // year, if one doesn't already exist. Extensions carry no explicit date, so
+    // the window is keyed to the year the extension is granted. Idempotent.
+    await client.query(
+      `INSERT INTO reporting_platform.workplan_updates (project_id, year, type_code, sort_order)
+       SELECT $1, EXTRACT(YEAR FROM NOW())::int, 'NCE',
+              COALESCE((SELECT MAX(sort_order) + 1 FROM reporting_platform.workplan_updates
+                         WHERE project_id = $1), 1)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM reporting_platform.workplan_updates
+           WHERE project_id = $1
+             AND year = EXTRACT(YEAR FROM NOW())::int
+             AND type_code = 'NCE'
+        )`,
+      [id]
+    );
+
     await client.query("COMMIT");
     return NextResponse.json({ project: updated.rows[0], extension: inserted.rows[0] }, { status: 201 });
   } catch (err) {

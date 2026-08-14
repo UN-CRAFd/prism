@@ -14,7 +14,7 @@ import {
 import { Plus, Building2, ExternalLink, Check, X } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
-  FilterBar, SearchInput,
+  FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
 
 // -- Types ------------------------------------------------------------------
@@ -107,6 +107,11 @@ export default function PartnersPage() {
   const [view, setView] = useState<"list" | "grid">("grid");
   const [search, setSearch] = useState("");
 
+  // Sort state. Default: alphabetical by organization name.
+  type SortKey = "long_name" | "short_name" | "mail_account" | "projects" | "created_at";
+  const [sortKey, setSortKey] = useState<SortKey>("long_name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -135,7 +140,7 @@ export default function PartnersPage() {
   useEffect(() => { load(); }, [load]);
 
   // Search across short/long name, email, and linked project names.
-  const filtered = useMemo(() => {
+  const searched = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return partners;
     return partners.filter((p) =>
@@ -143,6 +148,18 @@ export default function PartnersPage() {
         .some((v) => v?.toLowerCase().includes(q))
     );
   }, [partners, search]);
+
+  // Then sort the search results by the chosen key/direction.
+  const filtered = useMemo(
+    () =>
+      sortBy(
+        searched,
+        (p) =>
+          sortKey === "projects" ? p.projects.length : (p[sortKey] as string | null),
+        sortDir
+      ),
+    [searched, sortKey, sortDir]
+  );
 
   function resetForm() {
     setShortName(""); setLongName(""); setWebsite(""); setMail(""); setPassword("");
@@ -210,6 +227,19 @@ export default function PartnersPage() {
 
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Search partners by name, email, or project…" />
+        <SortSelect
+          value={sortKey}
+          dir={sortDir}
+          onChange={setSortKey}
+          onDirChange={setSortDir}
+          options={[
+            { value: "long_name", label: "Name" },
+            { value: "short_name", label: "Short name" },
+            { value: "mail_account", label: "Email" },
+            { value: "projects", label: "Projects" },
+            { value: "created_at", label: "Date added" },
+          ]}
+        />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">

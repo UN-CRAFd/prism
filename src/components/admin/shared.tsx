@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, type LucideIcon } from "lucide-react";
+import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, ArrowUpDown, ArrowUp, ArrowDown, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -181,6 +181,78 @@ export function FilterSelect({
       </Select>
     </div>
   );
+}
+
+// ── Sort control ─────────────────────────────────────────────────────────────
+// A "Sort by <field>" dropdown paired with an asc/desc direction toggle. Sits in
+// the FilterBar alongside SearchInput / FilterSelect. Generic over the field key
+// so each page defines its own sortable columns.
+
+export type SortDir = "asc" | "desc";
+
+export function SortSelect<T extends string>({
+  value,
+  dir,
+  onChange,
+  onDirChange,
+  options,
+  width = 160,
+}: {
+  value: T;
+  dir: SortDir;
+  onChange: (v: T) => void;
+  onDirChange: (d: SortDir) => void;
+  options: { value: T; label: string }[];
+  width?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <ArrowUpDown className="size-3.5 text-muted-foreground shrink-0" />
+      <span className="text-xs text-muted-foreground whitespace-nowrap">Sort by</span>
+      <Select value={value} onValueChange={(v) => onChange(v as T)}>
+        <SelectTrigger className="h-8 text-xs" style={{ width }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <button
+        type="button"
+        onClick={() => onDirChange(dir === "asc" ? "desc" : "asc")}
+        className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+        title={dir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}
+        aria-label={dir === "asc" ? "Sort ascending" : "Sort descending"}
+      >
+        {dir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+// Comparator that sorts by a chosen key with a direction, keeping nulls/blanks
+// last regardless of direction, and comparing strings case-insensitively and
+// numbers numerically. Returns a fresh sorted array (does not mutate).
+export function sortBy<T>(
+  rows: T[],
+  key: (row: T) => string | number | null | undefined,
+  dir: SortDir
+): T[] {
+  const factor = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = key(a);
+    const bv = key(b);
+    // Empty/null values always sink to the bottom, regardless of direction.
+    const aEmpty = av == null || av === "";
+    const bEmpty = bv == null || bv === "";
+    if (aEmpty && bEmpty) return 0;
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * factor;
+    return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" }) * factor;
+  });
 }
 
 // ── Feedback states ────────────────────────────────────────────────────────

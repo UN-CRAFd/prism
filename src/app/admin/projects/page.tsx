@@ -17,7 +17,7 @@ import {
 import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
-  FilterBar, FilterSelect, ALL,
+  FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
@@ -146,6 +146,13 @@ export default function ProjectsPage() {
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   // ALL = no grouping; otherwise "partner" | "status".
   const [groupMode, setGroupMode] = useState<string>(ALL);
+
+  // Sort state. Default: alphabetical by project title.
+  type SortKey =
+    | "project_title" | "short_name" | "partner_short_name" | "status"
+    | "mptfo_project_number" | "grant_size_usd" | "project_duration_months" | "project_start_date";
+  const [sortKey, setSortKey] = useState<SortKey>("project_title");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // Apply partner filter from query parameter on mount
   useEffect(() => {
@@ -374,15 +381,24 @@ export default function ProjectsPage() {
     });
   }
 
-  // ── Filter & group ────────────────────────────────────────────────────────
-  const filtered = useMemo(
-    () => projects.filter(
+  // ── Filter, sort & group ──────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const matched = projects.filter(
       (p) =>
         (filterPartner === ALL || String(p.partner_id) === filterPartner) &&
         (filterStatus === ALL || p.status === filterStatus)
-    ),
-    [projects, filterPartner, filterStatus]
-  );
+    );
+    return sortBy(
+      matched,
+      (p) => {
+        // Money & duration sort numerically; the rest lexically (nulls sink).
+        if (sortKey === "grant_size_usd") return p.grant_size_usd != null ? parseFloat(p.grant_size_usd) : null;
+        if (sortKey === "project_duration_months") return p.project_duration_months;
+        return p[sortKey] as string | null;
+      },
+      sortDir
+    );
+  }, [projects, filterPartner, filterStatus, sortKey, sortDir]);
 
   // Grouped sections for the grid view (null when grouping is off → flat grid).
   const groups = useMemo(() => {
@@ -567,6 +583,22 @@ export default function ProjectsPage() {
           allLabel="All statuses"
           width={190}
           options={optionValues("projectStatus").map((s) => ({ value: s, label: s }))}
+        />
+        <SortSelect
+          value={sortKey}
+          dir={sortDir}
+          onChange={setSortKey}
+          onDirChange={setSortDir}
+          options={[
+            { value: "project_title", label: "Title" },
+            { value: "short_name", label: "Short name" },
+            { value: "partner_short_name", label: "Partner" },
+            { value: "status", label: "Status" },
+            { value: "mptfo_project_number", label: "MPTFO #" },
+            { value: "grant_size_usd", label: "Grant size" },
+            { value: "project_duration_months", label: "Duration" },
+            { value: "project_start_date", label: "Start date" },
+          ]}
         />
         {view === "grid" && (
           <FilterSelect

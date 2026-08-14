@@ -89,6 +89,11 @@ export function AppSidebar() {
   // back to the initial avatar.
   const [logoExt, setLogoExt] = useState<"webp" | "png" | "none">("webp");
   const [reports, setReports] = useState<SidebarReport[]>([]);
+  // Whether any project document / reporting-year report exists in the viewer's
+  // scope. Drives whether the two editor nav entries appear (hidden when empty).
+  // `null` = not yet loaded, so we don't flash-hide before the fetch resolves.
+  const [hasProdocs, setHasProdocs] = useState<boolean | null>(null);
+  const [hasReports, setHasReports] = useState<boolean | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -166,7 +171,28 @@ export function AppSidebar() {
             b.year - a.year
         );
         setReports(filtered);
+        setHasReports(filtered.length > 0);
       })
+      .catch(() => {});
+  }, [mounted, isPartner, user]);
+
+  // Editor nav visibility: the "Report Editor" / "Project Document" entries only
+  // appear once at least one report / prodoc exists in the viewer's scope. The
+  // reports API is session-scoped server-side, so a partner sees only their own.
+  //  • Admin fetches report counts here (partners get hasReports from the effect
+  //    above, which already loads their report list for the sub-menu).
+  //  • Both roles fetch whether any prodoc exists.
+  useEffect(() => {
+    if (!mounted || !user) return;
+    if (!isPartner) {
+      fetch("/api/reports?data_type=report")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows) => setHasReports(Array.isArray(rows) && rows.length > 0))
+        .catch(() => {});
+    }
+    fetch("/api/reports?data_type=prodoc")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setHasProdocs(Array.isArray(rows) && rows.length > 0))
       .catch(() => {});
   }, [mounted, isPartner, user]);
 
@@ -219,18 +245,25 @@ export function AppSidebar() {
               icon: Home,
               isActive: (p: string) => p === "/partner",
             },
-            {
-              href: "/partner/prodoc-editor",
-              label: "Project Document",
-              icon: FileStack,
-              isActive: (p: string) => p.startsWith("/partner/prodoc-editor"),
-            },
-            {
-              href: "/partner/report-editor",
-              label: "Report Editor",
-              icon: FileText,
-              isActive: (p: string) => p.startsWith("/partner/report-editor"),
-            },
+            // Project Document / Report Editor appear only once the partner has a
+            // prodoc / report (hidden while `=== false`; shown until then to avoid
+            // flashing them out before the fetch resolves).
+            ...(hasProdocs !== false
+              ? [{
+                  href: "/partner/prodoc-editor",
+                  label: "Project Document",
+                  icon: FileStack,
+                  isActive: (p: string) => p.startsWith("/partner/prodoc-editor"),
+                }]
+              : []),
+            ...(hasReports !== false
+              ? [{
+                  href: "/partner/report-editor",
+                  label: "Report Editor",
+                  icon: FileText,
+                  isActive: (p: string) => p.startsWith("/partner/report-editor"),
+                }]
+              : []),
             {
               href: "/partner/contacts",
               label: "Contact Information",
@@ -426,7 +459,15 @@ export function AppSidebar() {
           <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Editor
           </p>
-          {editorLinks.map((link) => {
+          {editorLinks
+            // Hide the Project Document / Report editors until at least one prodoc
+            // / report exists (kept visible while the count is still loading).
+            .filter((link) =>
+              link.href === "/admin/prodoc-editor" ? hasProdocs !== false
+              : link.href === "/admin/report-editor" ? hasReports !== false
+              : true
+            )
+            .map((link) => {
             const isActive = pathname.startsWith(link.href);
             return (
               <Link

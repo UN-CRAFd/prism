@@ -121,6 +121,7 @@ export async function GET(request: Request) {
         pr.geographic_scope,
         TO_CHAR(pr.project_start_date, 'YYYY-MM-DD')   AS project_start_date,
         pr.project_duration_months,
+        pr.partner_id                                   AS owner_partner_id,
         p.short_name                                    AS partner_short_name,
         p.long_name                                     AS partner_long_name,
         p.organization_website,

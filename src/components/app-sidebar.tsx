@@ -346,7 +346,7 @@ export function AppSidebar() {
                           slug: reportSlug(r),
                           year: r.year,
                           primary: `${r.report_type ?? "annual"} Report ${r.year}`,
-                          secondary: shortName(r.project_short_name) || r.project_title,
+                          secondary: r.project_short_name || r.project_title,
                           isActive: !!report && reportSlug(r) === report.project && String(r.year) === report.year,
                         }))
                       : report

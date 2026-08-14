@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
@@ -725,7 +725,7 @@ export function GeneralInfoAdminEditor({
               <SelectContent>
                 {involvedPartners.map((pt) => (
                   <SelectItem key={pt.id} value={String(pt.id)} disabled={!pt.can_manage}>
-                    {pt.short_name || pt.long_name || `#${pt.id}`}
+                    {shortName(pt.short_name) || pt.long_name || `#${pt.id}`}
                     {pt.is_lead ? " (lead)" : ""}
                   </SelectItem>
                 ))}

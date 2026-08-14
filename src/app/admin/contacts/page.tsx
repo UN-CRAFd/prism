@@ -19,6 +19,7 @@ import {
   FilterBar, SearchInput,
 } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 
@@ -208,7 +209,7 @@ export default function ContactsPage() {
   for (const c of filteredContacts) {
     let g = groups.find((x) => x.partnerId === c.partner_id);
     if (!g) {
-      g = { partnerId: c.partner_id, label: c.partner_short_name || c.partner_long_name || "—", rows: [] };
+      g = { partnerId: c.partner_id, label: shortName(c.partner_short_name) || c.partner_long_name || "—", rows: [] };
       groups.push(g);
     }
     g.rows.push(c);
@@ -248,7 +249,7 @@ export default function ContactsPage() {
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.id} value={String(p.id)}>
-                        {p.short_name ? `${p.short_name} — ${p.long_name || p.short_name}` : (p.long_name || "—")}
+                        {p.short_name ? `${shortName(p.short_name)} — ${p.long_name || shortName(p.short_name)}` : (p.long_name || "—")}
                       </SelectItem>
                     ))}
                   </SelectContent>

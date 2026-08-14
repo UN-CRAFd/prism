@@ -508,7 +508,7 @@ export default function ProjectsPage() {
     <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name || "—"}</p>
+          <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name?.toUpperCase() || "—"}</p>
           {/* Title is clamped to 2 lines; keep the MPTFO link OUTSIDE the clamp so
               a long title can't clip it away. */}
           <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
@@ -658,7 +658,7 @@ export default function ProjectsPage() {
           onChange={setFilterPartner}
           allLabel="All partners"
           width={190}
-          options={partners.map((p) => ({ value: String(p.id), label: p.short_name || p.long_name || "—" }))}
+          options={partners.map((p) => ({ value: String(p.id), label: p.short_name?.toUpperCase() || p.long_name || "—" }))}
         />
         <FilterSelect
           icon={CircleDot}
@@ -718,7 +718,7 @@ export default function ProjectsPage() {
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.id} value={String(p.id)}>
-                        {p.short_name ? `${p.short_name} — ${p.long_name || p.short_name}` : (p.long_name || "—")}
+                        {p.short_name ? `${p.short_name.toUpperCase()} — ${p.long_name || p.short_name.toUpperCase()}` : (p.long_name || "—")}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -801,7 +801,7 @@ export default function ProjectsPage() {
                 <TableRow key={p.id} className="cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
-                      {p.partner_short_name || "—"}
+                      {p.partner_short_name?.toUpperCase() || "—"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs font-mono text-muted-foreground">

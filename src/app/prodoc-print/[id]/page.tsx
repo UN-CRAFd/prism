@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, shortName } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 import { getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
@@ -269,14 +269,14 @@ export default function ProdocPrintPage() {
                 {m.project_title as string}
               </h1>
               <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.2, margin: "0 0 10px" }}>
-                {(m.partner_long_name as string) || (m.partner_short_name as string)}
-                {m.partner_short_name && m.partner_long_name ? ` (${m.partner_short_name})` : ""}
+                {(m.partner_long_name as string) || shortName(m.partner_short_name as string)}
+                {m.partner_short_name && m.partner_long_name ? ` (${shortName(m.partner_short_name as string)})` : ""}
               </div>
             </div>
             {orgLogo && (
               <img
                 src={orgLogo}
-                alt={(m.partner_short_name as string) || "Organization logo"}
+                alt={shortName(m.partner_short_name as string) || "Organization logo"}
                 style={{ height: 56, width: "auto", maxWidth: 160, objectFit: "contain", flexShrink: 0 }}
               />
             )}

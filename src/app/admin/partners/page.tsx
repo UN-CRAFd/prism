@@ -16,6 +16,7 @@ import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
+import { shortName as displayShortName } from "@/lib/utils";
 
 // -- Types ------------------------------------------------------------------
 
@@ -84,7 +85,7 @@ function PartnerLogo({ shortName }: { shortName: string | null }) {
   return (
     <img
       src={`/logos/${shortName.toLowerCase()}.${extension}`}
-      alt={shortName}
+      alt={displayShortName(shortName)}
       className="w-full h-auto object-contain max-h-16"
       onError={() => {
         if (extension === "webp") {
@@ -308,7 +309,7 @@ export default function PartnersPage() {
                 <TableRow key={p.id}>
                   <TableCell>
                     {p.short_name
-                      ? <Badge variant="outline" className="text-xs font-semibold">{p.short_name}</Badge>
+                      ? <Badge variant="outline" className="text-xs font-semibold">{displayShortName(p.short_name)}</Badge>
                       : <Dash />}
                   </TableCell>
                   <TableCell className="font-medium">{p.long_name || <Dash />}</TableCell>

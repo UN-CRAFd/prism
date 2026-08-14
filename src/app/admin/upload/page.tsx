@@ -495,7 +495,7 @@ function ExportPanel() {
                 {groupedProjects.map((g) => (
                   <DropdownMenuGroup key={g.partner}>
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">{g.partner}</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">{g.partner?.toUpperCase()}</DropdownMenuLabel>
                     {g.items.map((p) => (
                       <DropdownMenuCheckboxItem
                         key={p.id}

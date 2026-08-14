@@ -144,9 +144,9 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
               <div key={d.id} className="h-9 flex items-center pr-3">
                 <span
                   className="truncate text-sm font-medium"
-                  title={`${shortName(d.short_name) || d.project_title}${d.partner_short_name ? ` · ${shortName(d.partner_short_name)}` : ""}`}
+                  title={`${d.short_name || d.project_title}${d.partner_short_name ? ` · ${shortName(d.partner_short_name)}` : ""}`}
                 >
-                  {shortName(d.short_name) || d.project_title}
+                  {d.short_name || d.project_title}
                 </span>
               </div>
             ))}
@@ -183,7 +183,7 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
                   <div
                     style={{ left: `${left}%`, width: `${width}%`, backgroundColor: colorFor(d.partner_short_name) }}
                     className="absolute top-1.5 h-6 rounded-md flex items-center px-2 overflow-hidden z-10 shadow-sm ring-1 ring-black/5"
-                    title={`${shortName(d.short_name) || d.project_title}\n${shortName(d.partner_short_name)}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`}
+                    title={`${d.short_name || d.project_title}\n${shortName(d.partner_short_name)}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`}
                   >
                     <span className="truncate text-[11px] font-semibold text-white/95">
                       {d.project_duration_months} mo

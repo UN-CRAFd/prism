@@ -52,6 +52,8 @@ interface Prodoc {
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string;
+  owner_partner_id: number;  // projects.partner_id — the project lead's org
+
   project_start_date: string | null;
   project_duration_months: number | null;
   status: string | null; // Open | Under Review | Closed — gates editability
@@ -496,6 +498,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 min-w-0">
             <h1 className="text-2xl font-bold font-qanelas truncate min-w-0" title={selectedDoc?.project_title}>{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
+            {/* Partners edit two kinds of prodocs: their own projects (they're the
+                project lead) and ones they were granted editor rights on (owned by a
+                different org — see [[project-editors-prodoc-rights]]). This badge tells
+                the two apart at a glance by comparing the owner org to the login. */}
+            {isPartner && selectedDoc && user?.partner_id != null && (
+              <span
+                className={cn(
+                  "shrink-0 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap",
+                  selectedDoc.owner_partner_id === user.partner_id
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : "bg-violet-50 text-violet-700 border-violet-200"
+                )}
+              >
+                {selectedDoc.owner_partner_id === user.partner_id ? "Project Lead" : "Implementing Partner"}
+              </span>
+            )}
             {!isPartner && selectedDoc && (
               <Select value={selectedDoc.status ?? "Open"} onValueChange={handleStatusChange}>
                 <SelectTrigger className={`!h-7 w-fit shrink-0 px-2.5 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(selectedDoc.status ?? "Open")}`}>
@@ -512,7 +530,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
           {isPartner ? (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedDoc ? (shortName(selectedDoc.project_short_name) || "Project Document") : "Your project document baseline."}
+              {selectedDoc ? (selectedDoc.project_short_name || "Project Document") : "Your project document baseline."}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground mt-0.5">Project Document Editor</p>
@@ -544,7 +562,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
                 </span>
               ) : selectedDoc ? (
-                <span className="truncate">{shortName(selectedDoc.project_short_name) || selectedDoc.project_title}</span>
+                <span className="truncate">{selectedDoc.project_short_name || selectedDoc.project_title}</span>
               ) : (
                 <span className="text-muted-foreground">Select a project</span>
               )}
@@ -562,7 +580,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <SelectLabel>{shortName(partner)}</SelectLabel>
                   {grouped.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>
-                      {shortName(d.project_short_name) || d.project_title}
+                      {d.project_short_name || d.project_title}
                     </SelectItem>
                   ))}
                 </SelectGroup>

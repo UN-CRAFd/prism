@@ -835,8 +835,8 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground mb-4 space-y-1">
-                  <div className="flex justify-between gap-2"><span>Start</span><span className="tabular-nums text-foreground">{formatDate(start)}</span></div>
-                  <div className="flex justify-between gap-2"><span>Current end</span><span className="tabular-nums text-foreground">{formatDate(projectEndDate(start, currentDuration))} · {currentDuration} mo</span></div>
+                  <div className="flex justify-between gap-2"><span className="truncate min-w-0">Start</span><span className="tabular-nums text-foreground shrink-0">{formatDate(start)}</span></div>
+                  <div className="flex justify-between gap-2"><span className="truncate min-w-0">Current end</span><span className="tabular-nums text-foreground shrink-0">{formatDate(projectEndDate(start, currentDuration))} · {currentDuration} mo</span></div>
                 </div>
 
                 {nceHistory.length > 0 && (

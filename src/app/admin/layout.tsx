@@ -16,7 +16,7 @@ export default function AdminLayout({
         <ConfirmDialogProvider>
           <div className="flex h-screen">
             <AppSidebar />
-            <main className="flex-1 overflow-auto bg-background">
+            <main className="flex-1 min-w-0 overflow-auto bg-background">
               {children}
             </main>
           </div>

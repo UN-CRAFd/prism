@@ -541,7 +541,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
           {(!isPartner || docs.length > 1) && (
             <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
-            <SelectTrigger className="w-[320px] h-9">
+            <SelectTrigger className="w-[320px] max-w-[45vw] h-9">
               {loadingDocs ? (
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" /> {labels.common.loading}

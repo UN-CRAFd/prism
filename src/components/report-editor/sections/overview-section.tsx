@@ -41,12 +41,12 @@ export function OverviewSection({ overview, updateOverview }: OverviewSectionPro
           <ItemComments section="overview" itemId={null} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ReadField label={labels.overviewFields.projectTitle} value={overview.project_title} />
           <ReadField label={labels.overviewFields.mptfoProjectNumber} value={overview.mptfo_project_number} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ReadField label={labels.overviewFields.organizationName} value={overview.organization_name} />
           <ReadField
             label={labels.overviewFields.organizationWebsite}

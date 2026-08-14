@@ -919,7 +919,7 @@ export function ReportEditor({
             onValueChange={handleReportChange}
             disabled={loadingReports}
           >
-            <SelectTrigger className="w-[300px] h-9 bg-neutral-900 border-neutral-700 text-white">
+            <SelectTrigger className="w-[300px] max-w-[45vw] h-9 bg-neutral-900 border-neutral-700 text-white">
               {loadingReports ? (
                 <span className="flex items-center gap-2 text-neutral-400">
                   <Loader2 className="size-3 animate-spin" /> {labels.common.loading}

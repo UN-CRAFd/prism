@@ -669,17 +669,17 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
             <div className="rounded-xl border bg-card p-4 space-y-3">
               <label className="text-sm font-medium text-muted-foreground">Available balance</label>
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Grant size:</span>
-                  <span className="font-semibold tabular-nums">{grantSize ? formatAmount(grantSize) : "—"}</span>
+                <div className="flex justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground truncate min-w-0">Grant size:</span>
+                  <span className="font-semibold tabular-nums shrink-0">{grantSize ? formatAmount(grantSize) : "—"}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total budget:</span>
-                  <span className="font-semibold tabular-nums">{formatAmount(totalBudget)}</span>
+                <div className="flex justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground truncate min-w-0">Total budget:</span>
+                  <span className="font-semibold tabular-nums shrink-0">{formatAmount(totalBudget)}</span>
                 </div>
-                <div className={`flex justify-between text-sm pt-2 border-t ${availableBalance !== null && availableBalance < 0 ? "text-red-600" : ""}`}>
-                  <span className="font-medium">Available:</span>
-                  <span className={`font-bold tabular-nums ${availableBalance === null ? "text-muted-foreground" : availableBalance < 0 ? "text-red-600" : "text-green-700"}`}>
+                <div className={`flex justify-between gap-2 text-sm pt-2 border-t ${availableBalance !== null && availableBalance < 0 ? "text-red-600" : ""}`}>
+                  <span className="font-medium truncate min-w-0">Available:</span>
+                  <span className={`font-bold tabular-nums shrink-0 ${availableBalance === null ? "text-muted-foreground" : availableBalance < 0 ? "text-red-600" : "text-green-700"}`}>
                     {availableBalance !== null ? formatAmount(availableBalance) : "—"}
                   </span>
                 </div>

@@ -31,6 +31,31 @@ import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } 
 
 export type SectionFieldType = "input" | "textarea" | "select" | "links" | "photo";
 
+// Auto-sizing textarea for the section tables. The base Textarea uses CSS
+// `field-sizing-content`, so it grows with its text without bound — a long entry
+// balloons the whole row and wrecks the table layout. This wrapper keeps the
+// grow-to-fit behaviour while editing but clamps the visible height:
+//  • blurred  → collapsed to a compact height (scrolls internally past that), so
+//    finished rows return to a tidy size once the user clicks away.
+//  • focused  → expands to a taller cap so there's room to write, still scrolling
+//    beyond it rather than stretching the page.
+function AutoTextarea(props: React.ComponentProps<typeof Textarea>) {
+  const { className, onFocus, onBlur, ...rest } = props;
+  const [focused, setFocused] = useState(false);
+  return (
+    <Textarea
+      {...rest}
+      onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+      onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+      className={cn(
+        "text-sm resize-y overflow-auto",
+        focused ? "min-h-[80px] max-h-[260px]" : "min-h-[80px] max-h-[120px]",
+        className
+      )}
+    />
+  );
+}
+
 export interface SectionField {
   key: string;
   header: string;
@@ -481,7 +506,7 @@ export function SectionTableEditor({
                     <Input value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
                   ) : f.type === "textarea" ? (
                     <div className="space-y-1">
-                      <Textarea value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} className="text-sm min-h-[80px] resize-y" />
+                      <AutoTextarea value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} />
                       {f.maxWords && (
                         <div className={cn(
                           "text-[11px] text-right",

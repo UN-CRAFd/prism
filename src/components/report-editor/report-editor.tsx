@@ -17,7 +17,7 @@ import { type ComboboxItem } from "@/components/ui/combobox";
 import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
-import { WorkplanPartnerEditor } from "@/components/workplan-grid";
+import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
@@ -1214,12 +1214,24 @@ export function ReportEditor({
 
         ) : params.section === "workplan" ? (
           reportId && selectedReport ? (
-            <WorkplanPartnerEditor
-              reportId={reportId}
-              onSaveStateChange={setChildSaveState}
-              fillHeight
-              readOnly={readOnly}
-            />
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
+              {/* Update windows are report-time constructs (admin-managed). The
+                  prodoc holds only the baseline; admins define/activate the
+                  windows partners then report against here. */}
+              {mode === "admin" && (
+                <WorkplanUpdatesManager
+                  projectId={selectedReport.project_id}
+                  startDate={selectedReport.project_start_date}
+                  durationMonths={selectedReport.project_duration_months}
+                />
+              )}
+              <WorkplanPartnerEditor
+                reportId={reportId}
+                onSaveStateChange={setChildSaveState}
+                fillHeight
+                readOnly={readOnly}
+              />
+            </div>
           ) : null
 
         ) : params.section === "expenditure" ? (

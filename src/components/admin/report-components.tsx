@@ -23,7 +23,7 @@ import {
   Share2,
   Check,
 } from "lucide-react";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, timeAgo, shortName } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
@@ -143,7 +143,7 @@ export function ReportCard({
       {/* Top line: badges + due date */}
       <div className="flex items-center gap-2 pr-6">
         <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
-          {groupMode === "organization" ? report.year : report.partner_short_name}
+          {groupMode === "organization" ? report.year : shortName(report.partner_short_name)}
         </Badge>
         <Badge variant="secondary" className="text-[11px] font-semibold capitalize">
           {report.report_type ?? "annual"}
@@ -348,7 +348,7 @@ export function CreateReportForm({
               <SelectContent>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
-                    {p.partner_short_name} — {p.project_title}
+                    {shortName(p.partner_short_name)} — {p.project_title}
                   </SelectItem>
                 ))}
               </SelectContent>

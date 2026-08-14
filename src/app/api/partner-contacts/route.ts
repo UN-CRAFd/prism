@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardPartner, guardPartnerRow } from "@/lib/authz";
+import { requireSession, requireAdmin, guardPartner, guardPartnerRow, guardProject, resolvePartnerId } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // Partner contacts (people at a partner organization).
 //   GET ?partner_id=X → that partner's contacts (partner view)
+//   GET ?project_id=X → contacts of every partner involved in the project (lead +
+//                       editors) that the caller may see, each tagged with its
+//                       owning partner. Used by the prodoc contact picker.
 //   GET               → all contacts with partner context (admin view)
 //   POST { partner_id, name, role, email }
 //   PATCH { id, name, role, email }
@@ -17,7 +20,59 @@ export async function GET(req: NextRequest) {
   if (session instanceof NextResponse) return session;
 
   const partnerId = req.nextUrl.searchParams.get("partner_id");
+  const projectId = req.nextUrl.searchParams.get("project_id");
   try {
+    if (projectId) {
+      // Guarded by project access: the lead and editor partners (and admins) may
+      // enumerate the involved partners. Contact visibility is narrower — a
+      // partner sees only their own org's contacts; an admin sees all.
+      const gate = await guardProject(session, projectId);
+      if (gate) return gate;
+
+      const partners = await query<{
+        id: number; short_name: string | null; long_name: string | null; is_lead: boolean;
+      }>(
+        `SELECT p.id, p.short_name, p.long_name, TRUE AS is_lead
+           FROM reporting_platform.projects pr
+           JOIN reporting_platform.partners p ON p.id = pr.partner_id
+          WHERE pr.id = $1
+          UNION
+         SELECT p.id, p.short_name, p.long_name, FALSE AS is_lead
+           FROM reporting_platform.project_editors pe
+           JOIN reporting_platform.partners p ON p.id = pe.partner_id
+          WHERE pe.project_id = $1
+          ORDER BY is_lead DESC, short_name ASC`,
+        [projectId]
+      );
+
+      const callerPartnerId = session.role === "admin" ? null : await resolvePartnerId(session);
+      const involvedIds = partners.map((p) => p.id);
+      // Admins see contacts for every involved partner; a partner sees only its own.
+      const visibleIds =
+        session.role === "admin"
+          ? involvedIds
+          : involvedIds.filter((id) => id === callerPartnerId);
+
+      const contacts = visibleIds.length
+        ? await query(
+            `SELECT id, partner_id, name, role, email, sort_order
+               FROM reporting_platform.partner_contacts
+              WHERE partner_id = ANY($1::int[])
+              ORDER BY partner_id ASC, sort_order ASC, id ASC`,
+            [visibleIds]
+          )
+        : [];
+
+      return NextResponse.json({
+        partners: partners.map((p) => ({
+          ...p,
+          // Whether the caller may create/link contacts for this partner.
+          can_manage: session.role === "admin" || p.id === callerPartnerId,
+        })),
+        contacts,
+      });
+    }
+
     if (partnerId) {
       const gate = await guardPartner(session, partnerId);
       if (gate) return gate;

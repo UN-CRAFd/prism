@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
 import labels from "@/lib/labels";
 
@@ -61,7 +61,7 @@ export function CommentContextBadges({
           {itemLabel}
         </Badge>
       )}
-      {partner && <Badge variant="secondary">{partner}</Badge>}
+      {partner && <Badge variant="secondary">{shortName(partner)}</Badge>}
       <Badge variant="secondary">{reportLabel}</Badge>
       <Badge variant="outline">{project}</Badge>
       <Badge variant="outline">{sectionLabel}</Badge>

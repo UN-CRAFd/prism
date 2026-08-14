@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   MessageSquare, ArrowRight, Pencil, Check, X, RotateCcw, Loader2, Send, CheckCircle2, Archive, Trash2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -158,7 +158,7 @@ export default function AdminCommentsPage() {
 
             <div className={cn("flex items-center justify-between gap-2 mt-2", archived && "opacity-80")}>
               <CommentContextBadges
-                partner={c.partner_short_name}
+                partner={shortName(c.partner_short_name)}
                 reportType={c.report_type}
                 year={c.year}
                 project={c.project_short_name ?? c.project_title}

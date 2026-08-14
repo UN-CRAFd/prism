@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -346,7 +346,7 @@ export function AppSidebar() {
                           slug: reportSlug(r),
                           year: r.year,
                           primary: `${r.report_type ?? "annual"} Report ${r.year}`,
-                          secondary: r.project_short_name || r.project_title,
+                          secondary: shortName(r.project_short_name) || r.project_title,
                           isActive: !!report && reportSlug(r) === report.project && String(r.year) === report.year,
                         }))
                       : report
@@ -533,7 +533,7 @@ export function AppSidebar() {
           {mounted && user?.role === "partner" && user.organization && logoExt !== "none" ? (
             <img
               src={`/logos/${user.organization.toLowerCase()}.${logoExt}`}
-              alt={user.organization}
+              alt={shortName(user.organization)}
               className="size-9 shrink-0 rounded-full bg-white border object-contain p-1.5"
               onError={() => setLogoExt(logoExt === "webp" ? "png" : "none")}
             />
@@ -546,7 +546,7 @@ export function AppSidebar() {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
-              {mounted && user?.role ? (user.role === "admin" ? (user.organization || "CRAF'd") : user.organization) : ""}
+              {mounted && user?.role ? (user.role === "admin" ? (shortName(user.organization) || "CRAF'd") : shortName(user.organization)) : ""}
             </p>
             <p className="text-xs text-muted-foreground capitalize">
               {mounted && user?.role ? user.role : ""}

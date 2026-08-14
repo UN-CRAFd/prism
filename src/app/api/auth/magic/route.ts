@@ -57,6 +57,7 @@ function sessionFor(ctx: ReportContext) {
       name: ctx.partner_long_name || ctx.partner_short_name,
       role: "partner" as const,
       organization: ctx.partner_short_name,
+      partner_id: ctx.partner_id,
     },
     redirect: `/partner/report-editor/${encodeURIComponent(slug)}/${ctx.year}/overview`,
   };
@@ -165,6 +166,7 @@ export async function PUT(req: NextRequest) {
     const token = await createSessionToken({
       role: "partner",
       org: ctx.partner_short_name,
+      partner_id: ctx.partner_id,
       name: session.user.name || ctx.partner_short_name,
     });
     return setSessionCookie(NextResponse.json(session), token);

@@ -76,20 +76,68 @@ export async function PUT(
       values.push(field === "description" ? sanitizeRichText(body[field] as string) : body[field]);
     }
 
-    if (setClauses.length === 0) {
+    // Editor grants (prodoc edit rights) are admin-only — an editor must not be
+    // able to grant rights to others. Only reconcile when the key is present.
+    const manageEditors = session.role === "admin" && body.editor_partner_ids !== undefined;
+    const partnerIdForFilter = Number(body.partner_id);
+    const editorIds = manageEditors && Array.isArray(body.editor_partner_ids)
+      ? [...new Set((body.editor_partner_ids as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n !== partnerIdForFilter))]
+      : [];
+
+    if (setClauses.length === 0 && !manageEditors) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
-    values.push(id);
-    const rows = await query(
-      `UPDATE reporting_platform.projects SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
-      values
-    );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    if (rows.length === 0) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      let row: Record<string, unknown> | undefined;
+      if (setClauses.length > 0) {
+        values.push(id);
+        const upd = await client.query(
+          `UPDATE reporting_platform.projects SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+          values
+        );
+        if (upd.rows.length === 0) {
+          await client.query("ROLLBACK");
+          return NextResponse.json({ error: "Project not found" }, { status: 404 });
+        }
+        row = upd.rows[0];
+      } else {
+        const cur = await client.query(`SELECT * FROM reporting_platform.projects WHERE id = $1`, [id]);
+        if (cur.rows.length === 0) {
+          await client.query("ROLLBACK");
+          return NextResponse.json({ error: "Project not found" }, { status: 404 });
+        }
+        row = cur.rows[0];
+      }
+
+      if (manageEditors) {
+        // Full replace: delete grants not in the new set, then upsert the set.
+        await client.query(
+          `DELETE FROM reporting_platform.project_editors
+            WHERE project_id = $1 AND NOT (partner_id = ANY($2::int[]))`,
+          [id, editorIds]
+        );
+        if (editorIds.length) {
+          await client.query(
+            `INSERT INTO reporting_platform.project_editors (project_id, partner_id)
+             SELECT $1, unnest($2::int[])
+             ON CONFLICT DO NOTHING`,
+            [id, editorIds]
+          );
+        }
+      }
+
+      await client.query("COMMIT");
+      return NextResponse.json(row);
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw e;
+    } finally {
+      client.release();
     }
-    return NextResponse.json(rows[0]);
   } catch (err) {
     logger.error("PUT /api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });

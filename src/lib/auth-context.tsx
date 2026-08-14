@@ -9,6 +9,8 @@ export interface User {
   name: string;
   role: UserRole;
   organization?: string;
+  /** partners.id — present for partner logins; absent for admin. */
+  partner_id?: number | null;
 }
 
 interface AuthContextType {

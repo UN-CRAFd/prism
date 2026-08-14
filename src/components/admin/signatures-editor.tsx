@@ -6,6 +6,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatDate } from "@/lib/utils";
 import { Loader2, PenLine, Check, X, Users, ShieldCheck } from "lucide-react";
 import labels from "@/lib/labels";
+import { useAuth } from "@/lib/auth-context";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
 // Sign-off on the project document. Project contacts (from the General
@@ -19,6 +20,7 @@ const s = labels.signatures;
 interface ProjectContact {
   id: number;         // project_contacts link id
   contact_id: number; // partner_contacts id
+  partner_id: number; // owning partner (partner_contacts.partner_id)
   relationship: string | null;
   is_applicant: boolean;
   name: string;
@@ -44,6 +46,9 @@ export function SignaturesEditor({
   readOnly?: boolean;
 }) {
   const confirm = useConfirm();
+  const { user } = useAuth();
+  // The logged-in partner may sign only for contacts belonging to their own org.
+  const myPartnerId = user?.partner_id ?? null;
   const [contacts, setContacts] = useState<ProjectContact[]>([]);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +80,13 @@ export function SignaturesEditor({
   const contactSig = (contactId: number) =>
     signatures.find((x) => x.party === "contact" && x.contact_id === contactId);
   const secretariatSig = signatures.find((x) => x.party === "secretariat");
+
+  // Fallback for sessions minted before partner_id was carried (old cookies): if
+  // every contact belongs to a single partner, a non-admin caller must be that
+  // partner (a single-partner project with no editors — the common case), so
+  // treat them all as signable. The server still enforces true ownership.
+  const singleOwner =
+    contacts.length > 0 && contacts.every((c) => c.partner_id === contacts[0].partner_id);
 
   async function sign(party: "contact" | "secretariat", contactId?: number) {
     const key = party === "secretariat" ? "sec" : `c-${contactId}`;
@@ -161,6 +173,11 @@ export function SignaturesEditor({
             {contacts.map((c) => {
               const sig = contactSig(c.contact_id);
               const label = c.name;
+              // A partner may sign only for its own contacts. Others' contacts are
+              // read-only to them (they still see the signed state / awaiting note).
+              const mine =
+                !isAdmin &&
+                (myPartnerId != null ? c.partner_id === myPartnerId : singleOwner);
               return (
                 <div key={c.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
@@ -172,11 +189,10 @@ export function SignaturesEditor({
                     )}
                   </div>
                   {sig ? (
-                    // Contact sign-off is the partner's; an admin sees it read-only.
-                    <SignedState sig={sig} label={label} canRemove={!isAdmin && !readOnly} />
-                  ) : isAdmin ? (
-                    <span className="shrink-0 text-xs text-muted-foreground italic">{s.awaitingPartner}</span>
-                  ) : (
+                    // Contact sign-off is the owning partner's; admins and other
+                    // partners see it read-only.
+                    <SignedState sig={sig} label={label} canRemove={mine && !readOnly} />
+                  ) : mine ? (
                     <Button
                       size="sm"
                       variant="outline"
@@ -188,6 +204,8 @@ export function SignaturesEditor({
                         ? <Loader2 className="size-4 animate-spin" />
                         : <><PenLine className="size-4 mr-1.5" />{s.sign}</>}
                     </Button>
+                  ) : (
+                    <span className="shrink-0 text-xs text-muted-foreground italic">{s.awaitingPartner}</span>
                   )}
                 </div>
               );

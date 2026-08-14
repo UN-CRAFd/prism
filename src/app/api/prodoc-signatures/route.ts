@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardProject, forbidden } from "@/lib/authz";
+import { requireSession, requireAdmin, guardProject, forbidden, resolvePartnerId } from "@/lib/authz";
+import type { Session } from "@/lib/session";
 import { logger } from "@/lib/logger";
 
 // Project-document sign-off. Two parties sign a prodoc:
@@ -12,6 +13,21 @@ import { logger } from "@/lib/logger";
 //   GET    ?project_id=X                          → all signature rows
 //   POST   { project_id, party, contact_id? }     → sign
 //   DELETE ?id=X                                   → un-sign
+
+// A partner may sign for a contact only if that contact belongs to their own
+// organization (partner_contacts.partner_id === the caller's partner id). The
+// project lead and editor partners each sign for their OWN contacts, never each
+// other's. Admins never reach here for contact signatures.
+async function callerOwnsContact(session: Session, contactId: number): Promise<boolean> {
+  const partnerId = await resolvePartnerId(session);
+  if (partnerId == null) return false;
+  const rows = await query(
+    `SELECT 1 FROM reporting_platform.partner_contacts
+      WHERE id = $1 AND partner_id = $2 LIMIT 1`,
+    [contactId, partnerId]
+  );
+  return rows.length > 0;
+}
 
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("project_id");
@@ -75,6 +91,9 @@ export async function POST(req: NextRequest) {
     if (linked.length === 0) {
       return NextResponse.json({ error: "Contact is not linked to this project" }, { status: 400 });
     }
+    // Sign only for your own contacts — the lead and editor partners each sign
+    // for the contacts belonging to their own organization.
+    if (!(await callerOwnsContact(session, contactId!))) return forbidden();
   }
 
   try {
@@ -114,8 +133,8 @@ export async function DELETE(req: NextRequest) {
   if (session instanceof NextResponse) return session;
 
   try {
-    const rows = await query<{ project_id: number; party: string }>(
-      `SELECT project_id, party FROM reporting_platform.prodoc_signatures WHERE id = $1`,
+    const rows = await query<{ project_id: number; party: string; contact_id: number | null }>(
+      `SELECT project_id, party, contact_id FROM reporting_platform.prodoc_signatures WHERE id = $1`,
       [id]
     );
     // Do NOT reveal existence to a caller who lacks access: an unauthorized
@@ -127,7 +146,7 @@ export async function DELETE(req: NextRequest) {
         ? NextResponse.json({ error: "Not found" }, { status: 404 })
         : forbidden();
     }
-    const { project_id, party } = rows[0];
+    const { project_id, party, contact_id } = rows[0];
 
     // Only an admin may remove a Secretariat signature; only the owning partner
     // may remove a contact signature (admins sign/unsign the Secretariat only).
@@ -135,6 +154,10 @@ export async function DELETE(req: NextRequest) {
     if (party === "contact" && session.role === "admin") return forbidden();
     const gate = await guardProject(session, project_id);
     if (gate) return gate;
+    // A partner may only un-sign their own contact's signature.
+    if (party === "contact" && !(await callerOwnsContact(session, contact_id!))) {
+      return forbidden();
+    }
 
     await query(`DELETE FROM reporting_platform.prodoc_signatures WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });

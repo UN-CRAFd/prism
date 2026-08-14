@@ -15,7 +15,7 @@ import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { type ComboboxItem } from "@/components/ui/combobox";
 import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
@@ -926,7 +926,7 @@ export function ReportEditor({
                 </span>
               ) : selectedReport ? (
                 <span className="truncate capitalize">
-                  {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {selectedReport.project_short_name || selectedReport.project_title}
+                  {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {shortName(selectedReport.project_short_name) || selectedReport.project_title}
                 </span>
               ) : (
                 <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
@@ -938,7 +938,7 @@ export function ReportEditor({
                 // logic as the prodoc editor's project dropdown).
                 Object.entries(
                   reports.reduce((acc, r) => {
-                    const key = `${r.partner_short_name} · ${r.project_short_name || r.project_title}`;
+                    const key = `${shortName(r.partner_short_name)} · ${shortName(r.project_short_name) || r.project_title}`;
                     (acc[key] ??= []).push(r);
                     return acc;
                   }, {} as Record<string, Report[]>)
@@ -960,7 +960,7 @@ export function ReportEditor({
                   <SelectItem key={r.id} value={String(r.id)}>
                     <div className="flex flex-col">
                       <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
-                      <span className="text-xs text-muted-foreground">{r.project_short_name || r.project_title}</span>
+                      <span className="text-xs text-muted-foreground">{shortName(r.project_short_name) || r.project_title}</span>
                     </div>
                   </SelectItem>
                 ))

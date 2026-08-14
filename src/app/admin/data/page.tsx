@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, TableIcon, ChevronDown, ChevronUp, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import {
   computeRiskLevelKey,
   RISK_LEVEL_COLORS,
@@ -198,8 +198,8 @@ function rowText(row: DataRow): string {
 // ── Section configs ──────────────────────────────────────────────────────────
 
 const yearCol: ColumnDef = { header: "Year", headClass: "w-14", cell: (r) => <span className="text-muted-foreground">{r.year}</span> };
-const projectCol: ColumnDef = { header: "Project", headClass: "w-[130px]", cell: (r) => <p className="break-words">{(r.project_short_name as string) || r.project_title}</p> };
-const partnerCol: ColumnDef = { header: "Partner", headClass: "w-[100px]", cell: (r) => <p className="break-words text-muted-foreground">{r.partner_short_name}</p> };
+const projectCol: ColumnDef = { header: "Project", headClass: "w-[130px]", cell: (r) => <p className="break-words">{shortName(r.project_short_name as string) || r.project_title}</p> };
+const partnerCol: ColumnDef = { header: "Partner", headClass: "w-[100px]", cell: (r) => <p className="break-words text-muted-foreground">{shortName(r.partner_short_name)}</p> };
 const leadCols = [yearCol, projectCol, partnerCol];
 
 const SECTION_CONFIGS: SectionConfig[] = [
@@ -444,7 +444,7 @@ export default function AdminFullDataPage() {
     for (const r of reports) {
       const g = map.get(r.project_id);
       if (g) g.reports.push(r);
-      else map.set(r.project_id, { label: r.project_short_name || r.project_title, reports: [r] });
+      else map.set(r.project_id, { label: shortName(r.project_short_name) || r.project_title, reports: [r] });
     }
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [reports]);
@@ -459,7 +459,7 @@ export default function AdminFullDataPage() {
     if (selectedReportIds.length === 1) {
       const r = reports.find((x) => String(x.id) === selectedReportIds[0]);
       return r
-        ? `${r.report_type ?? "annual"} Report ${r.year} · ${r.project_short_name || r.project_title}`
+        ? `${r.report_type ?? "annual"} Report ${r.year} · ${shortName(r.project_short_name) || r.project_title}`
         : "1 report";
     }
     return `${selectedReportIds.length} reports selected`;

@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Partner/project short names are always DISPLAYED in uppercase (e.g. "IDMC",
+// "ACLED"), regardless of how they're stored. Null-safe: returns "" for a
+// missing value so callers can `shortName(x) || fallback`. Use only for display
+// — never for slugs, comparisons, or query params (those stay lowercase).
+export function shortName(value: string | null | undefined): string {
+  return value ? value.toUpperCase() : "";
+}
+
 export function formatDate(date: string | Date): string {
   const d = typeof date === "string" ? new Date(date) : date;
   const day = String(d.getDate()).padStart(2, "0");

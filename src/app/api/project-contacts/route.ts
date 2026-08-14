@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       if (gate) return gate;
       const rows = await query(
         `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
-                c.name, c.role, c.email
+                c.name, c.role, c.email, c.partner_id
            FROM reporting_platform.project_contacts pc
            JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id
           WHERE pc.project_id = $1
@@ -87,13 +87,21 @@ export async function POST(req: NextRequest) {
   const gate = await guardProject(session, project_id as string | number);
   if (gate) return gate;
 
-  // The contact must belong to the same partner that owns this project; otherwise
-  // a caller could link (and read back the name/role/email of) another org's contact.
+  // The contact must belong to a partner involved in this project — either the
+  // owner (lead) OR an editor partner (project_editors). Otherwise a caller could
+  // link (and read back the name/role/email of) an unrelated org's contact.
   const scoped = await query(
     `SELECT 1
        FROM reporting_platform.partner_contacts c
-       JOIN reporting_platform.projects p ON p.partner_id = c.partner_id
-      WHERE c.id = $1 AND p.id = $2
+       JOIN reporting_platform.projects p ON p.id = $2
+      WHERE c.id = $1
+        AND (
+          c.partner_id = p.partner_id
+          OR EXISTS (
+            SELECT 1 FROM reporting_platform.project_editors pe
+             WHERE pe.project_id = p.id AND pe.partner_id = c.partner_id
+          )
+        )
       LIMIT 1`,
     [contact_id, project_id]
   );
@@ -133,7 +141,7 @@ export async function POST(req: NextRequest) {
     const created = await query(
       `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
               p.project_title, p.short_name AS project_short_name,
-              c.name, c.role, c.email
+              c.name, c.role, c.email, c.partner_id
          FROM reporting_platform.project_contacts pc
          JOIN reporting_platform.projects p ON p.id = pc.project_id
          JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id

@@ -77,7 +77,18 @@ interface ProjectContact {
   email: string | null;
 }
 
-interface OrgContact { id: number; name: string; role: string | null; email: string | null }
+interface OrgContact { id: number; partner_id: number; name: string; role: string | null; email: string | null }
+
+// A partner involved in the project (lead or editor) that the contact picker can
+// attribute a contact to. `can_manage` is whether the current caller may
+// create/link contacts under it (admins: all; partners: only their own org).
+interface InvolvedPartner {
+  id: number;
+  short_name: string | null;
+  long_name: string | null;
+  is_lead: boolean;
+  can_manage: boolean;
+}
 
 // The DB stores a single full `name`; the FMP applicant form splits it into
 // first / last. Split on the first space (everything after it is the last name),
@@ -126,6 +137,10 @@ export function GeneralInfoAdminEditor({
   const [contacts, setContacts] = useState<ProjectContact[]>([]);
   const [editingContactId, setEditingContactId] = useState<number | null>(null);
   const [orgContacts, setOrgContacts] = useState<OrgContact[]>([]);
+  // Partners a new/linked contact can be attributed to (lead + editors), and the
+  // one currently selected in the add-contact "belongs to" picker.
+  const [involvedPartners, setInvolvedPartners] = useState<InvolvedPartner[]>([]);
+  const [contactPartnerId, setContactPartnerId] = useState<number | null>(null);
   const [tranches, setTranches] = useState<TrancheForm[]>([]);
   const [addingContact, setAddingContact] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -170,13 +185,20 @@ export function GeneralInfoAdminEditor({
 
         const [linkRes, orgRes, tranchesRes] = await Promise.all([
           fetch(`/api/project-contacts?project_id=${projectId}`),
-          fetch(`/api/partner-contacts?partner_id=${p.partner_id}`),
+          // Involved partners (lead + editors) + the contacts the caller may see.
+          fetch(`/api/partner-contacts?project_id=${projectId}`),
           fetch(`/api/project-tranches?project_id=${projectId}`),
         ]);
         if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok) throw new Error("Failed to load project data");
         if (cancelled) return;
         setContacts(await linkRes.json());
-        setOrgContacts(await orgRes.json());
+        const orgData: { partners: InvolvedPartner[]; contacts: OrgContact[] } = await orgRes.json();
+        setOrgContacts(orgData.contacts);
+        setInvolvedPartners(orgData.partners);
+        // Default the "belongs to" picker to the first partner the caller can
+        // manage (their own org for partners; the lead for admins).
+        const manageable = orgData.partners.filter((pt) => pt.can_manage);
+        setContactPartnerId(manageable[0]?.id ?? orgData.partners[0]?.id ?? null);
 
         const trancheRows: { amount: string | number | null; tranche_date: string | null; comment: string | null }[] =
           await tranchesRes.json();
@@ -334,12 +356,15 @@ export function GeneralInfoAdminEditor({
   }
 
   async function handleContactCreate(name: string) {
-    if (!partnerId) return;
+    // Create the contact under the partner chosen in the "belongs to" picker
+    // (falls back to the project lead).
+    const owningPartnerId = contactPartnerId ?? partnerId;
+    if (!owningPartnerId) return;
     setAddingContact(true); setError(null);
     try {
       const res = await fetch("/api/partner-contacts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partner_id: partnerId, name }),
+        body: JSON.stringify({ partner_id: owningPartnerId, name }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add contact"); }
       const created: OrgContact = await res.json();
@@ -390,8 +415,12 @@ export function GeneralInfoAdminEditor({
     setContacts((prev) => prev.filter((x) => x.id !== id));
   }
 
+  // Candidate contacts to link: not already linked, and (when a "belongs to"
+  // partner is selected) restricted to that partner so the create-new action
+  // lands under the right org.
   const comboItems: ComboboxItem[] = orgContacts
     .filter((oc) => !contacts.some((c) => c.contact_id === oc.id))
+    .filter((oc) => contactPartnerId == null || oc.partner_id === contactPartnerId)
     .map((oc) => ({ id: oc.id, label: oc.name, hint: oc.role ?? undefined }));
 
   if (loading) {
@@ -681,15 +710,38 @@ export function GeneralInfoAdminEditor({
           <h3 className="text-sm font-semibold">{g.contactsHeading}</h3>
         </div>
 
-        <div className="max-w-xl">
-          <Combobox
-            items={comboItems}
-            placeholder={g.contactSearchPlaceholder}
-            onSelect={handleContactSelect}
-            onCreate={handleContactCreate}
-            createLabel={g.createContact}
-            busy={addingContact}
-          />
+        <div className="flex flex-wrap items-center gap-2 max-w-2xl">
+          {/* "Belongs to" picker — only shown when more than one partner is
+              involved (lead + editors). New contacts are created under, and
+              existing contacts filtered to, the selected partner. */}
+          {involvedPartners.length > 1 && (
+            <Select
+              value={contactPartnerId != null ? String(contactPartnerId) : ""}
+              onValueChange={(v) => setContactPartnerId(Number(v))}
+            >
+              <SelectTrigger className="w-56 text-sm shrink-0">
+                <SelectValue placeholder="Belongs to…" />
+              </SelectTrigger>
+              <SelectContent>
+                {involvedPartners.map((pt) => (
+                  <SelectItem key={pt.id} value={String(pt.id)} disabled={!pt.can_manage}>
+                    {pt.short_name || pt.long_name || `#${pt.id}`}
+                    {pt.is_lead ? " (lead)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="flex-1 min-w-[16rem]">
+            <Combobox
+              items={comboItems}
+              placeholder={g.contactSearchPlaceholder}
+              onSelect={handleContactSelect}
+              onCreate={handleContactCreate}
+              createLabel={g.createContact}
+              busy={addingContact}
+            />
+          </div>
         </div>
 
         {contacts.length === 0 ? (

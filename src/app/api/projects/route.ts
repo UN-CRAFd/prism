@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
-import { requireSession, requireAdmin } from "@/lib/authz";
+import { requireSession, requireAdmin, editorProjectIds } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // The one project document every project owns is a reports row with
@@ -18,12 +18,26 @@ export async function GET() {
   if (session instanceof NextResponse) return session;
 
   try {
-    // Partners see only their own organization's projects; admins see all.
+    // Partners see their own organization's projects PLUS any project they were
+    // granted edit rights on (project_editors); admins see all.
     const scoped = session.role !== "admin";
+    const values: unknown[] = [];
+    let where = "";
+    if (scoped) {
+      values.push(session.org);
+      const editorIds = await editorProjectIds(session);
+      if (editorIds.length) {
+        values.push(editorIds);
+        where = `WHERE (lower(p.short_name) = lower($1) OR pr.id = ANY($2::int[]))`;
+      } else {
+        where = `WHERE lower(p.short_name) = lower($1)`;
+      }
+    }
     const rows = await query(
       `SELECT pr.*, p.short_name AS partner_short_name, p.long_name AS partner_long_name,
               COALESCE(ext.months_total, 0)::int AS extension_months_total,
-              COALESCE(ext.cnt, 0)::int          AS extension_count
+              COALESCE(ext.cnt, 0)::int          AS extension_count,
+              COALESCE(ed.ids, ARRAY[]::int[])   AS editor_partner_ids
        FROM reporting_platform.projects pr
        JOIN reporting_platform.partners p ON p.id = pr.partner_id
        LEFT JOIN LATERAL (
@@ -31,9 +45,14 @@ export async function GET() {
            FROM reporting_platform.project_extensions e
           WHERE e.project_id = pr.id
        ) ext ON TRUE
-       ${scoped ? "WHERE lower(p.short_name) = lower($1)" : ""}
+       LEFT JOIN LATERAL (
+         SELECT ARRAY_AGG(pe.partner_id) AS ids
+           FROM reporting_platform.project_editors pe
+          WHERE pe.project_id = pr.id
+       ) ed ON TRUE
+       ${where}
        ORDER BY p.short_name, pr.project_title`,
-      scoped ? [session.org] : []
+      values
     );
     return NextResponse.json(rows);
   } catch (err) {
@@ -56,8 +75,14 @@ export async function POST(request: Request) {
   const {
     partner_id, project_title, short_name,
     mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope,
-    implementing_partners,
+    implementing_partners, editor_partner_ids,
   } = body;
+
+  // Partners granted prodoc edit rights: sanitise to a distinct list of positive
+  // ints, never including the lead (they already own the project).
+  const editorIds = Array.isArray(editor_partner_ids)
+    ? [...new Set(editor_partner_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n !== Number(partner_id)))]
+    : [];
 
   if (!partner_id || !project_title) {
     return NextResponse.json(
@@ -86,6 +111,15 @@ export async function POST(request: Request) {
       ]
     );
     const project = inserted.rows[0];
+
+    if (editorIds.length) {
+      await client.query(
+        `INSERT INTO reporting_platform.project_editors (project_id, partner_id)
+         SELECT $1, unnest($2::int[])
+         ON CONFLICT DO NOTHING`,
+        [project.id, editorIds]
+      );
+    }
 
     const prodoc = await client.query<{ id: number }>(
       `INSERT INTO reporting_platform.reports (project_id, year, data_type)

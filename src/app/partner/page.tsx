@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import {
   AlertCircle,
@@ -87,10 +87,14 @@ export default function PartnerHomePage() {
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    // Prodocs give us every project (and its dates) even with zero reports.
+    // Prodocs give us every project (and its dates) even with zero reports. The
+    // API already scopes these to what this partner may see — their own projects
+    // PLUS any they were granted edit rights on — so keep them all (don't filter
+    // by owner, or editor projects would drop out). `forPartner` still decides
+    // the lead-vs-implementing badge below.
     fetch("/api/reports?data_type=prodoc")
       .then((r) => r.json())
-      .then((all: Report[]) => setProjects(all.filter(forPartner)))
+      .then((all: Report[]) => setProjects(all))
       .catch(() => {});
   }, [user]);
 
@@ -121,6 +125,21 @@ export default function PartnerHomePage() {
     () => reports.filter((r) => !r.authorized),
     [reports]
   );
+
+  // The partner's projects (one prodoc each), with a role flag: they are the
+  // project LEAD when the prodoc's owning partner matches their org, otherwise
+  // an implementing partner granted edit rights.
+  const myProjects = useMemo(() => {
+    if (!user) return [];
+    const isLead = (r: Report) =>
+      r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
+      r.partner_short_name === user.organization;
+    const seen = new Set<number>();
+    return projects
+      .filter((r) => (seen.has(r.project_id) ? false : (seen.add(r.project_id), true)))
+      .map((r) => ({ report: r, lead: isLead(r) }))
+      .sort((a, b) => a.report.project_title.localeCompare(b.report.project_title));
+  }, [projects, user]);
 
   const timeline = useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = [];
@@ -198,7 +217,7 @@ export default function PartnerHomePage() {
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
         <h1 className="text-3xl font-bold font-qanelas">
-          {mounted ? `${greeting}, ${user?.organization ?? user?.name ?? ""}` : " "}
+          {mounted ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}` : " "}
         </h1>
         <p className="text-neutral-400 text-sm mt-2">Partner Dashboard</p>
       </div>
@@ -261,6 +280,50 @@ export default function PartnerHomePage() {
                 )}
               </div>
             </div>
+
+            {/* ── Your projects ── */}
+            {!loading && myProjects.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <ListTodo className="size-4 text-muted-foreground" />
+                  <h2 className="text-base font-semibold">Your projects</h2>
+                </div>
+                <div className="rounded-xl border bg-card overflow-hidden divide-y">
+                  {myProjects.map(({ report, lead }) => {
+                    // Match the prodoc-editor's slug (whitespace → hyphens) so the
+                    // link pre-selects this project.
+                    const slug = (report.project_short_name ?? report.project_title)
+                      .toLowerCase()
+                      .replace(/\s+/g, "-");
+                    return (
+                      <button
+                        key={report.project_id}
+                        onClick={() => router.push(`/partner/prodoc-editor/${slug}/overview`)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{report.project_title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {shortName(report.partner_short_name)}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            lead
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : "bg-violet-50 text-violet-700 border border-violet-200"
+                          )}
+                        >
+                          {lead ? "Project Lead" : "Implementing Partner"}
+                        </span>
+                        <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── Feedback from CRAF'd ── */}
             {comments.length > 0 && (

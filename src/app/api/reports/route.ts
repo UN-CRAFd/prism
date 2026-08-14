@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PoolClient } from "pg";
 import pool, { query } from "@/lib/db";
-import { requireSession, requireAdmin } from "@/lib/authz";
+import { requireSession, requireAdmin, editorProjectIds } from "@/lib/authz";
 import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
@@ -85,8 +85,20 @@ export async function GET(request: Request) {
     const values: unknown[] = [];
     if (dataType) conditions.push(`r.data_type = '${dataType === "prodoc" ? "prodoc" : "report"}'`);
     if (scoped) {
+      // A partner sees reports their org owns PLUS the prodocs of projects they
+      // were granted edit rights on (project_editors). Editor rights cover the
+      // prodoc only, never annual reports, so that arm is prodoc-scoped.
       values.push(session.org);
-      conditions.push(`lower(p.short_name) = lower($${values.length})`);
+      const ownArm = `lower(p.short_name) = lower($${values.length})`;
+      const editorIds = await editorProjectIds(session);
+      if (editorIds.length) {
+        values.push(editorIds);
+        conditions.push(
+          `(${ownArm} OR (r.data_type = 'prodoc' AND r.project_id = ANY($${values.length}::int[])))`
+        );
+      } else {
+        conditions.push(ownArm);
+      }
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 

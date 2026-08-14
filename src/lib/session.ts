@@ -27,6 +27,12 @@ export interface Session {
   role: Role;
   /** Partner short_name (the ownership key). `null` for admin. */
   org: string | null;
+  /**
+   * Partner primary key (partners.id). `null` for admin, and `undefined` on
+   * sessions minted before this field existed — callers that need it should
+   * resolve from `org` when it is missing (see resolvePartnerId in authz).
+   */
+  partner_id?: number | null;
   name: string;
   exp: number; // epoch ms
 }
@@ -71,11 +77,12 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export async function createSessionToken(
-  input: { role: Role; org: string | null; name: string; exp?: number }
+  input: { role: Role; org: string | null; partner_id?: number | null; name: string; exp?: number }
 ): Promise<string> {
   const payload: Session = {
     role: input.role,
     org: input.org,
+    partner_id: input.partner_id ?? null,
     name: input.name,
     exp: input.exp ?? Date.now() + SESSION_TTL_MS,
   };

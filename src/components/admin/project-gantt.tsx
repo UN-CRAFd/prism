@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, shortName } from "@/lib/utils";
 
 export interface GanttProject {
   id: number;
@@ -144,9 +144,9 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
               <div key={d.id} className="h-9 flex items-center pr-3">
                 <span
                   className="truncate text-sm font-medium"
-                  title={`${d.short_name || d.project_title}${d.partner_short_name ? ` · ${d.partner_short_name}` : ""}`}
+                  title={`${shortName(d.short_name) || d.project_title}${d.partner_short_name ? ` · ${shortName(d.partner_short_name)}` : ""}`}
                 >
-                  {d.short_name || d.project_title}
+                  {shortName(d.short_name) || d.project_title}
                 </span>
               </div>
             ))}
@@ -183,7 +183,7 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
                   <div
                     style={{ left: `${left}%`, width: `${width}%`, backgroundColor: colorFor(d.partner_short_name) }}
                     className="absolute top-1.5 h-6 rounded-md flex items-center px-2 overflow-hidden z-10 shadow-sm ring-1 ring-black/5"
-                    title={`${d.short_name || d.project_title}\n${d.partner_short_name ?? ""}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`}
+                    title={`${shortName(d.short_name) || d.project_title}\n${shortName(d.partner_short_name)}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`}
                   >
                     <span className="truncate text-[11px] font-semibold text-white/95">
                       {d.project_duration_months} mo
@@ -214,7 +214,7 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
           {partners.map((p) => (
             <span key={p} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="size-3 rounded-sm" style={{ backgroundColor: colorFor(p) }} />
-              {p}
+              {shortName(p)}
             </span>
           ))}
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

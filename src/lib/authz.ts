@@ -52,6 +52,35 @@ export async function requireAdmin(): Promise<Session | NextResponse> {
   return session;
 }
 
+// Resolve the caller's partners.id. New sessions carry `partner_id` directly;
+// sessions minted before that field existed fall back to a lookup by `org`
+// (short_name), so already-logged-in partners keep working without re-login.
+// Returns null for admins / unknown orgs.
+export async function resolvePartnerId(session: Session): Promise<number | null> {
+  if (session.partner_id != null) return session.partner_id;
+  if (!session.org) return null;
+  const rows = await query<{ id: number }>(
+    `SELECT id FROM reporting_platform.partners WHERE lower(short_name) = lower($1) LIMIT 1`,
+    [session.org]
+  );
+  return rows.length ? rows[0].id : null;
+}
+
+// Project ids where the caller is an EDITOR (implementing partner with prodoc
+// edit rights) — used to widen list queries so those projects/prodocs surface
+// for the partner even though they don't own them. Returns [] for admins / when
+// the partner has no editor grants.
+export async function editorProjectIds(session: Session): Promise<number[]> {
+  if (session.role === "admin") return [];
+  const partnerId = await resolvePartnerId(session);
+  if (partnerId == null) return [];
+  const rows = await query<{ project_id: number }>(
+    `SELECT project_id FROM reporting_platform.project_editors WHERE partner_id = $1`,
+    [partnerId]
+  );
+  return rows.map((r) => r.project_id);
+}
+
 // ── Ownership checks (partner short_name === session.org) ────────────────────
 
 async function orgOwnsReport(org: string, reportId: number | string): Promise<boolean> {
@@ -100,14 +129,26 @@ async function reportStatusByRow(
   return rows.length ? rows[0].status : null;
 }
 
-async function orgOwnsProject(org: string, projectId: number | string): Promise<boolean> {
+// Project-scoped ownership: TRUE when the caller is the project's owner (lead)
+// OR an editor listed in project_editors (an implementing partner granted prodoc
+// edit rights). Editors are matched by partner_id (resolved from the session);
+// the owner is matched by short_name to preserve the existing behaviour.
+async function orgOwnsProject(
+  org: string,
+  projectId: number | string,
+  partnerId: number | null
+): Promise<boolean> {
   const rows = await query(
     `SELECT 1
        FROM reporting_platform.projects p
        JOIN reporting_platform.partners pt ON pt.id = p.partner_id
       WHERE p.id = $1 AND lower(pt.short_name) = lower($2)
+      UNION ALL
+      SELECT 1
+       FROM reporting_platform.project_editors pe
+      WHERE pe.project_id = $1 AND pe.partner_id = $3
       LIMIT 1`,
-    [projectId, org]
+    [projectId, org, partnerId]
   );
   return rows.length > 0;
 }
@@ -141,10 +182,13 @@ async function orgOwnsRow(
 }
 
 // Ownership for a row in a project-scoped table (has a project_id column).
+// Like orgOwnsProject, allows the project owner (by short_name) OR an editor
+// listed in project_editors (by partner_id).
 async function orgOwnsProjectRow(
   org: string,
   table: string,
-  rowId: number | string
+  rowId: number | string,
+  partnerId: number | null
 ): Promise<boolean> {
   if (!IDENT.test(table)) throw new Error(`Invalid table identifier: ${table}`);
   const rows = await query(
@@ -153,8 +197,13 @@ async function orgOwnsProjectRow(
        JOIN reporting_platform.projects p  ON p.id  = t.project_id
        JOIN reporting_platform.partners pt ON pt.id = p.partner_id
       WHERE t.id = $1 AND lower(pt.short_name) = lower($2)
+      UNION ALL
+      SELECT 1
+       FROM reporting_platform.${table} t
+       JOIN reporting_platform.project_editors pe ON pe.project_id = t.project_id
+      WHERE t.id = $1 AND pe.partner_id = $3
       LIMIT 1`,
-    [rowId, org]
+    [rowId, org, partnerId]
   );
   return rows.length > 0;
 }
@@ -206,7 +255,8 @@ export async function guardProject(
 ): Promise<NextResponse | null> {
   if (session.role === "admin") return null;
   if (!session.org || !projectId) return forbidden();
-  return (await orgOwnsProject(session.org, projectId)) ? null : forbidden();
+  const partnerId = await resolvePartnerId(session);
+  return (await orgOwnsProject(session.org, projectId, partnerId)) ? null : forbidden();
 }
 
 export async function guardPartner(
@@ -252,7 +302,8 @@ export async function guardProjectRow(
 ): Promise<NextResponse | null> {
   if (session.role === "admin") return null;
   if (!session.org || !rowId) return forbidden();
-  return (await orgOwnsProjectRow(session.org, table, rowId)) ? null : forbidden();
+  const partnerId = await resolvePartnerId(session);
+  return (await orgOwnsProjectRow(session.org, table, rowId, partnerId)) ? null : forbidden();
 }
 
 /** Ownership for a row identified only by its primary key in a PARTNER-scoped table. */

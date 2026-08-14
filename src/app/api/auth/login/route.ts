@@ -15,10 +15,12 @@ async function loginResponse(user: {
   name: string;
   role: Session["role"];
   organization?: string;
+  partner_id?: number | null;
 }) {
   const token = await createSessionToken({
     role: user.role,
     org: user.role === "admin" ? null : user.organization ?? user.id,
+    partner_id: user.role === "admin" ? null : user.partner_id ?? null,
     name: user.name,
   });
   return setSessionCookie(NextResponse.json({ user }), token);
@@ -56,8 +58,8 @@ export async function POST(request: Request) {
 
   // ── Partner — matched by short name or email, verified against the DB ──
   try {
-    const rows = await query<{ short_name: string; long_name: string | null; password_hash: string | null }>(
-      `SELECT short_name, long_name, password_hash
+    const rows = await query<{ id: number; short_name: string; long_name: string | null; password_hash: string | null }>(
+      `SELECT id, short_name, long_name, password_hash
        FROM reporting_platform.partners
        WHERE lower(short_name) = lower($1) OR lower(mail_account) = lower($1)
        LIMIT 1`,
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
       name: partner.long_name || partner.short_name,
       role: "partner",
       organization: partner.short_name,
+      partner_id: partner.id,
     });
   } catch (err) {
     logger.error("POST /api/auth/login error:", err);

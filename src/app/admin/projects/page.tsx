@@ -14,6 +14,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronsUpDown, X } from "lucide-react";
 import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
@@ -57,6 +61,9 @@ interface Project {
   project_duration_months: number | null;
   geographic_scope: string | null;
   implementing_partners: string | null;
+  // partners.id[] granted prodoc edit rights (project_editors). May be absent on
+  // responses that predate the feature.
+  editor_partner_ids?: number[] | null;
   // No-cost extension rollup (from project_extensions) — total months added
   // across all extensions and how many were granted.
   extension_months_total: number;
@@ -127,6 +134,76 @@ function fmtUsd(v: string | null) {
   return "$" + n.toLocaleString("en-US");
 }
 
+// Multi-select over the partner list (dynamic options, numeric ids), used to
+// grant prodoc edit rights. Mirrors the chip/checkbox look of ui/MultiSelect but
+// takes an explicit option list rather than the admin option registry.
+function PartnerMultiSelect({
+  partners, value, onChange, placeholder = "Select partners…",
+}: {
+  partners: Partner[];
+  value: number[];
+  onChange: (next: number[]) => void;
+  placeholder?: string;
+}) {
+  // Compact chip label (trigger): capitalized short name, falling back to long.
+  const labelFor = (id: number) => {
+    const p = partners.find((x) => x.id === id);
+    const short = p?.short_name ? p.short_name.toUpperCase() : null;
+    return short || p?.long_name || `#${id}`;
+  };
+  // Fuller option-list label: "SHORT - Long name" (both when available).
+  const optionLabel = (p: Partner) => {
+    const short = p.short_name ? p.short_name.toUpperCase() : null;
+    if (short && p.long_name) return `${short} - ${p.long_name}`;
+    return short || p.long_name || `#${p.id}`;
+  };
+  function toggle(id: number) {
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex min-h-9 w-full items-center gap-1 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+        <div className="flex flex-1 flex-wrap items-center gap-1">
+          {value.length === 0 ? (
+            <span className="text-muted-foreground px-1">{placeholder}</span>
+          ) : (
+            value.map((id) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {labelFor(id)}
+                <span
+                  role="button" tabIndex={-1} aria-label={`Remove ${labelFor(id)}`}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggle(id); }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </span>
+              </span>
+            ))
+          )}
+        </div>
+        <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-[--radix-dropdown-menu-trigger-width] min-w-56 overflow-y-auto">
+        {partners.length === 0 ? (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No other partners available.</div>
+        ) : (
+          partners.map((p) => (
+            <DropdownMenuCheckboxItem
+              key={p.id}
+              checked={value.includes(p.id)}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={() => toggle(p.id)}
+            >
+              {optionLabel(p)}
+            </DropdownMenuCheckboxItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // -- Page -------------------------------------------------------------------
 
 export default function ProjectsPage() {
@@ -176,6 +253,10 @@ export default function ProjectsPage() {
   const [durationMonths, setDurationMonths] = useState("");
   const [scope, setScope] = useState("");
   const [implementingPartners, setImplementingPartners] = useState("");
+  // Partners granted prodoc edit rights on this project (partners.id[]). Distinct
+  // from the free-text implementingPartners above; the lead (partnerId) is never
+  // in this list.
+  const [editorIds, setEditorIds] = useState<number[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -204,6 +285,7 @@ export default function ProjectsPage() {
     setPartnerId(""); setTitle(""); setShortName("");
     setMptfo(""); setGrantSize(""); setStartDate(""); setDurationMonths(""); setScope("");
     setImplementingPartners("");
+    setEditorIds([]);
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -217,6 +299,7 @@ export default function ProjectsPage() {
     setDurationMonths(p.project_duration_months != null ? String(p.project_duration_months) : "");
     setScope(p.geographic_scope || "");
     setImplementingPartners(p.implementing_partners || "");
+    setEditorIds(Array.isArray(p.editor_partner_ids) ? p.editor_partner_ids : []);
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
@@ -234,6 +317,8 @@ export default function ProjectsPage() {
         project_duration_months: durationMonths ? parseInt(durationMonths, 10) : null,
         geographic_scope: scope.trim() || null,
         implementing_partners: implementingPartners.trim() || null,
+        // Never grant the lead editor rights (they already own the project).
+        editor_partner_ids: editorIds.filter((id) => id !== Number(partnerId)),
       };
       const res = await fetch(
         editId ? `/api/projects/${editId}` : "/api/projects",
@@ -668,6 +753,14 @@ export default function ProjectsPage() {
               </Field>
               <Field label="Implementing partners">
                 <Input value={implementingPartners} onChange={(e) => setImplementingPartners(e.target.value)} placeholder="Implementing partners" />
+              </Field>
+              <Field label="Editing rights">
+                <PartnerMultiSelect
+                  partners={partners.filter((p) => String(p.id) !== partnerId)}
+                  value={editorIds}
+                  onChange={setEditorIds}
+                  placeholder="Partners who can edit this prodoc…"
+                />
               </Field>
             </div>
           </FormShell>

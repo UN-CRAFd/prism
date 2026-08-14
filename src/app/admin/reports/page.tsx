@@ -24,7 +24,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, timeAgo, shortName } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import { PageHeader, ViewToggle, FilterBar, FilterSelect, ALL } from "@/components/admin/shared";
 import {
@@ -103,7 +103,7 @@ export default function ReportsPage() {
     for (const r of filtered) {
       const key =
         groupMode === "year" ? String(r.year) :
-        groupMode === "organization" ? (r.partner_long_name || r.partner_short_name) :
+        groupMode === "organization" ? (r.partner_long_name || shortName(r.partner_short_name)) :
         r.status;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
@@ -150,7 +150,7 @@ export default function ReportsPage() {
           width={240}
           options={projects.map((p) => ({
             value: String(p.id),
-            label: p.partner_short_name ? `${p.partner_short_name} · ${p.project_title}` : p.project_title,
+            label: p.partner_short_name ? `${shortName(p.partner_short_name)} · ${p.project_title}` : p.project_title,
           }))}
         />
         <FilterSelect
@@ -236,7 +236,7 @@ export default function ReportsPage() {
                 >
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-semibold">
-                      {r.partner_short_name}
+                      {shortName(r.partner_short_name)}
                     </Badge>
                   </TableCell>
                   <TableCell>

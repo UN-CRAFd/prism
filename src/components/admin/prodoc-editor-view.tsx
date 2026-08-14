@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, FileQuestion, Pencil, Layers, Lock, Printer, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
@@ -166,14 +166,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     fetch("/api/reports?data_type=prodoc")
       .then((r) => r.json())
       .then((data: Prodoc[]) => {
-        let list = Array.isArray(data) ? data : [];
-        if (isPartner && user) {
-          list = list.filter(
-            (d) =>
-              d.partner_short_name?.toLowerCase() === user.id.toLowerCase() ||
-              d.partner_short_name === user.organization
-          );
-        }
+        // The API already scopes this list to what the partner may see — their
+        // own projects PLUS any they were granted edit rights on (editor
+        // prodocs are owned by a different partner, so a client-side owner
+        // filter here would wrongly drop them). Trust the server scoping.
+        const list = Array.isArray(data) ? data : [];
         setDocs(list);
         if (params.project) {
           const match = list.find((d) => toSlug(d) === params.project);
@@ -515,7 +512,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
           {isPartner ? (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedDoc ? (selectedDoc.project_short_name || "Project Document") : "Your project document baseline."}
+              {selectedDoc ? (shortName(selectedDoc.project_short_name) || "Project Document") : "Your project document baseline."}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground mt-0.5">Project Document Editor</p>
@@ -547,7 +544,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
                 </span>
               ) : selectedDoc ? (
-                <span className="truncate">{selectedDoc.project_short_name || selectedDoc.project_title}</span>
+                <span className="truncate">{shortName(selectedDoc.project_short_name) || selectedDoc.project_title}</span>
               ) : (
                 <span className="text-muted-foreground">Select a project</span>
               )}
@@ -562,10 +559,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 }, {} as Record<string, Prodoc[]>)
               ).map(([partner, grouped]) => (
                 <SelectGroup key={partner}>
-                  <SelectLabel>{partner}</SelectLabel>
+                  <SelectLabel>{shortName(partner)}</SelectLabel>
                   {grouped.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>
-                      {d.project_short_name || d.project_title}
+                      {shortName(d.project_short_name) || d.project_title}
                     </SelectItem>
                   ))}
                 </SelectGroup>

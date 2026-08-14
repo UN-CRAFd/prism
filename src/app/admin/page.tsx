@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportStatusStyle } from "@/lib/reports";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, shortName } from "@/lib/utils";
 import { CommentContextBadges } from "@/components/comment-context-badges";
 import type { Report } from "@/lib/types";
 
@@ -285,7 +285,7 @@ export default function AdminHomePage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{r.project_title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {r.partner_short_name} &middot; {r.year}
+                          {shortName(r.partner_short_name)} &middot; {r.year}
                         </p>
                       </div>
                       <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
@@ -340,7 +340,7 @@ export default function AdminHomePage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm line-clamp-2">{c.body}</p>
                         <CommentContextBadges
-                          partner={c.partner_short_name}
+                          partner={shortName(c.partner_short_name)}
                           reportType={c.report_type}
                           year={c.year}
                           project={c.project_short_name ?? c.project_title}

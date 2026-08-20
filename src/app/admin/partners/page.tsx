@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Building2, ExternalLink, Check, X } from "lucide-react";
+import { Plus, Building2, ExternalLink, Check, X, Eye, EyeOff } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
@@ -123,6 +123,7 @@ export default function PartnersPage() {
   const [website, setWebsite] = useState("");
   const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,7 +164,7 @@ export default function PartnersPage() {
   );
 
   function resetForm() {
-    setShortName(""); setLongName(""); setWebsite(""); setMail(""); setPassword("");
+    setShortName(""); setLongName(""); setWebsite(""); setMail(""); setPassword(""); setShowPassword(false);
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -177,7 +178,7 @@ export default function PartnersPage() {
     setLongName(p.long_name || "");
     setWebsite(p.organization_website || "");
     setMail(p.mail_account || "");
-    setPassword("");
+    setPassword(""); setShowPassword(false);
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
@@ -274,7 +275,24 @@ export default function PartnersPage() {
                 </ValidatedField>
               </Field>
               <Field label={editId ? "Password (blank = keep current)" : "Password"} required={!editId}>
-                <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={editId ? "Unchanged" : ""} autoComplete="new-password" />
+                <div className="relative">
+                  <Input
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    type={showPassword ? "text" : "password"}
+                    placeholder={editId ? "Unchanged" : ""}
+                    autoComplete="new-password"
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
               </Field>
             </div>
           </FormShell>

@@ -7,8 +7,8 @@ import { Loader2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels";
+import { narrativeLimit } from "@/lib/limits";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per
@@ -18,8 +18,6 @@ import labels from "@/lib/labels";
 // order), so it is loaded with the answers rather than read from labels.json.
 // Debounced autosave via the shared useAutosave controller, with a single
 // AutosaveIndicator — matching the report editor.
-
-const MAX_CHARS = 4500;
 
 type Question = { id: number; key: string; label: string; description: string | null };
 type Entry = { answer: string };
@@ -93,7 +91,10 @@ export function NarrativesAdminEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project_id: projectId, narrative_key: q.key, label: labelRef.current[q.key], description: descRef.current[q.key], answer: cur.answer }),
       });
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        throw new Error((error as string) || "Failed to save");
+      }
       savedRef.current[q.key] = { ...cur };
     }
   }, [projectId]);
@@ -182,20 +183,8 @@ export function NarrativesAdminEditor({
                 onChange={(html) => update(q.key, { answer: html })}
                 placeholder={labels.narratives.placeholder}
                 disabled={readOnly}
+                maxChars={narrativeLimit(q.key)}
               />
-              {(() => {
-                const len = richTextLength(answer);
-                return (
-                  <div
-                    className={cn(
-                      "text-[11px] text-right tabular-nums",
-                      len >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
-                    )}
-                  >
-                    {len.toLocaleString()}/{MAX_CHARS.toLocaleString()} characters
-                  </div>
-                );
-              })()}
             </div>
           </div>
         );

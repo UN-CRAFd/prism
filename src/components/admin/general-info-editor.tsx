@@ -14,6 +14,7 @@ import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
+import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
 
 // ── General Information editor ─────────────────────────────────────────────────
 // The first project-document tab. Edits core project data (name, MPTFO number,
@@ -237,7 +238,10 @@ export function GeneralInfoAdminEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        throw new Error((error as string) || "Failed to save");
+      }
       for (const key of FIELD_KEYS) savedRef.current[key] = snapshot[key];
     }
 
@@ -580,6 +584,7 @@ export function GeneralInfoAdminEditor({
             placeholder={g.placeholders.description}
             disabled={readOnly}
             hideClearFormatting
+            maxChars={DESCRIPTION_MAX_CHARS}
           />
         </div>
       </div>

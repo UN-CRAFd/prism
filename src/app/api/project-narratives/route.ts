@@ -3,6 +3,9 @@ import { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
+import { badRequest } from "@/lib/http";
+import { narrativeLimit } from "@/lib/limits";
+import { richTextLength } from "@/lib/richtext";
 
 // Project-level narrative texts for the project document. One row per
 // (project_id, narrative_key); the question set/labels live in labels.json.
@@ -51,6 +54,15 @@ export async function PATCH(req: NextRequest) {
   if (gate) return gate;
 
   try {
+    const sanitizedAnswer = sanitizeRichText((body.answer as string) || null) ?? null;
+    const limit = narrativeLimit(narrative_key as string);
+    const len = richTextLength(sanitizedAnswer);
+    if (len > limit) {
+      return badRequest(
+        `Answer exceeds the ${limit.toLocaleString("en-US")}-character limit (${len.toLocaleString("en-US")} entered).`
+      );
+    }
+
     const rows = await query(
       `INSERT INTO reporting_platform.project_narratives (project_id, narrative_key, label, description, answer)
        VALUES ($1, $2, $3, $4, $5)
@@ -62,7 +74,7 @@ export async function PATCH(req: NextRequest) {
         narrative_key,
         typeof body.label === "string" ? body.label : null,
         typeof body.description === "string" ? body.description : null,
-        sanitizeRichText((body.answer as string) || null) ?? null,
+        sanitizedAnswer,
       ]
     );
     return NextResponse.json(rows[0]);

@@ -243,6 +243,7 @@ body::-webkit-scrollbar {
 .rte-content a {
   color: #1d4ed8;
   text-decoration: underline;
+  cursor: pointer;
 }
 .rte-content table,
 .rich-html table {

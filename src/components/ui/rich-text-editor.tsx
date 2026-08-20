@@ -98,9 +98,22 @@ export function RichTextEditor({
     if (ro) return;
     ref.current?.focus();
     if (command === "createLink") {
-      const url = window.prompt("Link URL", "https://");
-      if (!url) return;
+      const raw = window.prompt("Link URL", "https://");
+      if (!raw) return;
+      // Prepend https:// when the user omits a scheme; leave http(s):// and mailto: alone.
+      const url = /^(https?:|mailto:)/i.test(raw) ? raw : `https://${raw}`;
       document.execCommand("createLink", false, url);
+      // Stamp target="_blank" and title on the anchor the browser just created.
+      // Walk up from the selection's container — execCommand leaves the caret inside the new <a>.
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+        while (node && node.nodeName !== "A") node = node.parentNode;
+        if (node?.nodeName === "A") {
+          (node as HTMLAnchorElement).target = "_blank";
+          (node as HTMLAnchorElement).title = url;
+        }
+      }
     } else if (command === "insertTable") {
       const cols = Math.min(Math.max(Math.round(Number(window.prompt("Number of columns", "3"))) || 0, 1), 10);
       if (!cols) return;
@@ -193,6 +206,20 @@ export function RichTextEditor({
         onBlur={emit}
         onBeforeInput={handleBeforeInput}
         onPaste={handlePaste}
+        onMouseOver={(e) => {
+          if (ro || !(e.target instanceof Element)) return;
+          const a = e.target.closest("a[href]") as HTMLAnchorElement | null;
+          if (a && !a.title) a.title = "Cmd/Ctrl+click to open";
+        }}
+        onClick={(e) => {
+          if (!e.metaKey && !e.ctrlKey) return;
+          const a = e.target instanceof Element
+            ? e.target.closest("a[href]") as HTMLAnchorElement | null
+            : null;
+          if (!a) return;
+          e.preventDefault();
+          window.open(a.href, "_blank", "noopener,noreferrer");
+        }}
         className={cn(
           "rte-content px-3 py-2 text-sm leading-relaxed outline-none",
           !ro && "cursor-text"

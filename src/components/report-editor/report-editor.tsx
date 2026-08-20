@@ -770,6 +770,26 @@ export function ReportEditor({
     }
   }
 
+  async function handleIndicatorEdit(
+    indicatorId: number,
+    patch: { name: string; description: string | null; means_of_verification: string | null },
+  ) {
+    const res = await fetch(`/api/indicators/${indicatorId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error("Failed to update indicator");
+    const updated = await res.json();
+    setIndicatorRows((prev) =>
+      prev.map((r) =>
+        r.indicator_id === indicatorId
+          ? { ...r, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
+          : r
+      )
+    );
+  }
+
   // ── Undo / redo (command stack) ────────────────────────────────────────────
   function pushCommand(cmd: HistoryCommand) {
     setUndoStack((s) => [...s, cmd].slice(-100));
@@ -1165,6 +1185,7 @@ export function ReportEditor({
             isAdmin={mode === "admin"}
             deletingIndicatorLineId={deletingIndicatorLineId}
             handleIndicatorDelete={handleIndicatorDelete}
+            onEditIndicator={mode === "admin" ? handleIndicatorEdit : undefined}
             fillHeight={fillHeight}
           />
 

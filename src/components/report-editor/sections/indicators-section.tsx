@@ -1,14 +1,15 @@
 "use client";
 
 import { Fragment, useState, type CSSProperties } from "react";
-import { Loader2, Plus, Info, Trash2, X } from "lucide-react";
+import { Loader2, Plus, Trash2, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
+import { useReadOnly } from "@/components/ui/read-only-context";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { Badge } from "@/components/report-editor/scale-select";
@@ -78,6 +79,10 @@ export interface IndicatorsSectionProps {
   deletingIndicatorLineId: number | null;
   handleIndicatorDelete: (row: IndicatorMatrixRow) => void;
 
+  // Optional inline edit for custom indicators (admin-only). When omitted, the
+  // Pencil button is not rendered.
+  onEditIndicator?: (indicatorId: number, patch: { name: string; description: string | null; means_of_verification: string | null }) => Promise<void>;
+
   // Freeze the column headers to the top while the matrix body scrolls.
   fillHeight?: boolean;
 }
@@ -109,8 +114,10 @@ export function IndicatorsSection({
   isAdmin,
   deletingIndicatorLineId,
   handleIndicatorDelete,
+  onEditIndicator,
   fillHeight = false,
 }: IndicatorsSectionProps) {
+  const readOnly = useReadOnly();
   // Name, description and means of verification are all mandatory for a
   // partner-defined custom indicator; baseline/target remain optional.
   const canAddIndicator =
@@ -123,6 +130,23 @@ export function IndicatorsSection({
   // name and reveal the description / means-of-verification / baseline / target
   // fields, which are required before the indicator can join the shared vocabulary.
   const [creating, setCreating] = useState(false);
+
+  const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editMov, setEditMov] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  async function handleEditSave(indicatorId: number) {
+    if (!editName.trim() || !onEditIndicator) return;
+    setSavingEdit(true);
+    try {
+      await onEditIndicator(indicatorId, { name: editName, description: editDesc || null, means_of_verification: editMov || null });
+      setEditingIndicatorId(null);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   function openCreate(name: string) {
     setNewIndicatorName(name);
@@ -224,25 +248,25 @@ export function IndicatorsSection({
                 <tr key={row.indicator_id} className="align-top">
                   {/* Frozen: indicator name + baseline + target */}
                   <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
-                    <div className="flex items-start gap-2">
-                      <p className="font-medium leading-snug flex-1">{row.indicator_name}</p>
-                      {row.indicator_description && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="size-4 text-muted-foreground flex-shrink-0 mt-0.5 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">{row.indicator_description}</TooltipContent>
-                        </Tooltip>
-                      )}
-                      <ItemComments section="indicators" itemId={row.currentLineId} />
-                    </div>
-                    {row.means_of_verification && (
-                      <p className="text-xs text-muted-foreground mt-1">{row.means_of_verification}</p>
+                    {editingIndicatorId === row.indicator_id ? (
+                      <div className="flex flex-col gap-1.5">
+                        <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
+                        <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm" />
+                        <Input value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-2">
+                          <p className="font-medium leading-snug flex-1">{row.indicator_name}</p>
+                          <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
+                          <ItemComments section="indicators" itemId={row.currentLineId} />
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
+                          {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
+                        </div>
+                      </>
                     )}
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
-                      {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
-                    </div>
                   </td>
                   <td style={ifz("baseline")} className={cn("px-3 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
                     <ValueYear value={row.baseline_value} year={row.baseline_year} />
@@ -313,20 +337,41 @@ export function IndicatorsSection({
                     );
                   })}
 
-                  {/* Trailing: remove-from-report. Admins may remove any indicator;
-                      partners only their own custom (non-standard) ones. */}
+                  {/* Trailing: edit (admin, custom only) + remove-from-report. */}
                   <td className="px-2 py-2 border-l border-t text-center">
-                    {(isAdmin || !row.is_standard) && (
-                      <button
-                        onClick={() => handleIndicatorDelete(row)}
-                        disabled={deletingIndicatorLineId === row.currentLineId}
-                        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-                        aria-label={`Remove indicator ${row.indicator_name}`}
-                      >
-                        {deletingIndicatorLineId === row.currentLineId
-                          ? <Loader2 className="size-3.5 animate-spin" />
-                          : <Trash2 className="size-3.5" />}
-                      </button>
+                    {editingIndicatorId === row.indicator_id ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleEditSave(row.indicator_id)} disabled={savingEdit || !editName.trim()}>
+                          {savingEdit ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setEditingIndicatorId(null)} disabled={savingEdit}>
+                          {labels.common.cancel}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        {!readOnly && !row.is_standard && !!onEditIndicator && (
+                          <button
+                            onClick={() => { setEditingIndicatorId(row.indicator_id); setEditName(row.indicator_name); setEditDesc(row.indicator_description ?? ""); setEditMov(row.means_of_verification ?? ""); }}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label={`Edit indicator ${row.indicator_name}`}
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                        )}
+                        {(isAdmin || !row.is_standard) && (
+                          <button
+                            onClick={() => handleIndicatorDelete(row)}
+                            disabled={deletingIndicatorLineId === row.currentLineId}
+                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                            aria-label={`Remove indicator ${row.indicator_name}`}
+                          >
+                            {deletingIndicatorLineId === row.currentLineId
+                              ? <Loader2 className="size-3.5 animate-spin" />
+                              : <Trash2 className="size-3.5" />}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>

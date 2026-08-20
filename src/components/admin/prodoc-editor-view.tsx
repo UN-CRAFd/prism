@@ -25,6 +25,7 @@ import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
@@ -149,6 +150,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [editingRiskName, setEditingRiskName] = useState("");
   const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
   const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
+
+  // Indicator inline edit (admin-only; !isPartner is the inline equivalent of isAdmin)
+  const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
+  const [editingIndName, setEditingIndName] = useState("");
+  const [editingIndDescription, setEditingIndDescription] = useState("");
+  const [editingIndMov, setEditingIndMov] = useState("");
 
   // Indicators
   const [indicatorLines, setIndicatorLines] = useState<IndicatorLine[]>([]);
@@ -277,6 +284,25 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       const updated: Risk = await res.json();
       setRisks((prev) => prev.map((r) => r.id === id ? updated : r));
       setEditingRiskId(null);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+  }
+
+  async function handleIndicatorEditSave(indicatorId: number) {
+    if (!editingIndName.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/indicators/${indicatorId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingIndName, description: editingIndDescription || null, means_of_verification: editingIndMov || null }),
+      });
+      if (!res.ok) throw new Error("Failed to update indicator");
+      const updated = await res.json();
+      setIndicatorLines((prev) => prev.map((l) =>
+        l.indicator_id === indicatorId
+          ? { ...l, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
+          : l
+      ));
+      setEditingIndicatorId(null);
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
   }
 
@@ -856,20 +882,30 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                     <tbody className="divide-y">
                       {indicatorLines.map((line, i) => {
                             const num = i + 1;
+                            const isEditing = editingIndicatorId === line.indicator_id;
                             return (
                               <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
                                 <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{num}.</td>
                               <td className="px-4 py-3">
-                                <div className="flex items-start gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium">{line.indicator_name}</p>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
-                                      {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
-                                    </div>
+                                {isEditing ? (
+                                  <div className="flex flex-col gap-1.5">
+                                    <Input value={editingIndName} onChange={(e) => setEditingIndName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
+                                    <Input value={editingIndDescription} onChange={(e) => setEditingIndDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm" />
+                                    <Input value={editingIndMov} onChange={(e) => setEditingIndMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm" />
                                   </div>
-                                  <ItemComments section="indicators" itemId={line.id} />
-                                </div>
+                                ) : (
+                                  <div className="flex items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium">{line.indicator_name}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
+                                        {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                                      </div>
+                                    </div>
+                                    <InfoPopover description={line.indicator_description} meansOfVerification={line.means_of_verification} />
+                                    <ItemComments section="indicators" itemId={line.id} />
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-3">
                                 <Input
@@ -908,9 +944,23 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                 />
                               </td>
                               <td className="px-4 py-3 text-right">
-                                <button onClick={() => handleIndicatorDelete(line.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                                  <Trash2 className="size-3.5" />
-                                </button>
+                                {isEditing ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => handleIndicatorEditSave(line.indicator_id)}>{labels.adminEditor.save}</Button>
+                                    <Button size="sm" variant="outline" onClick={() => setEditingIndicatorId(null)}>{labels.common.cancel}</Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-2">
+                                    {!readOnly && !line.is_standard && (
+                                      <button onClick={() => { setEditingIndicatorId(line.indicator_id); setEditingIndName(line.indicator_name); setEditingIndDescription(line.indicator_description ?? ""); setEditingIndMov(line.means_of_verification ?? ""); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                                        <Pencil className="size-3.5" />
+                                      </button>
+                                    )}
+                                    <button onClick={() => handleIndicatorDelete(line.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             </tr>
                             );

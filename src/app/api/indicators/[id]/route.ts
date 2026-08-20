@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireAdmin } from "@/lib/authz";
+import { requireAdmin, requireSession } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 const ALLOWED_FIELDS = [
@@ -20,8 +20,22 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const gate = await requireAdmin();
-    if (gate instanceof NextResponse) return gate;
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+
+    // Custom indicators (is_standard = false) may be edited by any authenticated
+    // session. Standard indicators are the controlled vocabulary and are admin-only.
+    // Check the DB value — never trust the request body.
+    const indicator = await query<{ is_standard: boolean }>(
+      `SELECT is_standard FROM reporting_platform.indicators WHERE id = $1`,
+      [id]
+    );
+    if (indicator.length === 0) {
+      return NextResponse.json({ error: "Indicator not found" }, { status: 404 });
+    }
+    if (indicator[0].is_standard && session.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const body = await request.json();
 

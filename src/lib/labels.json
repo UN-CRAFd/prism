@@ -507,6 +507,17 @@
       "pending": "Pending"
     }
   },
+  "expenditure": {
+    "categoryDescriptions": {
+      "Staff and other personnel": "Salaries, benefits, and other personnel costs directly attributed to the project, including national and international staff.",
+      "Supplies, commodities, materials": "Consumable goods required for project implementation, such as office supplies, training materials, and operational consumables.",
+      "Equipment, vehicles, & furniture": "Non-consumable assets procured for the project, including hardware, vehicles, and furniture. Items above the capitalisation threshold should be inventoried.",
+      "Contractual services": "Payments to external contractors, consultants, and service providers engaged to deliver specific project outputs or services.",
+      "Travel": "Transportation, accommodation, and per diem costs for project-related travel by staff, consultants, and partners.",
+      "Transfers & grants to counterparts": "Funds transferred to implementing partners, sub-grantees, or counterpart organisations for activities carried out on behalf of the project.",
+      "General operating & other direct costs": "Office running costs, communications, utilities, and other direct project costs not captured under the categories above."
+    }
+  },
   "guideEditor": {
     "title": "Guide",
     "description": "Edit the partner-facing Guide — every section's title, icon, and content",

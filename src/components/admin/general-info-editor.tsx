@@ -566,40 +566,6 @@ export function GeneralInfoAdminEditor({
             </Select>
           </div>
 
-          {/* Participating Organizations + Implementing Organizations — full-width rows */}
-          <div className="space-y-1.5 col-span-full sm:col-span-2 lg:col-span-4">
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.participatingOrganizations}</label>
-              <InfoPopover
-                description={g.participatingOrganizationsDescription}
-                triggerTitle={g.fields.participatingOrganizations}
-                descriptionHeading="Description"
-              />
-            </div>
-            <Input
-              value={form.participating_organizations}
-              onChange={(e) => setField("participating_organizations", e.target.value)}
-              placeholder={g.placeholders.participatingOrganizations}
-              maxLength={PARTICIPATING_ORGANIZATIONS_MAX_CHARS}
-              className="text-sm w-full"
-            />
-          </div>
-          <div className="space-y-1.5 col-span-full sm:col-span-2 lg:col-span-4">
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
-              <InfoPopover
-                description={g.implementingOrganizationsDescription}
-                triggerTitle={g.fields.implementingPartners}
-                descriptionHeading="Description"
-              />
-            </div>
-            <Input
-              value={form.implementing_partners}
-              onChange={(e) => setField("implementing_partners", e.target.value)}
-              placeholder={g.placeholders.implementingPartners}
-              className="text-sm w-full"
-            />
-          </div>
         </div>
 
         <div className="space-y-1.5">
@@ -611,6 +577,41 @@ export function GeneralInfoAdminEditor({
             disabled={readOnly}
             hideClearFormatting
             maxChars={DESCRIPTION_MAX_CHARS}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.participatingOrganizations}</label>
+            <InfoPopover
+              description={g.participatingOrganizationsDescription}
+              triggerTitle={g.fields.participatingOrganizations}
+              descriptionHeading="Description"
+            />
+          </div>
+          <Input
+            value={form.participating_organizations}
+            onChange={(e) => setField("participating_organizations", e.target.value)}
+            placeholder={g.placeholders.participatingOrganizations}
+            maxLength={PARTICIPATING_ORGANIZATIONS_MAX_CHARS}
+            className="text-sm w-full"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
+            <InfoPopover
+              description={g.implementingOrganizationsDescription}
+              triggerTitle={g.fields.implementingPartners}
+              descriptionHeading="Description"
+            />
+          </div>
+          <Input
+            value={form.implementing_partners}
+            onChange={(e) => setField("implementing_partners", e.target.value)}
+            placeholder={g.placeholders.implementingPartners}
+            className="text-sm w-full"
           />
         </div>
       </div>

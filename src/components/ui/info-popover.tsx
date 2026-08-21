@@ -7,9 +7,13 @@ import { Info } from "lucide-react";
 export function InfoPopover({
   description,
   meansOfVerification,
+  triggerTitle = "Indicator details",
+  descriptionHeading = "What it measures",
 }: {
   description?: string | null;
   meansOfVerification?: string | null;
+  triggerTitle?: string;
+  descriptionHeading?: string;
 }) {
   const hasContent = !!(description || meansOfVerification);
   const [open, setOpen] = useState(false);
@@ -73,7 +77,7 @@ export function InfoPopover({
         ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        title="Indicator details"
+        title={triggerTitle}
         className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
       >
         <Info className="size-4 mt-0.5" />
@@ -92,7 +96,7 @@ export function InfoPopover({
           >
             {description && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">What it measures</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{descriptionHeading}</p>
                 <p className="text-sm leading-snug">{description}</p>
               </div>
             )}

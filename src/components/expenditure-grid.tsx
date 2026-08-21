@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
 import { Loader2, CheckCircle2, AlertTriangle, StickyNote } from "lucide-react";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
@@ -269,7 +270,12 @@ export function ExpenditurePartnerEditor({
             const expT = totalExp(c.id);
             return (
               <tr key={c.id}>
-                <td style={fz("cat")} className="px-3 py-2 border-r border-t bg-card">{c.name}</td>
+                <td style={fz("cat")} className="px-3 py-2 border-r border-t bg-card">
+                  <span className="inline-flex items-center gap-1">
+                    {c.name}
+                    <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
+                  </span>
+                </td>
                 <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="approved" /></td>
                 <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} /></td>
                 <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
@@ -589,16 +595,22 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th style={fillHeight ? { boxShadow: HEAD_SHADOW } : undefined} className={cn("text-left px-3 py-2 text-muted-foreground min-w-[220px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Budget categories</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total</th>
                   {years.map((y) => (
                     <th key={y} style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>{y}</th>
                   ))}
-                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {categories.map((c) => (
                   <tr key={c.id} className="border-t hover:bg-muted/10">
-                    <td className="px-3 py-2 border-r">{c.name}</td>
+                    <td className="px-3 py-2 border-r">
+                      <span className="inline-flex items-center gap-1">
+                        {c.name}
+                        <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="approved" /></td>
                     {years.map((y) => (
                       <td key={y} className="px-1 py-1 border-l">
                         <div className="flex items-center gap-1">
@@ -617,23 +629,22 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                         </div>
                       </td>
                     ))}
-                    <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="approved" /></td>
                   </tr>
                 ))}
                 <tr className="border-t bg-neutral-100 font-semibold">
                   <td className="px-3 py-2 border-r">Project costs sub total</td>
-                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y)} /></td>))}
                   <td className="px-2 py-2 text-right border-l"><Num value={totalSub} /></td>
+                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y)} /></td>))}
                 </tr>
                 <tr className="border-t bg-muted/30">
                   <td className="px-3 py-2 border-r">Indirect support costs ({Math.round(rate * 100)}%)</td>
-                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * rate} /></td>))}
                   <td className="px-2 py-2 text-right border-l"><Num value={totalSub * rate} /></td>
+                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * rate} /></td>))}
                 </tr>
                 <tr className="border-t bg-neutral-100 font-semibold">
                   <td className="px-3 py-2 border-r">Total</td>
-                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * (1 + rate)} kind="strong" /></td>))}
                   <td className="px-2 py-2 text-right border-l"><Num value={totalBudget} kind="strong" /></td>
+                  {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * (1 + rate)} kind="strong" /></td>))}
                 </tr>
               </tbody>
             </table>

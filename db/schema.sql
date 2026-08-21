@@ -676,36 +676,17 @@ CREATE TABLE IF NOT EXISTS expenditure_entries (
     id                 SERIAL       PRIMARY KEY,
     report_id          INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     category_id        INTEGER      NOT NULL REFERENCES expenditure_categories(id) ON DELETE CASCADE,
-    -- approved_amount derives BOTH the project and the year from the entry's
-    -- report (report_id → reports), so no year is stored on the row: reports.year
-    -- is the single source of truth. See migration 016.
-    approved_amount    NUMERIC(15,2) GENERATED ALWAYS AS (
-        COALESCE(
-            (SELECT eb.approved_amount
-             FROM expenditure_budgets eb
-             WHERE eb.project_id = (SELECT r.project_id FROM reports r WHERE r.id = report_id)
-             AND eb.category_id = category_id
-             AND eb.year = (SELECT r.year FROM reports r WHERE r.id = report_id)),
-            0
-        )
-    ) STORED,
+    -- Actuals only. Approved amounts live in expenditure_budgets, and every
+    -- reader (the expenditure matrix API, admin Full Data, the ZIP export)
+    -- joins budgets at read time on (project, category, reports.year), so no
+    -- approved/variance copy is stored on this row. Migrations 015/016 tried
+    -- to add approved_amount / variance / variance_percent as GENERATED
+    -- columns wrapping subqueries; PostgreSQL rejects subqueries in generation
+    -- expressions (any version), so those ADDs can never have applied as
+    -- written and no app code writes or reads such columns (all inserts list
+    -- report_id / category_id / annual_expenditure / comment only). See
+    -- db/archive/db-incremental/016_drop_expenditure_entries_year.sql.
     annual_expenditure NUMERIC(15,2) CHECK (annual_expenditure IS NULL OR annual_expenditure >= 0),
-    variance           NUMERIC(15,2) GENERATED ALWAYS AS (
-        CASE
-            WHEN annual_expenditure IS NOT NULL
-            THEN annual_expenditure - COALESCE(approved_amount, 0)
-            ELSE NULL
-        END
-    ) STORED,
-    variance_percent   NUMERIC(5,2) GENERATED ALWAYS AS (
-        CASE
-            WHEN annual_expenditure IS NOT NULL
-                 AND approved_amount IS NOT NULL
-                 AND approved_amount > 0
-            THEN ROUND((annual_expenditure - approved_amount) * 100.0 / approved_amount, 2)
-            ELSE NULL
-        END
-    ) STORED,
     comment            TEXT,
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

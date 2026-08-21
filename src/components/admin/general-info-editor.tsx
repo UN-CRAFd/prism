@@ -471,18 +471,17 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.mptfoNumber}</label>
-            <Input
-              value={form.mptfo_project_number}
-              onChange={(e) => setField("mptfo_project_number", e.target.value)}
-              placeholder={g.placeholders.mptfoNumber}
-              className="text-sm"
-              // The MPTFO project number is admin-owned; partners see it read-only.
-              disabled={!isAdmin}
-              title={!isAdmin ? "The MPTFO project number is managed by the CRAF'd Secretariat." : undefined}
-            />
-          </div>
+          {isAdmin && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">{g.fields.mptfoNumber}</label>
+              <Input
+                value={form.mptfo_project_number}
+                onChange={(e) => setField("mptfo_project_number", e.target.value)}
+                placeholder={g.placeholders.mptfoNumber}
+                className="text-sm"
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.status}</label>

@@ -16,13 +16,14 @@ const ALLOWED_FIELDS = [
 
 // Fields only an admin may write. `partner_id` would let a partner reassign the
 // project to another organization (ownership escalation); `short_name` is the
-// routing slug, `indirect_cost_rate` is admin-owned (the rate lives on the admin
-// expenditure tab). `implementing_partners` is intentionally NOT here — partners
-// may list their participating organizations & implementing partners in the prodoc.
+// routing slug; `indirect_cost_rate` is admin-owned (the rate lives on the admin
+// expenditure tab); `mptfo_project_number` is Secretariat-assigned.
+// `implementing_partners` is intentionally NOT here — partners may list their
+// participating organizations & implementing partners in the prodoc.
 // Non-admin sessions have these fields silently ignored rather than trusted from
 // the request body.
 const ADMIN_ONLY_FIELDS = new Set([
-  "partner_id", "short_name", "indirect_cost_rate",
+  "partner_id", "short_name", "indirect_cost_rate", "mptfo_project_number",
 ]);
 
 export async function GET(

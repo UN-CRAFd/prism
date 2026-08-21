@@ -26,7 +26,7 @@ export async function GET(
          p.project_title, p.short_name AS project_short_name,
          p.description, p.status,
          p.mptfo_project_number, p.grant_size_usd, p.geographic_scope,
-         p.implementing_partners, p.indirect_cost_rate,
+         p.participating_organizations, p.implementing_partners, p.indirect_cost_rate,
          TO_CHAR(p.project_start_date, 'YYYY-MM-DD')     AS project_start_date,
          p.project_duration_months,
          TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS project_end_date,

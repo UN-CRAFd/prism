@@ -1,4 +1,5 @@
 export const DESCRIPTION_MAX_CHARS = 15_000;
+export const PARTICIPATING_ORGANIZATIONS_MAX_CHARS = 2_000;
 
 const NARRATIVE_LIMITS: Record<string, number> = {
   background_relevance: 4500,

@@ -128,7 +128,8 @@
       "universalMarkers": "Universal Markers",
       "optionalMarkers": "Optional Markers",
       "fundSpecificMarkers": "Fund-Specific Markers",
-      "implementingPartners": "Participating organizations & implementing partners",
+      "participatingOrganizations": "Participating Organizations",
+      "implementingPartners": "Implementing Organizations",
       "indirectCostRate": "Indirect support cost rate (%)",
       "description": "Description"
     },
@@ -142,7 +143,8 @@
       "universalMarkers": "Comma-separated, e.g. Gender, Climate",
       "optionalMarkers": "Comma-separated markers",
       "fundSpecificMarkers": "Comma-separated markers",
-      "implementingPartners": "List the participating organizations and implementing partners…",
+      "participatingOrganizations": "List the participating organizations…",
+      "implementingPartners": "List the implementing organizations…",
       "indirectCostRate": "7",
       "description": "Describe the project…"
     },
@@ -163,6 +165,8 @@
       "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}.",
       "dateOutOfRange": "Tranche dates must fall within the project period ({start} – {end})."
     },
+    "participatingOrganizationsDescription": "Organizations that will receive funding directly from MPTFO, and have signed either an MoU or an active Framework agreement with MPTFO. POs can edit the project document, at the discretion of the project lead organization.",
+    "implementingOrganizationsDescription": "Organizations that will receive funding from the project lead or participating organizations. IOs can edit the project document, at the discretion of the project lead organization.",
     "relationshipNone": "— No role —",
     "applicantLabel": "Applicant",
     "contactSearchPlaceholder": "Link an existing contact or type a new name…",
@@ -257,7 +261,8 @@
     "grantSizeUsd": "Grant Size (USD)",
     "startDate": "Start Date",
     "reportSubmissionDate": "Report Submission Date",
-    "implementingPartners": "Implementing Partners",
+    "participatingOrganizations": "Participating Organizations",
+    "implementingPartners": "Implementing Organizations",
     "geographicScope": "Geographic Scope"
   },
   "keyAchievements": {
@@ -423,7 +428,7 @@
     "mptfoProjectNumber": "e.g. 11400004",
     "durationMonths": "e.g. 24",
     "grantSizeUsd": "e.g. 500000",
-    "implementingPartners": "List implementing partners…",
+    "implementingPartners": "List implementing organizations…",
     "geographicScope": "Describe the geographic scope…",
     "assessmentContext": "Add context or explanation…",
     "updatedMitigation": "Updated mitigation…",

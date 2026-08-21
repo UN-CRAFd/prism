@@ -14,7 +14,8 @@ import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
-import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
+import { DESCRIPTION_MAX_CHARS, PARTICIPATING_ORGANIZATIONS_MAX_CHARS } from "@/lib/limits";
+import { InfoPopover } from "@/components/ui/info-popover";
 
 // ── General Information editor ─────────────────────────────────────────────────
 // The first project-document tab. Edits core project data (name, MPTFO number,
@@ -33,7 +34,7 @@ const GEO_SCOPE_NONE = "__none__";
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
   "grant_size_usd", "project_start_date", "project_duration_months",
-  "geographic_scope", "implementing_partners", "description",
+  "geographic_scope", "participating_organizations", "implementing_partners", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
@@ -41,7 +42,7 @@ type Form = Record<FieldKey, string>;
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
   grant_size_usd: "", project_start_date: "", project_duration_months: "",
-  geographic_scope: "", implementing_partners: "", description: "",
+  geographic_scope: "", participating_organizations: "", implementing_partners: "", description: "",
 };
 
 // A funding tranche in local form state. `_key` is a client-side row id (stable
@@ -111,6 +112,7 @@ function coerce(key: FieldKey, value: string): unknown {
     case "project_start_date":
     case "mptfo_project_number":
     case "geographic_scope":
+    case "participating_organizations":
     case "implementing_partners":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
@@ -177,6 +179,7 @@ export function GeneralInfoAdminEditor({
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
           geographic_scope: p.geographic_scope ?? "",
+          participating_organizations: p.participating_organizations ?? "",
           implementing_partners: p.implementing_partners ?? "",
           description: p.description ?? "",
         };
@@ -563,9 +566,33 @@ export function GeneralInfoAdminEditor({
             </Select>
           </div>
 
-          {/* Same row as geographic scope, filling all remaining columns. */}
+          {/* Participating Organizations + Implementing Organizations — full-width rows */}
           <div className="space-y-1.5 col-span-full sm:col-span-2 lg:col-span-4">
-            <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground">{g.fields.participatingOrganizations}</label>
+              <InfoPopover
+                description={g.participatingOrganizationsDescription}
+                triggerTitle={g.fields.participatingOrganizations}
+                descriptionHeading="Description"
+              />
+            </div>
+            <Input
+              value={form.participating_organizations}
+              onChange={(e) => setField("participating_organizations", e.target.value)}
+              placeholder={g.placeholders.participatingOrganizations}
+              maxLength={PARTICIPATING_ORGANIZATIONS_MAX_CHARS}
+              className="text-sm w-full"
+            />
+          </div>
+          <div className="space-y-1.5 col-span-full sm:col-span-2 lg:col-span-4">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
+              <InfoPopover
+                description={g.implementingOrganizationsDescription}
+                triggerTitle={g.fields.implementingPartners}
+                descriptionHeading="Description"
+              />
+            </div>
             <Input
               value={form.implementing_partners}
               onChange={(e) => setField("implementing_partners", e.target.value)}

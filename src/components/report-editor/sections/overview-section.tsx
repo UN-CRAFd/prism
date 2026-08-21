@@ -64,7 +64,8 @@ export function OverviewSection({ overview, updateOverview }: OverviewSectionPro
           <ReadField label={labels.overviewFields.durationMonths} value={overview.project_duration_months ? `${overview.project_duration_months} months` : null} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ReadField label={labels.overviewFields.participatingOrganizations} value={overview.participating_organizations} />
           <ReadField label={labels.overviewFields.implementingPartners} value={overview.implementing_partners} />
           <ReadField label={labels.overviewFields.geographicScope} value={overview.geographic_scope} />
           <ReadField label={labels.overviewFields.reportSubmissionDate} value={overview.report_submission_date ? formatDate(overview.report_submission_date) : null} />

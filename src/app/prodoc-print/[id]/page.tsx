@@ -296,9 +296,15 @@ export default function ProdocPrintPage() {
             ]}
           />
         </div>
-        {m.implementing_partners ? (
+        {m.participating_organizations ? (
           <div data-block style={{ marginTop: 10, fontSize: 12 }}>
-            <span style={{ color: MUTED }}>Implementing partners: </span>
+            <span style={{ color: MUTED }}>Participating organizations: </span>
+            {m.participating_organizations as string}
+          </div>
+        ) : null}
+        {m.implementing_partners ? (
+          <div data-block style={{ marginTop: 6, fontSize: 12 }}>
+            <span style={{ color: MUTED }}>Implementing organizations: </span>
             {m.implementing_partners as string}
           </div>
         ) : null}

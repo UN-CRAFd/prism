@@ -4,13 +4,13 @@ import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 import { badRequest } from "@/lib/http";
-import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
+import { DESCRIPTION_MAX_CHARS, PARTICIPATING_ORGANIZATIONS_MAX_CHARS } from "@/lib/limits";
 import { richTextLength } from "@/lib/richtext";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
   "mptfo_project_number", "grant_size_usd", "project_start_date", "project_duration_months", "geographic_scope",
-  "implementing_partners", "keyword",
+  "implementing_partners", "participating_organizations", "keyword",
   "universal_markers", "optional_markers", "fund_specific_markers", "indirect_cost_rate",
 ];
 
@@ -76,6 +76,14 @@ export async function PUT(
         );
       }
       body.description = sanitized;
+    }
+
+    if (body.participating_organizations !== undefined && typeof body.participating_organizations === "string") {
+      if (body.participating_organizations.length > PARTICIPATING_ORGANIZATIONS_MAX_CHARS) {
+        return badRequest(
+          `Participating organizations exceeds the ${PARTICIPATING_ORGANIZATIONS_MAX_CHARS.toLocaleString("en-US")}-character limit (${body.participating_organizations.length.toLocaleString("en-US")} entered).`
+        );
+      }
     }
 
     const setClauses: string[] = [];

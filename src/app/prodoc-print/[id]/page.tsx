@@ -513,16 +513,16 @@ export default function ProdocPrintPage() {
               <thead>
                 <tr>
                   <Th align="left">Budget category</Th>
-                  {years.map((y) => <Th key={y} align="right">{y}</Th>)}
                   <Th align="right">Total</Th>
+                  {years.map((y) => <Th key={y} align="right">{y}</Th>)}
                 </tr>
               </thead>
               <tbody>
                 {categories.map((c) => (
                   <tr key={c}>
                     <Td>{c}</Td>
-                    {years.map((y) => <Td key={y} align="right">{fmtUsd(budgetAt(c, y))}</Td>)}
                     <Td align="right">{fmtUsd(catTotal(c))}</Td>
+                    {years.map((y) => <Td key={y} align="right">{fmtUsd(budgetAt(c, y))}</Td>)}
                   </tr>
                 ))}
                 <TotalRow label="Project costs sub total" years={years} cells={years.map(yearSub)} total={grandSub} />
@@ -717,10 +717,10 @@ function TotalRow({
   return (
     <tr style={{ background: strong ? "#f3f4f6" : "#fafafa", fontWeight: strong ? 700 : 600 }}>
       <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{label}</td>
+      <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(total)}</td>
       {years.map((y, i) => (
         <td key={y} style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(cells[i])}</td>
       ))}
-      <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(total)}</td>
     </tr>
   );
 }

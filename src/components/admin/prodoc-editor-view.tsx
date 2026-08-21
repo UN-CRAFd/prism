@@ -151,7 +151,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
   const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
 
-  // Indicator inline edit (admin-only; !isPartner is the inline equivalent of isAdmin)
+  // Indicator inline edit — custom indicators are partner-editable; standard indicators are admin-only.
   const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
   const [editingIndName, setEditingIndName] = useState("");
   const [editingIndDescription, setEditingIndDescription] = useState("");

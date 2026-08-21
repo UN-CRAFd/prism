@@ -583,7 +583,6 @@ export function GeneralInfoAdminEditor({
             onChange={(html) => setField("description", html)}
             placeholder={g.placeholders.description}
             disabled={readOnly}
-            hideClearFormatting
             maxChars={DESCRIPTION_MAX_CHARS}
           />
         </div>

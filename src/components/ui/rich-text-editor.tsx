@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { Bold, Italic, Underline, List, ListOrdered, Link2, RemoveFormatting, Table as TableIcon } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, Link2, Table as TableIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import { toDisplayHtml, richTextLength } from "@/lib/richtext";
@@ -19,7 +19,7 @@ import { toDisplayHtml, richTextLength } from "@/lib/richtext";
 type ToolButton = {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  command: "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "removeFormat" | "createLink" | "insertTable";
+  command: "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList" | "createLink" | "insertTable";
 };
 
 const BUTTONS: ToolButton[] = [
@@ -30,7 +30,6 @@ const BUTTONS: ToolButton[] = [
   { icon: ListOrdered, label: "Numbered list", command: "insertOrderedList" },
   { icon: Link2, label: "Insert link", command: "createLink" },
   { icon: TableIcon, label: "Insert table", command: "insertTable" },
-  { icon: RemoveFormatting, label: "Clear formatting", command: "removeFormat" },
 ];
 
 // execCommand has no native table command, so we build the markup and insert it.
@@ -50,7 +49,6 @@ export function RichTextEditor({
   placeholder,
   className,
   disabled,
-  hideClearFormatting,
   maxChars,
 }: {
   value: string;
@@ -58,8 +56,6 @@ export function RichTextEditor({
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  // Hide the "Clear formatting" toolbar button for this instance.
-  hideClearFormatting?: boolean;
   // When set, blocks input that would push plain-text length past this limit.
   // Paste into a selection accounts for the removed characters. Paste truncates;
   // regular typing stops at the boundary. A counter is shown below the editor.
@@ -67,9 +63,6 @@ export function RichTextEditor({
 }) {
   const readOnly = useReadOnly();
   const ro = disabled ?? readOnly;
-  const buttons = hideClearFormatting
-    ? BUTTONS.filter((b) => b.command !== "removeFormat")
-    : BUTTONS;
   const ref = useRef<HTMLDivElement>(null);
   // The last HTML we emitted (or initialised with). Guards the sync effect so we
   // don't rewrite innerHTML — and blow away the caret — on our own updates.
@@ -179,7 +172,7 @@ export function RichTextEditor({
     >
       {!ro && (
         <div className="flex items-center gap-0.5 border-b border-input bg-muted/40 px-1.5 py-1">
-          {buttons.map((b) => (
+          {BUTTONS.map((b) => (
             <button
               key={b.command}
               type="button"

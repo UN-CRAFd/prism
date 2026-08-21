@@ -26,10 +26,9 @@
     "description": "Geographic scope of a project (in General Info).",
     "kind": "flat",
     "items": [
-      { "value": "Global", "label": "Global" },
+      { "value": "Global/Interregional", "label": "Global/Interregional" },
       { "value": "Regional", "label": "Regional" },
-      { "value": "National", "label": "National" },
-      { "value": "Subnational", "label": "Subnational" }
+      { "value": "Country", "label": "Country" }
     ]
   },
   "reportStatus": {

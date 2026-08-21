@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // Approved annual budgets + indirect rate for a project (admin-owned).
@@ -58,13 +58,31 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { projectId } = body;
-  if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+  const projectId = Number(body.projectId);
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return NextResponse.json({ error: "projectId required" }, { status: 400 });
+  }
 
-  // Approved budgets + indirect rate are admin-owned (they drive every report's
-  // approved_amount); partners enter actuals via /api/expenditure only.
-  const gate = await requireAdmin();
-  if (gate instanceof NextResponse) return gate;
+  // Ownership check first — a partner must own the project before learning
+  // anything about its status.
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const ownerGate = await guardProject(session, projectId);
+  if (ownerGate) return ownerGate;
+
+  // Status lock — partners cannot write to a prodoc that is not Open.
+  // Admins bypass this check entirely, consistent with all other routes.
+  if (session.role !== "admin") {
+    const prodoc = await query<{ status: string }>(
+      `SELECT status FROM reporting_platform.reports
+        WHERE project_id = $1 AND data_type = 'prodoc'
+        LIMIT 1`,
+      [projectId]
+    );
+    if (prodoc[0]?.status !== "Open") {
+      return NextResponse.json({ error: "This report is not open for editing" }, { status: 409 });
+    }
+  }
 
   try {
     // Branch 1: set the indirect rate.

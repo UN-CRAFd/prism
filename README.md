@@ -533,18 +533,24 @@ children `CASCADE`; provenance links (`workplan_entries.report_id`,
   `project_end_date(start, months) → date` — IMMUTABLE SQL functions used by
   expenditure/workplan so budget/plan columns appear for every project year even
   before a report exists.
-- **`expenditure_entries` has three `GENERATED ALWAYS … STORED` columns**
-  (`schema.sql:682-708`):
-  - `approved_amount` — a **correlated subquery** that derives *both* the project
-    and the year from the entry's `report_id → reports`, then looks up
-    `expenditure_budgets`. Because it's GENERATED, it is **always current**: a
-    budget change is reflected in every report automatically. No year is stored on
-    the row.
-  - `variance` and `variance_percent` — derived from `annual_expenditure` vs
-    `approved_amount`.
+- **`expenditure_entries` stores actuals only** — `annual_expenditure` and
+  `comment` (`schema.sql:676-692`). There are **no generated columns on this
+  table**:
+  - `approved_amount` lives in `expenditure_budgets`, keyed by
+    `(project_id, category_id, year)`. Every reader — the expenditure matrix
+    API, admin Full Data, the ZIP export — **joins budgets at read time** on the
+    entry's project, category, and `reports.year`. The entry row stores no year
+    of its own: `reports.year` is the single source of truth.
+  - `variance` and `variance_percent` are computed **in the app**
+    (`lib/expenditure.ts`), not the database.
+  - **(history)** Archived migrations 015/016 tried to add all three as
+    `GENERATED ALWAYS … STORED` columns wrapping correlated subqueries.
+    PostgreSQL rejects subqueries in generation expressions *in any version*, so
+    those `ADD`s can never have applied as written. `db/schema.sql` carried the
+    same invalid definitions until August 2026 — meaning the canonical schema
+    file would have **failed partway through on a fresh database**. Fixed in
+    `fix schema.sql expenditure generated columns`.
 
-  This is elegant but coupling-heavy: the generated `approved_amount` depends on
-  three tables. Understand it before touching expenditure.
 
 ### 6.4 Binary storage
 
@@ -731,7 +737,7 @@ password (partners typically bootstrap their password through a magic/share link
 | Wrong/old label or dropdown value | You imported the raw `.json` instead of `@/lib/labels`/`@/lib/options`; or the API route didn't apply overrides. |
 | Date shifted by a day | The DATE type parser in `db.ts`; a place converting the `YYYY-MM-DD` string to a JS `Date`. |
 | `last_edited` missing a table | Live-DB drift — that table lacks `updated_at` (`reports/route.ts:31-70`). |
-| Expenditure "approved" wrong | The GENERATED correlated subquery — check the matching `expenditure_budgets` row for that project/category/year. |
+| Expenditure "approved" wrong | The read-time join — check for a matching `expenditure_budgets` row for that project/category and the *report's* year. A missing row reads as zero, not an error. |
 
 ---
 
@@ -800,9 +806,10 @@ data can never be committed or served statically.
   state gets reported to the wrong owner and saves are dropped or duplicated.
 - **New portalled controls not consuming `useReadOnly()`** → they stay editable in
   read-only reports because they escape the `<fieldset disabled>` cascade.
-- **Expenditure GENERATED column coupling** → `approved_amount` silently depends on
-  `expenditure_budgets` + `reports.year`; changing budget/year semantics changes
-  every report's numbers.
+- **Approved amounts are joined, not stored** → an `expenditure_entries` row has
+  no year of its own; the year comes from its report. Changing how `reports.year`
+  or the `expenditure_budgets` key works silently changes every report's approved
+  figures, and a missing budget row reads as zero rather than erroring.
 - **In-process ZIP/PDF and DB-inlined blobs** → large exports load all matching
   binary blobs into memory and zip synchronously in the request. This is a
   memory/latency risk at scale (**performance risk, inference**; no limits or
@@ -866,6 +873,12 @@ Observed facts vs interpretation are labelled.
 - **Live-DB drift from `schema.sql`** (fact — the `updated_at` introspection and
   the `add-updated-at-tracking.sql` note prove it). Reasoning about the DB from
   `schema.sql` alone is unsafe (interpretation).
+- **`db/schema.sql` had never been run end to end** until August 2026 (fact — it
+  contained `GENERATED` definitions PostgreSQL cannot accept, so it must have
+  failed partway through). The live DB was built by the archived migration
+  chains, not by this file (interpretation). Now that the invalid columns are
+  removed, provision a scratch database from `schema.sql` and confirm it
+  completes before trusting it as canonical.
 - **`http.ts` adoption is partial** (fact) — response shapes/coercions are still
   hand-rolled in several routes despite the centralizing module.
 - **`ADMIN_PASSWORD` triple-purposed** and a **checked-out `.env` with real-looking
@@ -961,9 +974,9 @@ psql "<owner>" -f db/roles.sql      # provision prism_app role
    `report-tables.ts` (the canonical list — don't hand-maintain another).
 8. **`db/schema.sql` is canonical, but the live DB has drifted from it.** Verify
    columns; never touch `db/archive/`.
-9. **Expenditure `approved_amount` is a GENERATED correlated-subquery column**
-   depending on `expenditure_budgets` + `reports.year` — always current, tightly
-   coupled.
+9. **Expenditure approved amounts are joined at read time** from
+   `expenditure_budgets` on (project, category, `reports.year`) — nothing
+   approved or variance-related is stored on the entry row.
 10. **Labels/options are runtime-overridable.** Import `@/lib/labels` /
     `@/lib/options` (never the `.json`); API routes must apply overrides before
     validating against them.

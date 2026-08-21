@@ -484,19 +484,24 @@ export function GeneralInfoAdminEditor({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.status}</label>
-            <Select value={form.status} onValueChange={(v) => setField("status", v)}>
-              <SelectTrigger className="w-full text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {optionValues("projectStatus").map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Project status is CRAF'd-owned: only admins see (and may set) it.
+              The API mirrors this — non-admin `status` writes are ignored
+              server-side (ADMIN_ONLY_FIELDS in /api/projects/[id]). */}
+          {isAdmin && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">{g.fields.status}</label>
+              <Select value={form.status} onValueChange={(v) => setField("status", v)}>
+                <SelectTrigger className="w-full text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {optionValues("projectStatus").map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.grantSize}</label>

@@ -19,6 +19,9 @@ dist/
 # real reporting data — never publish (contains PII / financials)
 public/data/
 
+# internal security-audit notes — keep local, the repo is public
+security-audit/
+
 # misc
 .DS_Store
 *.pem

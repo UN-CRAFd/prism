@@ -37,6 +37,10 @@ const PRODOC_STATUS_ICONS: Record<string, ReactNode> = {
 };
 const PRODOC_STATUS_FALLBACK_ICON: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
 
+// Mirrors the sentinel in general-info-editor: Radix Select can't hold an
+// empty-string item, so "no scope selected" round-trips through this value.
+const GEO_SCOPE_NONE = "__none__";
+
 // -- Types ------------------------------------------------------------------
 
 interface Partner {
@@ -749,7 +753,21 @@ export default function ProjectsPage() {
                 <Input value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} type="number" min={1} step={1} placeholder="e.g. 24" />
               </Field>
               <Field label="Geographic scope">
-                <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Global" />
+                {/* Same dropdown as the prodoc General Info tab: options come from
+                    Settings → Dropdown options via @/lib/options (never the JSON
+                    defaults directly), so admin edits take effect live. */}
+                <Select
+                  value={scope || GEO_SCOPE_NONE}
+                  onValueChange={(v) => setScope(v === GEO_SCOPE_NONE ? "" : v)}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select a scope…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={GEO_SCOPE_NONE}>Select a scope…</SelectItem>
+                    {optionValues("geographicScope").map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Implementing partners">
                 <Input value={implementingPartners} onChange={(e) => setImplementingPartners(e.target.value)} placeholder="Implementing partners" />

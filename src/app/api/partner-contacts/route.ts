@@ -113,8 +113,10 @@ export async function POST(req: NextRequest) {
 
   const partnerId = body.partner_id;
   const name = typeof body.name === "string" ? body.name.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim() : "";
   if (!partnerId) return NextResponse.json({ error: "partner_id is required" }, { status: 400 });
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+  if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 });
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -132,7 +134,7 @@ export async function POST(req: NextRequest) {
       `INSERT INTO reporting_platform.partner_contacts (partner_id, name, role, email, sort_order)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [partnerId, name, body.role ?? null, body.email ?? null, nextOrder]
+      [partnerId, name, body.role ?? null, email, nextOrder]
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
@@ -152,23 +154,31 @@ export async function PATCH(req: NextRequest) {
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  // Only validate and update email when the client explicitly sends it as a string.
+  // null / absent → leave the existing DB value alone.
+  const emailProvided = typeof body.email === "string";
+  if (emailProvided && !(body.email as string).trim()) {
+    return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  }
+
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
   const gate = await guardPartnerRow(session, "partner_contacts", id as string | number);
   if (gate) return gate;
 
   try {
-    const setClause = FIELDS.map((f, i) => `${f} = $${i + 1}`).join(", ");
+    const updateFields = ["name", "role", ...(emailProvided ? ["email"] : [])];
     const values = [
       typeof body.name === "string" ? body.name.trim() : body.name ?? null,
       body.role ?? null,
-      body.email ?? null,
+      ...(emailProvided ? [(body.email as string).trim()] : []),
       id,
     ];
+    const setClause = updateFields.map((f, i) => `${f} = $${i + 1}`).join(", ");
     const rows = await query(
       `UPDATE reporting_platform.partner_contacts
           SET ${setClause}, updated_at = NOW()
-        WHERE id = $${FIELDS.length + 1}
+        WHERE id = $${updateFields.length + 1}
       RETURNING *`,
       values
     );

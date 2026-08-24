@@ -90,6 +90,7 @@ export default function PartnerContactsPage() {
 
   async function handleSubmit() {
     if (!name.trim()) { setFormError("Name is required"); return; }
+    if (!email.trim()) { setFormError("Email is required"); return; }
     if (!editId && partnerId == null) { setFormError("Organization not loaded yet"); return; }
     setSaving(true); setFormError(null);
     try {
@@ -146,7 +147,7 @@ export default function PartnerContactsPage() {
               <Field label="Role">
                 <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />
               </Field>
-              <Field label="Email">
+              <Field label="Email" required>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
               </Field>
             </div>

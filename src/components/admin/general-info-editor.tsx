@@ -82,15 +82,6 @@ interface ProjectContact {
 interface OrgContact { id: number; partner_id: number; name: string; role: string | null; email: string | null }
 
 // A partner involved in the project (lead or editor) that the contact picker can
-// attribute a contact to. `can_manage` is whether the current caller may
-// create/link contacts under it (admins: all; partners: only their own org).
-interface InvolvedPartner {
-  id: number;
-  short_name: string | null;
-  long_name: string | null;
-  is_lead: boolean;
-  can_manage: boolean;
-}
 
 // The DB stores a single full `name`; the FMP applicant form splits it into
 // first / last. Split on the first space (everything after it is the last name),
@@ -142,10 +133,11 @@ export function GeneralInfoAdminEditor({
   const [orgContacts, setOrgContacts] = useState<OrgContact[]>([]);
   // Partners a new/linked contact can be attributed to (lead + editors), and the
   // one currently selected in the add-contact "belongs to" picker.
-  const [involvedPartners, setInvolvedPartners] = useState<InvolvedPartner[]>([]);
-  const [contactPartnerId, setContactPartnerId] = useState<number | null>(null);
+
   const [tranches, setTranches] = useState<TrancheForm[]>([]);
   const [addingContact, setAddingContact] = useState(false);
+  const [pendingContactName, setPendingContactName] = useState<string | null>(null);
+  const [pendingContactEmail, setPendingContactEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,13 +188,8 @@ export function GeneralInfoAdminEditor({
         if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok) throw new Error("Failed to load project data");
         if (cancelled) return;
         setContacts(await linkRes.json());
-        const orgData: { partners: InvolvedPartner[]; contacts: OrgContact[] } = await orgRes.json();
+        const orgData: { contacts: OrgContact[] } = await orgRes.json();
         setOrgContacts(orgData.contacts);
-        setInvolvedPartners(orgData.partners);
-        // Default the "belongs to" picker to the first partner the caller can
-        // manage (their own org for partners; the lead for admins).
-        const manageable = orgData.partners.filter((pt) => pt.can_manage);
-        setContactPartnerId(manageable[0]?.id ?? orgData.partners[0]?.id ?? null);
 
         const trancheRows: { amount: string | number | null; tranche_date: string | null; comment: string | null }[] =
           await tranchesRes.json();
@@ -362,21 +349,29 @@ export function GeneralInfoAdminEditor({
     finally { setAddingContact(false); }
   }
 
-  async function handleContactCreate(name: string) {
-    // Create the contact under the partner chosen in the "belongs to" picker
-    // (falls back to the project lead).
-    const owningPartnerId = contactPartnerId ?? partnerId;
+  function handleContactCreate(name: string) {
+    setPendingContactName(name);
+    setPendingContactEmail("");
+    setError(null);
+  }
+
+  async function commitPendingContact() {
+    if (!pendingContactName) return;
+    if (!pendingContactEmail.trim()) { setError("Email is required."); return; }
+    const owningPartnerId = partnerId;
     if (!owningPartnerId) return;
     setAddingContact(true); setError(null);
     try {
       const res = await fetch("/api/partner-contacts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partner_id: owningPartnerId, name }),
+        body: JSON.stringify({ partner_id: owningPartnerId, name: pendingContactName, email: pendingContactEmail.trim() }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add contact"); }
       const created: OrgContact = await res.json();
       setOrgContacts((prev) => [...prev, created]);
       await linkContact(created.id);
+      setPendingContactName(null);
+      setPendingContactEmail("");
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingContact(false); }
   }
@@ -427,7 +422,6 @@ export function GeneralInfoAdminEditor({
   // lands under the right org.
   const comboItems: ComboboxItem[] = orgContacts
     .filter((oc) => !contacts.some((c) => c.contact_id === oc.id))
-    .filter((oc) => contactPartnerId == null || oc.partner_id === contactPartnerId)
     .map((oc) => ({ id: oc.id, label: oc.name, hint: oc.role ?? undefined }));
 
   if (loading) {
@@ -743,27 +737,6 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 max-w-2xl">
-          {/* "Belongs to" picker — only shown when more than one partner is
-              involved (lead + editors). New contacts are created under, and
-              existing contacts filtered to, the selected partner. */}
-          {involvedPartners.length > 1 && (
-            <Select
-              value={contactPartnerId != null ? String(contactPartnerId) : ""}
-              onValueChange={(v) => setContactPartnerId(Number(v))}
-            >
-              <SelectTrigger className="w-56 text-sm shrink-0">
-                <SelectValue placeholder="Belongs to…" />
-              </SelectTrigger>
-              <SelectContent>
-                {involvedPartners.map((pt) => (
-                  <SelectItem key={pt.id} value={String(pt.id)} disabled={!pt.can_manage}>
-                    {shortName(pt.short_name) || pt.long_name || `#${pt.id}`}
-                    {pt.is_lead ? " (lead)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <div className="flex-1 min-w-[16rem]">
             <Combobox
               items={comboItems}
@@ -775,6 +748,34 @@ export function GeneralInfoAdminEditor({
             />
           </div>
         </div>
+
+        {pendingContactName && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 max-w-2xl">
+            <span className="text-sm text-muted-foreground shrink-0">
+              Email for <strong>{pendingContactName}</strong>
+            </span>
+            <Input
+              value={pendingContactEmail}
+              onChange={(e) => setPendingContactEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); }
+                if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); }
+              }}
+              placeholder="name@example.org"
+              type="email"
+              className="h-8 flex-1 min-w-[14rem] text-sm"
+              autoFocus
+            />
+            <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
+            <button
+              type="button"
+              onClick={() => { setPendingContactName(null); setPendingContactEmail(""); }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {contacts.length === 0 ? (
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
@@ -824,7 +825,7 @@ export function GeneralInfoAdminEditor({
                           />
                           <Input
                             value={c.email ?? ""}
-                            onChange={(e) => editContactField(c.id, { email: e.target.value || null })}
+                            onChange={(e) => editContactField(c.id, { email: e.target.value })}
                             onBlur={() => commitContactIdentity(c.id)}
                             placeholder={g.contactEmail}
                             type="email"

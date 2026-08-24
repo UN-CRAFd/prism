@@ -129,6 +129,7 @@ export default function ContactsPage() {
   async function handleSubmit() {
     if (!partnerId) { setFormError("Please select a partner"); return; }
     if (!name.trim()) { setFormError("Name is required"); return; }
+    if (!email.trim()) { setFormError("Email is required"); return; }
     setSaving(true); setFormError(null);
     try {
       const body = editId
@@ -261,7 +262,7 @@ export default function ContactsPage() {
               <Field label="Role">
                 <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />
               </Field>
-              <Field label="Email">
+              <Field label="Email" required>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
               </Field>
             </div>

@@ -14,8 +14,10 @@ import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
-import { DESCRIPTION_MAX_CHARS, PARTICIPATING_ORGANIZATIONS_MAX_CHARS } from "@/lib/limits";
+import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
 import { InfoPopover } from "@/components/ui/info-popover";
+
+const ORG_NAME_MAX = 300;
 
 // ── General Information editor ─────────────────────────────────────────────────
 // The first project-document tab. Edits core project data (name, MPTFO number,
@@ -34,7 +36,7 @@ const GEO_SCOPE_NONE = "__none__";
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
   "grant_size_usd", "project_start_date", "project_duration_months",
-  "geographic_scope", "participating_organizations", "implementing_partners", "description",
+  "geographic_scope", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
@@ -42,7 +44,7 @@ type Form = Record<FieldKey, string>;
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
   grant_size_usd: "", project_start_date: "", project_duration_months: "",
-  geographic_scope: "", participating_organizations: "", implementing_partners: "", description: "",
+  geographic_scope: "", description: "",
 };
 
 // A funding tranche in local form state. `_key` is a client-side row id (stable
@@ -80,6 +82,7 @@ interface ProjectContact {
 }
 
 interface OrgContact { id: number; partner_id: number; name: string; role: string | null; email: string | null }
+interface OrgRow { id: number; name: string }
 
 // A partner involved in the project (lead or editor) that the contact picker can
 
@@ -103,8 +106,6 @@ function coerce(key: FieldKey, value: string): unknown {
     case "project_start_date":
     case "mptfo_project_number":
     case "geographic_scope":
-    case "participating_organizations":
-    case "implementing_partners":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
   }
@@ -138,6 +139,14 @@ export function GeneralInfoAdminEditor({
   const [addingContact, setAddingContact] = useState(false);
   const [pendingContactName, setPendingContactName] = useState<string | null>(null);
   const [pendingContactEmail, setPendingContactEmail] = useState("");
+  const [participatingOrgs, setParticipatingOrgs] = useState<OrgRow[]>([]);
+  const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
+  const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
+  const [newImplementingOrg, setNewImplementingOrg] = useState("");
+  const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
+  const [editingOrgName, setEditingOrgName] = useState("");
+  const [orgError, setOrgError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,25 +180,27 @@ export function GeneralInfoAdminEditor({
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
           geographic_scope: p.geographic_scope ?? "",
-          participating_organizations: p.participating_organizations ?? "",
-          implementing_partners: p.implementing_partners ?? "",
           description: p.description ?? "",
         };
         setForm(loaded);
         savedRef.current = { ...loaded };
         setPartnerId(p.partner_id);
 
-        const [linkRes, orgRes, tranchesRes] = await Promise.all([
+        const [linkRes, orgRes, tranchesRes, porgsRes] = await Promise.all([
           fetch(`/api/project-contacts?project_id=${projectId}`),
           // Involved partners (lead + editors) + the contacts the caller may see.
           fetch(`/api/partner-contacts?project_id=${projectId}`),
           fetch(`/api/project-tranches?project_id=${projectId}`),
+          fetch(`/api/project-organizations?project_id=${projectId}`),
         ]);
-        if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok) throw new Error("Failed to load project data");
+        if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok || !porgsRes.ok) throw new Error("Failed to load project data");
         if (cancelled) return;
         setContacts(await linkRes.json());
         const orgData: { contacts: OrgContact[] } = await orgRes.json();
         setOrgContacts(orgData.contacts);
+        const allOrgs: (OrgRow & { type: string })[] = await porgsRes.json();
+        setParticipatingOrgs(allOrgs.filter((o) => o.type === "participating").map(({ id, name }) => ({ id, name })));
+        setImplementingOrgs(allOrgs.filter((o) => o.type === "implementing").map(({ id, name }) => ({ id, name })));
 
         const trancheRows: { amount: string | number | null; tranche_date: string | null; comment: string | null }[] =
           await tranchesRes.json();
@@ -331,6 +342,47 @@ export function GeneralInfoAdminEditor({
   const tranchesMatchGrant = grantSize != null && Math.abs(trancheTotal - grantSize) < 0.005;
   const fmtUsd = (n: number) =>
     n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+
+  // ── Organization list CRUD (immediate) ─────────────────────────────────
+  async function addOrg(type: "participating" | "implementing") {
+    const name = (type === "participating" ? newParticipatingOrg : newImplementingOrg).trim();
+    if (!name) return;
+    if (name.length > ORG_NAME_MAX) { setOrgError(`Name must be ${ORG_NAME_MAX} characters or fewer.`); return; }
+    setOrgError(null);
+    const res = await fetch("/api/project-organizations", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, name, type }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setOrgError((err as { error?: string }).error || "Failed to add"); return; }
+    const created: OrgRow = await res.json();
+    if (type === "participating") { setParticipatingOrgs((prev) => [...prev, created]); setNewParticipatingOrg(""); }
+    else { setImplementingOrgs((prev) => [...prev, created]); setNewImplementingOrg(""); }
+  }
+
+  async function deleteOrg(id: number, type: "participating" | "implementing") {
+    setOrgError(null);
+    const res = await fetch(`/api/project-organizations?id=${id}`, { method: "DELETE" });
+    if (!res.ok) { setOrgError("Failed to delete"); return; }
+    if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== id));
+    else setImplementingOrgs((prev) => prev.filter((o) => o.id !== id));
+  }
+
+  async function commitOrgRename() {
+    if (editingOrgId == null) return;
+    const name = editingOrgName.trim();
+    if (!name) { setOrgError("Name cannot be empty."); return; }
+    if (name.length > ORG_NAME_MAX) { setOrgError(`Name must be ${ORG_NAME_MAX} characters or fewer.`); return; }
+    setOrgError(null);
+    const res = await fetch("/api/project-organizations", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editingOrgId, name }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setOrgError((err as { error?: string }).error || "Failed to rename"); return; }
+    setParticipatingOrgs((prev) => prev.map((o) => o.id === editingOrgId ? { ...o, name } : o));
+    setImplementingOrgs((prev) => prev.map((o) => o.id === editingOrgId ? { ...o, name } : o));
+    setEditingOrgId(null);
+    setEditingOrgName("");
+  }
 
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
   async function linkContact(contactId: number) {
@@ -574,7 +626,8 @@ export function GeneralInfoAdminEditor({
           />
         </div>
 
-        <div className="space-y-1.5">
+        {/* Participating Organizations list */}
+        <div className="space-y-2">
           <div className="flex items-center gap-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.participatingOrganizations}</label>
             <InfoPopover
@@ -583,16 +636,47 @@ export function GeneralInfoAdminEditor({
               descriptionHeading="Description"
             />
           </div>
-          <Input
-            value={form.participating_organizations}
-            onChange={(e) => setField("participating_organizations", e.target.value)}
-            placeholder={g.placeholders.participatingOrganizations}
-            maxLength={PARTICIPATING_ORGANIZATIONS_MAX_CHARS}
-            className="text-sm w-full"
-          />
+          {orgError && <p className="text-xs text-destructive">{orgError}</p>}
+          {participatingOrgs.map((o) => (
+            <div key={o.id} className="flex items-center gap-2">
+              {editingOrgId === o.id ? (
+                <>
+                  <Input
+                    value={editingOrgName}
+                    onChange={(e) => setEditingOrgName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
+                    className="h-8 flex-1 text-sm"
+                    autoFocus
+                    maxLength={ORG_NAME_MAX}
+                  />
+                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm">{o.name}</span>
+                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
+                </>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Input
+              value={newParticipatingOrg}
+              onChange={(e) => setNewParticipatingOrg(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("participating"); } }}
+              placeholder={g.placeholders.participatingOrganizations}
+              className="h-8 flex-1 text-sm"
+              maxLength={ORG_NAME_MAX}
+            />
+            <Button size="sm" variant="outline" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
+              <Plus className="size-3.5 mr-1" />Add
+            </Button>
+          </div>
         </div>
 
-        <div className="space-y-1.5">
+        {/* Implementing Partners list */}
+        <div className="space-y-2">
           <div className="flex items-center gap-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
             <InfoPopover
@@ -601,12 +685,42 @@ export function GeneralInfoAdminEditor({
               descriptionHeading="Description"
             />
           </div>
-          <Input
-            value={form.implementing_partners}
-            onChange={(e) => setField("implementing_partners", e.target.value)}
-            placeholder={g.placeholders.implementingPartners}
-            className="text-sm w-full"
-          />
+          {implementingOrgs.map((o) => (
+            <div key={o.id} className="flex items-center gap-2">
+              {editingOrgId === o.id ? (
+                <>
+                  <Input
+                    value={editingOrgName}
+                    onChange={(e) => setEditingOrgName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
+                    className="h-8 flex-1 text-sm"
+                    autoFocus
+                    maxLength={ORG_NAME_MAX}
+                  />
+                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm">{o.name}</span>
+                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => deleteOrg(o.id, "implementing")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
+                </>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Input
+              value={newImplementingOrg}
+              onChange={(e) => setNewImplementingOrg(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("implementing"); } }}
+              placeholder={g.placeholders.implementingPartners}
+              className="h-8 flex-1 text-sm"
+              maxLength={ORG_NAME_MAX}
+            />
+            <Button size="sm" variant="outline" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg.trim()}>
+              <Plus className="size-3.5 mr-1" />Add
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -296,16 +296,16 @@ export default function ProdocPrintPage() {
             ]}
           />
         </div>
-        {m.participating_organizations ? (
+        {Array.isArray(m.participating_organizations) && (m.participating_organizations as { id: number; name: string }[]).length > 0 ? (
           <div data-block style={{ marginTop: 10, fontSize: 12 }}>
             <span style={{ color: MUTED }}>Participating organizations: </span>
-            {m.participating_organizations as string}
+            {(m.participating_organizations as { id: number; name: string }[]).map((o) => o.name).join(", ")}
           </div>
         ) : null}
-        {m.implementing_partners ? (
+        {Array.isArray(m.implementing_partners) && (m.implementing_partners as { id: number; name: string }[]).length > 0 ? (
           <div data-block style={{ marginTop: 6, fontSize: 12 }}>
             <span style={{ color: MUTED }}>Implementing organizations: </span>
-            {m.implementing_partners as string}
+            {(m.implementing_partners as { id: number; name: string }[]).map((o) => o.name).join(", ")}
           </div>
         ) : null}
         {m.description ? (

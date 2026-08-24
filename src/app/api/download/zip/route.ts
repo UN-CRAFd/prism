@@ -126,8 +126,18 @@ const EXPORTS: Record<string, SectionExport> = {
         p.grant_size_usd,
         TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
         p.project_duration_months,
-        p.participating_organizations,
-        p.implementing_partners,
+        COALESCE(
+          (SELECT string_agg(po.name, ', ' ORDER BY po.sort_order, po.id)
+             FROM reporting_platform.project_organizations po
+            WHERE po.project_id = p.id AND po.type = 'participating'),
+          ''
+        ) AS participating_organizations,
+        COALESCE(
+          (SELECT string_agg(po.name, ', ' ORDER BY po.sort_order, po.id)
+             FROM reporting_platform.project_organizations po
+            WHERE po.project_id = p.id AND po.type = 'implementing'),
+          ''
+        ) AS implementing_partners,
         p.geographic_scope,
         TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date,
         r.authorized

@@ -65,8 +65,8 @@ export function OverviewSection({ overview, updateOverview }: OverviewSectionPro
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <ReadField label={labels.overviewFields.participatingOrganizations} value={overview.participating_organizations} />
-          <ReadField label={labels.overviewFields.implementingPartners} value={overview.implementing_partners} />
+          <ReadField label={labels.overviewFields.participatingOrganizations} value={overview.participating_organizations.length ? overview.participating_organizations.map((o) => o.name).join(", ") : null} />
+          <ReadField label={labels.overviewFields.implementingPartners} value={overview.implementing_partners.length ? overview.implementing_partners.map((o) => o.name).join(", ") : null} />
           <ReadField label={labels.overviewFields.geographicScope} value={overview.geographic_scope} />
           <ReadField label={labels.overviewFields.reportSubmissionDate} value={overview.report_submission_date ? formatDate(overview.report_submission_date) : null} />
         </div>

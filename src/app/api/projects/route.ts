@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   const {
     partner_id, project_title, short_name,
     mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope,
-    implementing_partners, editor_partner_ids,
+    editor_partner_ids,
   } = body;
 
   // Partners granted prodoc edit rights: sanitise to a distinct list of positive
@@ -99,15 +99,14 @@ export async function POST(request: Request) {
 
     const inserted = await client.query(
       `INSERT INTO reporting_platform.projects
-         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope, implementing_partners, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Idea')
+         (partner_id, project_title, short_name, mptfo_project_number, grant_size_usd, project_start_date, project_duration_months, geographic_scope, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Idea')
        RETURNING *`,
       [
         partner_id, project_title,
         short_name || null,
         mptfo_project_number || null, grant_size_usd || null,
         project_start_date || null, project_duration_months || null, geographic_scope || null,
-        implementing_partners || null,
       ]
     );
     const project = inserted.rows[0];

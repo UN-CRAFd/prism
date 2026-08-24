@@ -60,7 +60,6 @@ interface Project {
   project_start_date: string | null;
   project_duration_months: number | null;
   geographic_scope: string | null;
-  implementing_partners: string | null;
   // partners.id[] granted prodoc edit rights (project_editors). May be absent on
   // responses that predate the feature.
   editor_partner_ids?: number[] | null;
@@ -252,10 +251,6 @@ export default function ProjectsPage() {
   const [startDate, setStartDate] = useState("");
   const [durationMonths, setDurationMonths] = useState("");
   const [scope, setScope] = useState("");
-  const [implementingPartners, setImplementingPartners] = useState("");
-  // Partners granted prodoc edit rights on this project (partners.id[]). Distinct
-  // from the free-text implementingPartners above; the lead (partnerId) is never
-  // in this list.
   const [editorIds, setEditorIds] = useState<number[]>([]);
 
   const load = useCallback(async () => {
@@ -284,7 +279,6 @@ export default function ProjectsPage() {
   function resetForm() {
     setPartnerId(""); setTitle(""); setShortName("");
     setMptfo(""); setGrantSize(""); setStartDate(""); setDurationMonths(""); setScope("");
-    setImplementingPartners("");
     setEditorIds([]);
     setEditId(null); setShowForm(false); setFormError(null);
   }
@@ -298,7 +292,6 @@ export default function ProjectsPage() {
     setStartDate(p.project_start_date || "");
     setDurationMonths(p.project_duration_months != null ? String(p.project_duration_months) : "");
     setScope(p.geographic_scope || "");
-    setImplementingPartners(p.implementing_partners || "");
     setEditorIds(Array.isArray(p.editor_partner_ids) ? p.editor_partner_ids : []);
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
@@ -316,7 +309,6 @@ export default function ProjectsPage() {
         project_start_date: startDate || null,
         project_duration_months: durationMonths ? parseInt(durationMonths, 10) : null,
         geographic_scope: scope.trim() || null,
-        implementing_partners: implementingPartners.trim() || null,
         // Never grant the lead editor rights (they already own the project).
         editor_partner_ids: editorIds.filter((id) => id !== Number(partnerId)),
       };
@@ -750,9 +742,6 @@ export default function ProjectsPage() {
               </Field>
               <Field label="Geographic scope">
                 <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Global" />
-              </Field>
-              <Field label="Implementing partners">
-                <Input value={implementingPartners} onChange={(e) => setImplementingPartners(e.target.value)} placeholder="Implementing partners" />
               </Field>
               <Field label="Editing rights">
                 <PartnerMultiSelect

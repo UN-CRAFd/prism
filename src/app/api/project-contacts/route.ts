@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       if (gate) return gate;
       const rows = await query(
         `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
-                c.name, c.role, c.email, c.partner_id
+                c.name, c.organization, c.role, c.email, c.partner_id
            FROM reporting_platform.project_contacts pc
            JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id
           WHERE pc.project_id = $1
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const created = await query(
       `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
               p.project_title, p.short_name AS project_short_name,
-              c.name, c.role, c.email, c.partner_id
+              c.name, c.organization, c.role, c.email, c.partner_id
          FROM reporting_platform.project_contacts pc
          JOIN reporting_platform.projects p ON p.id = pc.project_id
          JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id

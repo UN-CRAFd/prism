@@ -13,7 +13,6 @@ import { logger } from "@/lib/logger";
 //   PATCH { id, name, organization, role, email }
 //   DELETE ?id=
 
-const FIELDS = ["name", "role", "email"] as const;
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();

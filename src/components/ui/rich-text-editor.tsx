@@ -119,47 +119,6 @@ export function RichTextEditor({
     emit();
   };
 
-  // Enforce maxChars via beforeinput: fires before the DOM changes, so
-  // preventing the event naturally preserves caret position. For paste, we
-  // truncate the clipboard text to fill the remaining capacity rather than
-  // rejecting the paste entirely. Deletions and history events always pass
-  // through so a field with over-limit legacy content can be edited down.
-  const handleBeforeInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
-    if (maxChars === undefined) return;
-    const el = ref.current;
-    if (!el) return;
-    const native = e.nativeEvent as InputEvent;
-    const inputType = native.inputType ?? "";
-
-    if (inputType.startsWith("delete") || inputType.startsWith("history")) return;
-
-    const currentLen = richTextLength(el.innerHTML);
-    // Account for selected text that will be replaced by the incoming input.
-    const sel = window.getSelection();
-    const selLen = sel && !sel.isCollapsed ? sel.toString().length : 0;
-    const effectiveLen = currentLen - selLen;
-
-    const addedLen = native.data?.length ?? 1;
-    if (effectiveLen + addedLen > maxChars) {
-      e.preventDefault();
-    }
-  }, [maxChars]);
-
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (maxChars === undefined) return;
-    e.preventDefault();
-    const el = ref.current;
-    if (!el) return;
-    const text = e.clipboardData.getData("text/plain");
-    const currentLen = richTextLength(el.innerHTML);
-    const sel = window.getSelection();
-    const selLen = sel && !sel.isCollapsed ? sel.toString().length : 0;
-    const remaining = maxChars - (currentLen - selLen);
-    if (remaining <= 0) return;
-    document.execCommand("insertText", false, text.slice(0, remaining));
-    emit();
-  }, [maxChars, emit]);
-
   const remaining = maxChars !== undefined ? maxChars - richTextLength(value) : null;
 
   return (
@@ -197,8 +156,6 @@ export function RichTextEditor({
         data-placeholder={placeholder}
         onInput={emit}
         onBlur={emit}
-        onBeforeInput={handleBeforeInput}
-        onPaste={handlePaste}
         onMouseOver={(e) => {
           if (ro || !(e.target instanceof Element)) return;
           const a = e.target.closest("a[href]") as HTMLAnchorElement | null;
@@ -222,10 +179,12 @@ export function RichTextEditor({
         <div
           className={cn(
             "px-3 pb-2 text-[11px] text-right tabular-nums select-none",
-            remaining <= 0 ? "text-destructive font-medium" : "text-muted-foreground"
+            remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
           )}
         >
-          {remaining.toLocaleString()} characters left from {maxChars!.toLocaleString()} characters limit
+          {remaining < 0
+            ? `${Math.abs(remaining).toLocaleString()} characters over the limit`
+            : `${remaining.toLocaleString()} characters left from ${maxChars!.toLocaleString()} characters limit`}
         </div>
       )}
     </div>

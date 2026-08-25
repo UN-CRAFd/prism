@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { useAutosave, type SaveState } from "@/components/autosave";
+import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
+import { richTextLength } from "@/lib/richtext";
 import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
 import labels from "@/lib/labels";
@@ -245,11 +246,20 @@ export function GeneralInfoAdminEditor({
   // writes when its own snapshot changed.
   const flush = useCallback(async () => {
     setError(null);
-    // Project columns.
+    // Project columns. Skip description if it's over the limit; other fields
+    // still save through so only the over-limit field is held back.
     const snapshot = { ...formRef.current };
     const payload: Record<string, unknown> = {};
+    const savedKeys: FieldKey[] = [];
+    let descriptionOverLimit = false;
     for (const key of FIELD_KEYS) {
-      if (snapshot[key] !== savedRef.current[key]) payload[key] = coerce(key, snapshot[key]);
+      if (snapshot[key] === savedRef.current[key]) continue;
+      if (key === "description" && richTextLength(snapshot[key]) > DESCRIPTION_MAX_CHARS) {
+        descriptionOverLimit = true;
+        continue;
+      }
+      payload[key] = coerce(key, snapshot[key]);
+      savedKeys.push(key);
     }
     if (Object.keys(payload).length > 0) {
       const res = await fetch(`/api/projects/${projectId}`, {
@@ -261,7 +271,7 @@ export function GeneralInfoAdminEditor({
         const { error } = await res.json().catch(() => ({}));
         throw new Error((error as string) || "Failed to save");
       }
-      for (const key of FIELD_KEYS) savedRef.current[key] = snapshot[key];
+      for (const key of savedKeys) savedRef.current[key] = snapshot[key];
     }
 
     // Tranches (whole-set replace). Drop rows that are entirely blank.
@@ -300,6 +310,7 @@ export function GeneralInfoAdminEditor({
       if (!res.ok) throw new Error("Failed to save tranches");
       savedTranchesRef.current = tSnap;
     }
+    if (descriptionOverLimit) throw new OverLimitError();
   }, [projectId]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });

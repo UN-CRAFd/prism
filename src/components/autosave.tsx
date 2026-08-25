@@ -5,7 +5,14 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 
-export type SaveState = "idle" | "saving" | "saved" | "error";
+export type SaveState = "idle" | "saving" | "saved" | "error" | "over-limit";
+
+export class OverLimitError extends Error {
+  constructor(message?: string) {
+    super(message ?? "Content exceeds the character limit");
+    this.name = "OverLimitError";
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared debounced-autosave controller + status indicator used by every partner
@@ -48,8 +55,8 @@ export function useAutosave(
     try {
       await flushRef.current();
       emit("saved");
-    } catch {
-      emit("error");
+    } catch (err) {
+      emit(err instanceof OverLimitError ? "over-limit" : "error");
     } finally {
       savingRef.current = false;
       // Re-run if edits landed mid-save so nothing is left unsaved.
@@ -96,6 +103,13 @@ export function AutosaveIndicator({
     return (
       <span className={cn("flex items-center gap-1.5 text-sm", tone === "dark" ? "text-green-400" : "text-green-600")}>
         <CheckCircle2 className="size-4" /> All changes saved
+      </span>
+    );
+  }
+  if (s === "over-limit") {
+    return (
+      <span className={cn("text-sm", tone === "dark" ? "text-amber-300" : "text-amber-600")}>
+        Not saving — content is over the character limit
       </span>
     );
   }

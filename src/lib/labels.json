@@ -87,6 +87,7 @@
     "signedOn": "Signed",
     "remove": "Remove signature",
     "emptyContacts": "No project contacts yet. Add contacts in the General Information tab.",
+    "emptySignatories": "No contacts are marked as Signatory. On the General Information tab, set a contact's relationship to 'Signatory' to have them appear here.",
     "awaitingSecretariat": "Awaiting signature",
     "awaitingPartner": "Awaiting partner signature"
   },

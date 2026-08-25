@@ -157,20 +157,22 @@ export function SignaturesEditor({
         </div>
       )}
 
-      {/* Project contacts */}
+      {/* Project contacts — only those whose relationship is "Signatory" */}
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{s.contactsHeading}</h3>
         </div>
 
-        {contacts.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-            {s.emptyContacts}
-          </div>
-        ) : (
-          <div className="rounded-xl border divide-y overflow-hidden">
-            {contacts.map((c) => {
+        {(() => {
+          const signatories = contacts.filter((c) => c.relationship === "Signatory");
+          return signatories.length === 0 ? (
+            <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+              {s.emptySignatories}
+            </div>
+          ) : (
+            <div className="rounded-xl border divide-y overflow-hidden">
+              {signatories.map((c) => {
               const sig = contactSig(c.contact_id);
               const label = c.name;
               // A partner may sign only for its own contacts. Others' contacts are
@@ -211,7 +213,8 @@ export function SignaturesEditor({
               );
             })}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* CRAF'd Secretariat */}

@@ -77,11 +77,12 @@ interface ProjectContact {
   relationship: string | null;
   is_applicant: boolean;
   name: string;
+  organization: string | null;
   role: string | null;
   email: string | null;
 }
 
-interface OrgContact { id: number; partner_id: number; name: string; role: string | null; email: string | null }
+interface OrgContact { id: number; partner_id: number; name: string; organization: string | null; role: string | null; email: string | null }
 interface OrgRow { id: number; name: string }
 
 // A partner involved in the project (lead or editor) that the contact picker can
@@ -139,6 +140,8 @@ export function GeneralInfoAdminEditor({
   const [addingContact, setAddingContact] = useState(false);
   const [pendingContactName, setPendingContactName] = useState<string | null>(null);
   const [pendingContactEmail, setPendingContactEmail] = useState("");
+  const [pendingContactOrg, setPendingContactOrg] = useState("");
+  const [pendingContactRole, setPendingContactRole] = useState("");
   const [participatingOrgs, setParticipatingOrgs] = useState<OrgRow[]>([]);
   const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
   const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
@@ -404,19 +407,28 @@ export function GeneralInfoAdminEditor({
   function handleContactCreate(name: string) {
     setPendingContactName(name);
     setPendingContactEmail("");
+    setPendingContactOrg("");
+    setPendingContactRole("");
     setError(null);
   }
 
   async function commitPendingContact() {
     if (!pendingContactName) return;
     if (!pendingContactEmail.trim()) { setError("Email is required."); return; }
+    if (!pendingContactOrg.trim()) { setError("Organisation is required."); return; }
     const owningPartnerId = partnerId;
     if (!owningPartnerId) return;
     setAddingContact(true); setError(null);
     try {
       const res = await fetch("/api/partner-contacts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partner_id: owningPartnerId, name: pendingContactName, email: pendingContactEmail.trim() }),
+        body: JSON.stringify({
+          partner_id: owningPartnerId,
+          name: pendingContactName,
+          organization: pendingContactOrg.trim(),
+          role: pendingContactRole.trim() || null,
+          email: pendingContactEmail.trim(),
+        }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add contact"); }
       const created: OrgContact = await res.json();
@@ -424,6 +436,8 @@ export function GeneralInfoAdminEditor({
       await linkContact(created.id);
       setPendingContactName(null);
       setPendingContactEmail("");
+      setPendingContactOrg("");
+      setPendingContactRole("");
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingContact(false); }
   }
@@ -442,7 +456,7 @@ export function GeneralInfoAdminEditor({
   // partner_contacts master record. Typing updates local state; the PATCH fires
   // on blur. The endpoint rewrites all three fields at once, so we always send
   // the full current identity to avoid nulling the untouched ones.
-  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "role" | "email">>) {
+  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "organization" | "role" | "email">>) {
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
@@ -453,11 +467,11 @@ export function GeneralInfoAdminEditor({
     setError(null);
     const res = await fetch("/api/partner-contacts", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), role: c.role, email: c.email }),
+      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), organization: c.organization, role: c.role, email: c.email }),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); return; }
     // Keep the linked-contact combobox list in sync with the edited identity.
-    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), role: c.role, email: c.email } : oc)));
+    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), organization: c.organization, role: c.role, email: c.email } : oc)));
   }
 
   async function unlinkContact(id: number) {
@@ -864,30 +878,48 @@ export function GeneralInfoAdminEditor({
         </div>
 
         {pendingContactName && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 max-w-2xl">
-            <span className="text-sm text-muted-foreground shrink-0">
-              Email for <strong>{pendingContactName}</strong>
-            </span>
-            <Input
-              value={pendingContactEmail}
-              onChange={(e) => setPendingContactEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); }
-                if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); }
-              }}
-              placeholder="name@example.org"
-              type="email"
-              className="h-8 flex-1 min-w-[14rem] text-sm"
-              autoFocus
-            />
-            <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
-            <button
-              type="button"
-              onClick={() => { setPendingContactName(null); setPendingContactEmail(""); }}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
+          <div className="rounded-lg border bg-muted/30 px-3 py-3 max-w-2xl space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Details for <strong>{pendingContactName}</strong>
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                value={pendingContactEmail}
+                onChange={(e) => setPendingContactEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                placeholder="name@example.org"
+                type="email"
+                className="h-8 text-sm"
+                autoFocus
+                aria-label="Email"
+              />
+              <Input
+                value={pendingContactOrg}
+                onChange={(e) => setPendingContactOrg(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                placeholder="Organisation"
+                className="h-8 text-sm"
+                aria-label="Organisation"
+              />
+              <Input
+                value={pendingContactRole}
+                onChange={(e) => setPendingContactRole(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                placeholder="Role (optional)"
+                className="h-8 text-sm"
+                aria-label="Role"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
+              <button
+                type="button"
+                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
@@ -930,6 +962,14 @@ export function GeneralInfoAdminEditor({
                             aria-label={g.contactLastName}
                           />
                           <Input
+                            value={c.organization ?? ""}
+                            onChange={(e) => editContactField(c.id, { organization: e.target.value || null })}
+                            onBlur={() => commitContactIdentity(c.id)}
+                            placeholder="Organisation"
+                            className="h-8 flex-1 min-w-0 text-sm"
+                            aria-label="Organisation"
+                          />
+                          <Input
                             value={c.role ?? ""}
                             onChange={(e) => editContactField(c.id, { role: e.target.value || null })}
                             onBlur={() => commitContactIdentity(c.id)}
@@ -950,9 +990,9 @@ export function GeneralInfoAdminEditor({
                       ) : (
                         <p className="truncate">
                           <span className="font-medium">{c.name}</span>
-                          {(c.role || c.email) && (
+                          {(c.organization || c.role || c.email) && (
                             <span className="text-muted-foreground">
-                              {" · "}{[c.role, c.email].filter(Boolean).join(" · ")}
+                              {" · "}{[c.organization, c.role, c.email].filter(Boolean).join(" · ")}
                             </span>
                           )}
                         </p>

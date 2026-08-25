@@ -94,9 +94,10 @@ CREATE TRIGGER partners_updated_at
 CREATE TABLE IF NOT EXISTS partner_contacts (
     id         SERIAL       PRIMARY KEY,
     partner_id INTEGER      NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
-    name       VARCHAR(255) NOT NULL,
-    role       VARCHAR(100),
-    email      TEXT,
+    name         VARCHAR(255) NOT NULL,
+    organization VARCHAR(200),
+    role         VARCHAR(100),
+    email        TEXT,
     sort_order INTEGER      NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()

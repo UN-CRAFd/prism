@@ -22,7 +22,8 @@ export interface OverviewData {
   organization_name: string;
   organization_website: string;
   grant_size_usd: string;
-  implementing_partners: string;
+  participating_organizations: { id: number; name: string }[];
+  implementing_partners: { id: number; name: string }[];
   geographic_scope: string;
   report_submission_date: string;
   project_start_date: string;
@@ -36,7 +37,8 @@ export const EMPTY_OVERVIEW: OverviewData = {
   organization_name: "",
   organization_website: "",
   grant_size_usd: "",
-  implementing_partners: "",
+  participating_organizations: [],
+  implementing_partners: [],
   geographic_scope: "",
   report_submission_date: "",
   project_start_date: "",

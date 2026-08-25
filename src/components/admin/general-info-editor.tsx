@@ -15,6 +15,9 @@ import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lu
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
+import { InfoPopover } from "@/components/ui/info-popover";
+
+const ORG_NAME_MAX = 300;
 
 // ── General Information editor ─────────────────────────────────────────────────
 // The first project-document tab. Edits core project data (name, MPTFO number,
@@ -33,7 +36,7 @@ const GEO_SCOPE_NONE = "__none__";
 const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
   "grant_size_usd", "project_start_date", "project_duration_months",
-  "geographic_scope", "implementing_partners", "description",
+  "geographic_scope", "description",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
@@ -41,7 +44,7 @@ type Form = Record<FieldKey, string>;
 const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
   grant_size_usd: "", project_start_date: "", project_duration_months: "",
-  geographic_scope: "", implementing_partners: "", description: "",
+  geographic_scope: "", description: "",
 };
 
 // A funding tranche in local form state. `_key` is a client-side row id (stable
@@ -74,22 +77,15 @@ interface ProjectContact {
   relationship: string | null;
   is_applicant: boolean;
   name: string;
+  organization: string | null;
   role: string | null;
   email: string | null;
 }
 
-interface OrgContact { id: number; partner_id: number; name: string; role: string | null; email: string | null }
+interface OrgContact { id: number; partner_id: number; name: string; organization: string | null; role: string | null; email: string | null }
+interface OrgRow { id: number; name: string }
 
 // A partner involved in the project (lead or editor) that the contact picker can
-// attribute a contact to. `can_manage` is whether the current caller may
-// create/link contacts under it (admins: all; partners: only their own org).
-interface InvolvedPartner {
-  id: number;
-  short_name: string | null;
-  long_name: string | null;
-  is_lead: boolean;
-  can_manage: boolean;
-}
 
 // The DB stores a single full `name`; the FMP applicant form splits it into
 // first / last. Split on the first space (everything after it is the last name),
@@ -111,7 +107,6 @@ function coerce(key: FieldKey, value: string): unknown {
     case "project_start_date":
     case "mptfo_project_number":
     case "geographic_scope":
-    case "implementing_partners":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
   }
@@ -140,10 +135,21 @@ export function GeneralInfoAdminEditor({
   const [orgContacts, setOrgContacts] = useState<OrgContact[]>([]);
   // Partners a new/linked contact can be attributed to (lead + editors), and the
   // one currently selected in the add-contact "belongs to" picker.
-  const [involvedPartners, setInvolvedPartners] = useState<InvolvedPartner[]>([]);
-  const [contactPartnerId, setContactPartnerId] = useState<number | null>(null);
+
   const [tranches, setTranches] = useState<TrancheForm[]>([]);
   const [addingContact, setAddingContact] = useState(false);
+  const [pendingContactName, setPendingContactName] = useState<string | null>(null);
+  const [pendingContactEmail, setPendingContactEmail] = useState("");
+  const [pendingContactOrg, setPendingContactOrg] = useState("");
+  const [pendingContactRole, setPendingContactRole] = useState("");
+  const [participatingOrgs, setParticipatingOrgs] = useState<OrgRow[]>([]);
+  const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
+  const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
+  const [newImplementingOrg, setNewImplementingOrg] = useState("");
+  const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
+  const [editingOrgName, setEditingOrgName] = useState("");
+  const [orgError, setOrgError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -177,29 +183,27 @@ export function GeneralInfoAdminEditor({
           project_start_date: p.project_start_date ? String(p.project_start_date).slice(0, 10) : "",
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
           geographic_scope: p.geographic_scope ?? "",
-          implementing_partners: p.implementing_partners ?? "",
           description: p.description ?? "",
         };
         setForm(loaded);
         savedRef.current = { ...loaded };
         setPartnerId(p.partner_id);
 
-        const [linkRes, orgRes, tranchesRes] = await Promise.all([
+        const [linkRes, orgRes, tranchesRes, porgsRes] = await Promise.all([
           fetch(`/api/project-contacts?project_id=${projectId}`),
           // Involved partners (lead + editors) + the contacts the caller may see.
           fetch(`/api/partner-contacts?project_id=${projectId}`),
           fetch(`/api/project-tranches?project_id=${projectId}`),
+          fetch(`/api/project-organizations?project_id=${projectId}`),
         ]);
-        if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok) throw new Error("Failed to load project data");
+        if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok || !porgsRes.ok) throw new Error("Failed to load project data");
         if (cancelled) return;
         setContacts(await linkRes.json());
-        const orgData: { partners: InvolvedPartner[]; contacts: OrgContact[] } = await orgRes.json();
+        const orgData: { contacts: OrgContact[] } = await orgRes.json();
         setOrgContacts(orgData.contacts);
-        setInvolvedPartners(orgData.partners);
-        // Default the "belongs to" picker to the first partner the caller can
-        // manage (their own org for partners; the lead for admins).
-        const manageable = orgData.partners.filter((pt) => pt.can_manage);
-        setContactPartnerId(manageable[0]?.id ?? orgData.partners[0]?.id ?? null);
+        const allOrgs: (OrgRow & { type: string })[] = await porgsRes.json();
+        setParticipatingOrgs(allOrgs.filter((o) => o.type === "participating").map(({ id, name }) => ({ id, name })));
+        setImplementingOrgs(allOrgs.filter((o) => o.type === "implementing").map(({ id, name }) => ({ id, name })));
 
         const trancheRows: { amount: string | number | null; tranche_date: string | null; comment: string | null }[] =
           await tranchesRes.json();
@@ -342,6 +346,47 @@ export function GeneralInfoAdminEditor({
   const fmtUsd = (n: number) =>
     n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
+  // ── Organization list CRUD (immediate) ─────────────────────────────────
+  async function addOrg(type: "participating" | "implementing") {
+    const name = (type === "participating" ? newParticipatingOrg : newImplementingOrg).trim();
+    if (!name) return;
+    if (name.length > ORG_NAME_MAX) { setOrgError(`Name must be ${ORG_NAME_MAX} characters or fewer.`); return; }
+    setOrgError(null);
+    const res = await fetch("/api/project-organizations", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, name, type }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setOrgError((err as { error?: string }).error || "Failed to add"); return; }
+    const created: OrgRow = await res.json();
+    if (type === "participating") { setParticipatingOrgs((prev) => [...prev, created]); setNewParticipatingOrg(""); }
+    else { setImplementingOrgs((prev) => [...prev, created]); setNewImplementingOrg(""); }
+  }
+
+  async function deleteOrg(id: number, type: "participating" | "implementing") {
+    setOrgError(null);
+    const res = await fetch(`/api/project-organizations?id=${id}`, { method: "DELETE" });
+    if (!res.ok) { setOrgError("Failed to delete"); return; }
+    if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== id));
+    else setImplementingOrgs((prev) => prev.filter((o) => o.id !== id));
+  }
+
+  async function commitOrgRename() {
+    if (editingOrgId == null) return;
+    const name = editingOrgName.trim();
+    if (!name) { setOrgError("Name cannot be empty."); return; }
+    if (name.length > ORG_NAME_MAX) { setOrgError(`Name must be ${ORG_NAME_MAX} characters or fewer.`); return; }
+    setOrgError(null);
+    const res = await fetch("/api/project-organizations", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editingOrgId, name }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setOrgError((err as { error?: string }).error || "Failed to rename"); return; }
+    setParticipatingOrgs((prev) => prev.map((o) => o.id === editingOrgId ? { ...o, name } : o));
+    setImplementingOrgs((prev) => prev.map((o) => o.id === editingOrgId ? { ...o, name } : o));
+    setEditingOrgId(null);
+    setEditingOrgName("");
+  }
+
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
   async function linkContact(contactId: number) {
     const res = await fetch("/api/project-contacts", {
@@ -359,21 +404,40 @@ export function GeneralInfoAdminEditor({
     finally { setAddingContact(false); }
   }
 
-  async function handleContactCreate(name: string) {
-    // Create the contact under the partner chosen in the "belongs to" picker
-    // (falls back to the project lead).
-    const owningPartnerId = contactPartnerId ?? partnerId;
+  function handleContactCreate(name: string) {
+    setPendingContactName(name);
+    setPendingContactEmail("");
+    setPendingContactOrg("");
+    setPendingContactRole("");
+    setError(null);
+  }
+
+  async function commitPendingContact() {
+    if (!pendingContactName) return;
+    if (!pendingContactEmail.trim()) { setError("Email is required."); return; }
+    if (!pendingContactOrg.trim()) { setError("Organisation is required."); return; }
+    const owningPartnerId = partnerId;
     if (!owningPartnerId) return;
     setAddingContact(true); setError(null);
     try {
       const res = await fetch("/api/partner-contacts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partner_id: owningPartnerId, name }),
+        body: JSON.stringify({
+          partner_id: owningPartnerId,
+          name: pendingContactName,
+          organization: pendingContactOrg.trim(),
+          role: pendingContactRole.trim() || null,
+          email: pendingContactEmail.trim(),
+        }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add contact"); }
       const created: OrgContact = await res.json();
       setOrgContacts((prev) => [...prev, created]);
       await linkContact(created.id);
+      setPendingContactName(null);
+      setPendingContactEmail("");
+      setPendingContactOrg("");
+      setPendingContactRole("");
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingContact(false); }
   }
@@ -392,7 +456,7 @@ export function GeneralInfoAdminEditor({
   // partner_contacts master record. Typing updates local state; the PATCH fires
   // on blur. The endpoint rewrites all three fields at once, so we always send
   // the full current identity to avoid nulling the untouched ones.
-  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "role" | "email">>) {
+  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "organization" | "role" | "email">>) {
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
@@ -403,11 +467,11 @@ export function GeneralInfoAdminEditor({
     setError(null);
     const res = await fetch("/api/partner-contacts", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), role: c.role, email: c.email }),
+      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), organization: c.organization, role: c.role, email: c.email }),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); return; }
     // Keep the linked-contact combobox list in sync with the edited identity.
-    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), role: c.role, email: c.email } : oc)));
+    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), organization: c.organization, role: c.role, email: c.email } : oc)));
   }
 
   async function unlinkContact(id: number) {
@@ -424,7 +488,6 @@ export function GeneralInfoAdminEditor({
   // lands under the right org.
   const comboItems: ComboboxItem[] = orgContacts
     .filter((oc) => !contacts.some((c) => c.contact_id === oc.id))
-    .filter((oc) => contactPartnerId == null || oc.partner_id === contactPartnerId)
     .map((oc) => ({ id: oc.id, label: oc.name, hint: oc.role ?? undefined }));
 
   if (loading) {
@@ -568,16 +631,6 @@ export function GeneralInfoAdminEditor({
             </Select>
           </div>
 
-          {/* Same row as geographic scope, filling all remaining columns. */}
-          <div className="space-y-1.5 col-span-full sm:col-span-2 lg:col-span-4">
-            <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
-            <Input
-              value={form.implementing_partners}
-              onChange={(e) => setField("implementing_partners", e.target.value)}
-              placeholder={g.placeholders.implementingPartners}
-              className="text-sm w-full"
-            />
-          </div>
         </div>
 
         <div className="space-y-1.5">
@@ -589,6 +642,103 @@ export function GeneralInfoAdminEditor({
             disabled={readOnly}
             maxChars={DESCRIPTION_MAX_CHARS}
           />
+        </div>
+
+        {/* Participating Organizations list */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.participatingOrganizations}</label>
+            <InfoPopover
+              description={g.participatingOrganizationsDescription}
+              triggerTitle={g.fields.participatingOrganizations}
+              descriptionHeading="Description"
+            />
+          </div>
+          {orgError && <p className="text-xs text-destructive">{orgError}</p>}
+          {participatingOrgs.map((o) => (
+            <div key={o.id} className="flex items-center gap-2">
+              {editingOrgId === o.id ? (
+                <>
+                  <Input
+                    value={editingOrgName}
+                    onChange={(e) => setEditingOrgName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
+                    className="h-8 flex-1 text-sm"
+                    autoFocus
+                    maxLength={ORG_NAME_MAX}
+                  />
+                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm">{o.name}</span>
+                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
+                </>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Input
+              value={newParticipatingOrg}
+              onChange={(e) => setNewParticipatingOrg(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("participating"); } }}
+              placeholder={g.placeholders.participatingOrganizations}
+              className="h-8 flex-1 text-sm"
+              maxLength={ORG_NAME_MAX}
+            />
+            <Button size="sm" variant="outline" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
+              <Plus className="size-3.5 mr-1" />Add
+            </Button>
+          </div>
+        </div>
+
+        {/* Implementing Partners list */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
+            <InfoPopover
+              description={g.implementingOrganizationsDescription}
+              triggerTitle={g.fields.implementingPartners}
+              descriptionHeading="Description"
+            />
+          </div>
+          {implementingOrgs.map((o) => (
+            <div key={o.id} className="flex items-center gap-2">
+              {editingOrgId === o.id ? (
+                <>
+                  <Input
+                    value={editingOrgName}
+                    onChange={(e) => setEditingOrgName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
+                    className="h-8 flex-1 text-sm"
+                    autoFocus
+                    maxLength={ORG_NAME_MAX}
+                  />
+                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm">{o.name}</span>
+                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => deleteOrg(o.id, "implementing")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
+                </>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Input
+              value={newImplementingOrg}
+              onChange={(e) => setNewImplementingOrg(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("implementing"); } }}
+              placeholder={g.placeholders.implementingPartners}
+              className="h-8 flex-1 text-sm"
+              maxLength={ORG_NAME_MAX}
+            />
+            <Button size="sm" variant="outline" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg.trim()}>
+              <Plus className="size-3.5 mr-1" />Add
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -719,27 +869,6 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 max-w-2xl">
-          {/* "Belongs to" picker — only shown when more than one partner is
-              involved (lead + editors). New contacts are created under, and
-              existing contacts filtered to, the selected partner. */}
-          {involvedPartners.length > 1 && (
-            <Select
-              value={contactPartnerId != null ? String(contactPartnerId) : ""}
-              onValueChange={(v) => setContactPartnerId(Number(v))}
-            >
-              <SelectTrigger className="w-56 text-sm shrink-0">
-                <SelectValue placeholder="Belongs to…" />
-              </SelectTrigger>
-              <SelectContent>
-                {involvedPartners.map((pt) => (
-                  <SelectItem key={pt.id} value={String(pt.id)} disabled={!pt.can_manage}>
-                    {shortName(pt.short_name) || pt.long_name || `#${pt.id}`}
-                    {pt.is_lead ? " (lead)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <div className="flex-1 min-w-[16rem]">
             <Combobox
               items={comboItems}
@@ -751,6 +880,52 @@ export function GeneralInfoAdminEditor({
             />
           </div>
         </div>
+
+        {pendingContactName && (
+          <div className="rounded-lg border bg-muted/30 px-3 py-3 max-w-2xl space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Details for <strong>{pendingContactName}</strong>
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                value={pendingContactEmail}
+                onChange={(e) => setPendingContactEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                placeholder="name@example.org"
+                type="email"
+                className="h-8 text-sm"
+                autoFocus
+                aria-label="Email"
+              />
+              <Input
+                value={pendingContactOrg}
+                onChange={(e) => setPendingContactOrg(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                placeholder="Organisation"
+                className="h-8 text-sm"
+                aria-label="Organisation"
+              />
+              <Input
+                value={pendingContactRole}
+                onChange={(e) => setPendingContactRole(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                placeholder="Role (optional)"
+                className="h-8 text-sm"
+                aria-label="Role"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
+              <button
+                type="button"
+                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {contacts.length === 0 ? (
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
@@ -791,6 +966,14 @@ export function GeneralInfoAdminEditor({
                             aria-label={g.contactLastName}
                           />
                           <Input
+                            value={c.organization ?? ""}
+                            onChange={(e) => editContactField(c.id, { organization: e.target.value || null })}
+                            onBlur={() => commitContactIdentity(c.id)}
+                            placeholder="Organisation"
+                            className="h-8 flex-1 min-w-0 text-sm"
+                            aria-label="Organisation"
+                          />
+                          <Input
                             value={c.role ?? ""}
                             onChange={(e) => editContactField(c.id, { role: e.target.value || null })}
                             onBlur={() => commitContactIdentity(c.id)}
@@ -800,7 +983,7 @@ export function GeneralInfoAdminEditor({
                           />
                           <Input
                             value={c.email ?? ""}
-                            onChange={(e) => editContactField(c.id, { email: e.target.value || null })}
+                            onChange={(e) => editContactField(c.id, { email: e.target.value })}
                             onBlur={() => commitContactIdentity(c.id)}
                             placeholder={g.contactEmail}
                             type="email"
@@ -811,9 +994,9 @@ export function GeneralInfoAdminEditor({
                       ) : (
                         <p className="truncate">
                           <span className="font-medium">{c.name}</span>
-                          {(c.role || c.email) && (
+                          {(c.organization || c.role || c.email) && (
                             <span className="text-muted-foreground">
-                              {" · "}{[c.role, c.email].filter(Boolean).join(" · ")}
+                              {" · "}{[c.organization, c.role, c.email].filter(Boolean).join(" · ")}
                             </span>
                           )}
                         </p>

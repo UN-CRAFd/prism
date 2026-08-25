@@ -54,6 +54,7 @@ interface PartnerContact {
   id: number;
   partner_id: number;
   name: string;
+  organization: string | null;
   role: string | null;
   email: string | null;
   partner_short_name: string | null;
@@ -86,6 +87,7 @@ export default function ContactsPage() {
 
   const [partnerId, setPartnerId] = useState("");
   const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
 
@@ -114,13 +116,14 @@ export default function ContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setPartnerId(""); setName(""); setRole(""); setEmail("");
+    setPartnerId(""); setName(""); setOrganization(""); setRole(""); setEmail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
   function startEdit(c: PartnerContact) {
     setPartnerId(String(c.partner_id));
     setName(c.name);
+    setOrganization(c.organization || "");
     setRole(c.role || "");
     setEmail(c.email || "");
     setEditId(c.id); setShowForm(true); setFormError(null);
@@ -129,11 +132,13 @@ export default function ContactsPage() {
   async function handleSubmit() {
     if (!partnerId) { setFormError("Please select a partner"); return; }
     if (!name.trim()) { setFormError("Name is required"); return; }
+    if (!organization.trim()) { setFormError("Organisation is required"); return; }
+    if (!email.trim()) { setFormError("Email is required"); return; }
     setSaving(true); setFormError(null);
     try {
       const body = editId
-        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null }
-        : { partner_id: Number(partnerId), name: name.trim(), role: role.trim() || null, email: email.trim() || null };
+        ? { id: editId, name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null }
+        : { partner_id: Number(partnerId), name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -199,7 +204,7 @@ export default function ContactsPage() {
     const q = search.trim().toLowerCase();
     if (!q) return contacts;
     return contacts.filter((c) =>
-      [c.name, c.role, c.email, c.partner_short_name, c.partner_long_name]
+      [c.name, c.organization, c.role, c.email, c.partner_short_name, c.partner_long_name]
         .some((v) => v?.toLowerCase().includes(q))
     );
   }, [contacts, search]);
@@ -226,7 +231,7 @@ export default function ContactsPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, role, email, or partner…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, organisation, role, email, or partner…" />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">
@@ -258,10 +263,13 @@ export default function ContactsPage() {
               <Field label="Name" required>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={labels.common.placeholders.fullName} />
               </Field>
+              <Field label="Organisation" required>
+                <Input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="e.g. UN OCHA" />
+              </Field>
               <Field label="Role">
                 <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />
               </Field>
-              <Field label="Email">
+              <Field label="Email" required>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
               </Field>
             </div>
@@ -356,9 +364,10 @@ export default function ContactsPage() {
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[24%]">Name</TableHead>
-                  <TableHead className="w-[16%]">Role</TableHead>
-                  <TableHead className="w-[22%]">Email</TableHead>
+                  <TableHead className="w-[20%]">Name</TableHead>
+                  <TableHead className="w-[18%]">Organisation</TableHead>
+                  <TableHead className="w-[14%]">Role</TableHead>
+                  <TableHead className="w-[20%]">Email</TableHead>
                   <TableHead>Projects</TableHead>
                   <TableHead className="w-20" />
                 </TableRow>
@@ -369,7 +378,7 @@ export default function ContactsPage() {
                   return (
                     <Fragment key={g.partnerId}>
                       <TableRow className="border-t-2 hover:bg-transparent">
-                        <TableCell colSpan={5} className="bg-muted/50 p-0">
+                        <TableCell colSpan={6} className="bg-muted/50 p-0">
                           <button
                             type="button"
                             onClick={() => toggleGroup(g.partnerId)}
@@ -386,6 +395,7 @@ export default function ContactsPage() {
                       {!isCollapsed && g.rows.map((c) => (
                         <TableRow key={c.id}>
                           <TableCell className="font-medium">{c.name}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{c.organization || <Dash />}</TableCell>
                           <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
                           <TableCell className="text-muted-foreground text-xs break-all">
                             {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}

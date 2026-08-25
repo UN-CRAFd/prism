@@ -94,9 +94,10 @@ CREATE TRIGGER partners_updated_at
 CREATE TABLE IF NOT EXISTS partner_contacts (
     id         SERIAL       PRIMARY KEY,
     partner_id INTEGER      NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
-    name       VARCHAR(255) NOT NULL,
-    role       VARCHAR(100),
-    email      TEXT,
+    name         VARCHAR(255) NOT NULL,
+    organization VARCHAR(200),
+    role         VARCHAR(100),
+    email        TEXT,
     sort_order INTEGER      NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -120,8 +121,7 @@ CREATE TABLE IF NOT EXISTS projects (
     project_start_date      DATE,
     project_duration_months INTEGER,
     geographic_scope        TEXT,
-    implementing_partners   TEXT,
-    keyword                 TEXT,
+    keyword                      TEXT,
     universal_markers       TEXT,
     optional_markers        TEXT,
     fund_specific_markers   TEXT,
@@ -140,8 +140,7 @@ CREATE TRIGGER projects_updated_at
 -- ── Project editors (implementing partners with edit rights) ─────────────────
 -- A project has one OWNER (projects.partner_id, the project lead). This junction
 -- grants ADDITIONAL partners edit rights on the project's PRODOC only (never its
--- reports). Distinct from the free-text projects.implementing_partners list,
--- which is display-only. Authorization widens the project-scoped ownership checks
+-- reports). Authorization widens the project-scoped ownership checks
 -- (guardProject / guardProjectRow) to include partners listed here.
 CREATE TABLE IF NOT EXISTS project_editors (
     project_id  INTEGER      NOT NULL REFERENCES projects(id)  ON DELETE CASCADE,
@@ -170,6 +169,26 @@ CREATE INDEX IF NOT EXISTS project_contacts_contact_idx ON project_contacts(cont
 DROP TRIGGER IF EXISTS project_contacts_updated_at ON project_contacts;
 CREATE TRIGGER project_contacts_updated_at
     BEFORE UPDATE ON project_contacts
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- ── Project organizations (participating and implementing) ───────────────────
+-- Normalised list replacing the former implementing_partners and
+-- participating_organizations TEXT columns. One row per organization, with
+-- `type` distinguishing the two categories. sort_order controls display order.
+-- A tranche grid will later reference these rows as its row dimension.
+CREATE TABLE IF NOT EXISTS project_organizations (
+    id         SERIAL       PRIMARY KEY,
+    project_id INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name       VARCHAR(300) NOT NULL,
+    type       VARCHAR(30)  NOT NULL CHECK (type IN ('participating', 'implementing')),
+    sort_order INTEGER      NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS project_organizations_project_id_idx ON project_organizations(project_id);
+DROP TRIGGER IF EXISTS project_organizations_updated_at ON project_organizations;
+CREATE TRIGGER project_organizations_updated_at
+    BEFORE UPDATE ON project_organizations
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- ── Project extensions (no-cost extension history) ───────────────────────────

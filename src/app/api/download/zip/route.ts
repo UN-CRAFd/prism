@@ -109,7 +109,8 @@ const EXPORTS: Record<string, SectionExport> = {
     headers: [
       "year", "project_name", "partner", "data_type", "project_title", "mptfo_project_number",
       "organization_name", "organization_website",
-      "grant_size_usd", "project_start_date", "project_duration_months", "implementing_partners",
+      "grant_size_usd", "project_start_date", "project_duration_months",
+      "participating_organizations", "implementing_partners",
       "geographic_scope", "report_submission_date", "authorized",
     ],
     sql: `
@@ -125,7 +126,18 @@ const EXPORTS: Record<string, SectionExport> = {
         p.grant_size_usd,
         TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS project_start_date,
         p.project_duration_months,
-        p.implementing_partners,
+        COALESCE(
+          (SELECT string_agg(po.name, ', ' ORDER BY po.sort_order, po.id)
+             FROM reporting_platform.project_organizations po
+            WHERE po.project_id = p.id AND po.type = 'participating'),
+          ''
+        ) AS participating_organizations,
+        COALESCE(
+          (SELECT string_agg(po.name, ', ' ORDER BY po.sort_order, po.id)
+             FROM reporting_platform.project_organizations po
+            WHERE po.project_id = p.id AND po.type = 'implementing'),
+          ''
+        ) AS implementing_partners,
         p.geographic_scope,
         TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date,
         r.authorized

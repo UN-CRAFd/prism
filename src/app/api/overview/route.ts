@@ -26,7 +26,18 @@ export async function GET(req: NextRequest) {
          p.project_title,
          p.mptfo_project_number,
          p.grant_size_usd,
-         p.implementing_partners,
+         COALESCE(
+           (SELECT json_agg(json_build_object('id', po.id, 'name', po.name) ORDER BY po.sort_order, po.id)
+              FROM reporting_platform.project_organizations po
+             WHERE po.project_id = p.id AND po.type = 'participating'),
+           '[]'::json
+         ) AS participating_organizations,
+         COALESCE(
+           (SELECT json_agg(json_build_object('id', po.id, 'name', po.name) ORDER BY po.sort_order, po.id)
+              FROM reporting_platform.project_organizations po
+             WHERE po.project_id = p.id AND po.type = 'implementing'),
+           '[]'::json
+         ) AS implementing_partners,
          p.geographic_scope,
          TO_CHAR(p.project_start_date, 'YYYY-MM-DD')     AS project_start_date,
          p.project_duration_months,

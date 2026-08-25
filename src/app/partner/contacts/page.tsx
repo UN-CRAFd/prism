@@ -23,6 +23,7 @@ interface PartnerContact {
   id: number;
   partner_id: number;
   name: string;
+  organization: string | null;
   role: string | null;
   email: string | null;
 }
@@ -41,6 +42,7 @@ export default function PartnerContactsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
 
@@ -77,12 +79,13 @@ export default function PartnerContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setName(""); setRole(""); setEmail("");
+    setName(""); setOrganization(""); setRole(""); setEmail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
   function startEdit(c: PartnerContact) {
     setName(c.name);
+    setOrganization(c.organization || "");
     setRole(c.role || "");
     setEmail(c.email || "");
     setEditId(c.id); setShowForm(true); setFormError(null);
@@ -90,12 +93,14 @@ export default function PartnerContactsPage() {
 
   async function handleSubmit() {
     if (!name.trim()) { setFormError("Name is required"); return; }
+    if (!organization.trim()) { setFormError("Organisation is required"); return; }
+    if (!email.trim()) { setFormError("Email is required"); return; }
     if (!editId && partnerId == null) { setFormError("Organization not loaded yet"); return; }
     setSaving(true); setFormError(null);
     try {
       const body = editId
-        ? { id: editId, name: name.trim(), role: role.trim() || null, email: email.trim() || null }
-        : { partner_id: partnerId, name: name.trim(), role: role.trim() || null, email: email.trim() || null };
+        ? { id: editId, name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null }
+        : { partner_id: partnerId, name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -139,14 +144,17 @@ export default function PartnerContactsPage() {
             onCancel={resetForm}
             onSubmit={handleSubmit}
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Field label="Name" required>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={labels.common.placeholders.fullName} />
+              </Field>
+              <Field label="Organisation" required>
+                <Input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="e.g. UN OCHA" />
               </Field>
               <Field label="Role">
                 <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />
               </Field>
-              <Field label="Email">
+              <Field label="Email" required>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
               </Field>
             </div>
@@ -167,7 +175,7 @@ export default function PartnerContactsPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{c.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {c.role || "—"}
+                    {[c.organization, c.role].filter(Boolean).join(" · ") || "—"}
                     {c.email ? ` · ${c.email}` : ""}
                   </p>
                 </div>

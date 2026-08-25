@@ -9,8 +9,8 @@ import { logger } from "@/lib/logger";
 //                       editors) that the caller may see, each tagged with its
 //                       owning partner. Used by the prodoc contact picker.
 //   GET               → all contacts with partner context (admin view)
-//   POST { partner_id, name, role, email }
-//   PATCH { id, name, role, email }
+//   POST { partner_id, name, organization, role, email }
+//   PATCH { id, name, organization, role, email }
 //   DELETE ?id=
 
 const FIELDS = ["name", "role", "email"] as const;
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
 
       const contacts = visibleIds.length
         ? await query(
-            `SELECT id, partner_id, name, role, email, sort_order
+            `SELECT id, partner_id, name, organization, role, email, sort_order
                FROM reporting_platform.partner_contacts
               WHERE partner_id = ANY($1::int[])
               ORDER BY partner_id ASC, sort_order ASC, id ASC`,
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       const gate = await guardPartner(session, partnerId);
       if (gate) return gate;
       const rows = await query(
-        `SELECT id, partner_id, name, role, email, sort_order
+        `SELECT id, partner_id, name, organization, role, email, sort_order
            FROM reporting_platform.partner_contacts
           WHERE partner_id = $1
           ORDER BY sort_order ASC, id ASC`,
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     const gate = await requireAdmin();
     if (gate instanceof NextResponse) return gate;
     const rows = await query(
-      `SELECT c.id, c.partner_id, c.name, c.role, c.email, c.sort_order,
+      `SELECT c.id, c.partner_id, c.name, c.organization, c.role, c.email, c.sort_order,
               p.short_name AS partner_short_name, p.long_name AS partner_long_name
          FROM reporting_platform.partner_contacts c
          JOIN reporting_platform.partners p ON p.id = c.partner_id
@@ -113,8 +113,13 @@ export async function POST(req: NextRequest) {
 
   const partnerId = body.partner_id;
   const name = typeof body.name === "string" ? body.name.trim() : "";
+  const organization = typeof body.organization === "string" ? body.organization.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim() : "";
   if (!partnerId) return NextResponse.json({ error: "partner_id is required" }, { status: 400 });
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+  if (!organization) return NextResponse.json({ error: "Organisation is required." }, { status: 400 });
+  if (organization.length > 200) return NextResponse.json({ error: "Organisation must be 200 characters or fewer." }, { status: 400 });
+  if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 });
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -129,10 +134,10 @@ export async function POST(req: NextRequest) {
     const nextOrder = Number(existing[0].count) + 1;
 
     const rows = await query(
-      `INSERT INTO reporting_platform.partner_contacts (partner_id, name, role, email, sort_order)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO reporting_platform.partner_contacts (partner_id, name, organization, role, email, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [partnerId, name, body.role ?? null, body.email ?? null, nextOrder]
+      [partnerId, name, organization, body.role ?? null, email, nextOrder]
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
@@ -152,23 +157,36 @@ export async function PATCH(req: NextRequest) {
   const { id } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  const patchOrganization = typeof body.organization === "string" ? body.organization.trim() : "";
+  if (!patchOrganization) return NextResponse.json({ error: "Organisation is required." }, { status: 400 });
+  if (patchOrganization.length > 200) return NextResponse.json({ error: "Organisation must be 200 characters or fewer." }, { status: 400 });
+
+  // Only validate and update email when the client explicitly sends it as a string.
+  // null / absent → leave the existing DB value alone.
+  const emailProvided = typeof body.email === "string";
+  if (emailProvided && !(body.email as string).trim()) {
+    return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  }
+
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
   const gate = await guardPartnerRow(session, "partner_contacts", id as string | number);
   if (gate) return gate;
 
   try {
-    const setClause = FIELDS.map((f, i) => `${f} = $${i + 1}`).join(", ");
+    const updateFields = ["name", "organization", "role", ...(emailProvided ? ["email"] : [])];
     const values = [
       typeof body.name === "string" ? body.name.trim() : body.name ?? null,
+      patchOrganization,
       body.role ?? null,
-      body.email ?? null,
+      ...(emailProvided ? [(body.email as string).trim()] : []),
       id,
     ];
+    const setClause = updateFields.map((f, i) => `${f} = $${i + 1}`).join(", ");
     const rows = await query(
       `UPDATE reporting_platform.partner_contacts
           SET ${setClause}, updated_at = NOW()
-        WHERE id = $${FIELDS.length + 1}
+        WHERE id = $${updateFields.length + 1}
       RETURNING *`,
       values
     );

@@ -10,19 +10,18 @@ import { richTextLength } from "@/lib/richtext";
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
   "mptfo_project_number", "grant_size_usd", "project_start_date", "project_duration_months", "geographic_scope",
-  "implementing_partners", "keyword",
+  "keyword",
   "universal_markers", "optional_markers", "fund_specific_markers", "indirect_cost_rate",
 ];
 
 // Fields only an admin may write. `partner_id` would let a partner reassign the
 // project to another organization (ownership escalation); `short_name` is the
-// routing slug; `status` is the project lifecycle (set by the CRAF'd Secretariat
-// — the partner UI hides the field); `indirect_cost_rate` is admin-owned (the
-// rate lives on the admin expenditure tab); `mptfo_project_number` is
-// Secretariat-assigned. `implementing_partners` is intentionally NOT here —
-// partners may list their participating organizations & implementing partners
-// in the prodoc. Non-admin sessions have these fields silently ignored rather
-// than trusted from the request body.
+// routing slug; `indirect_cost_rate` is admin-owned (the rate lives on the admin
+// expenditure tab); `mptfo_project_number` is Secretariat-assigned.
+// `implementing_partners` is intentionally NOT here — partners may list their
+// participating organizations & implementing partners in the prodoc.
+// Non-admin sessions have these fields silently ignored rather than trusted from
+// the request body.
 const ADMIN_ONLY_FIELDS = new Set([
   "partner_id", "short_name", "status", "indirect_cost_rate", "mptfo_project_number",
 ]);

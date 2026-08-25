@@ -100,9 +100,22 @@ function joinName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(" ");
 }
 
+// Parses a user-entered amount in US format (commas = thousands separators,
+// period = decimal). Strips commas then parses. Returns NaN for empty/invalid input.
+function parseAmount(s: string): number {
+  const t = s.trim();
+  if (!t) return NaN;
+  return parseFloat(t.replace(/,/g, ""));
+}
+
+// US number format: comma as thousands separator, period as decimal.
+function formatUS(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function coerce(key: FieldKey, value: string): unknown {
   switch (key) {
-    case "grant_size_usd": return value.trim() === "" ? null : Number(value);
+    case "grant_size_usd": return value.trim() === "" ? null : parseAmount(value);
     case "project_duration_months": return value.trim() === "" ? null : Number(value);
     case "project_start_date":
     case "mptfo_project_number":
@@ -149,6 +162,8 @@ export function GeneralInfoAdminEditor({
   const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
   const [editingOrgName, setEditingOrgName] = useState("");
   const [orgError, setOrgError] = useState<string | null>(null);
+  const [grantFocused, setGrantFocused] = useState(false);
+  const [focusedTrancheKey, setFocusedTrancheKey] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -273,7 +288,7 @@ export function GeneralInfoAdminEditor({
       const outgoing = curTranches
         .filter((t) => t.amount.trim() !== "" || t.tranche_date !== "" || t.comment.trim() !== "")
         .map((t) => ({
-          amount: t.amount.trim() === "" ? 0 : Number(t.amount),
+          amount: t.amount.trim() === "" ? 0 : parseAmount(t.amount),
           tranche_date: t.tranche_date || null,
           comment: t.comment.trim() || null,
         }));
@@ -304,7 +319,7 @@ export function GeneralInfoAdminEditor({
   const addTranche = () => {
     setTranches((prev) => {
       const next = [...prev, { _key: ++trancheKeyRef.current, amount: "", tranche_date: "", comment: "" }];
-      const grant = formRef.current.grant_size_usd.trim() === "" ? null : Number(formRef.current.grant_size_usd);
+      const grant = formRef.current.grant_size_usd.trim() === "" ? null : parseAmount(formRef.current.grant_size_usd);
       if (grant == null || !Number.isFinite(grant)) return next;
       const per = Math.round((grant / next.length) * 100) / 100;
       return next.map((t, i) => ({
@@ -323,8 +338,8 @@ export function GeneralInfoAdminEditor({
     schedule();
   };
 
-  const trancheTotal = tranches.reduce((sum, t) => sum + (t.amount.trim() === "" ? 0 : Number(t.amount) || 0), 0);
-  const grantSize = form.grant_size_usd.trim() === "" ? null : Number(form.grant_size_usd);
+  const trancheTotal = tranches.reduce((sum, t) => sum + (t.amount.trim() === "" ? 0 : parseAmount(t.amount) || 0), 0);
+  const grantSize = form.grant_size_usd.trim() === "" ? null : parseAmount(form.grant_size_usd);
 
   // Valid tranche-date window: project start → project end (start + duration).
   // Either bound is only enforced once known; ISO date strings compare
@@ -343,8 +358,7 @@ export function GeneralInfoAdminEditor({
   };
   const hasInvalidTrancheDate = tranches.some((t) => trancheDateInvalid(t.tranche_date));
   const tranchesMatchGrant = grantSize != null && Math.abs(trancheTotal - grantSize) < 0.005;
-  const fmtUsd = (n: number) =>
-    n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  const fmtUsd = (n: number) => formatUS(n);
 
   // ── Organization list CRUD (immediate) ─────────────────────────────────
   async function addOrg(type: "participating" | "implementing") {
@@ -533,7 +547,7 @@ export function GeneralInfoAdminEditor({
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {isAdmin && (
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">{g.fields.mptfoNumber}</label>
@@ -568,9 +582,22 @@ export function GeneralInfoAdminEditor({
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.grantSize}</label>
             <Input
-              type="number" min="0" step="0.01"
-              value={form.grant_size_usd}
+              type="text"
+              inputMode="decimal"
+              value={grantFocused
+                ? form.grant_size_usd
+                : form.grant_size_usd.trim() !== "" && !isNaN(parseAmount(form.grant_size_usd))
+                  ? formatUS(parseAmount(form.grant_size_usd))
+                  : form.grant_size_usd}
               onChange={(e) => setField("grant_size_usd", e.target.value)}
+              onFocus={() => setGrantFocused(true)}
+              onBlur={() => {
+                setGrantFocused(false);
+                const parsed = parseAmount(form.grant_size_usd);
+                if (form.grant_size_usd.trim() !== "" && !isNaN(parsed)) {
+                  setField("grant_size_usd", String(parsed));
+                }
+              }}
               placeholder={g.placeholders.grantSize}
               className="text-sm"
             />
@@ -586,31 +613,27 @@ export function GeneralInfoAdminEditor({
             />
           </div>
 
-          {/* Duration + computed end date: the second box is read-only and shows
-              start date + duration (projectEndDate, computed above). */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
-              <Input
-                type="number" min="0" step="1"
-                value={form.project_duration_months}
-                onChange={(e) => setField("project_duration_months", e.target.value)}
-                placeholder={g.placeholders.durationMonths}
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.expectedEndDate}</label>
-              <Input
-                type="text"
-                readOnly
-                tabIndex={-1}
-                value={projectEndDate ? projectEndDate.split("-").reverse().join("/") : ""}
-                placeholder="—"
-                className="text-sm bg-muted/40 text-muted-foreground cursor-default"
-                aria-label={g.fields.expectedEndDate}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
+            <Input
+              type="number" min="0" step="1"
+              value={form.project_duration_months}
+              onChange={(e) => setField("project_duration_months", e.target.value)}
+              placeholder={g.placeholders.durationMonths}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.expectedEndDate}</label>
+            <Input
+              type="text"
+              readOnly
+              tabIndex={-1}
+              value={projectEndDate ? projectEndDate.split("-").reverse().join("/") : ""}
+              placeholder="—"
+              className="text-sm bg-muted/40 text-muted-foreground cursor-default"
+              aria-label={g.fields.expectedEndDate}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -770,9 +793,22 @@ export function GeneralInfoAdminEditor({
                   <tr key={t._key} className="transition-colors hover:bg-muted/20">
                     <td className="px-4 py-3 align-middle">
                       <Input
-                        type="number" min="0" step="0.01"
-                        value={t.amount}
+                        type="text"
+                        inputMode="decimal"
+                        value={focusedTrancheKey === t._key
+                          ? t.amount
+                          : t.amount.trim() !== "" && !isNaN(parseAmount(t.amount))
+                            ? formatUS(parseAmount(t.amount))
+                            : t.amount}
                         onChange={(e) => setTranche(t._key, { amount: e.target.value })}
+                        onFocus={() => setFocusedTrancheKey(t._key)}
+                        onBlur={() => {
+                          setFocusedTrancheKey(null);
+                          const parsed = parseAmount(t.amount);
+                          if (t.amount.trim() !== "" && !isNaN(parsed)) {
+                            setTranche(t._key, { amount: String(parsed) });
+                          }
+                        }}
                         placeholder={`${g.tranches.columns.amount}`}
                         className="h-8 text-sm text-right tabular-nums"
                         aria-label={`${g.tranches.columns.amount} ${i + 1}`}

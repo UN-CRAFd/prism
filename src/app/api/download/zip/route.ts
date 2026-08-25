@@ -341,14 +341,16 @@ const PRODOC_EXPORTS: Record<string, SectionExport> = {
   },
 
   prodoc_budgets: {
-    headers: ["project_name", "partner", "category", "year", "approved_amount", "description"],
+    headers: ["project_name", "partner", "category", "description", "year", "approved_amount"],
     sql: `
       SELECT p.project_title AS project_name, pt.short_name AS partner,
-        c.name AS category, b.year, b.approved_amount, b.description
+        c.name AS category, ebn.description, b.year, b.approved_amount
       FROM reporting_platform.expenditure_budgets b
       JOIN reporting_platform.expenditure_categories c ON c.id = b.category_id
       JOIN reporting_platform.projects p  ON p.id  = b.project_id
       JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+      LEFT JOIN reporting_platform.expenditure_budget_category_notes ebn
+        ON ebn.project_id = b.project_id AND ebn.category_id = b.category_id
       WHERE TRUE %PROJECT_FILTER%
       ORDER BY pt.short_name, p.project_title, c.sort_order, b.year`,
   },

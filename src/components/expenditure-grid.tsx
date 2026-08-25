@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
-import { Loader2, CheckCircle2, AlertTriangle, StickyNote } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
@@ -24,7 +24,7 @@ import { CURRENT_YEAR_HEAD, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-
 // difference is computed here from those two.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface BudgetRow { category_id: number; year: number; approved_amount: number | null; description?: string | null }
+interface BudgetRow { category_id: number; year: number; approved_amount: number | null }
 interface ExpRow { category_id: number; year: number; annual_expenditure: number | null; comment: string | null }
 
 interface ExpenditurePayload {
@@ -129,12 +129,6 @@ export function ExpenditurePartnerEditor({
   const budgetMap = useMemo(() => {
     const m: Record<number, Record<number, number | null>> = {};
     data?.budgets.forEach((b) => { (m[b.year] ??= {})[b.category_id] = b.approved_amount; });
-    return m;
-  }, [data]);
-  // Admin-entered notes explaining each category × year budget (read-only here).
-  const budgetNoteMap = useMemo(() => {
-    const m: Record<number, Record<number, string>> = {};
-    data?.budgets.forEach((b) => { if (b.description) (m[b.year] ??= {})[b.category_id] = b.description; });
     return m;
   }, [data]);
   const storedExpMap = useMemo(() => {
@@ -281,9 +275,8 @@ export function ExpenditurePartnerEditor({
                 <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
                 {years.map((y) => {
                     const ap = budFor(y, c.id);
-                    const note = budgetNoteMap[y]?.[c.id];
                     // Years without a report show only the approved annual budget.
-                    if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} note={note} />;
+                    if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} />;
                     const editable = y === currentYear;
                     const ex = expFor(y, c.id);
                     return (
@@ -293,7 +286,6 @@ export function ExpenditurePartnerEditor({
                         approved={ap}
                         exp={ex}
                         diff={num(ap) - num(ex)}
-                        note={note}
                         expInput={edits[c.id]?.exp ?? ""}
                         comment={editable ? (edits[c.id]?.comment ?? "") : (data.expenditure.find((x) => x.category_id === c.id && x.year === y)?.comment ?? "")}
                         onExp={(v) => update(c.id, { exp: v })}
@@ -336,31 +328,18 @@ function ApprovedOnlyHead({ fillHeight = false }: { fillHeight?: boolean }) {
   );
 }
 
-// A small read-only note marker: a hoverable icon whose tooltip shows the note.
-function ReadOnlyNote({ note }: { note?: string }) {
-  if (!note) return null;
-  return (
-    <span title={note} aria-label={note} className="inline-flex cursor-help">
-      <StickyNote className="size-3.5 shrink-0 text-amber-600" />
-    </span>
-  );
-}
-
 // Body / footer cell for a non-current year: only the approved annual budget.
-function ApprovedOnlyCell({ approved, note }: { approved: number | null; note?: string }) {
+function ApprovedOnlyCell({ approved }: { approved: number | null }) {
   return (
     <td className="px-2 py-2 text-right border-l border-t">
-      <span className="inline-flex items-center gap-1 justify-end">
-        {note && <ReadOnlyNote note={note} />}
-        <Num value={approved} kind="approved" />
-      </span>
+      <Num value={approved} kind="approved" />
     </td>
   );
 }
 
 // Body cells for one year on a category row.
 function YearCells({
-  editable, approved, exp, diff, expInput, comment, note, onExp, onComment,
+  editable, approved, exp, diff, expInput, comment, onExp, onComment,
 }: {
   editable: boolean;
   approved: number | null;
@@ -368,17 +347,13 @@ function YearCells({
   diff: number;
   expInput: string;
   comment: string;
-  note?: string;
   onExp: (v: string) => void;
   onComment: (v: string) => void;
 }) {
   return (
     <>
       <td className="px-2 py-2 text-right border-l border-t">
-        <span className="inline-flex items-center gap-1 justify-end">
-          {note && <ReadOnlyNote note={note} />}
-          <Num value={approved} kind="approved" />
-        </span>
+        <Num value={approved} kind="approved" />
       </td>
       <td className={cn("px-1 py-1 text-right border-t", editable && "bg-crafd-yellow/10")}>
         {editable ? (
@@ -425,7 +400,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);
   const [years, setYears] = useState<number[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({}); // `${catId}-${year}` → string
-  const [descriptions, setDescriptions] = useState<Record<string, string>>({}); // `${catId}-${year}` → note
+  const [categoryNotes, setCategoryNotes] = useState<Record<number, string>>({}); // catId → description
   // The indirect support cost rate is project-level admin data, edited here.
   // `rate` is the persisted fraction (0.07); `rateInput` is the editable
   // percentage string shown in the field.
@@ -436,15 +411,16 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const dirtyRef = useRef<Set<string>>(new Set());
+  const dirtyAmountsRef = useRef<Set<string>>(new Set());
+  const dirtyCatNotesRef = useRef<Set<number>>(new Set());
   const amountsRef = useRef<Record<string, string>>({});
-  const descriptionsRef = useRef<Record<string, string>>({});
+  const categoryNotesRef = useRef<Record<number, string>>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const flushRef = useRef<() => void>(() => {});
 
   useEffect(() => { amountsRef.current = amounts; }, [amounts]);
-  useEffect(() => { descriptionsRef.current = descriptions; }, [descriptions]);
+  useEffect(() => { categoryNotesRef.current = categoryNotes; }, [categoryNotes]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -457,7 +433,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
       ]);
       if (!catRes.ok || !budRes.ok || !projRes.ok) throw new Error("Failed to load expenditure setup");
       const cats: ExpenditureCategory[] = await catRes.json();
-      const bud: { indirectRate: number; years: number[]; budgets: BudgetRow[] } = await budRes.json();
+      const bud: { indirectRate: number; years: number[]; budgets: BudgetRow[]; categoryNotes: { category_id: number; description: string | null }[] } = await budRes.json();
       const proj: { grant_size_usd: number | null } = await projRes.json();
       setCategories(cats);
       setYears(bud.years);
@@ -465,14 +441,16 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
       setRateInput(String(Math.round(bud.indirectRate * 100 * 100) / 100));
       setGrantSize(proj.grant_size_usd);
       const m: Record<string, string> = {};
-      const notes: Record<string, string> = {};
       for (const b of bud.budgets) {
         const key = `${b.category_id}-${b.year}`;
         if (b.approved_amount != null) m[key] = String(b.approved_amount);
-        if (b.description) notes[key] = b.description;
       }
       setAmounts(m);
-      setDescriptions(notes);
+      const notes: Record<number, string> = {};
+      for (const n of bud.categoryNotes ?? []) {
+        if (n.description) notes[n.category_id] = n.description;
+      }
+      setCategoryNotes(notes);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -487,11 +465,12 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
     savingRef.current = true;
     setSaveState("saving");
     try {
-      const keys = Array.from(dirtyRef.current);
-      dirtyRef.current.clear();
-      for (const key of keys) {
+      const amountKeys = Array.from(dirtyAmountsRef.current);
+      dirtyAmountsRef.current.clear();
+      const noteCatIds = Array.from(dirtyCatNotesRef.current);
+      dirtyCatNotesRef.current.clear();
+      for (const key of amountKeys) {
         const [catId, year] = key.split("-").map(Number);
-        const note = (descriptionsRef.current[key] ?? "").trim();
         const res = await fetch("/api/expenditure-budgets", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -500,10 +479,22 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
             categoryId: catId,
             year,
             approved_amount: parseAmount(amountsRef.current[key] ?? ""),
-            description: note === "" ? null : note,
           }),
         });
         if (!res.ok) throw new Error("Failed to save budget");
+      }
+      for (const catId of noteCatIds) {
+        const note = (categoryNotesRef.current[catId] ?? "").trim();
+        const res = await fetch("/api/expenditure-budgets", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            categoryId: catId,
+            description: note === "" ? null : note,
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to save description");
       }
       setSaveState("saved");
     } catch (e) {
@@ -511,7 +502,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
       setSaveState("error");
     } finally {
       savingRef.current = false;
-      if (dirtyRef.current.size) flushRef.current();
+      if (dirtyAmountsRef.current.size || dirtyCatNotesRef.current.size) flushRef.current();
     }
   };
   flushRef.current = flush;
@@ -524,20 +515,19 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (dirtyRef.current.size) flushRef.current();
+    if (dirtyAmountsRef.current.size || dirtyCatNotesRef.current.size) flushRef.current();
   }, []);
 
   function setAmount(catId: number, year: number, v: string) {
     const key = `${catId}-${year}`;
     setAmounts((prev) => ({ ...prev, [key]: v }));
-    dirtyRef.current.add(key);
+    dirtyAmountsRef.current.add(key);
     scheduleFlush();
   }
 
-  function setDescription(catId: number, year: number, v: string) {
-    const key = `${catId}-${year}`;
-    setDescriptions((prev) => ({ ...prev, [key]: v }));
-    dirtyRef.current.add(key);
+  function setCategoryNote(catId: number, v: string) {
+    setCategoryNotes((prev) => ({ ...prev, [catId]: v }));
+    dirtyCatNotesRef.current.add(catId);
     scheduleFlush();
   }
 
@@ -595,7 +585,8 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th style={fillHeight ? { boxShadow: HEAD_SHADOW } : undefined} className={cn("text-left px-3 py-2 text-muted-foreground min-w-[220px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Budget categories</th>
-                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total budgets</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-left border-l min-w-[200px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Description</th>
                   {years.map((y) => (
                     <th key={y} style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>{y}</th>
                   ))}
@@ -611,22 +602,23 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                       </span>
                     </td>
                     <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="approved" /></td>
+                    <td className="px-2 py-1 border-l">
+                      <Textarea
+                        value={categoryNotes[c.id] ?? ""}
+                        onChange={(e) => setCategoryNote(c.id, e.target.value)}
+                        placeholder="Include all the key outputs yearwise."
+                        className="text-xs min-h-[60px] resize-y w-full"
+                      />
+                    </td>
                     {years.map((y) => (
                       <td key={y} className="px-1 py-1 border-l">
-                        <div className="flex items-center gap-1">
-                          <BudgetCellNote
-                            label={`${c.name} ${y}`}
-                            value={descriptions[`${c.id}-${y}`] ?? ""}
-                            onChange={(v) => setDescription(c.id, y, v)}
-                          />
-                          <Input
-                            value={amounts[`${c.id}-${y}`] ?? ""}
-                            onChange={(e) => setAmount(c.id, y, e.target.value)}
-                            inputMode="decimal"
-                            placeholder="0"
-                            className="h-8 w-full min-w-0 flex-1 text-sm text-right tabular-nums"
-                          />
-                        </div>
+                        <Input
+                          value={amounts[`${c.id}-${y}`] ?? ""}
+                          onChange={(e) => setAmount(c.id, y, e.target.value)}
+                          inputMode="decimal"
+                          placeholder="0"
+                          className="h-8 w-full min-w-0 flex-1 text-sm text-right tabular-nums"
+                        />
                       </td>
                     ))}
                   </tr>
@@ -634,16 +626,19 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                 <tr className="border-t bg-neutral-100 font-semibold">
                   <td className="px-3 py-2 border-r">Project costs sub total</td>
                   <td className="px-2 py-2 text-right border-l"><Num value={totalSub} /></td>
+                  <td className="border-l" />
                   {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y)} /></td>))}
                 </tr>
                 <tr className="border-t bg-muted/30">
                   <td className="px-3 py-2 border-r">Indirect support costs ({Math.round(rate * 100)}%)</td>
                   <td className="px-2 py-2 text-right border-l"><Num value={totalSub * rate} /></td>
+                  <td className="border-l" />
                   {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * rate} /></td>))}
                 </tr>
                 <tr className="border-t bg-neutral-100 font-semibold">
                   <td className="px-3 py-2 border-r">Total</td>
                   <td className="px-2 py-2 text-right border-l"><Num value={totalBudget} kind="strong" /></td>
+                  <td className="border-l" />
                   {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * (1 + rate)} kind="strong" /></td>))}
                 </tr>
               </tbody>
@@ -709,67 +704,3 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
   );
 }
 
-// A small note button attached to a budget cell. Filled (has text) → amber,
-// solid icon; empty → muted outline. Clicking opens a lightweight inline
-// popover (no external dependency) with a textarea; it closes on outside click
-// or Escape. Used to explain what a given category × year budget covers.
-function BudgetCellNote({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const hasNote = value.trim() !== "";
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={wrapRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        title={hasNote ? value : "Add a note"}
-        aria-label={hasNote ? `Edit note for ${label}` : `Add a note for ${label}`}
-        className={cn(
-          "flex size-6 items-center justify-center rounded-md border transition-colors",
-          hasNote
-            ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
-            : "border-transparent text-muted-foreground/50 hover:border-border hover:text-muted-foreground"
-        )}
-      >
-        <StickyNote className="size-3.5" />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-30 mt-1 w-64 rounded-lg border bg-popover p-3 shadow-lg">
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</p>
-          <Textarea
-            autoFocus
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Describe what this budget covers…"
-            className="min-h-[72px] resize-y text-sm"
-          />
-        </div>
-      )}
-    </div>
-  );
-}

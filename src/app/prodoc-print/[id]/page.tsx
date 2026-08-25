@@ -60,7 +60,8 @@ interface ProdocData {
     activity_num: string | null; activity_text: string | null;
     implementing_agent: string | null; planned_quarters: string[] | null;
   }[];
-  budgets: { category_name: string; sort_order: number; year: number; approved_amount: string | null; description: string | null }[];
+  budgets: { category_name: string; sort_order: number; year: number; approved_amount: string | null }[];
+  categoryNotes: { category_name: string; description: string | null }[];
   signatures: {
     contacts: { name: string; role: string | null; relationship: string | null; signed_at: string | null }[];
     secretariat: { signed_at: string | null };
@@ -190,14 +191,11 @@ export default function ProdocPrintPage() {
   const catTotal = (cat: string) => years.reduce((a, y) => a + budgetAt(cat, y), 0);
   const yearSub = (year: number) => categories.reduce((a, c) => a + budgetAt(c, year), 0);
   const grandSub = categories.reduce((a, c) => a + catTotal(c), 0);
-  // Admin notes explaining individual category × year budget lines, in table order.
-  const budgetNotes = categories.flatMap((c) =>
-    years
-      .map((y) => {
-        const note = data.budgets.find((b) => b.category_name === c && b.year === y)?.description;
-        return note && note.trim() !== "" ? { label: `${c} ${y}`, note } : null;
-      })
-      .filter((x): x is { label: string; note: string } => x !== null)
+  // Per-category descriptions entered by the admin on the ProDoc Budgets tab.
+  const descriptionMap = Object.fromEntries(
+    (data.categoryNotes ?? [])
+      .filter((n) => n.description && n.description.trim() !== "")
+      .map((n) => [n.category_name, n.description as string])
   );
 
   // Group workplan activities by outcome
@@ -519,6 +517,7 @@ export default function ProdocPrintPage() {
               <thead>
                 <tr>
                   <Th align="left">Budget category</Th>
+                  <Th align="left">Description</Th>
                   <Th align="right">Total</Th>
                   {years.map((y) => <Th key={y} align="right">{y}</Th>)}
                 </tr>
@@ -527,6 +526,7 @@ export default function ProdocPrintPage() {
                 {categories.map((c) => (
                   <tr key={c}>
                     <Td>{c}</Td>
+                    <Td>{descriptionMap[c] ?? ""}</Td>
                     <Td align="right">{fmtUsd(catTotal(c))}</Td>
                     {years.map((y) => <Td key={y} align="right">{fmtUsd(budgetAt(c, y))}</Td>)}
                   </tr>
@@ -538,18 +538,6 @@ export default function ProdocPrintPage() {
                   cells={years.map((y) => yearSub(y) * (1 + rate))} total={grandSub * (1 + rate)} strong />
               </tbody>
             </table>
-            {budgetNotes.length > 0 && (
-              <div data-block style={{ marginTop: 10, fontSize: 11 }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Budget notes</div>
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {budgetNotes.map((n) => (
-                    <li key={n.label} style={{ marginBottom: 2 }}>
-                      <span style={{ fontWeight: 600 }}>{n.label}:</span> {n.note}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </Section>
         )}
 
@@ -723,6 +711,7 @@ function TotalRow({
   return (
     <tr style={{ background: strong ? "#f3f4f6" : "#fafafa", fontWeight: strong ? 700 : 600 }}>
       <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{label}</td>
+      <td style={{ borderTop: `1px solid ${LINE}` }} />
       <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(total)}</td>
       {years.map((y, i) => (
         <td key={y} style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(cells[i])}</td>

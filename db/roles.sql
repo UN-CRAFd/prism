@@ -56,6 +56,7 @@ REVOKE ALL    ON SCHEMA public             FROM prism_app;  -- no foothold in pu
 
 -- 4. DML on every existing object. SERIAL primary keys require sequence USAGE;
 --    the updated_at triggers require EXECUTE on set_updated_at().
+--    Includes expenditure_budget_category_notes (added in add-budget-category-notes.sql).
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA reporting_platform TO prism_app;
 GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA reporting_platform TO prism_app;
 GRANT EXECUTE                        ON ALL FUNCTIONS IN SCHEMA reporting_platform TO prism_app;

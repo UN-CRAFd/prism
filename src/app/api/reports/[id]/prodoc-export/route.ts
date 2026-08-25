@@ -58,7 +58,7 @@ export async function GET(
     const meta = metaRows[0];
     const projectId = meta.project_id as number;
 
-    const [narratives, risks, indicators, activities, budgets, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
+    const [narratives, risks, indicators, activities, budgets, categoryNotes, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
       query(
         `SELECT narrative_key, label, answer
            FROM reporting_platform.project_narratives
@@ -98,11 +98,18 @@ export async function GET(
         [projectId]
       ),
       query(
-        `SELECT ec.name AS category_name, ec.sort_order, eb.year, eb.approved_amount, eb.description
+        `SELECT ec.name AS category_name, ec.sort_order, eb.year, eb.approved_amount
            FROM reporting_platform.expenditure_budgets eb
            JOIN reporting_platform.expenditure_categories ec ON ec.id = eb.category_id
           WHERE eb.project_id = $1
           ORDER BY ec.sort_order, eb.year`,
+        [projectId]
+      ),
+      query(
+        `SELECT ec.name AS category_name, ebn.description
+           FROM reporting_platform.expenditure_budget_category_notes ebn
+           JOIN reporting_platform.expenditure_categories ec ON ec.id = ebn.category_id
+          WHERE ebn.project_id = $1`,
         [projectId]
       ),
       // Signature slots: every project contact, with its signature date if signed.
@@ -140,7 +147,7 @@ export async function GET(
       secretariat: { signed_at: (secretariatSig[0] as { signed_at: string } | undefined)?.signed_at ?? null },
     };
 
-    return NextResponse.json({ meta, narratives, risks, indicators, activities, budgets, signatures, sdgTargets });
+    return NextResponse.json({ meta, narratives, risks, indicators, activities, budgets, categoryNotes, signatures, sdgTargets });
   } catch (err) {
     logger.error("GET /api/reports/[id]/prodoc-export error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });

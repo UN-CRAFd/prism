@@ -691,6 +691,17 @@ CREATE TRIGGER expenditure_budgets_updated_at
     BEFORE UPDATE ON expenditure_budgets
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- One description per (project, category) — the admin's summary of what this
+-- budget category covers across all years (e.g. "Field visits, workshops and
+-- training materials for all project years"). Shown as a column in the budget
+-- table on the ProDoc editor and print view.
+CREATE TABLE IF NOT EXISTS expenditure_budget_category_notes (
+    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    category_id  INTEGER NOT NULL REFERENCES expenditure_categories(id) ON DELETE CASCADE,
+    description  TEXT,
+    PRIMARY KEY (project_id, category_id)
+);
+
 CREATE TABLE IF NOT EXISTS expenditure_entries (
     id                 SERIAL       PRIMARY KEY,
     report_id          INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,

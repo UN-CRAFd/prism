@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
@@ -165,6 +165,21 @@ export function GeneralInfoAdminEditor({
   const [orgError, setOrgError] = useState<string | null>(null);
   const [grantFocused, setGrantFocused] = useState(false);
   const [focusedTrancheKey, setFocusedTrancheKey] = useState<number | null>(null);
+
+  // Combined, deduplicated list of org names from both participating and
+  // implementing lists — used to seed the organisation Combobox on contact forms.
+  const orgSuggestions = useMemo<ComboboxItem[]>(() => {
+    const seen = new Set<string>();
+    const result: ComboboxItem[] = [];
+    let id = 0;
+    for (const o of [...participatingOrgs, ...implementingOrgs]) {
+      if (!seen.has(o.name)) {
+        seen.add(o.name);
+        result.push({ id: id++, label: o.name });
+      }
+    }
+    return result.sort((a, b) => a.label.localeCompare(b.label));
+  }, [participatingOrgs, implementingOrgs]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -944,13 +959,11 @@ export function GeneralInfoAdminEditor({
                 autoFocus
                 aria-label="Email"
               />
-              <Input
+              <Combobox
+                items={orgSuggestions}
                 value={pendingContactOrg}
-                onChange={(e) => setPendingContactOrg(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                onChange={setPendingContactOrg}
                 placeholder="Organisation"
-                className="h-8 text-sm"
-                aria-label="Organisation"
               />
               <Input
                 value={pendingContactRole}
@@ -1012,13 +1025,13 @@ export function GeneralInfoAdminEditor({
                             className="h-8 flex-1 min-w-0 text-sm font-medium"
                             aria-label={g.contactLastName}
                           />
-                          <Input
+                          <Combobox
+                            items={orgSuggestions}
                             value={c.organization ?? ""}
-                            onChange={(e) => editContactField(c.id, { organization: e.target.value || null })}
+                            onChange={(v) => editContactField(c.id, { organization: v || null })}
                             onBlur={() => commitContactIdentity(c.id)}
                             placeholder="Organisation"
-                            className="h-8 flex-1 min-w-0 text-sm"
-                            aria-label="Organisation"
+                            className="flex-1 min-w-0"
                           />
                           <Input
                             value={c.role ?? ""}

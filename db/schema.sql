@@ -242,6 +242,30 @@ CREATE TRIGGER project_tranches_updated_at
     BEFORE UPDATE ON project_tranches
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Project tranche cells (tranche matrix: one cell per org × tranche) ──────
+-- Replaces the flat project_tranches rows with a matrix whose row dimension is
+-- project_organizations and whose column dimension is a 1-based tranche_number.
+-- The UNIQUE constraint on (project_id, organization_id, tranche_number) ensures
+-- exactly one cell per position. Cascade-deleted with the project or the org row.
+CREATE TABLE IF NOT EXISTS project_tranche_cells (
+    id               SERIAL        PRIMARY KEY,
+    project_id       INTEGER       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    organization_id  INTEGER       NOT NULL
+                         REFERENCES project_organizations(id) ON DELETE CASCADE,
+    tranche_number   INTEGER       NOT NULL CHECK (tranche_number >= 1),
+    amount           NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+    date_description TEXT,
+    created_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    UNIQUE (project_id, organization_id, tranche_number)
+);
+CREATE INDEX IF NOT EXISTS project_tranche_cells_project_id_idx
+    ON project_tranche_cells(project_id);
+DROP TRIGGER IF EXISTS project_tranche_cells_updated_at ON project_tranche_cells;
+CREATE TRIGGER project_tranche_cells_updated_at
+    BEFORE UPDATE ON project_tranche_cells
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ── Reports ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reports (
     id                     SERIAL         PRIMARY KEY,

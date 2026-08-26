@@ -150,21 +150,19 @@
       "description": "Describe the project…"
     },
     "tranches": {
-      "heading": "Funding tranches",
-      "description": "Subdivide the funding amount into disbursement tranches, each with a date and an optional comment.",
+      "heading": "Tranche release",
+      "description": "Enter the disbursement schedule as a matrix — one row per organisation, one column pair per tranche. The grand total across all cells should match the approved funding amount.",
       "add": "Add tranche",
       "empty": "No tranches yet. Add one to schedule the grant disbursement.",
       "columns": {
-        "amount": "Amount (USD)",
-        "date": "Date",
+        "amount": "Tranche",
+        "date": "Date and description",
         "comment": "Comment"
       },
-      "commentPlaceholder": "e.g. On signature, on first milestone…",
-      "total": "Tranche total",
+      "total": "Total",
       "grantSize": "Funding amount",
       "matches": "Tranches match the funding amount.",
-      "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}.",
-      "dateOutOfRange": "Tranche dates must fall within the project period ({start} – {end})."
+      "mismatch": "Tranches should add up to the funding amount ({grant}). Currently {total}."
     },
     "participatingOrganizationsDescription": "Organizations that will receive funding directly from MPTFO, and have signed either an MoU or an active Framework agreement with MPTFO. POs can edit the project document, at the discretion of the project lead organization.",
     "implementingOrganizationsDescription": "Organizations that will receive funding from the project lead or participating organizations. IOs can edit the project document, at the discretion of the project lead organization.",

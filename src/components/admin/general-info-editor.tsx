@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
@@ -12,7 +12,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
 import { cn, shortName } from "@/lib/utils";
-import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
@@ -48,20 +48,25 @@ const EMPTY_FORM: Form = {
   geographic_scope: "", description: "",
 };
 
-// A funding tranche in local form state. `_key` is a client-side row id (stable
-// React key across edits); everything else mirrors the project_tranches columns
-// as strings. The whole set is saved with one PUT to /api/project-tranches.
-interface TrancheForm {
-  _key: number;
+// A tranche matrix cell in local form state: one (organization_id × tranche_number)
+// position. The whole set is saved with one PUT to /api/project-tranche-cells.
+interface CellForm {
+  organization_id: number;
+  tranche_number: number;
   amount: string;
-  tranche_date: string;
-  comment: string;
+  date_description: string;
 }
 
-// Order-preserving snapshot of the tranche set (ignores the client-side _key),
-// used to detect changes for autosave — same idea as the SDG targets editor.
-const tranchesSnapshot = (list: TrancheForm[]) =>
-  JSON.stringify(list.map((t) => ({ amount: t.amount.trim(), tranche_date: t.tranche_date, comment: t.comment.trim() })));
+const cellsSnapshot = (cells: CellForm[], count: number) =>
+  JSON.stringify({
+    count,
+    cells: cells.map((c) => ({
+      organization_id: c.organization_id,
+      tranche_number: c.tranche_number,
+      amount: c.amount.trim(),
+      date_description: c.date_description.trim(),
+    })),
+  });
 
 // Add whole months to a YYYY-MM-DD date, returning YYYY-MM-DD. Computed in UTC so
 // the string arithmetic never shifts across a day boundary from timezone offset.
@@ -150,7 +155,9 @@ export function GeneralInfoAdminEditor({
   // Partners a new/linked contact can be attributed to (lead + editors), and the
   // one currently selected in the add-contact "belongs to" picker.
 
-  const [tranches, setTranches] = useState<TrancheForm[]>([]);
+  const [trancheCells, setTrancheCells] = useState<CellForm[]>([]);
+  const [trancheCount, setTrancheCount] = useState(1);
+  const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
   const [addingContact, setAddingContact] = useState(false);
   const [pendingContactName, setPendingContactName] = useState<string | null>(null);
   const [pendingContactEmail, setPendingContactEmail] = useState("");
@@ -164,7 +171,6 @@ export function GeneralInfoAdminEditor({
   const [editingOrgName, setEditingOrgName] = useState("");
   const [orgError, setOrgError] = useState<string | null>(null);
   const [grantFocused, setGrantFocused] = useState(false);
-  const [focusedTrancheKey, setFocusedTrancheKey] = useState<number | null>(null);
 
   // Combined, deduplicated list of org names from both participating and
   // implementing lists — used to seed the organisation Combobox on contact forms.
@@ -181,6 +187,12 @@ export function GeneralInfoAdminEditor({
     return result.sort((a, b) => a.label.localeCompare(b.label));
   }, [participatingOrgs, implementingOrgs]);
 
+  // All project organisations in display order — used as matrix row dimension.
+  const allOrgs = useMemo(
+    () => [...participatingOrgs, ...implementingOrgs],
+    [participatingOrgs, implementingOrgs]
+  );
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -190,12 +202,14 @@ export function GeneralInfoAdminEditor({
   contactsRef.current = contacts;
   const savedRef = useRef<Form>(EMPTY_FORM);
 
-  // Tranches: current set (ref for the autosave flush), the last-saved snapshot,
-  // and a monotonic counter for stable client-side row keys.
-  const tranchesRef = useRef<TrancheForm[]>([]);
-  tranchesRef.current = tranches;
-  const savedTranchesRef = useRef<string>("[]");
-  const trancheKeyRef = useRef(0);
+  // Tranche cells: current set (ref for the autosave flush) and the last-saved snapshot.
+  const trancheCellsRef = useRef<CellForm[]>([]);
+  trancheCellsRef.current = trancheCells;
+  const savedCellsRef = useRef<string>('{"count":1,"cells":[]}');
+  const allOrgsRef = useRef<OrgRow[]>([]);
+  allOrgsRef.current = allOrgs;
+  const trancheCountRef = useRef(1);
+  trancheCountRef.current = trancheCount;
 
   useEffect(() => {
     let cancelled = false;
@@ -220,32 +234,35 @@ export function GeneralInfoAdminEditor({
         savedRef.current = { ...loaded };
         setPartnerId(p.partner_id);
 
-        const [linkRes, orgRes, tranchesRes, porgsRes] = await Promise.all([
+        const [linkRes, orgRes, cellsRes, porgsRes] = await Promise.all([
           fetch(`/api/project-contacts?project_id=${projectId}`),
           // Involved partners (lead + editors) + the contacts the caller may see.
           fetch(`/api/partner-contacts?project_id=${projectId}`),
-          fetch(`/api/project-tranches?project_id=${projectId}`),
+          fetch(`/api/project-tranche-cells?project_id=${projectId}`),
           fetch(`/api/project-organizations?project_id=${projectId}`),
         ]);
-        if (!linkRes.ok || !orgRes.ok || !tranchesRes.ok || !porgsRes.ok) throw new Error("Failed to load project data");
+        if (!linkRes.ok || !orgRes.ok || !cellsRes.ok || !porgsRes.ok) throw new Error("Failed to load project data");
         if (cancelled) return;
         setContacts(await linkRes.json());
         const orgData: { contacts: OrgContact[] } = await orgRes.json();
         setOrgContacts(orgData.contacts);
-        const allOrgs: (OrgRow & { type: string })[] = await porgsRes.json();
-        setParticipatingOrgs(allOrgs.filter((o) => o.type === "participating").map(({ id, name }) => ({ id, name })));
-        setImplementingOrgs(allOrgs.filter((o) => o.type === "implementing").map(({ id, name }) => ({ id, name })));
+        const orgRows: (OrgRow & { type: string })[] = await porgsRes.json();
+        setParticipatingOrgs(orgRows.filter((o) => o.type === "participating").map(({ id, name }) => ({ id, name })));
+        setImplementingOrgs(orgRows.filter((o) => o.type === "implementing").map(({ id, name }) => ({ id, name })));
 
-        const trancheRows: { amount: string | number | null; tranche_date: string | null; comment: string | null }[] =
-          await tranchesRes.json();
-        const loadedTranches: TrancheForm[] = trancheRows.map((t) => ({
-          _key: ++trancheKeyRef.current,
-          amount: t.amount != null ? String(t.amount) : "",
-          tranche_date: t.tranche_date ? String(t.tranche_date).slice(0, 10) : "",
-          comment: t.comment ?? "",
+        const rawCells: { organization_id: number; tranche_number: number; amount: string | number | null; date_description: string | null }[] =
+          await cellsRes.json();
+        const loadedCells: CellForm[] = rawCells.map((c) => ({
+          organization_id: c.organization_id,
+          tranche_number: c.tranche_number,
+          amount: c.amount != null && Number(c.amount) !== 0 ? String(c.amount) : "",
+          date_description: c.date_description ?? "",
         }));
-        setTranches(loadedTranches);
-        savedTranchesRef.current = tranchesSnapshot(loadedTranches);
+        const maxTranche = rawCells.reduce((m, c) => Math.max(m, c.tranche_number), 0);
+        const loadedCount = Math.max(maxTranche, 1);
+        setTrancheCells(loadedCells);
+        setTrancheCount(loadedCount);
+        savedCellsRef.current = cellsSnapshot(loadedCells, loadedCount);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -289,41 +306,32 @@ export function GeneralInfoAdminEditor({
       for (const key of savedKeys) savedRef.current[key] = snapshot[key];
     }
 
-    // Tranches (whole-set replace). Drop rows that are entirely blank.
-    const curTranches = tranchesRef.current;
-    const tSnap = tranchesSnapshot(curTranches);
-    if (tSnap !== savedTranchesRef.current) {
-      // Guard: no tranche may fall outside the project period. Block the whole
-      // tranche write (project columns above already saved) until it's fixed.
-      const startBound = snapshot.project_start_date || null;
-      const dur = snapshot.project_duration_months.trim() === "" ? null : Number(snapshot.project_duration_months);
-      const endBound = startBound && dur != null && Number.isFinite(dur) ? addMonthsISO(startBound, dur) : null;
-      const outOfRange = curTranches.some((t) =>
-        t.tranche_date !== "" &&
-        ((startBound && t.tranche_date < startBound) || (endBound && t.tranche_date > endBound))
+    // Tranche cells (whole-set replace). Always write every org×tranche position,
+    // including blank ones, so the column count survives a reload without any data.
+    const curCells = trancheCellsRef.current;
+    const curAllOrgs = allOrgsRef.current;
+    const curCount = trancheCountRef.current;
+    const cSnap = cellsSnapshot(curCells, curCount);
+    if (cSnap !== savedCellsRef.current) {
+      const outgoing = curAllOrgs.flatMap((org) =>
+        Array.from({ length: curCount }, (_, i) => {
+          const tn = i + 1;
+          const cell = curCells.find((c) => c.organization_id === org.id && c.tranche_number === tn);
+          return {
+            organization_id: org.id,
+            tranche_number: tn,
+            amount: cell && cell.amount.trim() !== "" ? (parseAmount(cell.amount) || 0) : 0,
+            date_description: cell?.date_description.trim() || null,
+          };
+        })
       );
-      if (outOfRange) {
-        setError(
-          labels.generalInfo.tranches.dateOutOfRange
-            .replace("{start}", startBound ?? "—")
-            .replace("{end}", endBound ?? "—")
-        );
-        throw new Error("Tranche date out of range");
-      }
-      const outgoing = curTranches
-        .filter((t) => t.amount.trim() !== "" || t.tranche_date !== "" || t.comment.trim() !== "")
-        .map((t) => ({
-          amount: t.amount.trim() === "" ? 0 : parseAmount(t.amount),
-          tranche_date: t.tranche_date || null,
-          comment: t.comment.trim() || null,
-        }));
-      const res = await fetch("/api/project-tranches", {
+      const res = await fetch("/api/project-tranche-cells", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId, tranches: outgoing }),
+        body: JSON.stringify({ project_id: projectId, cells: outgoing }),
       });
-      if (!res.ok) throw new Error("Failed to save tranches");
-      savedTranchesRef.current = tSnap;
+      if (!res.ok) throw new Error("Failed to save tranche cells");
+      savedCellsRef.current = cSnap;
     }
     if (descriptionOverLimit) throw new OverLimitError();
   }, [projectId]);
@@ -336,53 +344,44 @@ export function GeneralInfoAdminEditor({
     schedule();
   };
 
-  // ── Tranche mutations (debounced via the shared autosave) ────────────────
-  // Adding a tranche splits the grant equally across all tranches: one tranche
-  // gets the full grant, two get half each, and so on. Dates/comments are kept;
-  // only the amounts are (re)distributed. Rounding remainder lands on the last
-  // row so the amounts sum to the grant exactly. With no grant set, amounts are
-  // left blank for manual entry.
-  const addTranche = () => {
-    setTranches((prev) => {
-      const next = [...prev, { _key: ++trancheKeyRef.current, amount: "", tranche_date: "", comment: "" }];
-      const grant = formRef.current.grant_size_usd.trim() === "" ? null : parseAmount(formRef.current.grant_size_usd);
-      if (grant == null || !Number.isFinite(grant)) return next;
-      const per = Math.round((grant / next.length) * 100) / 100;
-      return next.map((t, i) => ({
-        ...t,
-        amount: String(i === next.length - 1 ? Math.round((grant - per * (next.length - 1)) * 100) / 100 : per),
-      }));
+  // ── Tranche matrix mutations (debounced via the shared autosave) ──────────
+  const setCell = (orgId: number, tranche: number, patch: { amount?: string; date_description?: string }) => {
+    setTrancheCells((prev) => {
+      const idx = prev.findIndex((c) => c.organization_id === orgId && c.tranche_number === tranche);
+      if (idx === -1) return [...prev, { organization_id: orgId, tranche_number: tranche, amount: "", date_description: "", ...patch }];
+      return prev.map((c, i) => (i === idx ? { ...c, ...patch } : c));
     });
     schedule();
   };
-  const setTranche = (key: number, patch: Partial<Omit<TrancheForm, "_key">>) => {
-    setTranches((prev) => prev.map((t) => (t._key === key ? { ...t, ...patch } : t)));
-    schedule();
-  };
-  const removeTranche = (key: number) => {
-    setTranches((prev) => prev.filter((t) => t._key !== key));
+
+  const addTrancheColumn = () => {
+    setTrancheCount((n) => n + 1);
     schedule();
   };
 
-  const trancheTotal = tranches.reduce((sum, t) => sum + (t.amount.trim() === "" ? 0 : parseAmount(t.amount) || 0), 0);
+  const removeTrancheColumn = (tn: number) => {
+    setTrancheCells((prev) =>
+      prev
+        .filter((c) => c.tranche_number !== tn)
+        .map((c) => (c.tranche_number > tn ? { ...c, tranche_number: c.tranche_number - 1 } : c))
+    );
+    setTrancheCount((n) => n - 1);
+    schedule();
+  };
+
+  const trancheTotal = trancheCells.reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
+  const getRowTotal = (orgId: number) =>
+    trancheCells
+      .filter((c) => c.organization_id === orgId)
+      .reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
+
   const grantSize = form.grant_size_usd.trim() === "" ? null : parseAmount(form.grant_size_usd);
-
-  // Valid tranche-date window: project start → project end (start + duration).
-  // Either bound is only enforced once known; ISO date strings compare
-  // chronologically, so a lexicographic <, > is a date comparison.
   const projectStartDate = form.project_start_date || null;
   const durationForRange = form.project_duration_months.trim() === "" ? null : Number(form.project_duration_months);
   const projectEndDate =
     projectStartDate && durationForRange != null && Number.isFinite(durationForRange)
       ? addMonthsISO(projectStartDate, durationForRange)
       : null;
-  const trancheDateInvalid = (dateStr: string) => {
-    if (!dateStr) return false;
-    if (projectStartDate && dateStr < projectStartDate) return true;
-    if (projectEndDate && dateStr > projectEndDate) return true;
-    return false;
-  };
-  const hasInvalidTrancheDate = tranches.some((t) => trancheDateInvalid(t.tranche_date));
   const tranchesMatchGrant = grantSize != null && Math.abs(trancheTotal - grantSize) < 0.005;
   const fmtUsd = (n: number) => formatUS(n);
 
@@ -408,6 +407,7 @@ export function GeneralInfoAdminEditor({
     if (!res.ok) { setOrgError("Failed to delete"); return; }
     if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== id));
     else setImplementingOrgs((prev) => prev.filter((o) => o.id !== id));
+    setTrancheCells((prev) => prev.filter((c) => c.organization_id !== id));
   }
 
   async function commitOrgRename() {
@@ -791,7 +791,7 @@ export function GeneralInfoAdminEditor({
         </div>
       </div>
 
-      {/* Programme & project cost — funding tranches (FMP order: last) */}
+      {/* Programme & project cost — tranche matrix (FMP order: last) */}
       <div className="order-3 rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Coins className="size-4 text-muted-foreground" />
@@ -799,127 +799,144 @@ export function GeneralInfoAdminEditor({
         </div>
         <p className="text-xs text-muted-foreground">{g.tranches.description}</p>
 
-        {tranches.length === 0 ? (
+        {allOrgs.length === 0 ? (
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-            {g.tranches.empty}
+            Add organisations above to set up the funding matrix.
           </div>
         ) : (
-          <div className="rounded-xl border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-xl border overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{g.tranches.columns.amount}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-44">{g.tranches.columns.date}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{g.tranches.columns.comment}</th>
-                  <th className="w-12 px-4 py-3" />
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap w-44">
+                    Organisation
+                  </th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap w-32">
+                    Amount total
+                  </th>
+                  {Array.from({ length: trancheCount }, (_, i) => {
+                    const tn = i + 1;
+                    return (
+                      <Fragment key={tn}>
+                        <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground border-l whitespace-nowrap">
+                          <span className="flex items-center justify-end gap-1.5">
+                            {g.tranches.columns.amount} {tn}
+                            <button
+                              onClick={() => removeTrancheColumn(tn)}
+                              disabled={trancheCount <= 1}
+                              className="text-muted-foreground hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              aria-label={`Remove tranche ${tn}`}
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </span>
+                        </th>
+                        <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground min-w-[10rem]">
+                          {g.tranches.columns.date}
+                        </th>
+                      </Fragment>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {tranches.map((t, i) => (
-                  <tr key={t._key} className="transition-colors hover:bg-muted/20">
-                    <td className="px-4 py-3 align-middle">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={focusedTrancheKey === t._key
-                          ? t.amount
-                          : t.amount.trim() !== "" && !isNaN(parseAmount(t.amount))
-                            ? formatUS(parseAmount(t.amount))
-                            : t.amount}
-                        onChange={(e) => setTranche(t._key, { amount: e.target.value })}
-                        onFocus={() => setFocusedTrancheKey(t._key)}
-                        onBlur={() => {
-                          setFocusedTrancheKey(null);
-                          const parsed = parseAmount(t.amount);
-                          if (t.amount.trim() !== "" && !isNaN(parsed)) {
-                            setTranche(t._key, { amount: String(parsed) });
-                          }
-                        }}
-                        placeholder={`${g.tranches.columns.amount}`}
-                        className="h-8 text-sm text-right tabular-nums"
-                        aria-label={`${g.tranches.columns.amount} ${i + 1}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <Input
-                        type="date"
-                        value={t.tranche_date}
-                        min={projectStartDate ?? undefined}
-                        max={projectEndDate ?? undefined}
-                        onChange={(e) => setTranche(t._key, { tranche_date: e.target.value })}
-                        className={cn(
-                          "h-8 text-sm",
-                          trancheDateInvalid(t.tranche_date) && "border-destructive focus-visible:ring-destructive"
-                        )}
-                        aria-invalid={trancheDateInvalid(t.tranche_date)}
-                        aria-label={`${g.tranches.columns.date} ${i + 1}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <Input
-                        value={t.comment}
-                        onChange={(e) => setTranche(t._key, { comment: e.target.value })}
-                        placeholder={g.tranches.commentPlaceholder}
-                        className="h-8 text-sm"
-                        aria-label={`${g.tranches.columns.comment} ${i + 1}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right align-middle">
-                      <button
-                        onClick={() => removeTranche(t._key)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Remove tranche"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {allOrgs.map((org) => {
+                  const rowTotal = getRowTotal(org.id);
+                  return (
+                    <tr key={org.id} className="transition-colors hover:bg-muted/20">
+                      <td className="px-4 py-3 align-middle font-medium text-sm whitespace-nowrap">{org.name}</td>
+                      <td className="px-4 py-3 align-middle text-right tabular-nums text-sm text-muted-foreground whitespace-nowrap">
+                        {fmtUsd(rowTotal)}
+                      </td>
+                      {Array.from({ length: trancheCount }, (_, i) => {
+                        const tn = i + 1;
+                        const cellKey = `${org.id}:${tn}`;
+                        const cell = trancheCells.find((c) => c.organization_id === org.id && c.tranche_number === tn);
+                        const amount = cell?.amount ?? "";
+                        const desc = cell?.date_description ?? "";
+                        return (
+                          <Fragment key={tn}>
+                            <td className="px-4 py-3 align-middle border-l w-36">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={focusedCellKey === cellKey
+                                  ? amount
+                                  : amount.trim() !== "" && !isNaN(parseAmount(amount))
+                                    ? formatUS(parseAmount(amount))
+                                    : amount}
+                                onChange={(e) => setCell(org.id, tn, { amount: e.target.value })}
+                                onFocus={() => setFocusedCellKey(cellKey)}
+                                onBlur={() => {
+                                  setFocusedCellKey(null);
+                                  const parsed = parseAmount(amount);
+                                  if (amount.trim() !== "" && !isNaN(parsed)) {
+                                    setCell(org.id, tn, { amount: String(parsed) });
+                                  }
+                                }}
+                                placeholder="0.00"
+                                className="h-8 text-sm text-right tabular-nums w-full"
+                                aria-label={`Tranche ${tn} amount for ${org.name}`}
+                              />
+                            </td>
+                            <td className="px-4 py-3 align-middle min-w-[10rem]">
+                              <Input
+                                value={desc}
+                                onChange={(e) => setCell(org.id, tn, { date_description: e.target.value })}
+                                placeholder="Include tentative date for release and activities covered"
+                                className="h-8 text-sm w-full"
+                                aria-label={`Tranche ${tn} date and description for ${org.name}`}
+                              />
+                            </td>
+                          </Fragment>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="border-t bg-muted/30">
-                  <td className="px-4 py-3 align-middle">
-                    <span className="text-sm font-semibold tabular-nums">{fmtUsd(trancheTotal)}</span>
+                  <td className="px-4 py-3 align-middle text-sm font-semibold">{g.tranches.total}</td>
+                  <td className="px-4 py-3 align-middle text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-sm font-semibold tabular-nums">{fmtUsd(trancheTotal)}</span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          grantSize == null
+                            ? "bg-muted text-muted-foreground"
+                            : tranchesMatchGrant
+                            ? "bg-green-100 text-green-800"
+                            : "bg-amber-100 text-amber-800"
+                        )}
+                      >
+                        {grantSize == null ? "—" : tranchesMatchGrant ? "Matches budget" : `/ ${fmtUsd(grantSize)}`}
+                      </span>
+                    </div>
                   </td>
-                  <td colSpan={3} className="px-4 py-3 align-middle text-right">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        grantSize == null
-                          ? "bg-muted text-muted-foreground"
-                          : tranchesMatchGrant
-                          ? "bg-green-100 text-green-800"
-                          : "bg-amber-100 text-amber-800"
-                      )}
-                    >
-                      {g.tranches.total}: {fmtUsd(trancheTotal)}
-                      {grantSize != null && ` / ${fmtUsd(grantSize)}`}
-                    </span>
-                  </td>
+                  {Array.from({ length: trancheCount * 2 }, (_, i) => (
+                    <td key={i} className={i % 2 === 0 ? "border-l" : ""} />
+                  ))}
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
 
-        {grantSize != null && tranches.length > 0 && !tranchesMatchGrant && (
-          <p className="text-xs text-amber-600">
-            {g.tranches.mismatch
-              .replace("{grant}", fmtUsd(grantSize))
-              .replace("{total}", fmtUsd(trancheTotal))}
-          </p>
+        {grantSize != null && allOrgs.length > 0 && !tranchesMatchGrant && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900">
+            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+            <span>
+              {g.tranches.mismatch
+                .replace("{grant}", fmtUsd(grantSize))
+                .replace("{total}", fmtUsd(trancheTotal))}
+            </span>
+          </div>
         )}
 
-        {hasInvalidTrancheDate && (
-          <p className="text-xs text-destructive">
-            {g.tranches.dateOutOfRange
-              .replace("{start}", projectStartDate ?? "—")
-              .replace("{end}", projectEndDate ?? "—")}
-          </p>
-        )}
-
-        <Button onClick={addTranche} size="sm" variant="outline" className="shrink-0">
-          <Plus className="size-4 mr-1" />{g.tranches.add}
+        <Button onClick={addTrancheColumn} size="sm" variant="outline" className="shrink-0">
+          <Plus className="size-4 mr-1" />Add more tranches
         </Button>
       </div>
 

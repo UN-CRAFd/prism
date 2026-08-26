@@ -36,3 +36,4 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 run-migration.cjs
 check-perms.cjs
+count-tranches.cjs

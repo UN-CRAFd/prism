@@ -890,6 +890,19 @@ CREATE TRIGGER prodoc_signatures_updated_at
     BEFORE UPDATE ON prodoc_signatures
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Prodoc editor lock (one lock per project; heartbeat maintains last_seen_at) ──
+-- Enforces single-editor access at the DB level. session_id distinguishes
+-- concurrent browser sessions from the same login. No updated_at trigger —
+-- last_seen_at is maintained explicitly by the heartbeat route.
+CREATE TABLE IF NOT EXISTS prodoc_editor_locks (
+    project_id    INTEGER      PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    session_id    TEXT         NOT NULL,
+    holder_name   TEXT         NOT NULL,
+    holder_role   TEXT         NOT NULL,
+    acquired_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    last_seen_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- ── Project documents / annexes ──────────────────────────────────────────────
 -- Partner-uploaded documents attached to the project document (annexes, budgets,
 -- agreements, …). Project-scoped. The file bytes live in the `content` bytea

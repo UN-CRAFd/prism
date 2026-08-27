@@ -298,7 +298,7 @@ export default function PartnerHomePage() {
                     return (
                       <button
                         key={report.project_id}
-                        onClick={() => router.push(`/partner/prodoc-editor/${slug}/overview`)}
+                        onClick={() => router.push(`/partner/prodoc-editor/${slug}/general`)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
                       >
                         <div className="flex-1 min-w-0">

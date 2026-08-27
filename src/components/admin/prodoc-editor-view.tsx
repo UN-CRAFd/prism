@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -32,6 +32,7 @@ import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/ri
 import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
+import { getEditorSessionId } from "@/lib/editor-session-id";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -115,6 +116,12 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
   { value: "documents", get label() { return labels.sections.documents; } },
 ];
 
+type LockPhase = "idle" | "acquiring" | "held" | "blocked" | "available" | "warning" | "timed-out";
+
+// Keep these in sync with LOCK_TIMEOUT_MS in src/app/api/prodoc-lock/route.ts.
+const LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const LOCK_WARNING_MS = 14 * 60 * 1000; // warn 1 minute before timeout
+
 function toSlug(d: Prodoc) {
   return (d.project_short_name ?? d.project_title).toLowerCase().replace(/\s+/g, "-");
 }
@@ -137,6 +144,20 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
   const [error, setError] = useState<string | null>(null);
   const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
+
+  // Editor lock
+  const [lockPhase, setLockPhase] = useState<LockPhase>("idle");
+  const [lockHolder, setLockHolder] = useState<{ name: string; role: string } | null>(null);
+  const [canOverride, setCanOverride] = useState(false);
+  // Refs mirror mutable values needed inside async callbacks and cleanup fns
+  // without creating stale closures. Updated synchronously on every render.
+  const lockPhaseRef = useRef<LockPhase>("idle");
+  lockPhaseRef.current = lockPhase;
+  const selectedProdocIdRef = useRef(selectedProdocId);
+  selectedProdocIdRef.current = selectedProdocId;
+  const lastEditRef = useRef<number>(0);           // timestamp of last user-initiated write
+  const lastHeartbeatRef = useRef<number>(0);      // timestamp of last heartbeat POST
+  const selectedProjectIdRef = useRef<number | null>(null); // projects.id for the selected prodoc
 
   // Risk
   const [risks, setRisks] = useState<Risk[]>([]);
@@ -234,6 +255,146 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     }
   }, [selectedProdocId, selectedSection, loadRisks, loadIndicators]);
 
+  // ── Editor lock effects ──────────────────────────────────────────────
+
+  // Release lock with keepalive so the browser sends the request even during
+  // page unload. Called from the acquire-effect cleanup AND beforeunload.
+  function releaseLock(projectId: number) {
+    return fetch("/api/prodoc-lock", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, session_id: getEditorSessionId() }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  // Send a DELETE on page close/refresh. The acquire-effect cleanup covers
+  // navigation within the app; this covers true browser unloads.
+  useEffect(() => {
+    function handleBeforeUnload() {
+      const projectId = selectedProjectIdRef.current;
+      const phase = lockPhaseRef.current;
+      if (projectId != null && (phase === "held" || phase === "warning")) releaseLock(projectId);
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // Acquire the lock when a project is selected; release it on project change or
+  // unmount. Uses AbortController so a stale response from a previous project
+  // never updates state after the effect has been cleaned up.
+  useEffect(() => {
+    const projectId = selectedProjectIdRef.current;
+    if (!selectedProdocId || projectId == null) {
+      setLockPhase("idle"); lockPhaseRef.current = "idle";
+      return;
+    }
+    const controller = new AbortController();
+    setLockPhase("acquiring"); lockPhaseRef.current = "acquiring";
+
+    (async () => {
+      try {
+        const res = await fetch("/api/prodoc-lock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: projectId, session_id: getEditorSessionId() }),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (res.ok) {
+          setLockPhase("held"); lockPhaseRef.current = "held";
+          lastEditRef.current = Date.now();
+          lastHeartbeatRef.current = Date.now();
+        } else if (res.status === 409) {
+          const data = await res.json();
+          if (controller.signal.aborted) return;
+          setLockPhase("blocked"); lockPhaseRef.current = "blocked";
+          setLockHolder({ name: data.holder_name ?? "?", role: data.holder_role ?? "?" });
+          setCanOverride(data.can_override === true);
+        } else {
+          if (res.status === 403) {
+            console.error("[prodoc-lock] 403 acquiring lock — verify guardProject receives projects.id", { project_id: projectId });
+          }
+          // Fail open for 5xx and unexpected responses so the editor stays usable.
+          setLockPhase("held"); lockPhaseRef.current = "held";
+          lastEditRef.current = Date.now();
+          lastHeartbeatRef.current = Date.now();
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setLockPhase("held"); lockPhaseRef.current = "held";
+          lastEditRef.current = Date.now();
+          lastHeartbeatRef.current = Date.now();
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      releaseLock(projectId);
+      setLockPhase("idle"); lockPhaseRef.current = "idle";
+      setLockHolder(null);
+    };
+  }, [selectedProdocId]);
+
+  // Heartbeat (every 60 s if edited) + inactivity warning (9 min) + expiry (10 min).
+  // Runs only while we hold the lock; the 30 s tick keeps precision adequate.
+  const isHolding = lockPhase === "held" || lockPhase === "warning";
+  useEffect(() => {
+    if (!isHolding || !selectedProdocId) return;
+    const interval = setInterval(async () => {
+      const phase = lockPhaseRef.current;
+      if (phase !== "held" && phase !== "warning") return;
+
+      const now = Date.now();
+      const timeSinceEdit = now - lastEditRef.current;
+
+      if (timeSinceEdit >= LOCK_TIMEOUT_MS) {
+        const pid = selectedProjectIdRef.current;
+        if (pid != null) await releaseLock(pid);
+        setLockPhase("timed-out"); lockPhaseRef.current = "timed-out";
+        return;
+      }
+
+      if (timeSinceEdit >= LOCK_WARNING_MS && phase === "held") {
+        setLockPhase("warning"); lockPhaseRef.current = "warning";
+      }
+
+      if (now - lastHeartbeatRef.current >= 60_000 && lastEditRef.current > lastHeartbeatRef.current) {
+        lastHeartbeatRef.current = now;
+        fetch("/api/prodoc-lock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: selectedProjectIdRef.current, session_id: getEditorSessionId() }),
+        }).then((r) => {
+          if (r.status === 403) console.error("[prodoc-lock] 403 on heartbeat — verify guardProject receives projects.id", { project_id: selectedProjectIdRef.current });
+        }).catch(() => {});
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [isHolding, selectedProdocId]);
+
+  // Poll GET every 15 s while blocked; transition to "available" when the lock frees.
+  useEffect(() => {
+    if (lockPhase !== "blocked" || !selectedProdocId) return;
+    const poll = setInterval(async () => {
+      try {
+        const pid = selectedProjectIdRef.current;
+        if (pid == null) return;
+        const sid = encodeURIComponent(getEditorSessionId());
+        const res = await fetch(`/api/prodoc-lock?project_id=${pid}&session_id=${sid}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.held) {
+          setLockPhase("available"); lockPhaseRef.current = "available";
+        } else {
+          setLockHolder({ name: data.holder_name ?? "?", role: data.holder_role ?? "?" });
+        }
+      } catch { /* network error during poll — ignore */ }
+    }, 15_000);
+    return () => clearInterval(poll);
+  }, [lockPhase, selectedProdocId]);
+
   // ── Navigation ────────────────────────────────────────────────────────
 
   function pushUrl(doc: Prodoc, section: string) {
@@ -244,7 +405,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     setSelectedProdocId(val);
     setRisks([]); setIndicatorLines([]); setLibrary([]);
     const doc = docs.find((d) => String(d.id) === val);
-    if (doc) pushUrl(doc, selectedSection);
+    if (doc) pushUrl(doc, "general");
   }
 
   function handleSectionChange(val: string) {
@@ -258,6 +419,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleRiskAdd() {
     if (!newRiskName.trim() || !selectedProdocId) return;
+    noteEdit();
     setAddingRisk(true); setError(null);
     try {
       const res = await fetch("/api/risk", {
@@ -274,6 +436,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleRiskEditSave(id: number) {
     if (!editingRiskName.trim()) return;
+    noteEdit();
     setError(null);
     try {
       const res = await fetch("/api/risk", {
@@ -289,6 +452,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleIndicatorEditSave(indicatorId: number) {
     if (!editingIndName.trim()) return;
+    noteEdit();
     setError(null);
     try {
       const res = await fetch(`/api/indicators/${indicatorId}`, {
@@ -309,6 +473,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   async function handleRiskDelete(id: number) {
     const risk = risks.find((r) => r.id === id);
     if (!await confirm({ message: `Delete risk "${risk?.risk_name ?? "this risk"}"? This cannot be undone.` })) return;
+    noteEdit();
     setDeletingRiskId(id); setError(null);
     try {
       const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
@@ -321,6 +486,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // Likelihood/impact are inline dropdowns (no edit mode) — save immediately on
   // change, optimistic like the indicator baseline/target cells.
   async function updateRiskAssessment(id: number, patch: { likelihood?: number | null; impact?: number | null }) {
+    noteEdit();
     setRisks((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     setError(null);
     const res = await fetch("/api/risk", {
@@ -333,12 +499,32 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // ── Indicators CRUD ───────────────────────────────────────────────────────
 
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
+  selectedProjectIdRef.current = selectedDoc?.project_id ?? null;
   // Status → who can edit (same rule as reports):
   //   Open → admin + partner · Under Review → admin only · Closed → no one
-  const readOnly =
+  const statusReadOnly =
     !!selectedDoc &&
     (selectedDoc.status === "Closed" ||
       (selectedDoc.status === "Under Review" && isPartner));
+  // Lock → blocked while another session holds the lock (or while we're acquiring).
+  const lockBlocking =
+    lockPhase === "blocked" || lockPhase === "available" || lockPhase === "acquiring" || lockPhase === "timed-out";
+  const readOnly = statusReadOnly || lockBlocking;
+
+  // Called by every handler that writes data. Resets the inactivity clock and
+  // clears the expiry warning if it was showing.
+  function noteEdit() {
+    lastEditRef.current = Date.now();
+    if (lockPhaseRef.current === "warning") {
+      setLockPhase("held"); lockPhaseRef.current = "held";
+    }
+  }
+
+  // Wrapper for autosave editors so noteEdit() fires when a save starts.
+  function handleSaveStateChange(state: SaveState) {
+    setEditorSaveState(state);
+    if (state === "saving") noteEdit();
+  }
 
   // Change the prodoc status from the top bar (admin only). Optimistic; readOnly
   // recomputes from the updated local state immediately.
@@ -353,8 +539,65 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     });
   }
 
+  // Shown in the "available" banner after polling detects the lock freed.
+  async function handleStartEditing() {
+    const projectId = selectedDoc?.project_id;
+    if (!selectedProdocId || projectId == null) return;
+    setLockPhase("acquiring"); lockPhaseRef.current = "acquiring";
+    const res = await fetch("/api/prodoc-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, session_id: getEditorSessionId() }),
+    });
+    if (res.ok) {
+      setLockPhase("held"); lockPhaseRef.current = "held";
+      lastEditRef.current = Date.now(); lastHeartbeatRef.current = Date.now();
+      setLockHolder(null);
+    } else if (res.status === 409) {
+      const data = await res.json();
+      setLockPhase("blocked"); lockPhaseRef.current = "blocked";
+      setLockHolder({ name: data.holder_name ?? "?", role: data.holder_role ?? "?" });
+      setCanOverride(data.can_override === true);
+    } else {
+      if (res.status === 403) {
+        console.error("[prodoc-lock] 403 on start-editing — verify guardProject receives projects.id", { project_id: projectId });
+      }
+      setLockPhase("held"); lockPhaseRef.current = "held"; // fail open
+      lastEditRef.current = Date.now(); lastHeartbeatRef.current = Date.now();
+      setLockHolder(null);
+    }
+  }
+
+  // Shown in the "blocked" banner when the 409 carries can_override: true.
+  async function handleAdminOverride() {
+    const projectId = selectedDoc?.project_id;
+    if (!selectedProdocId || projectId == null || !lockHolder) return;
+    const ok = await confirm({
+      message: `This will interrupt ${lockHolder.name}'s editing session. Continue?`,
+    });
+    if (!ok) return;
+    setLockPhase("acquiring"); lockPhaseRef.current = "acquiring";
+    const res = await fetch("/api/prodoc-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, session_id: getEditorSessionId(), override: true }),
+    });
+    if (res.ok) {
+      setLockPhase("held"); lockPhaseRef.current = "held";
+      lastEditRef.current = Date.now(); lastHeartbeatRef.current = Date.now();
+      setLockHolder(null); setCanOverride(false);
+    } else {
+      if (res.status === 403) {
+        console.error("[prodoc-lock] 403 on admin override — verify guardProject receives projects.id", { project_id: projectId });
+      }
+      // Unexpected: go back to blocked so the user can retry.
+      setLockPhase("blocked"); lockPhaseRef.current = "blocked";
+    }
+  }
+
   async function addIndicatorLine(indicatorId: number) {
     if (!selectedProdocId || !selectedDoc) return;
+    noteEdit();
 
     // Calculate baseline year (project start) and target year (project end)
     let baselineYear: number | null = null;
@@ -411,6 +654,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   async function submitIndicatorCreate() {
     if (!selectedDoc) return;
     if (!newIndName.trim() || !newIndDescription.trim() || !newIndMeansOfVerification.trim()) return;
+    noteEdit();
     setAddingIndicator(true); setError(null);
     try {
       const res = await fetch("/api/indicators", {
@@ -438,6 +682,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   async function saveIndicatorLine(id: number) {
     const line = indicatorLines.find((l) => l.id === id);
     if (!line) return;
+    noteEdit();
     setError(null);
     const res = await fetch("/api/indicator-data", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -454,6 +699,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleIndicatorDelete(id: number) {
     if (!await confirm({ message: "Remove this indicator from the project document?", confirmLabel: "Remove", variant: "default" })) return;
+    noteEdit();
     setError(null);
     const res = await fetch(`/api/indicator-data?id=${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to remove"); return; }
@@ -637,13 +883,82 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
         )}
 
-        {readOnly && selectedProdocId && (
+        {statusReadOnly && selectedProdocId && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
             <Lock className="size-3.5 shrink-0" />
             <span>
               This project document is <b>{selectedDoc?.status}</b> and is view-only
               {selectedDoc?.status === "Under Review" ? " for partners — only administrators can edit it" : ""}.
             </span>
+          </div>
+        )}
+
+        {/* Lock acquisition in progress */}
+        {selectedProdocId && lockPhase === "acquiring" && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-600">
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+            <span>Checking editor availability…</span>
+          </div>
+        )}
+
+        {/* Editing session ended due to inactivity */}
+        {selectedProdocId && lockPhase === "timed-out" && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            <div className="flex items-center gap-2">
+              <Lock className="size-3.5 shrink-0" />
+              <span>Your editing session ended due to inactivity.</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-7 text-xs border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+              onClick={handleStartEditing}
+            >
+              Start editing
+            </Button>
+          </div>
+        )}
+
+        {/* Another session holds the lock */}
+        {selectedProdocId && lockPhase === "blocked" && lockHolder && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            <div className="flex items-center gap-2">
+              <Lock className="size-3.5 shrink-0" />
+              <span><b>{lockHolder.name}</b> is currently editing this document.</span>
+            </div>
+            {canOverride && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 h-7 text-xs border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+                onClick={handleAdminOverride}
+              >
+                Take over editing
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Lock just freed — user must click to claim it */}
+        {selectedProdocId && lockPhase === "available" && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-900">
+            <span>This document is now available.</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-7 text-xs border-green-300 bg-green-50 hover:bg-green-100 text-green-900"
+              onClick={handleStartEditing}
+            >
+              Start editing
+            </Button>
+          </div>
+        )}
+
+        {/* Inactivity warning — lock will expire in ~1 minute */}
+        {selectedProdocId && lockPhase === "warning" && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            <span>Your editing session will expire in 1 minute due to inactivity. Make a change to keep it.</span>
           </div>
         )}
 
@@ -680,18 +995,34 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             reopen a closed prodoc. */}
         <ReadOnlyProvider readOnly={readOnly}>
         <fieldset disabled={readOnly} className={cn("min-w-0 border-0 p-0 m-0", fillHeight && "flex-1 min-h-0")}>
-        <div className={cn("min-w-0", fillHeight && "flex flex-col h-full min-h-0")}>
+        <div
+          className={cn("min-w-0", fillHeight && "flex flex-col h-full min-h-0")}
+          onClick={noteEdit}
+          onInput={noteEdit}
+        >
         {!selectedProdocId ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">
-              {loadingDocs
-                ? labels.common.loading
-                : isPartner
-                  ? "No project document is available for your organization yet."
-                  : "Select a project to edit its project document."}
-            </p>
-          </div>
+          !params.project ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+              <FileQuestion className="size-10 opacity-30" />
+              <p className="text-sm">
+                {loadingDocs
+                  ? labels.common.loading
+                  : isPartner
+                    ? "No project document is available for your organization yet."
+                    : "Select a project to edit its project document."}
+              </p>
+            </div>
+          ) : loadingDocs ? (
+            <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              <span className="text-sm">Loading project document…</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+              <FileQuestion className="size-10 opacity-30" />
+              <p className="text-sm">Project document not found.</p>
+            </div>
+          )
 
         ) : sectionLoading ? (
           <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
@@ -699,7 +1030,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "general" ? (
-          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} isAdmin={!isPartner} readOnly={readOnly} /> : null
+          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} /> : null
 
         ) : selectedSection === "risk" ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
@@ -972,10 +1303,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "narratives" ? (
-          selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} readOnly={readOnly} /> : null
+          selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null
 
         ) : selectedSection === "sdg" ? (
-          selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={setEditorSaveState} readOnly={readOnly} /> : null
+          selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null
 
         ) : selectedSection === "signatures" ? (
           selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} readOnly={readOnly} /> : null

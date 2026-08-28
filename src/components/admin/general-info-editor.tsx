@@ -539,9 +539,9 @@ export function GeneralInfoAdminEditor({
   }
 
   return (
-    // FMP General-Information order via flex `order-*`: the cards are authored
-    // below in a different sequence, but render as Title/data → Applicants →
-    // Programme & project cost (tranches).
+    // Card order via flex `order-*`: the cards are authored below in a
+    // different sequence, but render as Title/data → Programme & project cost
+    // (tranches) → Applicants/contacts (review feedback: contacts last).
     <div className="flex flex-col gap-6">
       {error && (
         <div className="order-first rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -791,8 +791,9 @@ export function GeneralInfoAdminEditor({
         </div>
       </div>
 
-      {/* Programme & project cost — tranche matrix (FMP order: last) */}
-      <div className="order-3 rounded-xl border bg-card p-6 space-y-4">
+      {/* Programme & project cost — tranche matrix (second: review feedback
+          moved the tranche release section above the contacts). */}
+      <div className="order-2 rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Coins className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{g.tranches.heading}</h3>
@@ -940,8 +941,9 @@ export function GeneralInfoAdminEditor({
         </Button>
       </div>
 
-      {/* Applicants — project contacts (FMP order: right after Title/data) */}
-      <div className="order-2 rounded-xl border bg-card p-6 space-y-4">
+      {/* Applicants — project contacts (last: review feedback moved contacts
+          below the tranche release section). */}
+      <div className="order-3 rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{g.contactsHeading}</h3>

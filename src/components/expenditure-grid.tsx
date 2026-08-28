@@ -270,8 +270,9 @@ export function ExpenditurePartnerEditor({
                     <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
                   </span>
                 </td>
-                <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="approved" /></td>
-                <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} /></td>
+                {/* Totals render bold in the default (black) text colour — review feedback. */}
+                <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="strong" /></td>
+                <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} kind="strong" /></td>
                 <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
                 {years.map((y) => {
                     const ap = budFor(y, c.id);

@@ -602,7 +602,8 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                         <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
                       </span>
                     </td>
-                    <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="approved" /></td>
+                    {/* Per-category total renders bold in the default (black) colour — review feedback. */}
+                    <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="strong" /></td>
                     <td className="px-2 py-1 border-l">
                       <Textarea
                         value={categoryNotes[c.id] ?? ""}

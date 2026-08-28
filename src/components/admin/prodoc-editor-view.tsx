@@ -888,7 +888,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <Lock className="size-3.5 shrink-0" />
             <span>
               This project document is <b>{selectedDoc?.status}</b> and is view-only
-              {selectedDoc?.status === "Under Review" ? " for partners — only administrators can edit it" : ""}.
+              {selectedDoc?.status === "Under Review" ? " for partners — only the CRAF'd Secretariat can unlock the project document" : ""}.
             </span>
           </div>
         )}

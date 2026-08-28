@@ -182,9 +182,9 @@ export function RichTextEditor({
             remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
           )}
         >
-          {remaining < 0
-            ? `${Math.abs(remaining).toLocaleString()} characters over the limit`
-            : `${remaining.toLocaleString()} characters left from ${maxChars!.toLocaleString()} characters limit`}
+          {/* Compact used/limit counter (review feedback): e.g. "0/4,500 char." —
+              turns red via the class above once the used count passes the limit. */}
+          {`${(maxChars! - remaining).toLocaleString()}/${maxChars!.toLocaleString()} char.`}
         </div>
       )}
     </div>

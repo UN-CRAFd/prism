@@ -129,7 +129,7 @@ export default function NarrativeQuestionsPage() {
               <div className="border-b px-5 py-3.5">
                 <h2 className="text-sm font-semibold">Narrative Sections</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Seeds the narratives tab of each new project document. The description is shown as an info tooltip in the editor. Editing or removing a question here does not change existing projects.
+                  Seeds the narratives tab of each new project document. The description is shown under the section heading in the editor. Editing or removing a question here does not change existing projects.
                 </p>
               </div>
 
@@ -155,7 +155,7 @@ export default function NarrativeQuestionsPage() {
                           <Textarea
                             value={editDesc}
                             onChange={(e) => setEditDesc(e.target.value)}
-                            placeholder="Description (shown as an info tooltip in the editor)"
+                            placeholder="Description (shown under the section heading in the editor)"
                             className="min-h-[70px] resize-y text-sm"
                           />
                           <div className="flex items-center gap-2">
@@ -212,7 +212,7 @@ export default function NarrativeQuestionsPage() {
                 />
                 <div className="flex gap-2">
                   <Textarea
-                    placeholder="Description (optional — shown as an info tooltip in the editor)"
+                    placeholder="Description (optional — shown under the section heading in the editor)"
                     value={draftDesc}
                     onChange={(e) => setDraftDesc(e.target.value)}
                     className="min-h-[38px] resize-y text-sm flex-1"

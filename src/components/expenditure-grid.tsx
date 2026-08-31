@@ -587,7 +587,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                 <tr className="border-b bg-muted/40">
                   <th style={fillHeight ? { boxShadow: HEAD_SHADOW } : undefined} className={cn("text-left px-3 py-2 text-muted-foreground min-w-[220px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Budget categories</th>
                   <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total budgets</th>
-                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-left border-l min-w-[200px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Description</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-left border-l min-w-[200px] w-72", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Description</th>
                   {years.map((y) => (
                     <th key={y} style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>{y}</th>
                   ))}
@@ -604,7 +604,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                     </td>
                     {/* Per-category total renders bold in the default (black) colour — review feedback. */}
                     <td className="px-2 py-2 text-right border-l"><Num value={catTotal(c.id)} kind="strong" /></td>
-                    <td className="px-2 py-1 border-l">
+                    <td className="px-2 py-1 border-l w-72">
                       <Textarea
                         value={categoryNotes[c.id] ?? ""}
                         onChange={(e) => setCategoryNote(c.id, e.target.value)}

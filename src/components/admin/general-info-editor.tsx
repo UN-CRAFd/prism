@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -836,7 +837,7 @@ export function GeneralInfoAdminEditor({
                             </button>
                           </span>
                         </th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground min-w-[10rem]">
+                        <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground w-72">
                           {g.tranches.columns.date}
                         </th>
                       </Fragment>
@@ -884,12 +885,12 @@ export function GeneralInfoAdminEditor({
                                 aria-label={`Tranche ${tn} amount for ${org.name}`}
                               />
                             </td>
-                            <td className="px-4 py-3 align-middle min-w-[10rem]">
-                              <Input
+                            <td className="px-4 py-3 align-middle w-72">
+                              <Textarea
                                 value={desc}
                                 onChange={(e) => setCell(org.id, tn, { date_description: e.target.value })}
                                 placeholder="Include tentative date for release and activities covered"
-                                className="h-8 text-sm w-full"
+                                className="text-sm min-h-[60px] resize-y w-full"
                                 aria-label={`Tranche ${tn} date and description for ${org.name}`}
                               />
                             </td>

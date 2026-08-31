@@ -57,7 +57,11 @@
     "narratives": "Enter the written narrative texts that make up the project document. Each field captures one narrative section from the proposal. Changes save automatically when you leave a field.",
     "sdg": "Select the Sustainable Development Goals and targets this project focuses on, and assign each a focus percentage. The percentages should add up to 100% across the project. Changes save automatically.",
     "signatures": "Sign off on the project document. The partner signs for each project contact; the CRAF'd Secretariat is signed by the administrator. Signatures appear on the exported project document and can be removed if signed in error.",
-    "documents": "Upload documents and annexes related to the project — agreements, budgets, logframes, reports and other supporting files. Choose a document type, optionally record the document's date, then select the file to upload."
+    "documents": "Upload documents and annexes related to the project — agreements, budgets, logframes, reports and other supporting files. Choose a document type, optionally record the document's date, then select the file to upload.",
+    "prodocIndicators": "Define how the project will be measured: attach indicators, then set each one's baseline and target values and years. Later reports track progress against these. Changes save automatically.",
+    "prodocRisk": "Identify the project's risks: name each risk, categorise it, rate its likelihood and impact, and record the approved mitigation. Changes save automatically.",
+    "prodocBudgets": "Enter the approved annual budget per category in USD, with a short description of the key outputs it covers. Sub-totals, indirect support costs and the total are calculated automatically. Changes save automatically.",
+    "prodocWorkplan": "Set up the baseline workplan: add each activity and mark the quarters it is planned to run in. Later reports record updates against this baseline. Changes save automatically."
   },
   "workplanUpdates": {
     "title": "Update windows",

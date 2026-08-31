@@ -102,6 +102,15 @@ interface LibraryIndicator {
 
 // `label` is a getter so it reflects admin label overrides applied after this
 // array is built at module load (see lib/labels.ts).
+// Indicator baseline/target values are quantitative (review feedback): keep the
+// inputs numeric — digits and at most one decimal point; everything else typed
+// or pasted is dropped before it reaches state.
+function numericValue(v: string): string {
+  const s = v.replace(/[^\d.]/g, "");
+  const i = s.indexOf(".");
+  return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "");
+}
+
 const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean; hidden?: boolean }[] = [
   { value: "general", get label() { return labels.sections.general; } },
   { value: "narratives", get label() { return labels.sections.narratives; } },
@@ -1265,7 +1274,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <td className="px-4 py-3">
                                 <Input
                                   value={line.baseline_value ?? ""}
-                                  onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_value: e.target.value })}
+                                  inputMode="decimal"
+                                  onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_value: numericValue(e.target.value) })}
                                   onBlur={() => saveIndicatorLine(line.id)}
                                   placeholder={labels.placeholders.baselineValue}
                                   className="text-sm h-8"
@@ -1283,7 +1293,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <td className="px-4 py-3">
                                 <Input
                                   value={line.target_value ?? ""}
-                                  onChange={(e) => updateIndicatorLineLocal(line.id, { target_value: e.target.value })}
+                                  inputMode="decimal"
+                                  onChange={(e) => updateIndicatorLineLocal(line.id, { target_value: numericValue(e.target.value) })}
                                   onBlur={() => saveIndicatorLine(line.id)}
                                   placeholder={labels.placeholders.targetValue}
                                   className="text-sm h-8"

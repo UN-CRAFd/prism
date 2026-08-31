@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -374,6 +375,10 @@ export function GeneralInfoAdminEditor({
     trancheCells
       .filter((c) => c.organization_id === orgId)
       .reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
+  const getTrancheTotal = (trancheNumber: number) =>
+    trancheCells
+      .filter((c) => c.tranche_number === trancheNumber)
+      .reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
 
   const grantSize = form.grant_size_usd.trim() === "" ? null : parseAmount(form.grant_size_usd);
   const projectStartDate = form.project_start_date || null;
@@ -382,7 +387,7 @@ export function GeneralInfoAdminEditor({
     projectStartDate && durationForRange != null && Number.isFinite(durationForRange)
       ? addMonthsISO(projectStartDate, durationForRange)
       : null;
-  const tranchesMatchGrant = grantSize != null && Math.abs(trancheTotal - grantSize) < 0.005;
+  const tranchesMatchGrant = grantSize != null && trancheTotal <= grantSize + 0.005 && trancheTotal >= grantSize - 1;
   const fmtUsd = (n: number) => formatUS(n);
 
   // ── Organization list CRUD (immediate) ─────────────────────────────────
@@ -832,7 +837,7 @@ export function GeneralInfoAdminEditor({
                             </button>
                           </span>
                         </th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground min-w-[10rem]">
+                        <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground w-72">
                           {g.tranches.columns.date}
                         </th>
                       </Fragment>
@@ -880,12 +885,12 @@ export function GeneralInfoAdminEditor({
                                 aria-label={`Tranche ${tn} amount for ${org.name}`}
                               />
                             </td>
-                            <td className="px-4 py-3 align-middle min-w-[10rem]">
-                              <Input
+                            <td className="px-4 py-3 align-middle w-72">
+                              <Textarea
                                 value={desc}
                                 onChange={(e) => setCell(org.id, tn, { date_description: e.target.value })}
                                 placeholder="Include tentative date for release and activities covered"
-                                className="h-8 text-sm w-full"
+                                className="text-sm min-h-[60px] resize-y w-full"
                                 aria-label={`Tranche ${tn} date and description for ${org.name}`}
                               />
                             </td>
@@ -916,9 +921,15 @@ export function GeneralInfoAdminEditor({
                       </span>
                     </div>
                   </td>
-                  {Array.from({ length: trancheCount * 2 }, (_, i) => (
-                    <td key={i} className={i % 2 === 0 ? "border-l" : ""} />
-                  ))}
+                  {Array.from({ length: trancheCount * 2 }, (_, i) => {
+                    const tn = Math.floor(i / 2) + 1;
+                    const isAmountCol = i % 2 === 0;
+                    return (
+                      <td key={i} className={cn(isAmountCol ? "border-l px-4 py-3 text-right text-sm font-semibold tabular-nums" : "")}>
+                        {isAmountCol ? fmtUsd(getTrancheTotal(tn)) : null}
+                      </td>
+                    );
+                  })}
                 </tr>
               </tfoot>
             </table>

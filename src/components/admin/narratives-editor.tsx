@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Loader2, Info } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
@@ -164,18 +163,8 @@ export function NarrativesAdminEditor({
           >
             <div className="flex items-start gap-3">
               <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-              <label className="text-sm font-medium leading-snug flex items-center gap-1.5 flex-1">
+              <label className="text-sm font-medium leading-snug flex-1">
                 {q.label}
-                {q.description && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground hover:text-foreground shrink-0" aria-label={q.description}>
-                        <Info className="size-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs whitespace-pre-line">{q.description}</TooltipContent>
-                  </Tooltip>
-                )}
               </label>
               {/* Per-narrative admin↔partner comment thread, keyed on the prodoc
                   report + this narrative row (reuses the report editor's comment
@@ -186,7 +175,7 @@ export function NarrativesAdminEditor({
             {/* Narrative answer (internal comments now live in the speech-bubble
                 thread above, via ItemComments). */}
             <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground">{labels.narratives.answerLabel}</p>
+              <p className="text-xs text-muted-foreground whitespace-pre-line max-w-3xl">{q.description || labels.narratives.answerLabel}</p>
               <RichTextEditor
                 value={answer}
                 onChange={(html) => update(q.key, { answer: html })}

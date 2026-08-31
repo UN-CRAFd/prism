@@ -209,6 +209,8 @@ export function GeneralInfoAdminEditor({
   const savedCellsRef = useRef<string>('{"count":1,"cells":[]}');
   const allOrgsRef = useRef<OrgRow[]>([]);
   allOrgsRef.current = allOrgs;
+  const participatingOrgsRef = useRef<OrgRow[]>([]);
+  participatingOrgsRef.current = participatingOrgs;
   const trancheCountRef = useRef(1);
   trancheCountRef.current = trancheCount;
 
@@ -310,11 +312,11 @@ export function GeneralInfoAdminEditor({
     // Tranche cells (whole-set replace). Always write every org×tranche position,
     // including blank ones, so the column count survives a reload without any data.
     const curCells = trancheCellsRef.current;
-    const curAllOrgs = allOrgsRef.current;
+    const curParticipatingOrgs = participatingOrgsRef.current;
     const curCount = trancheCountRef.current;
     const cSnap = cellsSnapshot(curCells, curCount);
     if (cSnap !== savedCellsRef.current) {
-      const outgoing = curAllOrgs.flatMap((org) =>
+      const outgoing = curParticipatingOrgs.flatMap((org) =>
         Array.from({ length: curCount }, (_, i) => {
           const tn = i + 1;
           const cell = curCells.find((c) => c.organization_id === org.id && c.tranche_number === tn);
@@ -370,15 +372,18 @@ export function GeneralInfoAdminEditor({
     schedule();
   };
 
-  const trancheTotal = trancheCells.reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
+  const participatingOrgIds = useMemo(() => new Set(participatingOrgs.map((o) => o.id)), [participatingOrgs]);
+  const activeCells = trancheCells.filter((c) => participatingOrgIds.has(c.organization_id));
+  const cellAmount = (c: CellForm) => (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0);
+  const trancheTotal = activeCells.reduce((sum, c) => sum + cellAmount(c), 0);
   const getRowTotal = (orgId: number) =>
-    trancheCells
+    activeCells
       .filter((c) => c.organization_id === orgId)
-      .reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
+      .reduce((sum, c) => sum + cellAmount(c), 0);
   const getTrancheTotal = (trancheNumber: number) =>
-    trancheCells
+    activeCells
       .filter((c) => c.tranche_number === trancheNumber)
-      .reduce((sum, c) => sum + (c.amount.trim() === "" ? 0 : parseAmount(c.amount) || 0), 0);
+      .reduce((sum, c) => sum + cellAmount(c), 0);
 
   const grantSize = form.grant_size_usd.trim() === "" ? null : parseAmount(form.grant_size_usd);
   const projectStartDate = form.project_start_date || null;
@@ -413,6 +418,7 @@ export function GeneralInfoAdminEditor({
     if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== id));
     else setImplementingOrgs((prev) => prev.filter((o) => o.id !== id));
     setTrancheCells((prev) => prev.filter((c) => c.organization_id !== id));
+    schedule();
   }
 
   async function commitOrgRename() {
@@ -805,7 +811,7 @@ export function GeneralInfoAdminEditor({
         </div>
         <p className="text-xs text-muted-foreground">{g.tranches.description}</p>
 
-        {allOrgs.length === 0 ? (
+        {participatingOrgs.length === 0 ? (
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
             Add organisations above to set up the funding matrix.
           </div>
@@ -846,7 +852,7 @@ export function GeneralInfoAdminEditor({
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {allOrgs.map((org) => {
+                {participatingOrgs.map((org) => {
                   const rowTotal = getRowTotal(org.id);
                   return (
                     <tr key={org.id} className="transition-colors hover:bg-muted/20">
@@ -936,7 +942,7 @@ export function GeneralInfoAdminEditor({
           </div>
         )}
 
-        {grantSize != null && allOrgs.length > 0 && !tranchesMatchGrant && (
+        {grantSize != null && participatingOrgs.length > 0 && !tranchesMatchGrant && (
           <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900">
             <AlertTriangle className="size-4 shrink-0 mt-0.5" />
             <span>

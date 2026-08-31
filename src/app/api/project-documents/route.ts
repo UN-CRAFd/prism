@@ -20,7 +20,7 @@ import { loadOptionOverrides } from "@/lib/option-settings";
 
 // Columns returned to the client — deliberately EXCLUDES `content`.
 const META_COLS =
-  "id, project_id, doc_type, doc_date, file_name, mime_type, size_bytes, uploaded_by, created_at";
+  "id, project_id, doc_type, doc_name, doc_date, file_name, mime_type, size_bytes, uploaded_by, created_at";
 
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("project_id");
@@ -56,11 +56,16 @@ export async function POST(req: NextRequest) {
 
   const projectId = form.get("project_id");
   const docType = typeof form.get("doc_type") === "string" ? (form.get("doc_type") as string) : "";
+  const docNameRaw = form.get("doc_name");
+  const docName = typeof docNameRaw === "string" ? docNameRaw.trim() : "";
   const docDateRaw = form.get("doc_date");
   const docDate = typeof docDateRaw === "string" && docDateRaw.trim() ? docDateRaw.trim() : null;
   const file = form.get("file");
 
   if (!projectId) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
+  if (!docName) {
+    return NextResponse.json({ error: "Document name is required" }, { status: 400 });
+  }
   await loadOptionOverrides(); // ensure editable document types reflect admin overrides
   if (!isDocumentType(docType)) {
     return NextResponse.json({ error: "A valid document type is required" }, { status: 400 });
@@ -85,12 +90,13 @@ export async function POST(req: NextRequest) {
     const uploadedBy = session.org || (session.role === "admin" ? "Administrator" : null);
     const rows = await query(
       `INSERT INTO reporting_platform.project_documents
-         (project_id, doc_type, doc_date, file_name, mime_type, size_bytes, content, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (project_id, doc_type, doc_name, doc_date, file_name, mime_type, size_bytes, content, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING ${META_COLS}`,
       [
         projectId,
         docType,
+        docName,
         docDate,
         file.name,
         file.type || null,
@@ -120,10 +126,15 @@ export async function PATCH(req: NextRequest) {
   const gate = await guardProjectRow(session, "project_documents", id as string | number);
   if (gate) return gate;
 
-  // Only the two metadata fields are editable; the file itself is immutable
+  // Only metadata fields are editable; the file itself is immutable
   // (re-upload to replace it).
   const sets: string[] = [];
   const values: unknown[] = [];
+  if (typeof body.doc_name === "string") {
+    const trimmed = body.doc_name.trim();
+    if (!trimmed) return NextResponse.json({ error: "Document name cannot be blank" }, { status: 400 });
+    values.push(trimmed); sets.push(`doc_name = $${values.length}`);
+  }
   if (typeof body.doc_type === "string") {
     await loadOptionOverrides(); // ensure editable document types reflect admin overrides
     if (!isDocumentType(body.doc_type)) {

@@ -938,6 +938,7 @@ CREATE TABLE IF NOT EXISTS project_documents (
     id          SERIAL       PRIMARY KEY,
     project_id  INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     doc_type    TEXT         NOT NULL,
+    doc_name    TEXT,
     doc_date    DATE,
     file_name   TEXT         NOT NULL,
     mime_type   TEXT,

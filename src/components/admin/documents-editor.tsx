@@ -26,6 +26,7 @@ interface ProjectDocument {
   id: number;
   project_id: number;
   doc_type: string;
+  doc_name: string | null;
   doc_date: string | null;
   file_name: string;
   mime_type: string | null;
@@ -49,6 +50,7 @@ export function DocumentsEditor({
 
   // Upload form state.
   const [docType, setDocType] = useState<string>("");
+  const [docName, setDocName] = useState<string>("");
   const [docDate, setDocDate] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -91,12 +93,14 @@ export function DocumentsEditor({
 
   async function handleUpload() {
     if (!docType) { setError(d.errorNoType); return; }
+    if (!docName.trim()) { setError(d.errorNoDocName); return; }
     if (!file) { setError(d.errorNoFile); return; }
     setUploading(true); setError(null);
     try {
       const body = new FormData();
       body.append("project_id", String(projectId));
       body.append("doc_type", docType);
+      body.append("doc_name", docName.trim());
       if (docDate) body.append("doc_date", docDate);
       body.append("file", file);
       const res = await fetch("/api/project-documents", { method: "POST", body });
@@ -104,7 +108,7 @@ export function DocumentsEditor({
       const created: ProjectDocument = await res.json();
       setDocuments((prev) => [created, ...prev]);
       // Reset the form for the next upload.
-      setDocType(""); setDocDate(""); setFile(null);
+      setDocType(""); setDocName(""); setDocDate(""); setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setUploading(false); }
@@ -151,9 +155,9 @@ export function DocumentsEditor({
             <h3 className="text-sm font-semibold">{d.uploadHeading}</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{d.columns.type}</label>
+              <label className="text-xs font-medium text-muted-foreground">{d.columns.type} <span className="text-destructive">*</span></label>
               <Select value={docType} onValueChange={setDocType}>
                 <SelectTrigger className="w-full"><SelectValue placeholder={d.typePlaceholder} /></SelectTrigger>
                 <SelectContent>
@@ -165,12 +169,25 @@ export function DocumentsEditor({
             </div>
 
             <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                {d.columns.name} <span className="text-destructive">*</span>
+              </label>
+              <Input
+                type="text"
+                value={docName}
+                onChange={(e) => setDocName(e.target.value)}
+                placeholder={d.docNamePlaceholder}
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">{d.columns.date}</label>
               <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="w-full" />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{d.columns.file}</label>
+              <label className="text-xs font-medium text-muted-foreground">{d.columns.file} <span className="text-destructive">*</span></label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -180,11 +197,12 @@ export function DocumentsEditor({
               />
             </div>
 
-            <Button onClick={handleUpload} disabled={uploading || !docType || !file} className="shrink-0">
+            <Button onClick={handleUpload} disabled={uploading || !docType || !docName.trim() || !file} className="shrink-0">
               {uploading ? <Loader2 className="size-4 animate-spin" /> : <><Upload className="size-4 mr-1.5" />{d.upload}</>}
             </Button>
           </div>
 
+          <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> required</p>
           <p className="text-xs text-muted-foreground">{d.allowedHint.replace("{mb}", String(MAX_DOC_MB))}</p>
         </div>
       )}
@@ -204,6 +222,7 @@ export function DocumentsEditor({
             <thead>
               <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground uppercase tracking-wide">
                 <th className="px-6 py-3 font-medium">{d.columns.type}</th>
+                <th className="px-4 py-3 font-medium">{d.columns.name}</th>
                 <th className="px-4 py-3 font-medium w-32">{d.columns.date}</th>
                 <th className="px-4 py-3 font-medium">{d.columns.file}</th>
                 <th className="px-4 py-3 font-medium w-24">{d.columns.size}</th>
@@ -217,6 +236,7 @@ export function DocumentsEditor({
                   <td className="px-6 py-3">
                     <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{doc.doc_type}</span>
                   </td>
+                  <td className="px-4 py-3 font-medium">{doc.doc_name ?? doc.file_name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{doc.doc_date ? formatDate(doc.doc_date) : "—"}</td>
                   <td className="px-4 py-3">
                     <a

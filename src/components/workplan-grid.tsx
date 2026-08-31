@@ -10,6 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -31,6 +38,10 @@ import {
   workplanUpdateWindowLabel,
   type WorkplanStatus,
 } from "@/lib/workplan";
+
+const AGENT_DELIM = " | ";
+function parseAgents(v: string) { return v.split(AGENT_DELIM).map((s) => s.trim()).filter(Boolean); }
+function joinAgents(vs: string[]) { return vs.join(AGENT_DELIM); }
 
 // Sticky header edges drawn as inset box-shadow, not CSS borders: with
 // border-collapse the collapsed borders don't travel with a sticky cell and
@@ -550,6 +561,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [agentOptions, setAgentOptions] = useState<string[]>([]);
 
   // Report the autosave state up so a parent (the partner editor) can render a
   // single shared indicator instead of the inline one below.
@@ -583,10 +595,23 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     try {
       // Partner mode loads via /api/workplan so the response carries both the
       // project structure and this report's progress entries in one shot.
-      const res = await fetch(
-        partnerMode ? `/api/workplan?reportId=${reportId}` : `/api/workplan-activities?projectId=${projectId}`
-      );
+      // Org options are fetched in parallel; failure is non-fatal.
+      const [activitiesResult, orgsResult] = await Promise.allSettled([
+        fetch(partnerMode ? `/api/workplan?reportId=${reportId}` : `/api/workplan-activities?projectId=${projectId}`),
+        fetch(`/api/project-organizations?project_id=${projectId}&type=participating`),
+      ]);
+      if (activitiesResult.status === "rejected") throw new Error("Failed to load workplan structure");
+      const res = activitiesResult.value;
       if (!res.ok) throw new Error("Failed to load workplan structure");
+
+      if (orgsResult.status === "fulfilled" && orgsResult.value.ok) {
+        try {
+          const orgs: { name: string }[] = await orgsResult.value.json();
+          const names = orgs.map((o) => o.name).filter(Boolean);
+          if (defaultAgent && !names.includes(defaultAgent)) names.unshift(defaultAgent);
+          setAgentOptions(names);
+        } catch { /* ignore — fall back to text input */ }
+      }
       const data: { range: Range; activities: Activity[] } = await res.json();
       setStart(data.range.start);
       setEnd(data.range.end);
@@ -1105,16 +1130,69 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                         </div>
                       </td>
                     );
-                    const agentCell = (
-                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
-                        <Input
-                          value={row.implementing_agent}
-                          onChange={(e) => updateRow(row.key, { implementing_agent: e.target.value })}
-                          placeholder="Agent"
-                          className="h-8 text-sm"
-                        />
-                      </td>
-                    );
+                    const agentCell = (() => {
+                      if (agentOptions.length === 0) {
+                        return (
+                          <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
+                            <Input
+                              value={row.implementing_agent}
+                              onChange={(e) => updateRow(row.key, { implementing_agent: e.target.value })}
+                              placeholder="Agent"
+                              className="h-8 text-sm"
+                            />
+                          </td>
+                        );
+                      }
+                      const selected = parseAgents(row.implementing_agent);
+                      const legacyTokens = selected.filter((t) => !agentOptions.includes(t));
+                      return (
+                        <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm text-left flex items-center justify-between gap-1 truncate">
+                                <span className={cn("truncate", !selected.length && "text-muted-foreground")}>
+                                  {selected.length ? selected.join(", ") : "Agent"}
+                                </span>
+                                <ChevronDown className="size-3 shrink-0 opacity-50" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="min-w-[180px]">
+                              {agentOptions.map((opt) => (
+                                <DropdownMenuCheckboxItem
+                                  key={opt}
+                                  checked={selected.includes(opt)}
+                                  onCheckedChange={(on) => {
+                                    const next = on ? [...selected, opt] : selected.filter((s) => s !== opt);
+                                    updateRow(row.key, { implementing_agent: joinAgents(next) });
+                                  }}
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  {opt}
+                                </DropdownMenuCheckboxItem>
+                              ))}
+                              {legacyTokens.length > 0 && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {legacyTokens.map((tok) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={tok}
+                                      checked
+                                      onCheckedChange={() => {
+                                        const next = selected.filter((s) => s !== tok);
+                                        updateRow(row.key, { implementing_agent: joinAgents(next) });
+                                      }}
+                                      onSelect={(e) => e.preventDefault()}
+                                    >
+                                      {tok}
+                                    </DropdownMenuCheckboxItem>
+                                  ))}
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      );
+                    })();
                     const deleteCell = (
                       <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-middle text-center">
                         <button

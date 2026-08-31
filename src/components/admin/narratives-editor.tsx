@@ -175,7 +175,7 @@ export function NarrativesAdminEditor({
             {/* Narrative answer (internal comments now live in the speech-bubble
                 thread above, via ItemComments). */}
             <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground whitespace-pre-line max-w-3xl">{q.description || labels.narratives.answerLabel}</p>
+              <p className="text-xs text-muted-foreground whitespace-pre-line max-w-5xl">{q.description || labels.narratives.answerLabel}</p>
               <RichTextEditor
                 value={answer}
                 onChange={(html) => update(q.key, { answer: html })}

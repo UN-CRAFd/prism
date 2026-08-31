@@ -25,10 +25,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, project_id, narrative_key, label, description, sort_order, answer
-         FROM reporting_platform.project_narratives
-        WHERE project_id = $1
-        ORDER BY sort_order, id`,
+      `SELECT n.id, n.project_id, n.narrative_key,
+              n.label,
+              COALESCE(s.description, n.description) AS description,
+              n.sort_order, n.answer
+         FROM reporting_platform.project_narratives n
+         LEFT JOIN reporting_platform.standard_narrative_questions s
+                ON s.narrative_key = n.narrative_key
+        WHERE n.project_id = $1
+        ORDER BY n.sort_order, n.id`,
       [projectId]
     );
     return NextResponse.json(rows);

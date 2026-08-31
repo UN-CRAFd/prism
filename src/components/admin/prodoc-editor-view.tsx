@@ -980,6 +980,19 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
         )}
 
+        {/* Title sentence for the quant tabs (review feedback): the other sections'
+            editors render their own tabInstructions box; these four sections render
+            inline here. Hidden when view-only, like the General Information box. */}
+        {selectedProdocId && !sectionLoading && !readOnly &&
+          ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            {selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
+              : selectedSection === "risk" ? labels.tabInstructions.prodocRisk
+              : selectedSection === "expenditure" ? labels.tabInstructions.prodocBudgets
+              : labels.tabInstructions.prodocWorkplan}
+          </div>
+        )}
+
         {/* Two complementary read-only mechanisms lock a view-only prodoc, mirroring
             the report editor:
             (1) the disabled <fieldset> natively locks every native control inside

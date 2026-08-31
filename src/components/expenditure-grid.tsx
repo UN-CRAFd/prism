@@ -44,6 +44,14 @@ function parseAmount(s: string): number | null {
   return isNaN(n) ? null : n;
 }
 
+// Keep money inputs numeric (review feedback): digits and at most one decimal
+// point — everything else typed or pasted is dropped before it reaches state.
+function numericAmount(v: string): string {
+  const s = v.replace(/[^\d.]/g, "");
+  const i = s.indexOf(".");
+  return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "");
+}
+
 // A read-only computed number cell (muted for approved, coloured for differences).
 function Num({ value, kind = "plain" }: { value: number | null; kind?: "plain" | "approved" | "diff" | "strong" }) {
   const cls =
@@ -289,7 +297,7 @@ export function ExpenditurePartnerEditor({
                         diff={num(ap) - num(ex)}
                         expInput={edits[c.id]?.exp ?? ""}
                         comment={editable ? (edits[c.id]?.comment ?? "") : (data.expenditure.find((x) => x.category_id === c.id && x.year === y)?.comment ?? "")}
-                        onExp={(v) => update(c.id, { exp: v })}
+                        onExp={(v) => update(c.id, { exp: numericAmount(v) })}
                         onComment={(v) => update(c.id, { comment: v })}
                       />
                     );
@@ -519,7 +527,8 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
     if (dirtyAmountsRef.current.size || dirtyCatNotesRef.current.size) flushRef.current();
   }, []);
 
-  function setAmount(catId: number, year: number, v: string) {
+  function setAmount(catId: number, year: number, raw: string) {
+    const v = numericAmount(raw);
     const key = `${catId}-${year}`;
     setAmounts((prev) => ({ ...prev, [key]: v }));
     dirtyAmountsRef.current.add(key);

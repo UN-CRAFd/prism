@@ -405,7 +405,7 @@ function FooterYearCells({ approved, exp, strong }: { approved: number; exp: num
 // Admin editor — approved annual budgets per category × year + indirect rate
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight = false }: { projectId: number; isAdmin?: boolean; fillHeight?: boolean }) {
+export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight = false, onSaveStateChange }: { projectId: number; isAdmin?: boolean; fillHeight?: boolean; onSaveStateChange?: (s: SaveState) => void }) {
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);
   const [years, setYears] = useState<number[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({}); // `${catId}-${year}` → string
@@ -418,6 +418,9 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
   const [grantSize, setGrantSize] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  // Mirror saves to the page-level indicator when the parent listens (review
+  // feedback: "All changes saved" now also covers the Budgets tab).
+  useEffect(() => { onSaveStateChange?.(saveState); }, [saveState, onSaveStateChange]);
   const [error, setError] = useState<string | null>(null);
 
   const dirtyAmountsRef = useRef<Set<string>>(new Set());
@@ -672,13 +675,14 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                   />
                   <span className="text-sm text-muted-foreground">%</span>
                 </div>
-                {saveState === "saving" ? (
+                {/* When the parent shows the page-level indicator, skip this inline copy. */}
+                {!onSaveStateChange && (saveState === "saving" ? (
                   <span className="flex items-center gap-1.5 text-muted-foreground text-xs"><Loader2 className="size-3 animate-spin" /> {labels.common.saving}</span>
                 ) : saveState === "saved" ? (
                   <span className="flex items-center gap-1.5 text-green-600 text-xs"><CheckCircle2 className="size-4" /> {labels.common.saved}</span>
                 ) : saveState === "error" ? (
                   <span className="text-xs text-destructive">{labels.common.saveFailed}</span>
-                ) : null}
+                ) : null)}
               </div>
             )}
 

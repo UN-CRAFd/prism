@@ -419,7 +419,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleRiskAdd() {
     if (!newRiskName.trim() || !selectedProdocId) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setAddingRisk(true); setError(null);
     try {
       const res = await fetch("/api/risk", {
@@ -430,13 +430,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       const created: Risk = await res.json();
       setRisks((prev) => [...prev, created]);
       setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+      handleSaveStateChange("saved");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
     finally { setAddingRisk(false); }
   }
 
   async function handleRiskEditSave(id: number) {
     if (!editingRiskName.trim()) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setError(null);
     try {
       const res = await fetch("/api/risk", {
@@ -447,12 +448,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       const updated: Risk = await res.json();
       setRisks((prev) => prev.map((r) => r.id === id ? updated : r));
       setEditingRiskId(null);
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+      handleSaveStateChange("saved");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
   }
 
   async function handleIndicatorEditSave(indicatorId: number) {
     if (!editingIndName.trim()) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setError(null);
     try {
       const res = await fetch(`/api/indicators/${indicatorId}`, {
@@ -467,33 +469,36 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           : l
       ));
       setEditingIndicatorId(null);
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+      handleSaveStateChange("saved");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
   }
 
   async function handleRiskDelete(id: number) {
     const risk = risks.find((r) => r.id === id);
     if (!await confirm({ message: `Delete risk "${risk?.risk_name ?? "this risk"}"? This cannot be undone.` })) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setDeletingRiskId(id); setError(null);
     try {
       const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete risk");
       setRisks((prev) => prev.filter((r) => r.id !== id));
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+      handleSaveStateChange("saved");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
     finally { setDeletingRiskId(null); }
   }
 
   // Likelihood/impact are inline dropdowns (no edit mode) — save immediately on
   // change, optimistic like the indicator baseline/target cells.
   async function updateRiskAssessment(id: number, patch: { likelihood?: number | null; impact?: number | null }) {
-    noteEdit();
+    handleSaveStateChange("saving");
     setRisks((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     setError(null);
     const res = await fetch("/api/risk", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...patch }),
     });
-    if (!res.ok) setError("Failed to save risk assessment");
+    if (!res.ok) { setError("Failed to save risk assessment"); handleSaveStateChange("error"); }
+    else handleSaveStateChange("saved");
   }
 
   // ── Indicators CRUD ───────────────────────────────────────────────────────
@@ -597,7 +602,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function addIndicatorLine(indicatorId: number) {
     if (!selectedProdocId || !selectedDoc) return;
-    noteEdit();
+    handleSaveStateChange("saving");
 
     // Calculate baseline year (project start) and target year (project end)
     let baselineYear: number | null = null;
@@ -623,9 +628,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         target_year: targetYear,
       }),
     });
-    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to add indicator"); return; }
+    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to add indicator"); handleSaveStateChange("error"); return; }
     const created: IndicatorLine = await res.json();
     setIndicatorLines((prev) => [...prev, created]);
+    handleSaveStateChange("saved");
   }
 
   async function handleIndicatorSelect(item: ComboboxItem) {
@@ -654,7 +660,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   async function submitIndicatorCreate() {
     if (!selectedDoc) return;
     if (!newIndName.trim() || !newIndDescription.trim() || !newIndMeansOfVerification.trim()) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setAddingIndicator(true); setError(null);
     try {
       const res = await fetch("/api/indicators", {
@@ -671,7 +677,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       setLibrary((prev) => [...prev, created]);
       await addIndicatorLine(created.id);
       cancelIndicatorCreate();
-    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
     finally { setAddingIndicator(false); }
   }
 
@@ -682,7 +688,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   async function saveIndicatorLine(id: number) {
     const line = indicatorLines.find((l) => l.id === id);
     if (!line) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setError(null);
     const res = await fetch("/api/indicator-data", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -694,16 +700,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         target_year: line.target_year,
       }),
     });
-    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to save"); }
+    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to save"); handleSaveStateChange("error"); }
+    else handleSaveStateChange("saved");
   }
 
   async function handleIndicatorDelete(id: number) {
     if (!await confirm({ message: "Remove this indicator from the project document?", confirmLabel: "Remove", variant: "default" })) return;
-    noteEdit();
+    handleSaveStateChange("saving");
     setError(null);
     const res = await fetch(`/api/indicator-data?id=${id}`, { method: "DELETE" });
-    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to remove"); return; }
+    if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to remove"); handleSaveStateChange("error"); return; }
     setIndicatorLines((prev) => prev.filter((l) => l.id !== id));
+    handleSaveStateChange("saved");
   }
 
   // Suggestion ordering comes from the API (standard first, then custom indicators
@@ -798,7 +806,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {selectedProdocId && (selectedSection === "general" || selectedSection === "narratives" || selectedSection === "sdg") && (
+          {/* Save indicator for every section that writes (review feedback):
+              autosave editors report via the callback prop; the risk/indicator
+              inline saves call handleSaveStateChange around their fetches. */}
+          {selectedProdocId && ["general", "narratives", "sdg", "indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
             <AutosaveIndicator state={editorSaveState} idleAsSaved />
           )}
 
@@ -1332,10 +1343,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           // activities + quarters). Report-time update windows are managed in the
           // report editor, not here.
           selectedDoc ? (
-            <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} fillHeight={fillHeight} />
+            <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} />
           ) : null
         ) : selectedSection === "expenditure" ? (
-          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} fillHeight={fillHeight} /> : null
+          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} /> : null
         ) : null}
         </div>
         </fieldset>

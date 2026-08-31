@@ -164,6 +164,8 @@ export function GeneralInfoAdminEditor({
   const [pendingContactEmail, setPendingContactEmail] = useState("");
   const [pendingContactOrg, setPendingContactOrg] = useState("");
   const [pendingContactRole, setPendingContactRole] = useState("");
+  const [pendingContactRelationship, setPendingContactRelationship] = useState(RELATIONSHIP_NONE);
+  const [pendingContactIsApplicant, setPendingContactIsApplicant] = useState(false);
   const [participatingOrgs, setParticipatingOrgs] = useState<OrgRow[]>([]);
   const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
   const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
@@ -439,10 +441,10 @@ export function GeneralInfoAdminEditor({
   }
 
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
-  async function linkContact(contactId: number) {
+  async function linkContact(contactId: number, extras?: { relationship?: string | null; is_applicant?: boolean }) {
     const res = await fetch("/api/project-contacts", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: projectId, contact_id: contactId }),
+      body: JSON.stringify({ project_id: projectId, contact_id: contactId, ...extras }),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to link contact"); return; }
     const created: ProjectContact = await res.json();
@@ -460,6 +462,8 @@ export function GeneralInfoAdminEditor({
     setPendingContactEmail("");
     setPendingContactOrg("");
     setPendingContactRole("");
+    setPendingContactRelationship(RELATIONSHIP_NONE);
+    setPendingContactIsApplicant(false);
     setError(null);
   }
 
@@ -484,11 +488,16 @@ export function GeneralInfoAdminEditor({
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add contact"); }
       const created: OrgContact = await res.json();
       setOrgContacts((prev) => [...prev, created]);
-      await linkContact(created.id);
+      await linkContact(created.id, {
+        relationship: pendingContactRelationship === RELATIONSHIP_NONE ? null : pendingContactRelationship,
+        is_applicant: pendingContactIsApplicant,
+      });
       setPendingContactName(null);
       setPendingContactEmail("");
       setPendingContactOrg("");
       setPendingContactRole("");
+      setPendingContactRelationship(RELATIONSHIP_NONE);
+      setPendingContactIsApplicant(false);
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingContact(false); }
   }
@@ -988,7 +997,7 @@ export function GeneralInfoAdminEditor({
               <Input
                 value={pendingContactEmail}
                 onChange={(e) => setPendingContactEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); setPendingContactRelationship(RELATIONSHIP_NONE); setPendingContactIsApplicant(false); } }}
                 placeholder="name@example.org"
                 type="email"
                 className="h-8 text-sm"
@@ -1004,17 +1013,39 @@ export function GeneralInfoAdminEditor({
               <Input
                 value={pendingContactRole}
                 onChange={(e) => setPendingContactRole(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); setPendingContactRelationship(RELATIONSHIP_NONE); setPendingContactIsApplicant(false); } }}
                 placeholder="Role (optional)"
                 className="h-8 text-sm"
                 aria-label="Role"
               />
             </div>
+            <div className="flex items-center gap-4">
+              <Select value={pendingContactRelationship} onValueChange={setPendingContactRelationship}>
+                <SelectTrigger className="h-8 text-sm w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
+                  {optionValues("projectRole").map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={pendingContactIsApplicant}
+                  onChange={(e) => setPendingContactIsApplicant(e.target.checked)}
+                  className="size-4 accent-foreground cursor-pointer"
+                />
+                {g.applicantLabel}
+              </label>
+            </div>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
               <button
                 type="button"
-                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); }}
+                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); setPendingContactRelationship(RELATIONSHIP_NONE); setPendingContactIsApplicant(false); }}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Cancel

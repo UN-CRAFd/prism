@@ -3,7 +3,7 @@ import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
-// Admin comments on report items (polymorphic — see migrations/032).
+// Comments on report items (polymorphic — see migrations/032).
 //   GET ?reportId=<id>                → all comments for a report (editor)
 //   GET ?partnerShortName=<name>      → the partner's OUTSTANDING comments across
 //                                       their reports AND project documents
@@ -11,9 +11,14 @@ import { logger } from "@/lib/logger";
 //                                       once CRAF'd confirms, the partner is done
 //                                       with it) + project/year context + a live
 //                                       entry label (partner home feed)
-//   POST   { reportId, section, itemId?, body }   (author = authenticated user)
+//   POST   { reportId, section, itemId?, body, parentId? }  (author = authenticated user)
 //   PATCH  { id, body?, resolved? }
 //   DELETE ?id=<id>
+//
+// Threading: a comment with parent_id = NULL is top-level; one with parent_id set
+// is a reply to it. Depth is capped at one level (a reply cannot be replied to) —
+// enforced in POST below, not by a constraint, since a CHECK cannot inspect
+// another row. Both admins and partners may post; author_role records which.
 
 // A comment's (section, item_id) is a soft foreign key into whichever section
 // table the entry lives in. To show "what the comment is about" in the feed we
@@ -119,6 +124,7 @@ export async function GET(req: NextRequest) {
       // the partner feed.
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.created_at,
+                c.parent_id, c.author, c.author_role,
                 r.year, r.report_type, r.data_type,
                 p.project_title,
                 p.short_name  AS project_short_name,
@@ -136,6 +142,7 @@ export async function GET(req: NextRequest) {
     if (reportId) {
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.author, c.created_at,
+                c.parent_id, c.author_role,
                 pt.short_name AS partner_short_name
            FROM reporting_platform.item_comments c
            JOIN reporting_platform.reports  r  ON r.id  = c.report_id
@@ -149,8 +156,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (partnerShortName) {
+      // Replies are excluded (parent_id IS NULL): the partner's own replies are
+      // comments on their own project, so without this filter they would appear
+      // in the partner's own to-do feed as items awaiting their attention.
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.created_at,
+                c.parent_id, c.author, c.author_role,
                 r.year, r.report_type, r.data_type,
                 p.project_title,
                 p.short_name AS project_short_name
@@ -160,6 +171,7 @@ export async function GET(req: NextRequest) {
            JOIN reporting_platform.partners pt ON pt.id = p.partner_id
           WHERE LOWER(pt.short_name) = LOWER($1)
             AND c.resolved = FALSE
+            AND c.parent_id IS NULL
           ORDER BY c.partner_addressed ASC, c.created_at DESC`,
         [partnerShortName]
       );
@@ -184,24 +196,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reportId, section and body are required" }, { status: 400 });
   }
   const itemId = body.itemId == null ? null : Number(body.itemId);
+  const parentId = body.parentId == null ? null : Number(body.parentId);
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
   const gate = await guardReport(session, reportId);
   if (gate) return gate;
 
-  // Author is the authenticated identity, never taken from the request body —
-  // otherwise any caller could post a comment attributed to someone else
+  // Replies are capped at one level, and a reply must belong to the same report
+  // as its parent — otherwise a caller could attach a reply to a comment on a
+  // report they cannot see, and it would surface there.
+  if (parentId != null) {
+    const parent = await query(
+      `SELECT report_id, parent_id FROM reporting_platform.item_comments WHERE id = $1`,
+      [parentId]
+    ) as { report_id: number; parent_id: number | null }[];
+    if (!parent.length) {
+      return NextResponse.json({ error: "Parent comment not found" }, { status: 400 });
+    }
+    if (parent[0].parent_id != null) {
+      return NextResponse.json({ error: "Replies cannot be replied to" }, { status: 400 });
+    }
+    if (parent[0].report_id !== reportId) {
+      return NextResponse.json({ error: "Parent comment belongs to another report" }, { status: 400 });
+    }
+  }
+
+  // Author and role are the authenticated identity, never taken from the request
+  // body — otherwise any caller could post a comment attributed to someone else
   // ("CRAF'd Secretariat", another partner, etc.). session.name is the trusted
-  // display name minted at login.
+  // display name minted at login; session.role distinguishes admin from partner
+  // reliably, which the display name cannot.
   const author = session.name;
+  const authorRole = session.role;
 
   try {
     const rows = await query(
-      `INSERT INTO reporting_platform.item_comments (report_id, section, item_id, body, author)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, report_id, section, item_id, body, resolved, partner_addressed, author, created_at`,
-      [reportId, section, itemId, text, author]
+      `INSERT INTO reporting_platform.item_comments (report_id, section, item_id, body, author, author_role, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, report_id, section, item_id, body, resolved, partner_addressed, author, author_role, parent_id, created_at`,
+      [reportId, section, itemId, text, author, authorRole, parentId]
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
@@ -222,6 +256,25 @@ export async function PATCH(req: NextRequest) {
   const gate = await guardRow(session, "item_comments", id);
   if (gate) return gate;
 
+  // guardRow only establishes that the comment sits on a report this session can
+  // reach — not that this session wrote it. Partners share one login per
+  // organization, so "own" here means "written by this partner org", which is the
+  // finest distinction the data supports.
+  //   body            — a partner may edit only partner-authored comments
+    //   resolved        — CRAF'd-side tick; currently unrestricted (flagged for Niroj)
+  //   partner_addressed — partner-side tick, set on CRAF'd's comments; unrestricted
+  if (session.role !== "admin") {
+    const target = await query(
+      `SELECT author_role FROM reporting_platform.item_comments WHERE id = $1`,
+      [id]
+    ) as { author_role: string | null }[];
+    if (!target.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if (typeof body.body === "string" && target[0].author_role !== "partner") {
+      return NextResponse.json({ error: "You can only edit your own comments" }, { status: 403 });
+    }
+  }
+
   const sets: string[] = [];
   const values: unknown[] = [];
   let i = 1;
@@ -235,7 +288,7 @@ export async function PATCH(req: NextRequest) {
     const rows = await query(
       `UPDATE reporting_platform.item_comments SET ${sets.join(", ")}
         WHERE id = $${i}
-        RETURNING id, report_id, section, item_id, body, resolved, partner_addressed, author, created_at`,
+        RETURNING id, report_id, section, item_id, body, resolved, partner_addressed, author, author_role, parent_id, created_at`,
       values
     );
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -254,6 +307,19 @@ export async function DELETE(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardRow(session, "item_comments", id);
   if (gate) return gate;
+
+  // As in PATCH: a partner may delete only partner-authored comments, never
+  // CRAF'd's. Deleting a top-level comment cascades to its replies (FK).
+  if (session.role !== "admin") {
+    const target = await query(
+      `SELECT author_role FROM reporting_platform.item_comments WHERE id = $1`,
+      [id]
+    ) as { author_role: string | null }[];
+    if (!target.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (target[0].author_role !== "partner") {
+      return NextResponse.json({ error: "You can only delete your own comments" }, { status: 403 });
+    }
+  }
 
   try {
     await query(`DELETE FROM reporting_platform.item_comments WHERE id = $1`, [id]);

@@ -38,3 +38,5 @@ run-migration.cjs
 check-perms.cjs
 count-tranches.cjs
 narratives.cjs
+check-columns.cjs
+check-authors.cjs

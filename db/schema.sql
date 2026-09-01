@@ -315,11 +315,18 @@ CREATE TABLE IF NOT EXISTS item_comments (
     body       TEXT         NOT NULL,
     resolved          BOOLEAN NOT NULL DEFAULT FALSE,  -- CRAF'd-side confirmation
     partner_addressed BOOLEAN NOT NULL DEFAULT FALSE,  -- partner-side confirmation
-    author     TEXT,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    author      TEXT,
+    author_role TEXT,                              -- 'admin' | 'partner', set server-side
+    item_label  TEXT,
+    parent_id   INTEGER REFERENCES item_comments(id) ON DELETE CASCADE,  -- NULL = top-level
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT item_comments_author_role_check
+        CHECK (author_role IS NULL OR author_role IN ('admin', 'partner'))
 );
+
 CREATE INDEX IF NOT EXISTS item_comments_lookup_idx ON item_comments (report_id, section, item_id);
+CREATE INDEX IF NOT EXISTS item_comments_parent_idx ON item_comments (parent_id);
 DROP TRIGGER IF EXISTS item_comments_updated_at ON item_comments;
 CREATE TRIGGER item_comments_updated_at
     BEFORE UPDATE ON item_comments

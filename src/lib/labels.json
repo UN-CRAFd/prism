@@ -93,7 +93,18 @@
     "emptyContacts": "No project contacts yet. Add contacts in the General Information tab.",
     "emptySignatories": "No contacts are marked as Signatory. On the General Information tab, set a contact's relationship to 'Signatory' to have them appear here.",
     "awaitingSecretariat": "Awaiting signature",
-    "awaitingPartner": "Awaiting partner signature"
+    "awaitingPartner": "Awaiting partner signature",
+    "standaloneTag": "Standalone",
+    "viaContacts": "Via Contacts",
+    "addSignatory": "+ Add new signatory",
+    "addSignatoryCancel": "Cancel",
+    "addSignatorySubmit": "Add",
+    "fieldTitle": "Title",
+    "fieldName": "Name",
+    "fieldOrg": "Organization",
+    "fieldEmail": "Email",
+    "nameRequired": "Name is required.",
+    "deleteStandaloneConfirm": "Remove this signatory from the document?"
   },
   "documents": {
     "uploadHeading": "Upload a document",

@@ -58,7 +58,7 @@ export async function GET(
     const meta = metaRows[0];
     const projectId = meta.project_id as number;
 
-    const [narratives, risks, indicators, activities, budgets, categoryNotes, signatureContacts, secretariatSig, sdgTargets] = await Promise.all([
+    const [narratives, risks, indicators, activities, budgets, categoryNotes, trancheCells, projectContacts, signatureContacts, secretariatSig, standaloneSignatories, sdgTargets] = await Promise.all([
       query(
         `SELECT narrative_key, label, answer
            FROM reporting_platform.project_narratives
@@ -97,11 +97,13 @@ export async function GET(
           ORDER BY sort_order, id`,
         [projectId]
       ),
+      // LEFT JOIN so every expenditure category appears even when no budget row
+      // exists for this project — the print page renders missing cells as $0.
       query(
         `SELECT ec.name AS category_name, ec.sort_order, eb.year, eb.approved_amount
-           FROM reporting_platform.expenditure_budgets eb
-           JOIN reporting_platform.expenditure_categories ec ON ec.id = eb.category_id
-          WHERE eb.project_id = $1
+           FROM reporting_platform.expenditure_categories ec
+           LEFT JOIN reporting_platform.expenditure_budgets eb
+             ON eb.category_id = ec.id AND eb.project_id = $1
           ORDER BY ec.sort_order, eb.year`,
         [projectId]
       ),
@@ -112,7 +114,37 @@ export async function GET(
           WHERE ebn.project_id = $1`,
         [projectId]
       ),
-      // Signature slots: every project contact, with its signature date if signed.
+      // Tranche release matrix. Only participating orgs receive tranches — matches
+      // the editor's client-side filter (general-info-editor.tsx line 256).
+      // LEFT JOIN so every participating org appears even with no cells.
+      query(
+        `SELECT po.id   AS organization_id,
+                po.name AS organization_name,
+                po.sort_order,
+                ptc.tranche_number,
+                ptc.amount,
+                ptc.date_description
+           FROM reporting_platform.project_organizations po
+           LEFT JOIN reporting_platform.project_tranche_cells ptc
+             ON ptc.organization_id = po.id AND ptc.project_id = $1
+          WHERE po.project_id = $1
+            AND po.type = 'participating'
+          ORDER BY po.sort_order, po.id, ptc.tranche_number`,
+        [projectId]
+      ),
+      // All project contacts for the Contacts section of the printed document.
+      query(
+        `SELECT pc.name, pc.organization, pc.role, pc.email,
+                jc.relationship, jc.is_applicant
+           FROM reporting_platform.project_contacts jc
+           JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
+          WHERE jc.project_id = $1
+          ORDER BY jc.sort_order, pc.name`,
+        [projectId]
+      ),
+      // Signature slots: contacts whose relationship is 'Signatory', with their
+      // signature date if they have signed. Matches the client-side filter in
+      // signatures-editor.tsx. Contacts with other relationships are excluded.
       query(
         `SELECT pc.name, pc.role, jc.relationship,
                 TO_CHAR(sig.signed_at, 'YYYY-MM-DD') AS signed_at
@@ -123,6 +155,7 @@ export async function GET(
             AND sig.party = 'contact'
             AND sig.contact_id = jc.contact_id
           WHERE jc.project_id = $1
+            AND jc.relationship = 'Signatory'
           ORDER BY jc.sort_order, pc.name`,
         [projectId]
       ),
@@ -131,6 +164,13 @@ export async function GET(
            FROM reporting_platform.prodoc_signatures
           WHERE project_id = $1 AND party = 'secretariat'
           LIMIT 1`,
+        [projectId]
+      ),
+      query(
+        `SELECT title, signee_name, organization
+           FROM reporting_platform.prodoc_signatories
+          WHERE project_id = $1
+          ORDER BY sort_order, id`,
         [projectId]
       ),
       query(
@@ -145,9 +185,10 @@ export async function GET(
     const signatures = {
       contacts: signatureContacts as { name: string; role: string | null; relationship: string | null; signed_at: string | null }[],
       secretariat: { signed_at: (secretariatSig[0] as { signed_at: string } | undefined)?.signed_at ?? null },
+      standaloneSignatories: standaloneSignatories as { title: string | null; signee_name: string; organization: string | null }[],
     };
 
-    return NextResponse.json({ meta, narratives, risks, indicators, activities, budgets, categoryNotes, signatures, sdgTargets });
+    return NextResponse.json({ meta, narratives, risks, indicators, activities, budgets, categoryNotes, trancheCells, contacts: projectContacts, signatures, sdgTargets });
   } catch (err) {
     logger.error("GET /api/reports/[id]/prodoc-export error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });

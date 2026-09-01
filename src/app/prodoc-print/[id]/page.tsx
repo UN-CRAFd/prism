@@ -62,9 +62,26 @@ interface ProdocData {
   }[];
   budgets: { category_name: string; sort_order: number; year: number; approved_amount: string | null }[];
   categoryNotes: { category_name: string; description: string | null }[];
+  contacts: {
+    name: string;
+    organization: string | null;
+    role: string | null;
+    email: string | null;
+    relationship: string | null;
+    is_applicant: boolean;
+  }[];
+  trancheCells: {
+    organization_id: number;
+    organization_name: string;
+    sort_order: number;
+    tranche_number: number | null;
+    amount: string | null;
+    date_description: string | null;
+  }[];
   signatures: {
     contacts: { name: string; role: string | null; relationship: string | null; signed_at: string | null }[];
     secretariat: { signed_at: string | null };
+    standaloneSignatories: { title: string | null; signee_name: string; organization: string | null }[];
   };
   sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number; priority?: string }[];
 }
@@ -315,6 +332,121 @@ export default function ProdocPrintPage() {
           />
         ) : null}
 
+        {/* ── Contacts ── */}
+        {data.contacts.length > 0 && (
+          <Section title="Contacts">
+            <div data-block>
+              <Table
+                head={["Name", "Organisation", "Role", "Email", "Relationship", "Applicant"]}
+                widths={["20%", "20%", "18%", "24%", "12%", "6%"]}
+                rows={data.contacts.map((c) => [
+                  c.name,
+                  c.organization || "—",
+                  c.role || "—",
+                  c.email || "—",
+                  c.relationship || "—",
+                  c.is_applicant ? "✓" : "",
+                ])}
+              />
+              <div style={{ fontSize: 9.5, color: MUTED, marginTop: 4 }}>✓ = Applicant</div>
+            </div>
+          </Section>
+        )}
+
+        {/* ── Tranche release matrix ── */}
+        {(() => {
+          // Derive the unique set of participating organisations (preserving
+          // sort_order) and the set of tranche column numbers present across all
+          // cells. Matches the editor's filter: only type='participating' orgs.
+          const orgMap = new Map<number, { name: string; sort_order: number }>();
+          const trancheNums = new Set<number>();
+          for (const row of data.trancheCells) {
+            if (!orgMap.has(row.organization_id)) {
+              orgMap.set(row.organization_id, { name: row.organization_name, sort_order: row.sort_order });
+            }
+            if (row.tranche_number != null) trancheNums.add(row.tranche_number);
+          }
+          const orgs = Array.from(orgMap.entries())
+            .sort((a, b) => a[1].sort_order - b[1].sort_order)
+            .map(([id, { name }]) => ({ id, name }));
+          const tranches = Array.from(trancheNums).sort((a, b) => a - b);
+
+          if (orgs.length === 0) return null;
+
+          const cell = (orgId: number, t: number) =>
+            data.trancheCells.find((r) => r.organization_id === orgId && r.tranche_number === t);
+          const cellAmt = (orgId: number, t: number) => num(cell(orgId, t)?.amount);
+          const orgTotal = (orgId: number) => tranches.reduce((s, t) => s + cellAmt(orgId, t), 0);
+          const trancheTotal = (t: number) => orgs.reduce((s, o) => s + cellAmt(o.id, t), 0);
+          const grandTotal = orgs.reduce((s, o) => s + orgTotal(o.id), 0);
+
+          // Tranche and Total columns are fixed-width; org name column takes the rest.
+          const COL_W = 90;
+          const TOTAL_W = 90;
+
+          return (
+            <Section title="Tranche Release">
+              <div data-block style={{ overflowX: "visible" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col />
+                    {tranches.map((t) => <col key={t} style={{ width: COL_W }} />)}
+                    <col style={{ width: TOTAL_W }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <Th align="left">Organisation</Th>
+                      {tranches.map((t) => <Th key={t} align="right">Tranche {t}</Th>)}
+                      <Th align="right">Total</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orgs.map((org) => (
+                      <tr key={org.id}>
+                        <Td>{org.name}</Td>
+                        {tranches.map((t) => {
+                          const c = cell(org.id, t);
+                          const amt = num(c?.amount);
+                          return (
+                            <td key={t} style={{
+                              textAlign: "right", padding: "6px 8px",
+                              borderBottom: `1px solid ${LINE}`, verticalAlign: "top",
+                            }}>
+                              <div>{fmtUsd(amt)}</div>
+                              {c?.date_description && (
+                                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                                  {c.date_description}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td style={{
+                          textAlign: "right", padding: "6px 8px", fontWeight: 600,
+                          borderBottom: `1px solid ${LINE}`, verticalAlign: "middle",
+                        }}>
+                          {fmtUsd(orgTotal(org.id))}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
+                      <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>Total</td>
+                      {tranches.map((t) => (
+                        <td key={t} style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
+                          {fmtUsd(trancheTotal(t))}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
+                        {fmtUsd(grandTotal)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          );
+        })()}
+
         {/* ── Narratives ── */}
         {data.narratives.length > 0 && (
           <Section title="Narratives">
@@ -418,6 +550,37 @@ export default function ProdocPrintPage() {
           </Section>
         )}
 
+        {/* ── Expenditure budget ── */}
+        {categories.length > 0 && years.length > 0 && (
+          <Section title="Approved Budget (USD)">
+            <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <Th align="left">Budget category</Th>
+                  <Th align="left">Description</Th>
+                  <Th align="right">Total</Th>
+                  {years.map((y) => <Th key={y} align="right">{y}</Th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((c) => (
+                  <tr key={c}>
+                    <Td>{c}</Td>
+                    <Td>{descriptionMap[c] ?? ""}</Td>
+                    <Td align="right">{fmtUsd(catTotal(c))}</Td>
+                    {years.map((y) => <Td key={y} align="right">{fmtUsd(budgetAt(c, y))}</Td>)}
+                  </tr>
+                ))}
+                <TotalRow label="Project costs sub total" years={years} cells={years.map(yearSub)} total={grandSub} />
+                <TotalRow label={`Indirect support costs (${Math.round(rate * 100)}%)`} years={years}
+                  cells={years.map((y) => yearSub(y) * rate)} total={grandSub * rate} />
+                <TotalRow label="Total" years={years}
+                  cells={years.map((y) => yearSub(y) * (1 + rate))} total={grandSub * (1 + rate)} strong />
+              </tbody>
+            </table>
+          </Section>
+        )}
+
         {/* ── Workplan ── */}
         {data.activities.length > 0 && (
           <Section title="Workplan">
@@ -510,37 +673,6 @@ export default function ProdocPrintPage() {
           </Section>
         )}
 
-        {/* ── Expenditure budget ── */}
-        {categories.length > 0 && years.length > 0 && (
-          <Section title="Approved Budget (USD)">
-            <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead>
-                <tr>
-                  <Th align="left">Budget category</Th>
-                  <Th align="left">Description</Th>
-                  <Th align="right">Total</Th>
-                  {years.map((y) => <Th key={y} align="right">{y}</Th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((c) => (
-                  <tr key={c}>
-                    <Td>{c}</Td>
-                    <Td>{descriptionMap[c] ?? ""}</Td>
-                    <Td align="right">{fmtUsd(catTotal(c))}</Td>
-                    {years.map((y) => <Td key={y} align="right">{fmtUsd(budgetAt(c, y))}</Td>)}
-                  </tr>
-                ))}
-                <TotalRow label="Project costs sub total" years={years} cells={years.map(yearSub)} total={grandSub} />
-                <TotalRow label={`Indirect support costs (${Math.round(rate * 100)}%)`} years={years}
-                  cells={years.map((y) => yearSub(y) * rate)} total={grandSub * rate} />
-                <TotalRow label="Total" years={years}
-                  cells={years.map((y) => yearSub(y) * (1 + rate))} total={grandSub * (1 + rate)} strong />
-              </tbody>
-            </table>
-          </Section>
-        )}
-
         {/* ── Signatures ── */}
         <Section title="Signatures">
           <div data-block style={{ display: "flex", flexWrap: "wrap", gap: 28, marginTop: 4 }}>
@@ -557,6 +689,14 @@ export default function ProdocPrintPage() {
                 }]
             ).map((s, i) => (
               <SignatureBlock key={`app-${i}`} name={s.name} role={s.role} signedDate={s.signedDate} />
+            ))}
+            {data.signatures.standaloneSignatories.map((sa, i) => (
+              <SignatureBlock
+                key={`sa-${i}`}
+                name={[sa.title, sa.signee_name].filter(Boolean).join(" ")}
+                role={sa.organization || "Additional signatory"}
+                signedDate={null}
+              />
             ))}
             <SignatureBlock
               name="CRAF'd Secretariat"

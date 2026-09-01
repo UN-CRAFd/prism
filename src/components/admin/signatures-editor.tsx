@@ -2,18 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatDate } from "@/lib/utils";
-import { Loader2, PenLine, Check, X, Users, ShieldCheck } from "lucide-react";
+import { Loader2, PenLine, Check, X, Users, ShieldCheck, Trash2 } from "lucide-react";
 import labels from "@/lib/labels";
 import { useAuth } from "@/lib/auth-context";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
 // Sign-off on the project document. Project contacts (from the General
 // Information tab) are signed by the partner; the CRAF'd Secretariat row is
-// signed by an admin. Click-to-sign: signing stamps a date, un-signing removes
-// it. The signatures render on the exported project document. Immediate saves
-// (no autosave) — each action hits /api/prodoc-signatures directly.
+// signed by an admin. Standalone signatories (prodoc_signatories) appear with a
+// blank signature line in the exported prodoc but have no sign-flow here.
+// Click-to-sign: signing stamps a date, un-signing removes it.
 
 const s = labels.signatures;
 
@@ -36,6 +37,19 @@ interface Signature {
   signed_at: string;
 }
 
+interface StandaloneSignatory {
+  id: number;
+  project_id: number;
+  title: string | null;
+  signee_name: string;
+  organization: string | null;
+  email: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+const EMPTY_FORM = { title: "", name: "", org: "", email: "" };
+
 export function SignaturesEditor({
   projectId,
   isAdmin = false,
@@ -47,27 +61,37 @@ export function SignaturesEditor({
 }) {
   const confirm = useConfirm();
   const { user } = useAuth();
-  // The logged-in partner may sign only for contacts belonging to their own org.
   const myPartnerId = user?.partner_id ?? null;
+
   const [contacts, setContacts] = useState<ProjectContact[]>([]);
   const [signatures, setSignatures] = useState<Signature[]>([]);
+  const [standalones, setStandalones] = useState<StandaloneSignatory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // Add-form state
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [addBusy, setAddBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(null);
     (async () => {
       try {
-        const [cRes, sRes] = await Promise.all([
+        const [cRes, sRes, stRes] = await Promise.all([
           fetch(`/api/project-contacts?project_id=${projectId}`),
           fetch(`/api/prodoc-signatures?project_id=${projectId}`),
+          fetch(`/api/prodoc-signatories?project_id=${projectId}`),
         ]);
-        if (!cRes.ok || !sRes.ok) throw new Error("Failed to load signatures");
+        if (!cRes.ok || !sRes.ok || !stRes.ok) throw new Error("Failed to load signatures");
         if (cancelled) return;
         setContacts(await cRes.json());
         setSignatures(await sRes.json());
+        setStandalones(await stRes.json());
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -81,10 +105,7 @@ export function SignaturesEditor({
     signatures.find((x) => x.party === "contact" && x.contact_id === contactId);
   const secretariatSig = signatures.find((x) => x.party === "secretariat");
 
-  // Fallback for sessions minted before partner_id was carried (old cookies): if
-  // every contact belongs to a single partner, a non-admin caller must be that
-  // partner (a single-partner project with no editors — the common case), so
-  // treat them all as signable. The server still enforces true ownership.
+  // Fallback for sessions minted before partner_id was carried.
   const singleOwner =
     contacts.length > 0 && contacts.every((c) => c.partner_id === contacts[0].partner_id);
 
@@ -116,6 +137,48 @@ export function SignaturesEditor({
     finally { setBusy(null); }
   }
 
+  async function addStandalone() {
+    if (!form.name.trim()) { setNameError(s.nameRequired); return; }
+    setNameError(null);
+    setAddBusy(true);
+    try {
+      const res = await fetch("/api/prodoc-signatories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: projectId,
+          title: form.title.trim() || null,
+          signee_name: form.name.trim(),
+          organization: form.org.trim() || null,
+          email: form.email.trim() || null,
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add"); }
+      const created: StandaloneSignatory = await res.json();
+      setStandalones((prev) => [...prev, created]);
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setAddBusy(false); }
+  }
+
+  async function deleteStandalone(item: StandaloneSignatory) {
+    if (!await confirm({ message: s.deleteStandaloneConfirm, confirmLabel: s.remove, variant: "default" })) return;
+    setDeletingId(item.id);
+    try {
+      const res = await fetch(`/api/prodoc-signatories?id=${item.id}`, { method: "DELETE" });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to remove"); }
+      setStandalones((prev) => prev.filter((x) => x.id !== item.id));
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setDeletingId(null); }
+  }
+
+  function cancelForm() {
+    setShowForm(false);
+    setForm(EMPTY_FORM);
+    setNameError(null);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
@@ -143,6 +206,9 @@ export function SignaturesEditor({
     </div>
   );
 
+  const contactSignatories = contacts.filter((c) => c.relationship === "Signatory");
+  const hasAny = contactSignatories.length > 0 || standalones.length > 0;
+
   return (
     <div className="space-y-6">
       {error && (
@@ -157,26 +223,24 @@ export function SignaturesEditor({
         </div>
       )}
 
-      {/* Project contacts — only those whose relationship is "Signatory" */}
+      {/* ── Signatories (contact-derived + standalone) ── */}
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">{s.contactsHeading}</h3>
         </div>
 
-        {(() => {
-          const signatories = contacts.filter((c) => c.relationship === "Signatory");
-          return signatories.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-              {s.emptySignatories}
-            </div>
-          ) : (
-            <div className="rounded-xl border divide-y overflow-hidden">
-              {signatories.map((c) => {
+        {!hasAny ? (
+          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+            {s.emptySignatories}
+          </div>
+        ) : (
+          <div className="rounded-xl border divide-y overflow-hidden">
+
+            {/* Contact-derived signatories */}
+            {contactSignatories.map((c) => {
               const sig = contactSig(c.contact_id);
               const label = c.name;
-              // A partner may sign only for its own contacts. Others' contacts are
-              // read-only to them (they still see the signed state / awaiting note).
               const mine =
                 !isAdmin &&
                 (myPartnerId != null ? c.partner_id === myPartnerId : singleOwner);
@@ -184,15 +248,13 @@ export function SignaturesEditor({
                 <div key={c.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{c.name}</p>
-                    {(c.role || c.relationship) && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {[c.role, c.relationship].filter(Boolean).join(" · ")}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground truncate">
+                      {[c.role, c.relationship].filter(Boolean).join(" · ")}
+                      {" · "}
+                      <span className="italic">{s.viaContacts}</span>
+                    </p>
                   </div>
                   {sig ? (
-                    // Contact sign-off is the owning partner's; admins and other
-                    // partners see it read-only.
                     <SignedState sig={sig} label={label} canRemove={mine && !readOnly} />
                   ) : mine ? (
                     <Button
@@ -212,12 +274,116 @@ export function SignaturesEditor({
                 </div>
               );
             })}
+
+            {/* Standalone signatories */}
+            {standalones.map((item) => {
+              const subtext = [item.title, item.organization].filter(Boolean).join(" · ");
+              return (
+                <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{item.signee_name}</p>
+                      <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {s.standaloneTag}
+                      </span>
+                    </div>
+                    {subtext && (
+                      <p className="text-xs text-muted-foreground truncate">{subtext}</p>
+                    )}
+                  </div>
+                  {!readOnly && (
+                    <button
+                      onClick={() => deleteStandalone(item)}
+                      disabled={deletingId === item.id}
+                      className="shrink-0 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                      aria-label={s.remove}
+                    >
+                      {deletingId === item.id
+                        ? <Loader2 className="size-4 animate-spin" />
+                        : <Trash2 className="size-4" />}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          );
-        })()}
+        )}
+
+        {/* ── Add new signatory form ── */}
+        {!readOnly && (
+          showForm ? (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{s.fieldTitle}</label>
+                  <Input
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="e.g. Dr., OIC"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {s.fieldName} <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); if (nameError) setNameError(null); }}
+                    placeholder="Full name"
+                    className={cn("h-8 text-sm", nameError && "border-destructive")}
+                  />
+                  {nameError && <p className="text-xs text-destructive">{nameError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{s.fieldOrg}</label>
+                  <Input
+                    value={form.org}
+                    onChange={(e) => setForm((f) => ({ ...f, org: e.target.value }))}
+                    placeholder="Organization"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{s.fieldEmail}</label>
+                  <Input
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="email@example.com"
+                    type="email"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <span className="text-destructive">*</span> required
+              </p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={addStandalone} disabled={addBusy}>
+                  {addBusy ? <Loader2 className="size-4 animate-spin" /> : s.addSignatorySubmit}
+                </Button>
+                <button
+                  type="button"
+                  onClick={cancelForm}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {s.addSignatoryCancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {s.addSignatory}
+            </button>
+          )
+        )}
       </div>
 
-      {/* CRAF'd Secretariat */}
+      {/* ── CRAF'd Secretariat ── */}
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="size-4 text-muted-foreground" />

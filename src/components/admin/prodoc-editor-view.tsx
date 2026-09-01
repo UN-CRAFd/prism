@@ -1260,13 +1260,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                 ) : (
                                   <div className="flex items-start gap-2">
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium">{line.indicator_name}</p>
+                                      <p className="text-sm font-medium">
+                                        {line.indicator_name}
+                                        <span className="inline-block align-middle ml-1"><InfoPopover description={line.indicator_description} meansOfVerification={line.means_of_verification} /></span>
+                                      </p>
                                       <div className="flex flex-wrap gap-1 mt-1">
                                         {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
                                         {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
                                       </div>
                                     </div>
-                                    <InfoPopover description={line.indicator_description} meansOfVerification={line.means_of_verification} />
                                     <ItemComments section="indicators" itemId={line.id} />
                                   </div>
                                 )}

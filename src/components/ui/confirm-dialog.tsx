@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
@@ -14,6 +14,8 @@ export interface ConfirmOptions {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "destructive" | "default";
+  // Single-button acknowledgement mode: hides cancel, backdrop click confirms.
+  acknowledgement?: boolean;
 }
 
 type Resolver = (confirmed: boolean) => void;
@@ -88,16 +90,20 @@ function ConfirmDialogUI({
   const {
     title,
     message,
-    confirmLabel = "Delete",
+    confirmLabel,
     cancelLabel = "Cancel",
     variant = "destructive",
+    acknowledgement = false,
   } = options;
+
+  const resolvedConfirmLabel = confirmLabel ?? (acknowledgement ? "OK" : "Delete");
+  const handleBackdrop = acknowledgement ? onConfirm : onCancel;
 
   return (
     /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={onCancel}
+      onClick={handleBackdrop}
     >
       {/* Scrim */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
@@ -113,12 +119,16 @@ function ConfirmDialogUI({
             <span
               className={cn(
                 "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
-                variant === "destructive"
-                  ? "bg-destructive/10 text-destructive"
-                  : "bg-muted text-muted-foreground"
+                acknowledgement
+                  ? "bg-green-100 text-green-800"
+                  : variant === "destructive"
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
               )}
             >
-              {variant === "destructive" ? (
+              {acknowledgement ? (
+                <CheckCircle2 className="size-4" />
+              ) : variant === "destructive" ? (
                 <Trash2 className="size-4" />
               ) : (
                 <AlertTriangle className="size-4" />
@@ -135,15 +145,17 @@ function ConfirmDialogUI({
 
         {/* Actions */}
         <div className="flex justify-end gap-2 px-6 pb-5">
-          <Button variant="outline" size="sm" onClick={onCancel}>
-            {cancelLabel}
-          </Button>
+          {!acknowledgement && (
+            <Button variant="outline" size="sm" onClick={onCancel}>
+              {cancelLabel}
+            </Button>
+          )}
           <Button
-            variant={variant === "destructive" ? "destructive" : "default"}
+            variant={acknowledgement ? "outline" : variant === "destructive" ? "destructive" : "default"}
             size="sm"
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </Button>
         </div>
       </div>

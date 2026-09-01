@@ -152,6 +152,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [selectedProdocId, setSelectedProdocId] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
   const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitValidation, setSubmitValidation] = useState<{
+    tranchesMatch: boolean;
+    missingFields: string[];
+  } | null>(null);
   const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
 
   // Editor lock
@@ -412,6 +418,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   function handleDocChange(val: string) {
     setSelectedProdocId(val);
+    setError(null); setSubmitError(null); setSubmitValidation(null);
     setRisks([]); setIndicatorLines([]); setLibrary([]);
     const doc = docs.find((d) => String(d.id) === val);
     if (doc) pushUrl(doc, "general");
@@ -525,6 +532,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     lockPhase === "blocked" || lockPhase === "available" || lockPhase === "acquiring" || lockPhase === "timed-out";
   const readOnly = statusReadOnly || lockBlocking;
 
+  // Reasons the Submit button should be disabled (UX guard; server re-validates).
+  // null submitValidation means the General tab hasn't loaded yet — optimistic.
+  const submitBlockers: string[] = [];
+  if (submitValidation) {
+    if (!submitValidation.tranchesMatch) {
+      submitBlockers.push("Tranche total must match the approved funding amount.");
+    }
+    if (submitValidation.missingFields.length > 0) {
+      submitBlockers.push(`Required in General: ${submitValidation.missingFields.join(", ")}.`);
+    }
+  }
+
   // Called by every handler that writes data. Resets the inactivity clock and
   // clears the expiry warning if it was showing.
   function noteEdit() {
@@ -538,6 +557,59 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   function handleSaveStateChange(state: SaveState) {
     setEditorSaveState(state);
     if (state === "saving") noteEdit();
+  }
+
+  // Called by GeneralInfoAdminEditor whenever tranche match or required-field
+  // completeness changes. The parent holds the last-known state so the Submit
+  // button stays disabled even when the partner navigates to another section.
+  const handleValidationChange = useCallback((v: { tranchesMatch: boolean; missingFields: string[] }) => {
+    setSubmitValidation(v);
+  }, []);
+
+  // Partner submits the project document for secretariat review.
+  // Errors from the API are shown near the button (submitError) rather than in
+  // the content-area banner, which may be off-screen when the user is scrolled
+  // to the tranche matrix.
+  async function handleSubmit() {
+    if (!selectedDoc) return;
+    const ok = await confirm({
+      title: "Submit project document?",
+      message:
+        "Once submitted, this document will be locked for editing and CRAF'd will be notified to begin their review.",
+      confirmLabel: "Submit",
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!ok) return;
+
+    setSubmitLoading(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/prodoc-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: selectedDoc.project_id }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        setSubmitError(data.error ?? "Failed to submit project document.");
+      } else {
+        setDocs((prev) =>
+          prev.map((d) => (d.id === selectedDoc.id ? { ...d, status: "Under Review" } : d))
+        );
+        await confirm({
+          acknowledgement: true,
+          title: "Project document submitted",
+          message:
+            "Your project document is now locked for editing. Please email crafd@un.org to let CRAF'd know it's ready for review.",
+          confirmLabel: "OK",
+        });
+      }
+    } catch {
+      setSubmitError("Failed to submit project document. Please try again.");
+    } finally {
+      setSubmitLoading(false);
+    }
   }
 
   // Change the prodoc status from the top bar (admin only). Optimistic; readOnly
@@ -822,6 +894,25 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <AutosaveIndicator state={editorSaveState} idleAsSaved />
           )}
 
+          {isPartner && selectedDoc?.status === "Open" && selectedProdocId && (
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <Button
+                size="sm"
+                className="h-9"
+                onClick={handleSubmit}
+                disabled={submitLoading || submitBlockers.length > 0}
+              >
+                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                Submit
+              </Button>
+              {(submitBlockers.length > 0 || submitError) && (
+                <p className="text-xs text-amber-700 max-w-[240px] text-right leading-snug">
+                  {submitError ?? submitBlockers.join(" ")}
+                </p>
+              )}
+            </div>
+          )}
+
           {selectedProdocId && (
             <Button
               variant="outline"
@@ -1058,7 +1149,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "general" ? (
-          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} /> : null
+          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} onValidationChange={isPartner ? handleValidationChange : undefined} /> : null
 
         ) : selectedSection === "risk" ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>

@@ -17,6 +17,7 @@ import {
   Users,
   Contact,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportStatusStyle } from "@/lib/reports";
@@ -28,6 +29,16 @@ type ReportRow = Report;
 
 // A report augmented with the most recent partner-edit time (from /api/reports/activity).
 type ActivityReport = ReportRow & { last_activity: string };
+
+// A prodoc row as returned by /api/reports?data_type=prodoc (includes updated_at).
+interface ProdocRow {
+  id: number;
+  project_title: string;
+  project_short_name: string | null;
+  partner_short_name: string;
+  status: string;
+  updated_at: string;
+}
 
 // Admin-scoped comment awaiting CRAF'd review (partner marked it addressed).
 interface ReviewComment {
@@ -111,6 +122,7 @@ export default function AdminHomePage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentActivity, setRecentActivity] = useState<ActivityReport[]>([]);
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
+  const [underReviewProdocs, setUnderReviewProdocs] = useState<ProdocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState("Good day");
   const [mounted, setMounted] = useState(false);
@@ -120,13 +132,14 @@ export default function AdminHomePage() {
 
     async function loadStats() {
       try {
-        const [rRes, pRes, prRes, ctRes, aRes, cRes] = await Promise.all([
+        const [rRes, pRes, prRes, ctRes, aRes, cRes, pdRes] = await Promise.all([
           fetch("/api/reports?data_type=report"),
           fetch("/api/partners"),
           fetch("/api/projects"),
           fetch("/api/partner-contacts"),
           fetch("/api/reports/activity?limit=6"),
           fetch("/api/comments?scope=admin"),
+          fetch("/api/reports?data_type=prodoc"),
         ]);
         const reports: ReportRow[] = rRes.ok ? await rRes.json() : [];
         const partners: unknown[] = pRes.ok ? await pRes.json() : [];
@@ -135,6 +148,7 @@ export default function AdminHomePage() {
         const activity: ActivityReport[] = aRes.ok ? await aRes.json() : [];
         const allComments: (ReviewComment & { resolved: boolean; partner_addressed: boolean })[] =
           cRes.ok ? await cRes.json() : [];
+        const allProdocs: ProdocRow[] = pdRes.ok ? await pdRes.json() : [];
 
         const authorized = reports.filter((r) => r.authorized).length;
         const recent = [...reports]
@@ -158,6 +172,7 @@ export default function AdminHomePage() {
         });
         setRecentActivity(activity);
         setReviewComments(toReview);
+        setUnderReviewProdocs(allProdocs.filter((p) => p.status === "Under Review"));
       } catch {
         // silently fail
       } finally {
@@ -243,8 +258,8 @@ export default function AdminHomePage() {
           </div>
         </div>
 
-        {/* Two columns: recent partner activity (left) · comments to review (right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Two or three columns: recent activity · submitted prodocs · comments to review */}
+        <div className={`grid grid-cols-1 ${underReviewProdocs.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"} gap-6`}>
 
           {/* ── Left: reports by most recent partner edit ── */}
           <div>
@@ -301,6 +316,40 @@ export default function AdminHomePage() {
               </div>
             )}
           </div>
+
+          {/* ── Middle: project documents submitted by partners (Under Review) ── */}
+          {underReviewProdocs.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <FileText className="size-4 text-muted-foreground" />
+                  Submitted ProDocs
+                </h2>
+              </div>
+              <div className="rounded-xl border bg-card divide-y overflow-hidden">
+                {underReviewProdocs.map((p) => {
+                  const slug = (p.project_short_name ?? p.project_title).toLowerCase().replace(/\s+/g, "-");
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => router.push(`/admin/prodoc-editor/${slug}/general`)}
+                      className="group w-full px-5 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{p.project_title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {shortName(p.partner_short_name)}
+                        </p>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                        {mounted ? timeAgo(p.updated_at) : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── Right: comments the partner addressed, awaiting CRAF'd review ── */}
           <div>

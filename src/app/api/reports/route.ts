@@ -112,6 +112,7 @@ export async function GET(request: Request) {
         r.authorized,
         r.status,
         r.created_at,
+        r.updated_at,
         r.data_type,
         r.report_type,
         pr.project_title,

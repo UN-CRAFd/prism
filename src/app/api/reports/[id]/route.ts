@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
+import { requireSession, requireAdmin, guardReport, forbidden } from "@/lib/authz";
 import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
@@ -54,6 +54,11 @@ export async function PUT(
     if (gate) return gate;
 
     const body = await request.json();
+
+    // Partners cannot change status — only the submit endpoint may do that.
+    if (body.status !== undefined && session.role !== "admin") {
+      return forbidden();
+    }
 
     await loadOptionOverrides(); // editable report statuses reflect admin overrides
     const validStatuses = new Set(optionValues("reportStatus"));

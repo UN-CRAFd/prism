@@ -137,6 +137,7 @@ export function GeneralInfoAdminEditor({
   onSaveStateChange,
   isAdmin = true,
   readOnly = false,
+  onValidationChange,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
@@ -145,6 +146,9 @@ export function GeneralInfoAdminEditor({
   // When the prodoc is view-only, the blue instructions box is hidden (the
   // parent shows the amber view-only bar instead).
   readOnly?: boolean;
+  // Called whenever the submission-blocking validation state changes. The
+  // parent uses this to disable the Submit button and show a reason.
+  onValidationChange?: (v: { tranchesMatch: boolean; missingFields: string[] }) => void;
 }) {
   const confirm = useConfirm();
 
@@ -398,6 +402,22 @@ export function GeneralInfoAdminEditor({
   const tranchesMatchGrant = grantSize != null && trancheTotal <= grantSize + 0.005 && trancheTotal >= grantSize - 1;
   const fmtUsd = (n: number) => formatUS(n);
 
+  const missingRequiredFields = useMemo(() => {
+    const checks: [string, string][] = [
+      [form.project_title, "Project name"],
+      [form.grant_size_usd, "Funding amount (USD)"],
+      [form.project_start_date, "Start date"],
+      [form.project_duration_months, "Duration (months)"],
+      [form.geographic_scope, "Geographic scope"],
+      [form.description, "Description"],
+    ];
+    return checks.filter(([v]) => !v.trim()).map(([, label]) => label);
+  }, [form.project_title, form.grant_size_usd, form.project_start_date, form.project_duration_months, form.geographic_scope, form.description]);
+
+  useEffect(() => {
+    onValidationChange?.({ tranchesMatch: tranchesMatchGrant, missingFields: missingRequiredFields });
+  }, [onValidationChange, tranchesMatchGrant, missingRequiredFields]);
+
   // ── Organization list CRUD (immediate) ─────────────────────────────────
   async function addOrg(type: "participating" | "implementing") {
     const name = (type === "participating" ? newParticipatingOrg : newImplementingOrg).trim();
@@ -587,7 +607,7 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.projectTitle}</label>
+          <label className="text-xs text-muted-foreground">{g.fields.projectTitle} <span className="text-destructive">*</span></label>
           <Input
             value={form.project_title}
             onChange={(e) => setField("project_title", e.target.value)}
@@ -629,7 +649,7 @@ export function GeneralInfoAdminEditor({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.grantSize}</label>
+            <label className="text-xs text-muted-foreground">{g.fields.grantSize} <span className="text-destructive">*</span></label>
             <Input
               type="text"
               inputMode="decimal"
@@ -653,7 +673,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.startDate}</label>
+            <label className="text-xs text-muted-foreground">{g.fields.startDate} <span className="text-destructive">*</span></label>
             <Input
               type="date"
               value={form.project_start_date}
@@ -663,7 +683,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
+            <label className="text-xs text-muted-foreground">{g.fields.durationMonths} <span className="text-destructive">*</span></label>
             <Input
               type="number" min="0" step="1"
               value={form.project_duration_months}
@@ -686,7 +706,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.geographicScope}</label>
+            <label className="text-xs text-muted-foreground">{g.fields.geographicScope} <span className="text-destructive">*</span></label>
             <Select
               value={form.geographic_scope || GEO_SCOPE_NONE}
               onValueChange={(v) => setField("geographic_scope", v === GEO_SCOPE_NONE ? "" : v)}
@@ -706,7 +726,7 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.description}</label>
+          <label className="text-xs text-muted-foreground">{g.fields.description} <span className="text-destructive">*</span></label>
           <RichTextEditor
             value={form.description}
             onChange={(html) => setField("description", html)}
@@ -715,6 +735,8 @@ export function GeneralInfoAdminEditor({
             maxChars={DESCRIPTION_MAX_CHARS}
           />
         </div>
+
+        <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> required</p>
 
         {/* Participating Organizations list */}
         <div className="space-y-2">

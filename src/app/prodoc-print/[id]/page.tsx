@@ -215,15 +215,33 @@ export default function ProdocPrintPage() {
       .map((n) => [n.category_name, n.description as string])
   );
 
-  // Group workplan activities by outcome
-  const outcomeGroups = Array.from(
-    data.activities.reduce((map, a) => {
-      const key = a.outcome || "—";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(a);
-      return map;
-    }, new Map<string, ProdocData["activities"]>())
-  );
+  // Group workplan activities by outcome → objective → activity
+  const outcomeGroups = (() => {
+    type ObjGroup = { num: string | null; text: string | null; activities: ProdocData["activities"] };
+    const result: { outcome: string; objectives: ObjGroup[] }[] = [];
+    const outcomeIdx = new Map<string, number>();
+    const objIdx = new Map<string, Map<string, number>>();
+    for (const a of data.activities) {
+      const outcomeKey = a.outcome || "—";
+      let oi = outcomeIdx.get(outcomeKey);
+      if (oi == null) {
+        oi = result.length;
+        outcomeIdx.set(outcomeKey, oi);
+        objIdx.set(outcomeKey, new Map());
+        result.push({ outcome: outcomeKey, objectives: [] });
+      }
+      const objKey = `${a.objective_num ?? ""}|||${a.objective_text ?? ""}`;
+      const ojMap = objIdx.get(outcomeKey)!;
+      let ji = ojMap.get(objKey);
+      if (ji == null) {
+        ji = result[oi].objectives.length;
+        ojMap.set(objKey, ji);
+        result[oi].objectives.push({ num: a.objective_num, text: a.objective_text, activities: [] });
+      }
+      result[oi].objectives[ji].activities.push(a);
+    }
+    return result;
+  })();
 
   // Workplan quarter columns — derived from the project's start → end, like the grid.
   const wpQuarters = quarterRange(
@@ -623,7 +641,7 @@ export default function ProdocPrintPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {outcomeGroups.map(([outcome, acts]) => (
+                  {outcomeGroups.map(({ outcome, objectives }) => (
                     <Fragment key={outcome}>
                       <tr>
                         <td colSpan={1 + wpQuarters.length} style={{
@@ -633,40 +651,71 @@ export default function ProdocPrintPage() {
                           {outcome}
                         </td>
                       </tr>
-                      {acts.map((a, ai) => {
-                        const planned = new Set(a.planned_quarters ?? []);
-                        return (
-                          <tr key={ai}>
-                            <td style={{ padding: "5px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "middle" }}>
-                              <div style={{ fontWeight: 600 }}>
-                                {a.activity_num ? `${a.activity_num} ` : ""}{a.activity_text || "—"}
-                              </div>
-                              {a.implementing_agent && (
-                                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 1 }}>{a.implementing_agent}</div>
-                              )}
-                            </td>
-                            {wpQuarters.map((qk) => (
-                              <td key={qk} style={{ textAlign: "center", padding: "5px 0", borderBottom: `1px solid ${LINE}` }}>
-                                <QBox on={planned.has(qk)} />
+                      {objectives.map((obj, oi) => (
+                        <Fragment key={oi}>
+                          {(obj.num || obj.text) && (
+                            <tr>
+                              <td colSpan={1 + wpQuarters.length} style={{
+                                fontWeight: 600, fontSize: 10.5, color: "#374151",
+                                background: "#f0f0ee",
+                                padding: "4px 8px 4px 20px",
+                                borderBottom: `1px solid ${LINE}`,
+                              }}>
+                                {obj.num ? `${obj.num} ` : ""}{obj.text || ""}
                               </td>
-                            ))}
-                          </tr>
-                        );
-                      })}
+                            </tr>
+                          )}
+                          {obj.activities.map((a, ai) => {
+                            const planned = new Set(a.planned_quarters ?? []);
+                            return (
+                              <tr key={ai}>
+                                <td style={{ padding: "5px 8px 5px 32px", borderBottom: `1px solid ${LINE}`, verticalAlign: "middle" }}>
+                                  <div style={{ fontWeight: 600 }}>
+                                    {a.activity_num ? `${a.activity_num} ` : ""}{a.activity_text || "—"}
+                                  </div>
+                                  {a.implementing_agent && (
+                                    <div style={{ fontSize: 9.5, color: MUTED, marginTop: 1 }}>
+                                      {a.implementing_agent.replace(/ \| /g, ", ")}
+                                    </div>
+                                  )}
+                                </td>
+                                {wpQuarters.map((qk) => (
+                                  <td key={qk} style={{ textAlign: "center", padding: "5px 0", borderBottom: `1px solid ${LINE}` }}>
+                                    <QBox on={planned.has(qk)} />
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
+                      ))}
                     </Fragment>
                   ))}
                 </tbody>
               </table>
             ) : (
               // No project dates — fall back to a simple activity list.
-              outcomeGroups.map(([outcome, acts]) => (
+              outcomeGroups.map(({ outcome, objectives }) => (
                 <div key={outcome} data-block style={{ marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5, color: "#374151" }}>{outcome}</div>
-                  <Table
-                    head={["#", "Activity", "Implementing agent"]}
-                    widths={["8%", "62%", "30%"]}
-                    rows={acts.map((a) => [a.activity_num || "—", a.activity_text || "—", a.implementing_agent || "—"])}
-                  />
+                  {objectives.map((obj, oi) => (
+                    <div key={oi} style={{ marginBottom: 6 }}>
+                      {(obj.num || obj.text) && (
+                        <div style={{ fontWeight: 600, fontSize: 11.5, color: "#374151", padding: "3px 0 3px 12px", marginBottom: 3 }}>
+                          {obj.num ? `${obj.num} ` : ""}{obj.text || ""}
+                        </div>
+                      )}
+                      <Table
+                        head={["#", "Activity", "Implementing agent"]}
+                        widths={["8%", "62%", "30%"]}
+                        rows={obj.activities.map((a) => [
+                          a.activity_num || "—",
+                          a.activity_text || "—",
+                          a.implementing_agent ? a.implementing_agent.replace(/ \| /g, ", ") : "—",
+                        ])}
+                      />
+                    </div>
+                  ))}
                 </div>
               ))
             )}

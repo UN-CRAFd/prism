@@ -36,6 +36,7 @@ interface ReviewComment {
   body: string;
   year: number;
   report_type: "annual" | "final" | null;
+  data_type: "report" | "prodoc";
   project_title: string;
   project_short_name: string | null;
   partner_short_name: string | null;
@@ -333,7 +334,11 @@ export default function AdminHomePage() {
                   return (
                     <button
                       key={c.id}
-                      onClick={() => router.push(`/admin/report-editor/${slug}/${c.year}/${c.section}`)}
+                      onClick={() => router.push(
+                        c.data_type === "prodoc"
+                          ? `/admin/prodoc-editor/${slug}/${c.section}`
+                          : `/admin/report-editor/${slug}/${c.year}/${c.section}`
+                      )}
                       className="group w-full px-5 py-3.5 flex items-start gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
                     >
                       <MessageSquare className="size-4 mt-0.5 shrink-0 text-amber-500" />
@@ -346,6 +351,7 @@ export default function AdminHomePage() {
                           project={c.project_short_name ?? c.project_title}
                           section={c.section}
                           itemLabel={c.item_label}
+                          dataType={c.data_type}
                           className="!gap-1 mt-1.5"
                         />
                       </div>

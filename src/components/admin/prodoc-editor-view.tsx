@@ -987,13 +987,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             see and confirm it. `item_id` null anchors it to the whole section. Kept
             OUTSIDE the read-only fieldset below so admins can still comment on an
             Under Review document and partners can still confirm on a locked one.
-            (Partners see nothing here until a comment exists — ItemComments self-hides.)
-            The risk/indicators tables, the narratives cards and the workplan
-            activities instead carry per-item comments on each row, mirroring the
-            report editor, so they're excluded here. Budgets carry their per-cell
-            year × category notes instead, so the section thread is excluded too. */}
-        {selectedProdocId && !sectionLoading &&
-          !["risk", "indicators", "narratives", "workplan", "expenditure"].includes(selectedSection) && (
+            (Partners see nothing here until a comment exists — ItemComments self-hides.) */}
+        {selectedProdocId && !sectionLoading && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
             {!isPartner && <span>Comment on this section:</span>}
             <ItemComments section={selectedSection} itemId={null} />
@@ -1147,7 +1142,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                       </div>
                                     )}
                                   </div>
-                                  <ItemComments section="risk" itemId={risk.id} />
                                 </div>
                               </td>
                               <td className="px-4 py-3 align-top">
@@ -1269,7 +1263,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                         {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
                                       </div>
                                     </div>
-                                    <ItemComments section="indicators" itemId={line.id} />
                                   </div>
                                 )}
                               </td>

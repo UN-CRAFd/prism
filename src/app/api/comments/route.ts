@@ -135,10 +135,14 @@ export async function GET(req: NextRequest) {
 
     if (reportId) {
       const rows = await query(
-        `SELECT id, report_id, section, item_id, body, resolved, partner_addressed, author, created_at
-           FROM reporting_platform.item_comments
-          WHERE report_id = $1
-          ORDER BY created_at ASC`,
+        `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.author, c.created_at,
+                pt.short_name AS partner_short_name
+           FROM reporting_platform.item_comments c
+           JOIN reporting_platform.reports  r  ON r.id  = c.report_id
+           JOIN reporting_platform.projects p  ON p.id  = r.project_id
+           JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+          WHERE c.report_id = $1
+          ORDER BY c.created_at ASC`,
         [reportId]
       );
       return NextResponse.json(rows);

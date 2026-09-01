@@ -368,7 +368,7 @@ export default function PartnerHomePage() {
                                 </Button>
                               ) : (
                                 <Button size="sm" className="h-6 px-2 gap-1 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); toggleAddressed(c.id, true); }}>
-                                  <Check className="size-3" /> Confirm
+                                  <Check className="size-3" /> Resolve
                                 </Button>
                               )}
                             </div>

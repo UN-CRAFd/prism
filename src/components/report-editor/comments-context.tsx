@@ -17,6 +17,7 @@ export interface ItemComment {
   partner_addressed: boolean;
   author: string | null;
   created_at: string;
+  partner_short_name?: string | null;
 }
 
 interface CommentsContextValue {
@@ -137,18 +138,9 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   // The popover is rendered in a portal (see below) so the table's overflow-x-auto
   // wrapper can't clip it; this tracks where to anchor it to the trigger button.
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
-  // Partners open the popover on hover; a short grace delay lets the pointer
-  // travel from the trigger to the (portaled) panel without it closing.
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const openNow = useCallback(() => {
-    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
-    setOpen(true);
-  }, []);
-  const scheduleClose = useCallback(() => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 150);
-  }, []);
-  const hoverProps = readOnly ? { onMouseEnter: openNow, onMouseLeave: scheduleClose } : {};
+  // Both admins and partners open/close the popover with a click. Dismiss via
+  // clicking the trigger again, clicking outside the panel, or pressing Escape.
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const POPOVER_WIDTH = 320; // w-80
 
@@ -156,10 +148,15 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
     const el = btnRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    // Anchor the panel's right edge to the button's right edge, opening downward,
-    // clamped so it never spills off the left of the viewport.
-    const right = Math.max(8, window.innerWidth - r.right);
-    setPos({ top: r.bottom + 4, right });
+    const margin = 8;
+    const panelHeight = panelRef.current?.offsetHeight ?? 0;
+    // Anchor below the button, then clamp so the panel stays within the viewport
+    // even when the trigger scrolls off-screen.
+    const preferred = r.bottom + 4;
+    const maxTop = window.innerHeight - panelHeight - margin;
+    const top = Math.min(Math.max(preferred, margin), Math.max(maxTop, margin));
+    const right = Math.max(margin, window.innerWidth - r.right);
+    setPos({ top, right });
   }, []);
 
   useLayoutEffect(() => {
@@ -173,6 +170,26 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
       window.removeEventListener("resize", reposition);
     };
   }, [open, reposition]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e: MouseEvent) {
+      if (
+        panelRef.current?.contains(e.target as Node) ||
+        btnRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
 
   if (!enabled) return null;
 
@@ -192,7 +209,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   }
 
   return (
-    <span className="relative inline-flex align-middle" {...hoverProps}>
+    <span className="relative inline-flex align-middle">
       <button
         ref={btnRef}
         type="button"
@@ -213,13 +230,10 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
 
       {open && pos && typeof document !== "undefined" && createPortal(
         <>
-          {/* Admin dismisses by clicking outside; partners open on hover so the
-              backdrop would only get in the way. */}
-          {!readOnly && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
           <div
+            ref={panelRef}
             className="fixed z-50 w-80 rounded-lg border bg-popover shadow-lg text-popover-foreground"
             style={{ top: pos.top, right: pos.right, width: POPOVER_WIDTH }}
-            {...hoverProps}
           >
             <div className="max-h-64 overflow-y-auto p-3 space-y-2">
               {list.length === 0 ? (
@@ -229,7 +243,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                   <div key={c.id} className={cn("rounded-md border px-2.5 py-2 text-xs", c.resolved ? "bg-muted/40 opacity-70" : "bg-card")}>
                     <p className={cn("whitespace-pre-wrap break-words", c.resolved && "line-through")}>{c.body}</p>
                     <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>{formatDate(c.created_at)}{c.resolved && " · resolved"}{readOnly && c.partner_addressed && " · confirmed"}</span>
+                      <span>{formatDate(c.created_at)}{c.resolved && " · resolved by CRAF’d"}{c.partner_addressed && ` · resolved by ${c.partner_short_name ?? "partner"}`}</span>
                       {!readOnly ? (
                         <span className="flex items-center gap-1.5">
                           <button
@@ -250,7 +264,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                         </Button>
                       ) : (
                         <Button size="sm" className="h-5 px-1.5 gap-1 text-[10px]" onClick={() => setAddressed(c.id, true)}>
-                          <Check className="size-3" /> Confirm
+                          <Check className="size-3" /> Resolve
                         </Button>
                       )}
                     </div>

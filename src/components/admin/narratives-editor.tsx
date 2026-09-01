@@ -5,7 +5,6 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
-import { ItemComments } from "@/components/report-editor/comments-context";
 import labels from "@/lib/labels";
 import { narrativeLimit } from "@/lib/limits";
 import { richTextLength } from "@/lib/richtext";
@@ -166,14 +165,9 @@ export function NarrativesAdminEditor({
               <label className="text-sm font-medium leading-snug flex-1">
                 {q.label}
               </label>
-              {/* Per-narrative admin↔partner comment thread, keyed on the prodoc
-                  report + this narrative row (reuses the report editor's comment
-                  infra — no new backend). */}
-              <ItemComments section="narratives" itemId={q.id} />
             </div>
 
-            {/* Narrative answer (internal comments now live in the speech-bubble
-                thread above, via ItemComments). */}
+            {/* Narrative answer */}
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground whitespace-pre-line max-w-5xl">{q.description || labels.narratives.answerLabel}</p>
               <RichTextEditor

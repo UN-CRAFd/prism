@@ -454,6 +454,18 @@ export default function ProjectsPage() {
   // Set the prodoc's editable status (Open / Under Review / Closed) — same
   // status model as reports. Optimistic; persisted via PUT /api/reports/:id.
   async function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
+    const labels: Record<string, string> = {
+      "Open": "Open project?",
+      "Under Review": "Move project to Under Review?",
+      "Closed": "Close project?",
+    };
+    const ok = await confirm({
+      message: labels[status] ?? `Change status to ${status}?`,
+      variant: "question",
+      confirmLabel: "Yes",
+      cancelLabel: "No",
+    });
+    if (!ok) return;
     setProdocByProject((prev) => ({ ...prev, [projectId]: { ...prev[projectId], id: prodocId, status } }));
     await fetch(`/api/reports/${prodocId}`, {
       method: "PUT",

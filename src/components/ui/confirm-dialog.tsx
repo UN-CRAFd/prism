@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, HelpCircle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
@@ -13,7 +13,7 @@ export interface ConfirmOptions {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "destructive" | "default";
+  variant?: "destructive" | "default" | "question";
   // Single-button acknowledgement mode: hides cancel, backdrop click confirms.
   acknowledgement?: boolean;
 }
@@ -130,6 +130,8 @@ function ConfirmDialogUI({
                 <CheckCircle2 className="size-4" />
               ) : variant === "destructive" ? (
                 <Trash2 className="size-4" />
+              ) : variant === "question" ? (
+                <HelpCircle className="size-4" />
               ) : (
                 <AlertTriangle className="size-4" />
               )}

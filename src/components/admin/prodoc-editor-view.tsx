@@ -616,6 +616,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // recomputes from the updated local state immediately.
   async function handleStatusChange(newStatus: string) {
     if (!selectedDoc) return;
+        const labels: Record<string, string> = {
+      "Open": "Open project?",
+      "Under Review": "Move project to Under Review?",
+      "Closed": "Close project?",
+    };
+    const ok = await confirm({
+      message: labels[newStatus] ?? `Change status to ${newStatus}?`,
+      variant: "question",
+      confirmLabel: "Yes",
+      cancelLabel: "No",
+    });
+    if (!ok) return;
     const id = selectedDoc.id;
     setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
     await fetch(`/api/reports/${id}`, {

@@ -121,7 +121,7 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
   // editor keeps "Expenditure"); it sits before the workplan tab here.
   { value: "expenditure", label: "Budgets" },
   { value: "workplan", get label() { return labels.sections.workplan; } },
-  { value: "signatures", get label() { return labels.sections.signatures; } },
+  { value: "signatures", get label() { return labels.sections.signatures; }, adminOnly: true },
   { value: "documents", get label() { return labels.sections.documents; } },
 ];
 
@@ -1442,8 +1442,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         ) : selectedSection === "sdg" ? (
           selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null
 
-        ) : selectedSection === "signatures" ? (
-          selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} readOnly={readOnly} /> : null
+        ) : selectedSection === "signatures" && !isPartner ? (
+          selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null
 
         ) : selectedSection === "documents" ? (
           selectedDoc ? <DocumentsEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null

@@ -839,6 +839,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       reportId={selectedProdocId ? Number(selectedProdocId) : null}
       enabled={!!selectedProdocId}
       readOnly={isPartner}
+      role={isPartner ? "partner" : "admin"}
     >
     <div className="flex flex-col h-full">
 

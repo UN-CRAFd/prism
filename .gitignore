@@ -40,3 +40,4 @@ count-tranches.cjs
 narratives.cjs
 check-columns.cjs
 check-authors.cjs
+scripts/inspect-comments.mjs

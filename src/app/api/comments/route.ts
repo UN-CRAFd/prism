@@ -143,7 +143,8 @@ export async function GET(req: NextRequest) {
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.author, c.created_at,
                 c.parent_id, c.author_role,
-                pt.short_name AS partner_short_name
+                pt.short_name AS partner_short_name,
+                pt.long_name  AS partner_long_name
            FROM reporting_platform.item_comments c
            JOIN reporting_platform.reports  r  ON r.id  = c.report_id
            JOIN reporting_platform.projects p  ON p.id  = r.project_id
@@ -203,6 +204,10 @@ export async function POST(req: NextRequest) {
   const gate = await guardReport(session, reportId);
   if (gate) return gate;
 
+  if (session.role !== "admin" && parentId == null) {
+    return NextResponse.json({ error: "Partners may only reply to existing comments" }, { status: 403 });
+  }
+
   // Replies are capped at one level, and a reply must belong to the same report
   // as its parent — otherwise a caller could attach a reply to a comment on a
   // report they cannot see, and it would surface there.
@@ -260,10 +265,14 @@ export async function PATCH(req: NextRequest) {
   // reach — not that this session wrote it. Partners share one login per
   // organization, so "own" here means "written by this partner org", which is the
   // finest distinction the data supports.
-  //   body            — a partner may edit only partner-authored comments
-    //   resolved        — CRAF'd-side tick; currently unrestricted (flagged for Niroj)
-  //   partner_addressed — partner-side tick, set on CRAF'd's comments; unrestricted
+  //   body              — a partner may edit only partner-authored comments
+  //   resolved          — admin-only archive flag; partners may not set it
+  //   partner_addressed — partner-side acknowledgement tick; unrestricted
   if (session.role !== "admin") {
+    if (typeof body.resolved === "boolean") {
+      return NextResponse.json({ error: "Only admins can archive comments" }, { status: 403 });
+    }
+
     const target = await query(
       `SELECT author_role FROM reporting_platform.item_comments WHERE id = $1`,
       [id]

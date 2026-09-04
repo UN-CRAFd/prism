@@ -884,7 +884,7 @@ export function ReportEditor({
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
 
   return (
-    <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"}>
+    <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"} role={mode === "admin" ? "admin" : "partner"}>
     <div className="flex flex-col h-full bg-background">
 
       {/* Top bar */}

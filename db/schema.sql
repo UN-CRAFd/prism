@@ -90,13 +90,13 @@ CREATE TRIGGER partners_updated_at
     BEFORE UPDATE ON partners
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
--- ── Partner contacts (people at a partner org: name, role, email) ────────────
+-- ── Partner contacts (people at a partner org: name, job title, email) ───────
 CREATE TABLE IF NOT EXISTS partner_contacts (
     id         SERIAL       PRIMARY KEY,
     partner_id INTEGER      NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
     name         VARCHAR(255) NOT NULL,
     organization VARCHAR(200),
-    role         VARCHAR(100),
+    job_title    TEXT,
     email        TEXT,
     sort_order INTEGER      NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -151,14 +151,15 @@ CREATE TABLE IF NOT EXISTS project_editors (
 CREATE INDEX IF NOT EXISTS project_editors_partner_idx ON project_editors(partner_id);
 
 -- ── Project contacts ─────────────────────────────────────────────────────────
--- Links a project to its partner-org contacts (applicants + project contacts),
--- with the nature of the relationship and an applicant flag. One row per pair.
+-- Links a project to its partner-org contacts, with one or more pipe-delimited
+-- roles. Valid values: Primary focal point | Alternate focal point | Signatory
+-- | Applicant. Applicant replaces the former is_applicant boolean. One row per
+-- pair.
 CREATE TABLE IF NOT EXISTS project_contacts (
     id           SERIAL       PRIMARY KEY,
     project_id   INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     contact_id   INTEGER      NOT NULL REFERENCES partner_contacts(id) ON DELETE CASCADE,
-    relationship TEXT,
-    is_applicant BOOLEAN      NOT NULL DEFAULT FALSE,
+    roles        TEXT,
     sort_order   INTEGER      NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

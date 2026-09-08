@@ -3,12 +3,13 @@ import { query } from "@/lib/db";
 import { zipSync, strToU8 } from "fflate";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { toPlainText } from "@/lib/richtext";
 
 // ── CSV helpers ────────────────────────────────────────────────────────────
 
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
-  const s = Array.isArray(v) ? v.join(", ") : String(v);
+  const s = Array.isArray(v) ? v.join(", ") : toPlainText(String(v));
   if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
@@ -376,12 +377,18 @@ const PRODOC_EXPORTS: Record<string, SectionExport> = {
 
 // ── Query building ───────────────────────────────────────────────────────────
 
-// Fill the SQL placeholders and return [sql, params]. %DATA_TYPES% → $1;
-// %PROJECT_FILTER% → "AND p.id = ANY($2)" (or "" when no projects were chosen).
-// Both are parameterized — no interpolation of user values into the SQL text.
+// Fill the SQL placeholders and return [sql, params]. %DATA_TYPES% → $1 (only
+// pushed when the placeholder is present); %PROJECT_FILTER% → "AND p.id =
+// ANY($N)" (or "" when no projects were chosen), where N is 1 or 2 depending
+// on whether dataTypes was pushed. Both are parameterized — no interpolation
+// of user values into the SQL text.
 function buildQuery(rawSql: string, dataTypes: string[], projectIds: number[]): [string, unknown[]] {
-  const params: unknown[] = [dataTypes];
-  let sql = rawSql.replace(/%DATA_TYPES%/g, `$${params.length}::text[]`);
+  const params: unknown[] = [];
+  let sql = rawSql;
+  if (rawSql.includes("%DATA_TYPES%")) {
+    params.push(dataTypes);
+    sql = sql.replace(/%DATA_TYPES%/g, `$${params.length}::text[]`);
+  }
 
   let projectClause = "";
   if (projectIds.length > 0) {

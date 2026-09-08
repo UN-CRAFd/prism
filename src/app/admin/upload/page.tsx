@@ -49,10 +49,8 @@ const REPORT_DOWNLOAD_SECTIONS = [
 // meaningful when the export includes prodocs.
 const PRODOC_DOWNLOAD_SECTIONS = [
   { value: "prodoc_narratives",  label: "Narratives" },
-  { value: "prodoc_sdg_targets", label: "SDG Targets" },
   { value: "prodoc_workplan",    label: "Baseline Workplan" },
   { value: "prodoc_budgets",     label: "Baseline Budgets" },
-  { value: "prodoc_signatures",  label: "Signatures" },
 ];
 
 type ExportType = "report" | "prodoc" | "both";

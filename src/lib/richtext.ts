@@ -56,6 +56,27 @@ export function toDisplayHtml(value: string | null | undefined): string {
     .join("");
 }
 
+/**
+ * Convert a stored rich-text value to plain text, safe for CSV or plain
+ * display. Works server-side (no document/window required).
+ */
+export function toPlainText(value: string | null | undefined): string {
+  if (!value) return "";
+  if (!looksLikeHtml(value)) return value;
+  const text = value
+    .replace(/<\/(p|div|li)>|<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text;
+}
+
 /** Plain-text length of a rich value, for character counters. */
 export function richTextLength(value: string | null | undefined): number {
   if (!value) return 0;

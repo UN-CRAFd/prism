@@ -24,7 +24,7 @@ interface PartnerContact {
   partner_id: number;
   name: string;
   organization: string | null;
-  role: string | null;
+  job_title: string | null;
   email: string | null;
 }
 
@@ -43,7 +43,7 @@ export default function PartnerContactsPage() {
 
   const [name, setName] = useState("");
   const [organization, setOrganization] = useState("");
-  const [role, setRole] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [email, setEmail] = useState("");
 
   const load = useCallback(async () => {
@@ -79,14 +79,14 @@ export default function PartnerContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setName(""); setOrganization(""); setRole(""); setEmail("");
+    setName(""); setOrganization(""); setJobTitle(""); setEmail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
   function startEdit(c: PartnerContact) {
     setName(c.name);
     setOrganization(c.organization || "");
-    setRole(c.role || "");
+    setJobTitle(c.job_title || "");
     setEmail(c.email || "");
     setEditId(c.id); setShowForm(true); setFormError(null);
   }
@@ -99,8 +99,8 @@ export default function PartnerContactsPage() {
     setSaving(true); setFormError(null);
     try {
       const body = editId
-        ? { id: editId, name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null }
-        : { partner_id: partnerId, name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null };
+        ? { id: editId, name: name.trim(), organization: organization.trim(), job_title: jobTitle.trim() || null, email: email.trim() || null }
+        : { partner_id: partnerId, name: name.trim(), organization: organization.trim(), job_title: jobTitle.trim() || null, email: email.trim() || null };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,8 +151,8 @@ export default function PartnerContactsPage() {
               <Field label="Organisation" required>
                 <Input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="e.g. UN OCHA" />
               </Field>
-              <Field label="Role">
-                <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />
+              <Field label="Job title">
+                <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="e.g. Project Lead" />
               </Field>
               <Field label="Email" required>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
@@ -175,7 +175,7 @@ export default function PartnerContactsPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{c.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[c.organization, c.role].filter(Boolean).join(" · ") || "—"}
+                    {[c.organization, c.job_title].filter(Boolean).join(" · ") || "—"}
                     {c.email ? ` · ${c.email}` : ""}
                   </p>
                 </div>

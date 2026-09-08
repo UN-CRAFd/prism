@@ -7,12 +7,13 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { Loader2, Users, ShieldCheck, Trash2 } from "lucide-react";
 import labels from "@/lib/labels";
+import { ROLE_SIGNATORY } from "@/lib/contact-roles";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
 // Admin-only tab for managing the signatory template on the project document.
 // Standalone signatories (prodoc_signatories) are added, edited, and removed
 // here; they appear with a blank signature line in the exported prodoc.
-// Contact-derived signatories (relationship = "Signatory") and the CRAF'd
+// Contact-derived signatories (Signatory in their roles) and the CRAF'd
 // Secretariat row are listed for reference. Signing happens off-platform on
 // the printed document — there are no sign controls in the app.
 
@@ -22,10 +23,9 @@ interface ProjectContact {
   id: number;         // project_contacts link id
   contact_id: number; // partner_contacts id
   partner_id: number; // owning partner (partner_contacts.partner_id)
-  relationship: string | null;
-  is_applicant: boolean;
+  roles: string | null;
   name: string;
-  role: string | null;
+  job_title: string | null;
   email: string | null;
 }
 
@@ -135,7 +135,7 @@ export function SignaturesEditor({
     );
   }
 
-  const contactSignatories = contacts.filter((c) => c.relationship === "Signatory");
+  const contactSignatories = contacts.filter((c) => c.roles?.split("|").includes(ROLE_SIGNATORY));
   const hasAny = contactSignatories.length > 0 || standalones.length > 0;
 
   return (
@@ -172,7 +172,7 @@ export function SignaturesEditor({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{c.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[c.role, c.relationship].filter(Boolean).join(" · ")}
+                    {[c.job_title, c.roles?.split("|").join(", ")].filter(Boolean).join(" · ")}
                     {" · "}
                     <span className="italic">{s.viaContacts}</span>
                   </p>

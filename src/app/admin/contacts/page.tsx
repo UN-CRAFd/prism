@@ -13,6 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Plus, Contact, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
@@ -21,10 +22,9 @@ import {
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
-import { optionValues } from "@/lib/options";
+import { CONTACT_ROLES } from "@/lib/contact-roles";
 
 const NONE = "none";
-const RELATIONSHIP_NONE = "__none__";
 const g = labels.generalInfo;
 
 interface Partner {
@@ -44,8 +44,7 @@ interface ProjectLink {
   id: number;
   project_id: number;
   contact_id: number;
-  relationship: string | null;
-  is_applicant: boolean;
+  roles: string | null;
   project_title: string;
   project_short_name: string | null;
 }
@@ -55,7 +54,7 @@ interface PartnerContact {
   partner_id: number;
   name: string;
   organization: string | null;
-  role: string | null;
+  job_title: string | null;
   email: string | null;
   partner_short_name: string | null;
   partner_long_name: string | null;
@@ -88,7 +87,7 @@ export default function ContactsPage() {
   const [partnerId, setPartnerId] = useState("");
   const [name, setName] = useState("");
   const [organization, setOrganization] = useState("");
-  const [role, setRole] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [email, setEmail] = useState("");
 
   const load = useCallback(async () => {
@@ -116,7 +115,7 @@ export default function ContactsPage() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setPartnerId(""); setName(""); setOrganization(""); setRole(""); setEmail("");
+    setPartnerId(""); setName(""); setOrganization(""); setJobTitle(""); setEmail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -124,7 +123,7 @@ export default function ContactsPage() {
     setPartnerId(String(c.partner_id));
     setName(c.name);
     setOrganization(c.organization || "");
-    setRole(c.role || "");
+    setJobTitle(c.job_title || "");
     setEmail(c.email || "");
     setEditId(c.id); setShowForm(true); setFormError(null);
   }
@@ -137,8 +136,8 @@ export default function ContactsPage() {
     setSaving(true); setFormError(null);
     try {
       const body = editId
-        ? { id: editId, name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null }
-        : { partner_id: Number(partnerId), name: name.trim(), organization: organization.trim(), role: role.trim() || null, email: email.trim() || null };
+        ? { id: editId, name: name.trim(), organization: organization.trim(), job_title: jobTitle.trim() || null, email: email.trim() || null }
+        : { partner_id: Number(partnerId), name: name.trim(), organization: organization.trim(), job_title: jobTitle.trim() || null, email: email.trim() || null };
       const res = await fetch("/api/partner-contacts", {
         method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,7 +174,7 @@ export default function ContactsPage() {
     finally { setAddingLink(false); }
   }
 
-  async function patchProjectLink(id: number, patch: Partial<Pick<ProjectLink, "relationship" | "is_applicant">>) {
+  async function patchProjectLink(id: number, patch: Partial<Pick<ProjectLink, "roles">>) {
     setLinks((prev) => prev.map((l) => l.id === id ? { ...l, ...patch } : l));
     const res = await fetch("/api/project-contacts", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -199,12 +198,12 @@ export default function ContactsPage() {
     .filter((p) => !editLinks.some((l) => l.project_id === p.id))
     .map((p) => ({ id: p.id, label: p.short_name || p.project_title }));
 
-  // Search across name / role / email / partner name.
+  // Search across name / job_title / email / partner name.
   const filteredContacts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return contacts;
     return contacts.filter((c) =>
-      [c.name, c.organization, c.role, c.email, c.partner_short_name, c.partner_long_name]
+      [c.name, c.organization, c.job_title, c.email, c.partner_short_name, c.partner_long_name]
         .some((v) => v?.toLowerCase().includes(q))
     );
   }, [contacts, search]);
@@ -231,7 +230,7 @@ export default function ContactsPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, organisation, role, email, or partner…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, organisation, job title, email, or partner…" />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">
@@ -266,8 +265,8 @@ export default function ContactsPage() {
               <Field label="Organisation" required>
                 <Input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="e.g. UN OCHA" />
               </Field>
-              <Field label="Role">
-                <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Project Lead" />
+              <Field label="Job title">
+                <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="e.g. Project Lead" />
               </Field>
               <Field label="Email" required>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" type="email" />
@@ -293,8 +292,7 @@ export default function ContactsPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Project</TableHead>
-                          <TableHead className="w-56">{g.columns.relationship}</TableHead>
-                          <TableHead className="w-28 text-center">{g.columns.applicant}</TableHead>
+                          <TableHead className="w-72">{g.columns.roles}</TableHead>
                           <TableHead className="w-12" />
                         </TableRow>
                       </TableHeader>
@@ -303,26 +301,13 @@ export default function ContactsPage() {
                           <TableRow key={l.id}>
                             <TableCell className="font-medium">{l.project_short_name || l.project_title}</TableCell>
                             <TableCell>
-                              <Select
-                                value={l.relationship ?? RELATIONSHIP_NONE}
-                                onValueChange={(v) => patchProjectLink(l.id, { relationship: v === RELATIONSHIP_NONE ? null : v })}
-                              >
-                                <SelectTrigger className="w-full h-8 text-sm"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
-                                  {optionValues("projectRole").map((r) => (
-                                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <input
-                                type="checkbox"
-                                checked={l.is_applicant}
-                                onChange={(e) => patchProjectLink(l.id, { is_applicant: e.target.checked })}
-                                className="size-4 accent-foreground cursor-pointer"
-                                aria-label={g.applicantLabel}
+                              <MultiSelect
+                                staticItems={CONTACT_ROLES}
+                                value={l.roles?.split("|").filter(Boolean) ?? []}
+                                onChange={(v) => patchProjectLink(l.id, { roles: v.length ? v.join("|") : null })}
+                                placeholder="No roles"
+                                triggerDisplay="text"
+                                className="h-8 text-sm"
                               />
                             </TableCell>
                             <TableCell className="text-right">
@@ -366,7 +351,7 @@ export default function ContactsPage() {
                 <TableRow>
                   <TableHead className="w-[20%]">Name</TableHead>
                   <TableHead className="w-[18%]">Organisation</TableHead>
-                  <TableHead className="w-[14%]">Role</TableHead>
+                  <TableHead className="w-[14%]">Job title</TableHead>
                   <TableHead className="w-[20%]">Email</TableHead>
                   <TableHead>Projects</TableHead>
                   <TableHead className="w-20" />
@@ -396,7 +381,7 @@ export default function ContactsPage() {
                         <TableRow key={c.id}>
                           <TableCell className="font-medium">{c.name}</TableCell>
                           <TableCell className="text-muted-foreground text-xs">{c.organization || <Dash />}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{c.role || <Dash />}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{c.job_title || <Dash />}</TableCell>
                           <TableCell className="text-muted-foreground text-xs break-all">
                             {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : <Dash />}
                           </TableCell>
@@ -407,9 +392,8 @@ export default function ContactsPage() {
                               return (
                                 <div className="flex flex-wrap gap-1">
                                   {cl.map((l) => (
-                                    <Badge key={l.id} variant="outline" className="text-xs font-normal" title={l.relationship ?? undefined}>
+                                    <Badge key={l.id} variant="outline" className="text-xs font-normal" title={l.roles ?? undefined}>
                                       {l.project_short_name || l.project_title}
-                                      {l.is_applicant && <span className="ml-1 text-blue-600">•</span>}
                                     </Badge>
                                   ))}
                                 </div>

@@ -10,28 +10,34 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { optionItems } from "@/lib/options";
 
-// A compact multi-select backed by a string[] value. Options come from the
-// admin-editable dropdown registry (@/lib/options) via `optionKey`, so the choices
-// stay in sync with Settings. Selected values render as removable chips in the
-// trigger; the dropdown lists every option with a checkbox. Values not present in
-// the current option list (e.g. legacy free-text entries) are still shown as chips
-// so nothing is silently dropped.
+// A compact multi-select backed by a string[] value. Pass either `optionKey`
+// (reads from the admin-editable dropdown registry) or `staticItems` (a fixed
+// string list, e.g. a schema-defined constant). Selected values render as
+// removable chips in the trigger by default. Pass `triggerDisplay="text"` to
+// instead show a single truncated comma-separated line (fixed height, suitable
+// for table cells). Values not in the current list are still shown.
 export function MultiSelect({
   optionKey,
+  staticItems,
   value,
   onChange,
   placeholder = "Select…",
   className,
   disabled,
+  triggerDisplay = "chips",
 }: {
-  optionKey: string;
+  optionKey?: string;
+  staticItems?: readonly string[];
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  triggerDisplay?: "chips" | "text";
 }) {
-  const items = optionItems(optionKey);
+  const items = staticItems
+    ? staticItems.map((s) => ({ value: s, label: s }))
+    : optionItems(optionKey!);
   // Preserve any selected value that is no longer (or never was) in the option
   // list, so legacy data remains visible and editable.
   const extraSelected = value.filter((v) => !items.some((it) => it.value === v));
@@ -48,37 +54,46 @@ export function MultiSelect({
       <DropdownMenuTrigger
         disabled={disabled}
         className={cn(
-          "flex min-h-9 w-full items-center gap-1 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+          "flex w-full items-center gap-1 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+          triggerDisplay === "text" ? "h-9 py-0" : "min-h-9 py-1",
           className
         )}
       >
-        <div className="flex flex-1 flex-wrap items-center gap-1">
-          {value.length === 0 ? (
-            <span className="text-muted-foreground px-1">{placeholder}</span>
-          ) : (
-            value.map((v) => {
-              const label = items.find((it) => it.value === v)?.label ?? v;
-              return (
-                <span
-                  key={v}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-                >
-                  {label}
+        {triggerDisplay === "text" ? (
+          <span className={cn("flex-1 min-w-0 truncate text-left", value.length === 0 && "text-muted-foreground")}>
+            {value.length === 0
+              ? placeholder
+              : value.map((v) => items.find((it) => it.value === v)?.label ?? v).join(", ")}
+          </span>
+        ) : (
+          <div className="flex flex-1 flex-wrap items-center gap-1">
+            {value.length === 0 ? (
+              <span className="text-muted-foreground px-1">{placeholder}</span>
+            ) : (
+              value.map((v) => {
+                const label = items.find((it) => it.value === v)?.label ?? v;
+                return (
                   <span
-                    role="button"
-                    tabIndex={-1}
-                    aria-label={`Remove ${label}`}
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); remove(v); }}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="hover:text-foreground"
+                    key={v}
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
                   >
-                    <X className="size-3" />
+                    {label}
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      aria-label={`Remove ${label}`}
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); remove(v); }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="hover:text-foreground"
+                    >
+                      <X className="size-3" />
+                    </span>
                   </span>
-                </span>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        )}
         <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent

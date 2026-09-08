@@ -65,10 +65,9 @@ interface ProdocData {
   contacts: {
     name: string;
     organization: string | null;
-    role: string | null;
+    job_title: string | null;
     email: string | null;
-    relationship: string | null;
-    is_applicant: boolean;
+    roles: string | null;
   }[];
   trancheCells: {
     organization_id: number;
@@ -79,7 +78,7 @@ interface ProdocData {
     date_description: string | null;
   }[];
   signatures: {
-    contacts: { name: string; role: string | null; relationship: string | null; signed_at: string | null }[];
+    contacts: { name: string; job_title: string | null; roles: string | null; signed_at: string | null }[];
     secretariat: { signed_at: string | null };
     standaloneSignatories: { title: string | null; signee_name: string; organization: string | null }[];
   };
@@ -355,18 +354,16 @@ export default function ProdocPrintPage() {
           <Section title="Contacts">
             <div data-block>
               <Table
-                head={["Name", "Organisation", "Role", "Email", "Relationship", "Applicant"]}
-                widths={["20%", "20%", "18%", "24%", "12%", "6%"]}
+                head={["Name", "Organisation", "Job title", "Email", "Roles"]}
+                widths={["20%", "20%", "18%", "24%", "18%"]}
                 rows={data.contacts.map((c) => [
                   c.name,
                   c.organization || "—",
-                  c.role || "—",
+                  c.job_title || "—",
                   c.email || "—",
-                  c.relationship || "—",
-                  c.is_applicant ? "✓" : "",
+                  c.roles?.split("|").join(", ") || "—",
                 ])}
               />
-              <div style={{ fontSize: 9.5, color: MUTED, marginTop: 4 }}>✓ = Applicant</div>
             </div>
           </Section>
         )}
@@ -728,7 +725,7 @@ export default function ProdocPrintPage() {
             {(data.signatures.contacts.length > 0
               ? data.signatures.contacts.map((c) => ({
                   name: c.name,
-                  role: c.role || c.relationship || "Project contact",
+                  role: c.job_title || c.roles?.split("|")[0] || "Project contact",
                   signedDate: c.signed_at,
                 }))
               : [{

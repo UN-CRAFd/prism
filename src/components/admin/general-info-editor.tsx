@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
@@ -16,6 +17,7 @@ import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
+import { CONTACT_ROLES } from "@/lib/contact-roles";
 import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
 import { InfoPopover } from "@/components/ui/info-popover";
 
@@ -28,7 +30,6 @@ const ORG_NAME_MAX = 300;
 // project_contacts join table. New contacts can be added to the org inline.
 
 const g = labels.generalInfo;
-const RELATIONSHIP_NONE = "__none__";
 const GEO_SCOPE_NONE = "__none__";
 
 // Editable project columns, kept as strings in local form state. Follows the FMP
@@ -81,15 +82,14 @@ function addMonthsISO(dateStr: string, months: number): string {
 interface ProjectContact {
   id: number;
   contact_id: number;
-  relationship: string | null;
-  is_applicant: boolean;
+  roles: string | null;
   name: string;
   organization: string | null;
-  role: string | null;
+  job_title: string | null;
   email: string | null;
 }
 
-interface OrgContact { id: number; partner_id: number; name: string; organization: string | null; role: string | null; email: string | null }
+interface OrgContact { id: number; partner_id: number; name: string; organization: string | null; job_title: string | null; email: string | null }
 interface OrgRow { id: number; name: string }
 
 // A partner involved in the project (lead or editor) that the contact picker can
@@ -167,9 +167,8 @@ export function GeneralInfoAdminEditor({
   const [pendingContactName, setPendingContactName] = useState<string | null>(null);
   const [pendingContactEmail, setPendingContactEmail] = useState("");
   const [pendingContactOrg, setPendingContactOrg] = useState("");
-  const [pendingContactRole, setPendingContactRole] = useState("");
-  const [pendingContactRelationship, setPendingContactRelationship] = useState(RELATIONSHIP_NONE);
-  const [pendingContactIsApplicant, setPendingContactIsApplicant] = useState(false);
+  const [pendingContactJobTitle, setPendingContactJobTitle] = useState("");
+  const [pendingContactRoles, setPendingContactRoles] = useState<string[]>([]);
   const [pendingContactError, setPendingContactError] = useState<string | null>(null);
   const [participatingOrgs, setParticipatingOrgs] = useState<OrgRow[]>([]);
   const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
@@ -194,6 +193,18 @@ export function GeneralInfoAdminEditor({
     }
     return result.sort((a, b) => a.label.localeCompare(b.label));
   }, [participatingOrgs, implementingOrgs]);
+
+  const sortedContacts = useMemo(
+    () => [...contacts].sort((a, b) => {
+      const aOrg = a.organization?.toLowerCase() ?? null;
+      const bOrg = b.organization?.toLowerCase() ?? null;
+      if (aOrg === null && bOrg !== null) return 1;
+      if (aOrg !== null && bOrg === null) return -1;
+      if (aOrg !== null && bOrg !== null && aOrg !== bOrg) return aOrg.localeCompare(bOrg);
+      return 0;
+    }),
+    [contacts]
+  );
 
   // All project organisations in display order — used as matrix row dimension.
   const allOrgs = useMemo(
@@ -462,7 +473,7 @@ export function GeneralInfoAdminEditor({
   }
 
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
-  async function linkContact(contactId: number, extras?: { relationship?: string | null; is_applicant?: boolean }) {
+  async function linkContact(contactId: number, extras?: { roles?: string | null }) {
     const res = await fetch("/api/project-contacts", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId, contact_id: contactId, ...extras }),
@@ -482,9 +493,8 @@ export function GeneralInfoAdminEditor({
     setPendingContactName(name);
     setPendingContactEmail("");
     setPendingContactOrg("");
-    setPendingContactRole("");
-    setPendingContactRelationship(RELATIONSHIP_NONE);
-    setPendingContactIsApplicant(false);
+    setPendingContactJobTitle("");
+    setPendingContactRoles([]);
     setPendingContactError(null);
     setError(null);
   }
@@ -503,7 +513,7 @@ export function GeneralInfoAdminEditor({
           partner_id: owningPartnerId,
           name: pendingContactName,
           organization: pendingContactOrg.trim(),
-          role: pendingContactRole.trim() || null,
+          job_title: pendingContactJobTitle.trim() || null,
           email: pendingContactEmail.trim(),
         }),
       });
@@ -511,21 +521,19 @@ export function GeneralInfoAdminEditor({
       const created: OrgContact = await res.json();
       setOrgContacts((prev) => [...prev, created]);
       await linkContact(created.id, {
-        relationship: pendingContactRelationship === RELATIONSHIP_NONE ? null : pendingContactRelationship,
-        is_applicant: pendingContactIsApplicant,
+        roles: pendingContactRoles.length ? pendingContactRoles.join("|") : null,
       });
       setPendingContactName(null);
       setPendingContactEmail("");
       setPendingContactOrg("");
-      setPendingContactRole("");
-      setPendingContactRelationship(RELATIONSHIP_NONE);
-      setPendingContactIsApplicant(false);
+      setPendingContactJobTitle("");
+      setPendingContactRoles([]);
       setPendingContactError(null);
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingContact(false); }
   }
 
-  async function patchContact(id: number, patch: Partial<Pick<ProjectContact, "relationship" | "is_applicant">>) {
+  async function patchContact(id: number, patch: Partial<Pick<ProjectContact, "roles">>) {
     setContacts((prev) => prev.map((c) => c.id === id ? { ...c, ...patch } : c));
     setError(null);
     const res = await fetch("/api/project-contacts", {
@@ -539,7 +547,7 @@ export function GeneralInfoAdminEditor({
   // partner_contacts master record. Typing updates local state; the PATCH fires
   // on blur. The endpoint rewrites all three fields at once, so we always send
   // the full current identity to avoid nulling the untouched ones.
-  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "organization" | "role" | "email">>) {
+  function editContactField(id: number, patch: Partial<Pick<ProjectContact, "name" | "organization" | "job_title" | "email">>) {
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
@@ -550,11 +558,11 @@ export function GeneralInfoAdminEditor({
     setError(null);
     const res = await fetch("/api/partner-contacts", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), organization: c.organization, role: c.role, email: c.email }),
+      body: JSON.stringify({ id: c.contact_id, name: c.name.trim(), organization: c.organization, job_title: c.job_title, email: c.email }),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); return; }
     // Keep the linked-contact combobox list in sync with the edited identity.
-    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), organization: c.organization, role: c.role, email: c.email } : oc)));
+    setOrgContacts((prev) => prev.map((oc) => (oc.id === c.contact_id ? { ...oc, name: c.name.trim(), organization: c.organization, job_title: c.job_title, email: c.email } : oc)));
   }
 
   async function unlinkContact(id: number) {
@@ -571,7 +579,7 @@ export function GeneralInfoAdminEditor({
   // lands under the right org.
   const comboItems: ComboboxItem[] = orgContacts
     .filter((oc) => !contacts.some((c) => c.contact_id === oc.id))
-    .map((oc) => ({ id: oc.id, label: oc.name, hint: oc.role ?? undefined }));
+    .map((oc) => ({ id: oc.id, label: oc.name, hint: oc.job_title ?? undefined }));
 
   if (loading) {
     return (
@@ -1023,7 +1031,7 @@ export function GeneralInfoAdminEditor({
               <Input
                 value={pendingContactEmail}
                 onChange={(e) => setPendingContactEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); setPendingContactRelationship(RELATIONSHIP_NONE); setPendingContactIsApplicant(false); setPendingContactError(null); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
                 placeholder="name@example.org *"
                 type="email"
                 className="h-8 text-sm"
@@ -1037,35 +1045,22 @@ export function GeneralInfoAdminEditor({
                 placeholder="Organisation *"
               />
               <Input
-                value={pendingContactRole}
-                onChange={(e) => setPendingContactRole(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); setPendingContactRelationship(RELATIONSHIP_NONE); setPendingContactIsApplicant(false); setPendingContactError(null); } }}
-                placeholder="Role (optional)"
+                value={pendingContactJobTitle}
+                onChange={(e) => setPendingContactJobTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
+                placeholder="Job title (optional)"
                 className="h-8 text-sm"
-                aria-label="Role"
+                aria-label="Job title"
               />
             </div>
             <div className="flex items-center gap-4">
-              <Select value={pendingContactRelationship} onValueChange={setPendingContactRelationship}>
-                <SelectTrigger className="h-8 text-sm w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
-                  {optionValues("projectRole").map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={pendingContactIsApplicant}
-                  onChange={(e) => setPendingContactIsApplicant(e.target.checked)}
-                  className="size-4 accent-foreground cursor-pointer"
-                />
-                {g.applicantLabel}
-              </label>
+              <MultiSelect
+                staticItems={CONTACT_ROLES}
+                value={pendingContactRoles}
+                onChange={setPendingContactRoles}
+                placeholder="Roles (optional)"
+                className="h-8 text-sm w-72"
+              />
             </div>
             {pendingContactError && (
               <p className="text-xs text-destructive">{pendingContactError}</p>
@@ -1074,7 +1069,7 @@ export function GeneralInfoAdminEditor({
               <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
               <button
                 type="button"
-                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactRole(""); setPendingContactRelationship(RELATIONSHIP_NONE); setPendingContactIsApplicant(false); setPendingContactError(null); }}
+                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); }}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Cancel
@@ -1093,13 +1088,13 @@ export function GeneralInfoAdminEditor({
               <thead>
                 <tr className="border-b bg-muted/30">
                   <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{g.columns.contact}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-56">{g.columns.relationship}</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground w-28">{g.columns.applicant}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-40">{g.columns.organisation}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{g.columns.roles}</th>
                   <th className="w-20 px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {contacts.map((c) => (
+                {sortedContacts.map((c) => (
                   <tr key={c.id} className="transition-colors hover:bg-muted/20">
                     <td className="px-4 py-3 align-middle">
                       {editingContactId === c.id ? (
@@ -1130,8 +1125,8 @@ export function GeneralInfoAdminEditor({
                             className="flex-1 min-w-0"
                           />
                           <Input
-                            value={c.role ?? ""}
-                            onChange={(e) => editContactField(c.id, { role: e.target.value || null })}
+                            value={c.job_title ?? ""}
+                            onChange={(e) => editContactField(c.id, { job_title: e.target.value || null })}
                             onBlur={() => commitContactIdentity(c.id)}
                             placeholder={g.contactRole}
                             className="h-8 flex-1 min-w-0 text-sm"
@@ -1150,37 +1145,25 @@ export function GeneralInfoAdminEditor({
                       ) : (
                         <p className="truncate">
                           <span className="font-medium">{c.name}</span>
-                          {(c.organization || c.role || c.email) && (
+                          {(c.job_title || c.email) && (
                             <span className="text-muted-foreground">
-                              {" · "}{[c.organization, c.role, c.email].filter(Boolean).join(" · ")}
+                              {" · "}{[c.job_title, c.email].filter(Boolean).join(" · ")}
                             </span>
                           )}
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-3 align-middle">
-                      <Select
-                        value={c.relationship ?? RELATIONSHIP_NONE}
-                        onValueChange={(v) => patchContact(c.id, { relationship: v === RELATIONSHIP_NONE ? null : v })}
-                      >
-                        <SelectTrigger className="w-full h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={RELATIONSHIP_NONE}>{g.relationshipNone}</SelectItem>
-                          {optionValues("projectRole").map((r) => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
+                      {editingContactId !== c.id ? (c.organization || "—") : null}
                     </td>
-                    <td className="px-4 py-3 text-center align-middle">
-                      <input
-                        type="checkbox"
-                        checked={c.is_applicant}
-                        onChange={(e) => patchContact(c.id, { is_applicant: e.target.checked })}
-                        className="size-4 accent-foreground cursor-pointer"
-                        aria-label={g.applicantLabel}
+                    <td className="px-4 py-3 align-middle">
+                      <MultiSelect
+                        staticItems={CONTACT_ROLES}
+                        value={c.roles?.split("|").filter(Boolean) ?? []}
+                        onChange={(v) => patchContact(c.id, { roles: v.length ? v.join("|") : null })}
+                        placeholder="No roles"
+                        triggerDisplay="text"
+                        className="h-8 text-sm"
                       />
                     </td>
                     <td className="px-4 py-3 align-middle">

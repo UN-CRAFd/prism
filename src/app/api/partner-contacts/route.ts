@@ -9,8 +9,8 @@ import { logger } from "@/lib/logger";
 //                       editors) that the caller may see, each tagged with its
 //                       owning partner. Used by the prodoc contact picker.
 //   GET               → all contacts with partner context (admin view)
-//   POST { partner_id, name, organization, role, email }
-//   PATCH { id, name, organization, role, email }
+//   POST { partner_id, name, organization, job_title, email }
+//   PATCH { id, name, organization, job_title, email }
 //   DELETE ?id=
 
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
       const contacts = visibleIds.length
         ? await query(
-            `SELECT id, partner_id, name, organization, role, email, sort_order
+            `SELECT id, partner_id, name, organization, job_title, email, sort_order
                FROM reporting_platform.partner_contacts
               WHERE partner_id = ANY($1::int[])
               ORDER BY partner_id ASC, sort_order ASC, id ASC`,
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       const gate = await guardPartner(session, partnerId);
       if (gate) return gate;
       const rows = await query(
-        `SELECT id, partner_id, name, organization, role, email, sort_order
+        `SELECT id, partner_id, name, organization, job_title, email, sort_order
            FROM reporting_platform.partner_contacts
           WHERE partner_id = $1
           ORDER BY sort_order ASC, id ASC`,
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     const gate = await requireAdmin();
     if (gate instanceof NextResponse) return gate;
     const rows = await query(
-      `SELECT c.id, c.partner_id, c.name, c.organization, c.role, c.email, c.sort_order,
+      `SELECT c.id, c.partner_id, c.name, c.organization, c.job_title, c.email, c.sort_order,
               p.short_name AS partner_short_name, p.long_name AS partner_long_name
          FROM reporting_platform.partner_contacts c
          JOIN reporting_platform.partners p ON p.id = c.partner_id
@@ -133,10 +133,10 @@ export async function POST(req: NextRequest) {
     const nextOrder = Number(existing[0].count) + 1;
 
     const rows = await query(
-      `INSERT INTO reporting_platform.partner_contacts (partner_id, name, organization, role, email, sort_order)
+      `INSERT INTO reporting_platform.partner_contacts (partner_id, name, organization, job_title, email, sort_order)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [partnerId, name, organization, body.role ?? null, email, nextOrder]
+      [partnerId, name, organization, body.job_title ?? null, email, nextOrder]
     );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
@@ -173,11 +173,11 @@ export async function PATCH(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    const updateFields = ["name", "organization", "role", ...(emailProvided ? ["email"] : [])];
+    const updateFields = ["name", "organization", "job_title", ...(emailProvided ? ["email"] : [])];
     const values = [
       typeof body.name === "string" ? body.name.trim() : body.name ?? null,
       patchOrganization,
-      body.role ?? null,
+      body.job_title ?? null,
       ...(emailProvided ? [(body.email as string).trim()] : []),
       id,
     ];

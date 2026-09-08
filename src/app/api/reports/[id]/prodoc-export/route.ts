@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { ROLE_SIGNATORY } from "@/lib/contact-roles";
 
 // Consolidated prodoc data for the print/PDF view. Returns every section of a
 // project document in one payload so the print page can render it in one pass.
@@ -134,19 +135,19 @@ export async function GET(
       ),
       // All project contacts for the Contacts section of the printed document.
       query(
-        `SELECT pc.name, pc.organization, pc.role, pc.email,
-                jc.relationship, jc.is_applicant
+        `SELECT pc.name, pc.organization, pc.job_title, pc.email,
+                jc.roles
            FROM reporting_platform.project_contacts jc
            JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
           WHERE jc.project_id = $1
           ORDER BY jc.sort_order, pc.name`,
         [projectId]
       ),
-      // Signature slots: contacts whose relationship is 'Signatory', with their
-      // signature date if they have signed. Matches the client-side filter in
-      // signatures-editor.tsx. Contacts with other relationships are excluded.
+      // Signature slots: contacts with 'Signatory' among their pipe-delimited
+      // roles, with their signature date if signed. Contacts whose roles do not
+      // include 'Signatory' are excluded.
       query(
-        `SELECT pc.name, pc.role, jc.relationship,
+        `SELECT pc.name, pc.job_title, jc.roles,
                 TO_CHAR(sig.signed_at, 'YYYY-MM-DD') AS signed_at
            FROM reporting_platform.project_contacts jc
            JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
@@ -155,9 +156,9 @@ export async function GET(
             AND sig.party = 'contact'
             AND sig.contact_id = jc.contact_id
           WHERE jc.project_id = $1
-            AND jc.relationship = 'Signatory'
+            AND $2 = ANY(string_to_array(jc.roles, '|'))
           ORDER BY jc.sort_order, pc.name`,
-        [projectId]
+        [projectId, ROLE_SIGNATORY]
       ),
       query(
         `SELECT TO_CHAR(signed_at, 'YYYY-MM-DD') AS signed_at
@@ -183,7 +184,7 @@ export async function GET(
     ]);
 
     const signatures = {
-      contacts: signatureContacts as { name: string; role: string | null; relationship: string | null; signed_at: string | null }[],
+      contacts: signatureContacts as { name: string; job_title: string | null; roles: string | null; signed_at: string | null }[],
       secretariat: { signed_at: (secretariatSig[0] as { signed_at: string } | undefined)?.signed_at ?? null },
       standaloneSignatories: standaloneSignatories as { title: string | null; signee_name: string; organization: string | null }[],
     };

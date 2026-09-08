@@ -356,12 +356,12 @@ const PRODOC_EXPORTS: Record<string, SectionExport> = {
   },
 
   prodoc_signatures: {
-    headers: ["project_name", "partner", "party", "signer_name", "role", "relationship", "signed_at"],
+    headers: ["project_name", "partner", "party", "signer_name", "job_title", "roles", "signed_at"],
     sql: `
       SELECT p.project_title AS project_name, pt.short_name AS partner,
         sig.party,
         COALESCE(pc.name, sig.signed_by) AS signer_name,
-        pc.role, jc.relationship,
+        pc.job_title, jc.roles,
         TO_CHAR(sig.signed_at, 'YYYY-MM-DD') AS signed_at
       FROM reporting_platform.prodoc_signatures sig
       JOIN reporting_platform.projects p  ON p.id  = sig.project_id

@@ -2,18 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject, guardProjectRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { CONTACT_ROLES } from "@/lib/contact-roles";
 
-// Links a project to its partner-org contacts (applicants + project contacts).
+// Links a project to its partner-org contacts.
 // The contact records themselves live in partner_contacts (org-scoped) and are
-// created via /api/partner-contacts; this route only manages the link + its
-// relationship / applicant attributes.
+// created via /api/partner-contacts; this route manages the link and its roles.
+// roles is a '|'-delimited string of zero or more values from CONTACT_ROLES
+// (Primary focal point | Alternate focal point | Signatory | Applicant).
+// null and empty string are both accepted as "no roles assigned".
 //
 //   GET    ?project_id=X   → linked contacts for a project (joined w/ name…)
 //   GET    ?contact_id=X   → linked projects for a contact (joined w/ title…)
 //   GET                    → all links with project + contact context
-//   POST   { project_id, contact_id, relationship?, is_applicant? }  → link
-//   PATCH  { id, relationship?, is_applicant? }                      → update link
-//   DELETE ?id=X                             → unlink
+//   POST   { project_id, contact_id, roles? }  → link
+//   PATCH  { id, roles? }                      → update link
+//   DELETE ?id=X                               → unlink
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -26,8 +29,8 @@ export async function GET(req: NextRequest) {
       const gate = await guardProject(session, projectId);
       if (gate) return gate;
       const rows = await query(
-        `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
-                c.name, c.organization, c.role, c.email, c.partner_id
+        `SELECT pc.id, pc.project_id, pc.contact_id, pc.roles, pc.sort_order,
+                c.name, c.organization, c.job_title, c.email, c.partner_id
            FROM reporting_platform.project_contacts pc
            JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id
           WHERE pc.project_id = $1
@@ -42,7 +45,7 @@ export async function GET(req: NextRequest) {
       const gate = await requireAdmin();
       if (gate instanceof NextResponse) return gate;
       const rows = await query(
-        `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
+        `SELECT pc.id, pc.project_id, pc.contact_id, pc.roles, pc.sort_order,
                 p.project_title, p.short_name AS project_short_name
            FROM reporting_platform.project_contacts pc
            JOIN reporting_platform.projects p ON p.id = pc.project_id
@@ -57,9 +60,9 @@ export async function GET(req: NextRequest) {
     const gate = await requireAdmin();
     if (gate instanceof NextResponse) return gate;
     const rows = await query(
-      `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
+      `SELECT pc.id, pc.project_id, pc.contact_id, pc.roles, pc.sort_order,
               p.project_title, p.short_name AS project_short_name,
-              c.name, c.role, c.email
+              c.name, c.job_title, c.email
          FROM reporting_platform.project_contacts pc
          JOIN reporting_platform.projects p ON p.id = pc.project_id
          JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id
@@ -86,6 +89,14 @@ export async function POST(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProject(session, project_id as string | number);
   if (gate) return gate;
+
+  const rawRoles = typeof body.roles === "string" ? body.roles : null;
+  if (rawRoles) {
+    const invalid = rawRoles.split("|").filter(s => !(CONTACT_ROLES as readonly string[]).includes(s));
+    if (invalid.length) {
+      return NextResponse.json({ error: `Invalid role value(s): ${invalid.join(", ")}` }, { status: 400 });
+    }
+  }
 
   // The contact must belong to a partner involved in this project — either the
   // owner (lead) OR an editor partner (project_editors). Otherwise a caller could
@@ -121,17 +132,11 @@ export async function POST(req: NextRequest) {
 
     const rows = await query(
       `INSERT INTO reporting_platform.project_contacts
-         (project_id, contact_id, relationship, is_applicant, sort_order)
-       VALUES ($1, $2, $3, $4, $5)
+         (project_id, contact_id, roles, sort_order)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (project_id, contact_id) DO NOTHING
        RETURNING id`,
-      [
-        project_id,
-        contact_id,
-        (body.relationship as string) || null,
-        Boolean(body.is_applicant),
-        sortOrder,
-      ]
+      [project_id, contact_id, rawRoles || null, sortOrder]
     );
     if (!rows.length) {
       return NextResponse.json({ error: "Contact is already linked to this project" }, { status: 409 });
@@ -139,9 +144,9 @@ export async function POST(req: NextRequest) {
     // Return the joined shape (both project and contact context) so the client
     // can render it directly from either the project or the contact side.
     const created = await query(
-      `SELECT pc.id, pc.project_id, pc.contact_id, pc.relationship, pc.is_applicant, pc.sort_order,
+      `SELECT pc.id, pc.project_id, pc.contact_id, pc.roles, pc.sort_order,
               p.project_title, p.short_name AS project_short_name,
-              c.name, c.organization, c.role, c.email, c.partner_id
+              c.name, c.organization, c.job_title, c.email, c.partner_id
          FROM reporting_platform.project_contacts pc
          JOIN reporting_platform.projects p ON p.id = pc.project_id
          JOIN reporting_platform.partner_contacts c ON c.id = pc.contact_id
@@ -171,13 +176,16 @@ export async function PATCH(req: NextRequest) {
 
   const updates: string[] = [];
   const values: unknown[] = [id];
-  if ("relationship" in body) {
-    values.push((body.relationship as string) || null);
-    updates.push(`relationship = $${values.length}`);
-  }
-  if ("is_applicant" in body) {
-    values.push(Boolean(body.is_applicant));
-    updates.push(`is_applicant = $${values.length}`);
+  if ("roles" in body) {
+    const rawRoles = typeof body.roles === "string" ? body.roles : null;
+    if (rawRoles) {
+      const invalid = rawRoles.split("|").filter(s => !(CONTACT_ROLES as readonly string[]).includes(s));
+      if (invalid.length) {
+        return NextResponse.json({ error: `Invalid role value(s): ${invalid.join(", ")}` }, { status: 400 });
+      }
+    }
+    values.push(rawRoles || null);
+    updates.push(`roles = $${values.length}`);
   }
   if (updates.length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -188,7 +196,7 @@ export async function PATCH(req: NextRequest) {
       `UPDATE reporting_platform.project_contacts
           SET ${updates.join(", ")}
         WHERE id = $1
-      RETURNING id, project_id, contact_id, relationship, is_applicant, sort_order`,
+      RETURNING id, project_id, contact_id, roles, sort_order`,
       values
     );
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });

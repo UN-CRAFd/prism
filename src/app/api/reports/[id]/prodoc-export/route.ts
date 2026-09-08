@@ -140,7 +140,11 @@ export async function GET(
            FROM reporting_platform.project_contacts jc
            JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
           WHERE jc.project_id = $1
-          ORDER BY jc.sort_order, pc.name`,
+          ORDER BY
+            CASE WHEN pc.organization IS NULL OR pc.organization = '' THEN 1 ELSE 0 END,
+            LOWER(pc.organization),
+            jc.sort_order,
+            pc.name`,
         [projectId]
       ),
       // Signature slots: contacts with 'Signatory' among their pipe-delimited

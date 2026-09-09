@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -137,6 +138,8 @@ export function ReportEditor({
   const [childSaveState, setChildSaveState] = useState<SaveState>("idle");
 
   const [error, setError] = useState<string | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const loadSurveys = useCallback(async (id: number) => {
     setLoadingSurveys(true);
@@ -330,6 +333,48 @@ export function ReportEditor({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
+  }
+
+  async function handleSubmit() {
+    if (!selectedReport || !reportId) return;
+    const ok = await confirm({
+      title: "Submit report?",
+      message:
+        "Once submitted, this report will be locked for editing and CRAF'd will be notified to begin their review.",
+      confirmLabel: "Submit",
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!ok) return;
+
+    setSubmitLoading(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/report-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_id: reportId }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        setSubmitError(data.error ?? "Failed to submit report.");
+      } else {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, status: "Under Review" } : r))
+        );
+        await confirm({
+          acknowledgement: true,
+          title: "Report submitted",
+          message:
+            "Your report is now locked for editing. Please email crafd@un.org to let CRAF'd know it's ready for review.",
+          confirmLabel: "OK",
+        });
+      }
+    } catch {
+      setSubmitError("Failed to submit report. Please try again.");
+    } finally {
+      setSubmitLoading(false);
+    }
   }
 
   // ── Autosave for the parent-managed sections ──────────────────────────────
@@ -875,6 +920,9 @@ export function ReportEditor({
     params.section === "indicators" ? loadingIndicators : false;
   const notFound = !loadingReports && !selectedReport;
 
+  const submitBlockers: string[] = [];
+  if (!overview.authorized) submitBlockers.push("Tick the authorization checkbox in the Overview tab before submitting.");
+
   // The parent-managed sections drive `parentAutosave`; the rest report up via
   // `childSaveState`. The top-bar indicator shows whichever owns the active tab.
   const parentManaged = ["surveys", "overview", "risk", "indicators"].includes(params.section);
@@ -934,6 +982,25 @@ export function ReportEditor({
         <div className="flex items-center gap-3 shrink-0">
           {reportId && !sectionLoading && !notFound && (
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
+          )}
+
+          {mode !== "admin" && selectedReport?.status === "Open" && (
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <Button
+                size="sm"
+                className="h-9 bg-white text-neutral-900 hover:bg-neutral-100"
+                onClick={handleSubmit}
+                disabled={submitLoading || submitBlockers.length > 0}
+              >
+                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                Submit
+              </Button>
+              {(submitBlockers.length > 0 || submitError) && (
+                <p className="text-xs text-amber-300 max-w-[240px] text-right leading-snug">
+                  {submitError ?? submitBlockers.join(" ")}
+                </p>
+              )}
+            </div>
           )}
 
           <Select

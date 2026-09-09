@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, forbidden } from "@/lib/authz";
 import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
+import { logStatusChange } from "@/lib/version-log";
 
 const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
 
@@ -80,16 +81,81 @@ export async function PUT(
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
-    values.push(id);
-    const rows = await query(
-      `UPDATE reporting_platform.reports SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
-      values
+    // Fetch current state before updating, so we can detect a status change and
+    // record the log entry with the correct from_status and entity context.
+    const current = await query<{ status: string; data_type: string; year: number; report_type: string; project_id: number }>(
+      `SELECT status, data_type, year, report_type, project_id
+         FROM reporting_platform.reports WHERE id = $1`,
+      [id]
     );
-
-    if (rows.length === 0) {
+    if (current.length === 0) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
-    return NextResponse.json(rows[0]);
+    const { status: fromStatus, data_type, year, report_type, project_id } = current[0];
+
+    const newStatus = body.status as string | undefined;
+    const statusChanging = newStatus !== undefined && newStatus !== fromStatus;
+
+    if (!statusChanging) {
+      // No status transition — plain update, no transaction needed.
+      values.push(id);
+      const rows = await query(
+        `UPDATE reporting_platform.reports SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+      if (rows.length === 0) {
+        return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      }
+      return NextResponse.json(rows[0]);
+    }
+
+    // Status is changing — run the update and log write in one transaction so a
+    // failed log entry rolls back the status change rather than leaving it unrecorded.
+    const entityType = data_type === "prodoc" ? "prodoc" : "report";
+    const entityLabel = data_type === "prodoc"
+      ? "Project Document"
+      : report_type
+        ? `${report_type.charAt(0).toUpperCase()}${report_type.slice(1)} Report ${year}`
+        : `Annual Report ${year}`;
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      values.push(id);
+      const updateResult = await client.query(
+        `UPDATE reporting_platform.reports SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+      if (updateResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      }
+
+      await logStatusChange(
+        {
+          entity_type: entityType,
+          entity_id: Number(id),
+          entity_label: entityLabel,
+          project_id,
+          from_status: fromStatus,
+          to_status: newStatus,
+          actor_role: session.role,
+          actor_org: session.org ?? null,
+          actor_name: (body.actor_name as string | undefined) ?? null,
+          reason: (body.reason as string | undefined) ?? null,
+        },
+        client
+      );
+
+      await client.query("COMMIT");
+      return NextResponse.json(updateResult.rows[0]);
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     logger.error("PUT /api/reports/[id] error:", err);
     return NextResponse.json({ error: "Failed to update report" }, { status: 500 });

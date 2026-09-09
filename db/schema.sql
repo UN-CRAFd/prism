@@ -295,6 +295,31 @@ CREATE TRIGGER reports_updated_at
     BEFORE UPDATE ON reports
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+
+-- ── Version log (status-change history) ──────────────────────────────────────
+-- One row per status transition on a report, prodoc or project. Append-only:
+-- prism_app is granted INSERT and SELECT only (see roles.sql), so entries can
+-- never be edited or removed by the application. Partner submissions record the
+-- org; CRAF'd status moves additionally record a typed name and free-text
+-- reason. `snapshot` is reserved for a frozen copy of what was submitted.
+CREATE TABLE IF NOT EXISTS version_log (
+    id            SERIAL       PRIMARY KEY,
+    entity_type   TEXT         NOT NULL,
+    entity_id     INTEGER      NOT NULL,
+    entity_label  TEXT,
+    project_id    INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    from_status   TEXT,
+    to_status     TEXT         NOT NULL,
+    actor_role    TEXT         NOT NULL,
+    actor_org     TEXT,
+    actor_name    TEXT,
+    reason        TEXT,
+    snapshot      JSONB,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS version_log_project_id_idx ON version_log(project_id);
+CREATE INDEX IF NOT EXISTS version_log_entity_idx ON version_log(entity_type, entity_id);
+
 -- Overview is not its own table: the project overview shown to partners is
 -- assembled from `projects` (title, number, grant, dates, scope, implementing
 -- partners, project lead), `partners` (organization name + website) and

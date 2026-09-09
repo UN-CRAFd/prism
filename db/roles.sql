@@ -71,6 +71,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA reporting_platform
 ALTER DEFAULT PRIVILEGES IN SCHEMA reporting_platform
   GRANT EXECUTE                        ON FUNCTIONS TO prism_app;
 
+-- 5b. version_log is append-only: the blanket grants in step 4 and the default
+--     privileges in step 5 would otherwise let the app rewrite its own audit
+--     history. Revoke the two rights that allow that. Re-running this file must
+--     not restore them. (Runs after db/schema.sql, which creates the table.)
+REVOKE UPDATE, DELETE ON reporting_platform.version_log FROM prism_app;
+
 -- 6. Pin the role's search_path to the app schema (defense in depth; the app
 --    also fully-qualifies every table as reporting_platform.<table>).
 ALTER ROLE prism_app SET search_path = reporting_platform, public;

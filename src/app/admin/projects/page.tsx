@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -216,6 +217,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   // project_id → its prodoc { report id, status, last_edited } (for Print / Open / status).
   const [prodocByProject, setProdocByProject] = useState<Record<number, { id: number; status: ReportStatus; last_edited: string | null }>>({});
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ projectId: number; prodocId: number; status: ReportStatus; fromStatus: string } | null>(null);
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -452,25 +454,30 @@ export default function ProjectsPage() {
   }
 
   // Set the prodoc's editable status (Open / Under Review / Closed) — same
-  // status model as reports. Optimistic; persisted via PUT /api/reports/:id.
-  async function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
-    const labels: Record<string, string> = {
-      "Open": "Open project?",
-      "Under Review": "Move project to Under Review?",
-      "Closed": "Close project?",
-    };
-    const ok = await confirm({
-      message: labels[status] ?? `Change status to ${status}?`,
-      variant: "question",
-      confirmLabel: "Yes",
-      cancelLabel: "No",
+  // status model as reports. Opens the StatusChangeDialog to collect a name
+  // and reason before applying. Optimistic; persisted via PUT /api/reports/:id.
+  function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
+    setPendingStatusChange({
+      projectId,
+      prodocId,
+      status,
+      fromStatus: prodocByProject[projectId]?.status ?? "",
     });
-    if (!ok) return;
+  }
+
+  async function applyProdocStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
+    if (!pendingStatusChange) return;
+    const { projectId, prodocId, status } = pendingStatusChange;
+    setPendingStatusChange(null);
     setProdocByProject((prev) => ({ ...prev, [projectId]: { ...prev[projectId], id: prodocId, status } }));
     await fetch(`/api/reports/${prodocId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        actor_name: actorName || null,
+        reason: reason || null,
+      }),
     });
   }
 
@@ -1073,6 +1080,13 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+    <StatusChangeDialog
+      open={pendingStatusChange !== null}
+      fromStatus={pendingStatusChange?.fromStatus ?? ""}
+      toStatus={pendingStatusChange?.status ?? ""}
+      onCancel={() => setPendingStatusChange(null)}
+      onConfirm={applyProdocStatusChange}
+    />
     </div>
   );
 }

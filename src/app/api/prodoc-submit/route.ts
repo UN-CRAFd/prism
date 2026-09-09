@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import pool, { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { logStatusChange } from "@/lib/version-log";
 
 // POST /api/prodoc-submit — partner submits their project document for review.
 // Transitions status Open → Under Review, which locks partner editing.
@@ -102,15 +103,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const updated = await query<{ id: number; status: string }>(
-      `UPDATE reporting_platform.reports
-          SET status = 'Under Review'
-        WHERE id = $1
-        RETURNING id, status`,
-      [prodoc.id]
-    );
-    if (updated.length === 0) {
-      return NextResponse.json({ error: "Failed to update project document status" }, { status: 500 });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const updated = await client.query<{ id: number; status: string }>(
+        `UPDATE reporting_platform.reports
+            SET status = 'Under Review'
+          WHERE id = $1 AND status = 'Open'
+          RETURNING id, status`,
+        [prodoc.id]
+      );
+      if (updated.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "This project document has already been submitted and cannot be submitted again." },
+          { status: 409 }
+        );
+      }
+
+      await logStatusChange(
+        {
+          entity_type: "prodoc",
+          entity_id: prodoc.id,
+          entity_label: "Project Document",
+          project_id: Number(projectId),
+          from_status: "Open",
+          to_status: "Under Review",
+          actor_role: session.role,
+          actor_org: session.org ?? null,
+          actor_name: null,
+          reason: null,
+        },
+        client
+      );
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
 
     logger.info("ProDoc submitted", { project_id: projectId, prodoc_id: prodoc.id, org: session.org });

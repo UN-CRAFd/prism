@@ -12,6 +12,7 @@ import { AlertTriangle, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Print
 import { cn, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
@@ -151,6 +152,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [selectedProdocId, setSelectedProdocId] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -612,28 +615,27 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     }
   }
 
-  // Change the prodoc status from the top bar (admin only). Optimistic; readOnly
-  // recomputes from the updated local state immediately.
-  async function handleStatusChange(newStatus: string) {
+  // Change the prodoc status from the top bar (admin only). Opens the
+  // StatusChangeDialog to collect a name and reason before applying.
+  function handleStatusChange(newStatus: string) {
     if (!selectedDoc) return;
-        const labels: Record<string, string> = {
-      "Open": "Open project?",
-      "Under Review": "Move project to Under Review?",
-      "Closed": "Close project?",
-    };
-    const ok = await confirm({
-      message: labels[newStatus] ?? `Change status to ${newStatus}?`,
-      variant: "question",
-      confirmLabel: "Yes",
-      cancelLabel: "No",
-    });
-    if (!ok) return;
+    setPendingStatus(newStatus);
+  }
+
+  async function applyStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
+    if (!selectedDoc || !pendingStatus) return;
     const id = selectedDoc.id;
+    const newStatus = pendingStatus;
+    setPendingStatus(null);
     setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
     await fetch(`/api/reports/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({
+        status: newStatus,
+        actor_name: actorName || null,
+        reason: reason || null,
+      }),
     });
   }
 
@@ -1463,6 +1465,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </ReadOnlyProvider>
       </div>
     </div>
+
+    <StatusChangeDialog
+      open={pendingStatus !== null}
+      fromStatus={selectedDoc?.status ?? ""}
+      toStatus={pendingStatus ?? ""}
+      onCancel={() => setPendingStatus(null)}
+      onConfirm={applyStatusChange}
+    />
     </CommentsProvider>
   );
 }

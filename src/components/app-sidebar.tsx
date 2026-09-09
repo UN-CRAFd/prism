@@ -28,6 +28,7 @@ import {
   Settings,
   FolderPen,
   ClipboardPen,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
@@ -61,9 +62,9 @@ const editorLinks = [
 const dataLinks = [
   { href: "/admin/data", label: "Full Data", icon: Database },
   { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
+  { href: "/admin/version-log", label: "Version Log", icon: History },
   { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
 ];
-
 
 interface SidebarReport {
   id: number;

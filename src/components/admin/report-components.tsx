@@ -28,6 +28,7 @@ import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
+import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 
 const YEARS = [2023, 2024, 2025, 2026];
 
@@ -71,6 +72,7 @@ export function ReportCard({
   const router = useRouter();
   const [printing, setPrinting] = useState(false);
   const [status, setStatus] = useState<ReportRow["status"]>(report.status);
+  const [pendingStatus, setPendingStatus] = useState<ReportRow["status"] | null>(null);
   const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
 
   async function handleShare() {
@@ -113,18 +115,30 @@ export function ReportCard({
     }
   }
 
-  async function handleStatusChange(newStatus: ReportRow["status"]) {
+  function handleStatusChange(newStatus: ReportRow["status"]) {
+    setPendingStatus(newStatus);
+  }
+
+  async function applyStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
+    const newStatus = pendingStatus;
+    if (!newStatus) return;
+    setPendingStatus(null);
     setStatus(newStatus);
     await fetch(`/api/reports/${report.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({
+        status: newStatus,
+        actor_name: actorName || null,
+        reason: reason || null,
+      }),
     });
   }
 
   const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
 
   return (
+    <>
     <Card
       onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/overview`)}
       className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
@@ -223,6 +237,15 @@ export function ReportCard({
         </button>
       </div>
     </Card>
+
+    <StatusChangeDialog
+      open={pendingStatus !== null}
+      fromStatus={status}
+      toStatus={pendingStatus ?? ""}
+      onCancel={() => setPendingStatus(null)}
+      onConfirm={applyStatusChange}
+    />
+    </>
   );
 }
 

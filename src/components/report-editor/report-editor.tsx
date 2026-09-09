@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { type ComboboxItem } from "@/components/ui/combobox";
 import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
@@ -136,6 +137,8 @@ export function ReportEditor({
   // workplan) report their save state up via onSaveStateChange; the parent-managed
   // sections (surveys, overview, risk, indicators) drive the autosave hook below.
   const [childSaveState, setChildSaveState] = useState<SaveState>("idle");
+
+  const [pendingStatus, setPendingStatus] = useState<Report["status"] | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -322,16 +325,27 @@ export function ReportEditor({
     router.push(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${section}`);
   }
 
-  // Change the report's status from the top bar (admin only). Optimistic; the
-  // readOnly gate recomputes from the updated local state immediately.
-  async function handleReportStatusChange(newStatus: Report["status"]) {
+  // Change the report's status from the top bar (admin only). Opens the
+  // StatusChangeDialog to collect a name and reason before applying.
+  function handleReportStatusChange(newStatus: Report["status"]) {
     if (!selectedReport) return;
+    setPendingStatus(newStatus);
+  }
+
+  async function applyStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
+    if (!selectedReport || !pendingStatus) return;
     const id = selectedReport.id;
+    const newStatus = pendingStatus;
+    setPendingStatus(null);
     setReports((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
     await fetch(`/api/reports/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({
+        status: newStatus,
+        actor_name: actorName || null,
+        reason: reason || null,
+      }),
     });
   }
 
@@ -1344,6 +1358,14 @@ export function ReportEditor({
         </ReadOnlyProvider>
       </div>
     </div>
+
+    <StatusChangeDialog
+      open={pendingStatus !== null}
+      fromStatus={selectedReport?.status ?? ""}
+      toStatus={pendingStatus ?? ""}
+      onCancel={() => setPendingStatus(null)}
+      onConfirm={applyStatusChange}
+    />
     </CommentsProvider>
   );
 }

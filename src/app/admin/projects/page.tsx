@@ -431,7 +431,7 @@ export default function ProjectsPage() {
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
-    if (!await confirm({ message: "Delete this project? This cannot be undone." })) return;
+    if (!await confirm({ message: "Delete this project?" })) return;
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();

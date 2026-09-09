@@ -132,7 +132,7 @@ export function CommentsProvider({
   }, []);
 
   const remove = useCallback(async (id: number) => {
-    if (!await confirm({ message: "Delete this comment? This cannot be undone." })) return;
+    if (!await confirm({ message: "Delete this comment?" })) return;
     const res = await fetch(`/api/comments?id=${id}`, { method: "DELETE" });
     if (res.ok) setComments((prev) => prev.filter((c) => c.id !== id));
   }, [confirm]);

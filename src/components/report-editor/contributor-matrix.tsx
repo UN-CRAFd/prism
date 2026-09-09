@@ -692,7 +692,7 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
   activityMode: "single",
   typeOptionsKey: "transferPartnerType",
   deleteAriaLabel: "Delete transfer",
-  deleteConfirm: (name) => `Delete transfer for "${name}"? You can undo this with the Undo button.`,
+  deleteConfirm: (name) => `Delete transfer for "${name}"?`,
   messages: {
     loadFail: "Failed to load transfers",
     createMaster: "Failed to create transfer partner",
@@ -733,7 +733,7 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
   typeOptionsKey: "complementaryFundingType",
   typeBadgeColors: FUNDING_TYPE_COLORS,
   deleteAriaLabel: "Delete contribution",
-  deleteConfirm: (name) => `Delete contribution from "${name}"? You can undo this with the Undo button.`,
+  deleteConfirm: (name) => `Delete contribution from "${name}"?`,
   messages: {
     loadFail: "Failed to load complementary funding",
     createMaster: "Failed to create contributor",

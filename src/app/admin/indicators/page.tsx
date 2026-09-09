@@ -151,7 +151,7 @@ export default function IndicatorsPage() {
     const used = ind.usage.length > 0;
     const message = used
       ? "Archive this indicator? It will be hidden from the library and the report-editor typeahead, but the report data still using it is kept."
-      : "This indicator isn't used in any report. Delete it permanently? This cannot be undone.";
+      : "This indicator isn't used in any report. Delete it permanently?";
     if (!await confirm({ message })) return;
     const res = await fetch(`/api/indicators/${ind.id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to remove indicator"); return; }

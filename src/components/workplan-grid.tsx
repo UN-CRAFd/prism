@@ -936,7 +936,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   async function deleteActivity(key: number) {
     const row = rowsRef.current.find((r) => r.key === key);
     const hasContent = row && (row.activity_text?.trim() || row.implementing_agent?.trim());
-    if (hasContent && !await confirm({ message: "Delete this activity? This cannot be undone." })) return;
+    if (hasContent && !await confirm({ message: "Delete this activity?" })) return;
     if (row?.id != null) await fetch(`/api/workplan-activities?id=${row.id}`, { method: "DELETE" });
     setRows((prev) => normalize(prev.filter((r) => r.key !== key)));
     scheduleFlush();
@@ -946,7 +946,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const activities = rowsRef.current.filter((r) => r.sectionId === sectionId);
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
-    if (!await confirm({ message: `Delete this Objective and its ${label}? This cannot be undone.` })) return;
+    if (!await confirm({ message: `Delete this Objective and its ${label}?` })) return;
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.sectionId !== sectionId)));
@@ -957,7 +957,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const activities = rowsRef.current.filter((r) => r.clusterId === clusterId);
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
-    if (!await confirm({ message: `Delete this Outcome and all its Objectives and ${label}? This cannot be undone.` })) return;
+    if (!await confirm({ message: `Delete this Outcome and all its Objectives and ${label}?` })) return;
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.clusterId !== clusterId)));

@@ -561,7 +561,7 @@ export function ReportEditor({
     const state = riskStates[id];
     if (!risk) return;
     const hasContent = risk.risk_name?.trim() || state?.likelihood != null || state?.impact != null || state?.updated_mitigation?.trim();
-    if (hasContent && !await confirm({ message: `Delete risk "${risk.risk_name}"? You can undo this with the Undo button.`, confirmLabel: "Delete" })) return;
+    if (hasContent && !await confirm({ message: `Delete risk "${risk.risk_name}"?`, confirmLabel: "Delete" })) return;
     setDeletingRiskId(id);
     setError(null);
     try {
@@ -755,8 +755,9 @@ export function ReportEditor({
     if (mode !== "admin" && row.is_standard) return;
     if (!reportId) return;
     if (!await confirm({
-      message: `Remove indicator "${row.indicator_name}" from this report? You can undo this with the Undo button.`,
+      message: `Remove indicator "${row.indicator_name}" from this report?`,
       confirmLabel: "Remove",
+      variant: "default",
     })) return;
 
     const lineId = row.currentLineId;

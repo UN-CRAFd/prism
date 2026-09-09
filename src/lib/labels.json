@@ -81,7 +81,7 @@
     "loadFailed": "Failed to load update windows.",
     "saveFailed": "Failed to save the update window.",
     "deleteFailed": "Failed to delete the update window.",
-    "deleteConfirm": "Delete this update window? All partner progress recorded against it will be permanently deleted. This cannot be undone."
+    "deleteConfirm": "Delete this update window? All partner progress recorded against it will be permanently deleted."
   },
   "signatures": {
     "contactsHeading": "Project contacts",
@@ -114,7 +114,7 @@
     "typePlaceholder": "Select type…",
     "allowedHint": "Allowed file types: PDF, Word, Excel, PowerPoint, CSV, text and images (PNG/JPG). Maximum {mb} MB per file.",
     "empty": "No documents uploaded yet.",
-    "deleteConfirm": "Delete \"{name}\"? This permanently removes the uploaded file and cannot be undone.",
+    "deleteConfirm": "Delete \"{name}\"? This permanently removes the uploaded file.",
     "docNamePlaceholder": "e.g. Signed agreement, Q3 budget",
     "errorNoType": "Please select a document type.",
     "errorNoDocName": "Please enter a document name.",
@@ -553,7 +553,7 @@
     "show": "Show to partners",
     "hidden": "Hidden",
     "delete": "Delete section",
-    "deleteConfirm": "Delete this section from the Guide? Partners will no longer see it. This cannot be undone.",
+    "deleteConfirm": "Delete this section from the Guide? Partners will no longer see it.",
     "empty": "No Guide sections yet. Add one to get started.",
     "hiddenNote": "Hidden — partners can't see this section."
   }

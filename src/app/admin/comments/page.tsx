@@ -85,7 +85,7 @@ export default function AdminCommentsPage() {
 
   // Hard-delete a comment (admin-only). Removes it from every list on success.
   async function handleDelete(c: AdminComment) {
-    if (!await confirm({ message: "Delete this comment permanently? This cannot be undone." })) return;
+    if (!await confirm({ message: "Delete this comment permanently?" })) return;
     setBusyId(c.id);
     try {
       const res = await fetch(`/api/comments?id=${c.id}`, { method: "DELETE" });

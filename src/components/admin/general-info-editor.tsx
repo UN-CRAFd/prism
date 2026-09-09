@@ -380,7 +380,9 @@ export function GeneralInfoAdminEditor({
     schedule();
   };
 
-  const removeTrancheColumn = (tn: number) => {
+  const removeTrancheColumn = async (tn: number) => {
+    const hasData = getTrancheTotal(tn) > 0;
+    if (hasData && !await confirm({ message: `Remove tranche ${tn}? The amounts entered for it will be deleted and the remaining tranches renumbered.` })) return;
     setTrancheCells((prev) =>
       prev
         .filter((c) => c.tranche_number !== tn)

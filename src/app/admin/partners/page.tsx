@@ -210,7 +210,7 @@ export default function PartnersPage() {
   const confirm = useConfirm();
 
   async function handleDelete(id: number) {
-    if (!await confirm({ message: "Delete this partner? This cannot be undone." })) return;
+    if (!await confirm({ message: "Delete this partner?" })) return;
     const res = await fetch(`/api/partners/${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();

@@ -494,7 +494,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleRiskDelete(id: number) {
     const risk = risks.find((r) => r.id === id);
-    if (!await confirm({ message: `Delete risk "${risk?.risk_name ?? "this risk"}"? This cannot be undone.` })) return;
+    if (!await confirm({ message: `Delete risk "${risk?.risk_name ?? "this risk"}"?` })) return;
     handleSaveStateChange("saving");
     setDeletingRiskId(id); setError(null);
     try {

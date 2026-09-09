@@ -446,6 +446,7 @@ export function GeneralInfoAdminEditor({
   }
 
   async function deleteOrg(id: number, type: "participating" | "implementing") {
+    if (!await confirm({ message: "Remove this organization from the project?" })) return;
     setOrgError(null);
     const res = await fetch(`/api/project-organizations?id=${id}`, { method: "DELETE" });
     if (!res.ok) { setOrgError("Failed to delete"); return; }

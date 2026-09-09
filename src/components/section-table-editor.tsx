@@ -137,6 +137,7 @@ function PhotoField({
   onUploaded: (fileName: string) => void;
   onRemoved: () => void;
 }) {
+  const confirm = useConfirm();
   const p = labels.testimonials.photo;
   const [mode, setMode] = useState<"link" | "upload">(photoFileName ? "upload" : "link");
   const [busy, setBusy] = useState(false);
@@ -167,6 +168,7 @@ function PhotoField({
   }
 
   async function remove() {
+    if (!await confirm({ message: "Delete this photo?" })) return;
     setBusy(true); setError(null);
     try {
       if (rowId) {

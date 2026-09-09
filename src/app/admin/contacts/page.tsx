@@ -184,6 +184,7 @@ export default function ContactsPage() {
   }
 
   async function removeProjectLink(id: number) {
+    if (!await confirm({ message: "Delete this contact?" })) return;
     const res = await fetch(`/api/project-contacts?id=${id}`, { method: "DELETE" });
     if (!res.ok) { setFormError("Failed to remove link"); return; }
     setLinks((prev) => prev.filter((l) => l.id !== id));

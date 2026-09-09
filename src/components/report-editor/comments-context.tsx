@@ -6,6 +6,7 @@ import { MessageSquare, MessageSquarePlus, Check, Trash2, Loader2, RotateCcw } f
 import { cn, formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface ItemComment {
   id: number;
@@ -68,6 +69,7 @@ export function CommentsProvider({
   role?: string;
   children: ReactNode;
 }) {
+  const confirm = useConfirm();
   const [comments, setComments] = useState<ItemComment[]>([]);
 
   useEffect(() => {
@@ -130,9 +132,10 @@ export function CommentsProvider({
   }, []);
 
   const remove = useCallback(async (id: number) => {
+    if (!await confirm({ message: "Delete this comment? This cannot be undone." })) return;
     const res = await fetch(`/api/comments?id=${id}`, { method: "DELETE" });
     if (res.ok) setComments((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+  }, [confirm]);
 
   return (
     <CommentsContext.Provider value={{ enabled, readOnly, role, reportId, commentsFor, add, setResolved, setAddressed, updateBody, remove }}>
@@ -385,9 +388,14 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                   <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
                                     <span>{r.author_role === "admin" ? "CRAF'd" : (r.author ?? "Partner")} · {formatDate(r.created_at)}</span>
                                     {((role === "partner" && r.author_role === "partner") || (role === "admin" && r.author_role === "admin" && !readOnly)) && !c.partner_addressed && (
-                                      <button type="button" className="hover:text-foreground transition-colors disabled:opacity-40" onClick={() => { setEditingId(r.id); setEditDraft(r.body); }}>
-                                        Edit
-                                      </button>
+                                      <span className="flex items-center gap-1.5">
+                                        <button type="button" className="hover:text-foreground transition-colors disabled:opacity-40" onClick={() => { setEditingId(r.id); setEditDraft(r.body); }}>
+                                          Edit
+                                        </button>
+                                        <button type="button" onClick={() => remove(r.id)} title="Delete" className="hover:text-destructive transition-colors">
+                                          <Trash2 className="size-3" />
+                                        </button>
+                                      </span>
                                     )}
                                   </div>
                                 </>

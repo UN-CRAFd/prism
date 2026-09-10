@@ -94,7 +94,6 @@ export function ReportEditor({
 
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
-  const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
 
   // Risk CRUD (admin-parity): add / edit core fields / delete, all report-scoped.
@@ -215,9 +214,6 @@ export function ReportEditor({
         };
       }
       setRiskStates(states);
-      const collapsed: Record<number, boolean> = {};
-      for (const r of data) collapsed[r.id] = true;
-      setCollapsedRows(collapsed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -475,10 +471,6 @@ export function ReportEditor({
     pushMapEdit(setRiskStates, riskStates, id, patch, { dirty: true });
   }
 
-  function toggleCollapse(id: number) {
-    setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
-
   async function handleRiskAdd() {
     if (!newRiskName.trim() || !reportId) return;
     setAddingRisk(true);
@@ -508,7 +500,6 @@ export function ReportEditor({
           dirty: false,
         },
       }));
-      setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
       setNewRiskName("");
       setNewRiskCategory([]);
       setNewRiskApprovedMitigation("");
@@ -622,7 +613,6 @@ export function ReportEditor({
                 dirty: false,
               },
             }));
-            setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
           } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to restore risk");
           }
@@ -1216,7 +1206,6 @@ export function ReportEditor({
           <RiskSection
             risks={risks}
             riskStates={riskStates}
-            collapsedRows={collapsedRows}
             newRiskName={newRiskName}
             setNewRiskName={setNewRiskName}
             newRiskCategory={newRiskCategory}
@@ -1238,7 +1227,6 @@ export function ReportEditor({
             deletingRiskId={deletingRiskId}
             handleRiskDelete={handleRiskDelete}
             updateRisk={updateRisk}
-            toggleCollapse={toggleCollapse}
           />
 
         ) : params.section === "indicators" ? (

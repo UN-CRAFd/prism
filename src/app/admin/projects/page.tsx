@@ -773,7 +773,6 @@ export default function ProjectsPage() {
                 >
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select a scope…" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={GEO_SCOPE_NONE}>Select a scope…</SelectItem>
                     {optionValues("geographicScope").map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}

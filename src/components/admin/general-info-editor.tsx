@@ -726,7 +726,6 @@ export function GeneralInfoAdminEditor({
                 <SelectValue placeholder={g.placeholders.geographicScope} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={GEO_SCOPE_NONE}>{g.placeholders.geographicScope}</SelectItem>
                 {optionValues("geographicScope").map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}

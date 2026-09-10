@@ -916,7 +916,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
               autosave editors report via the callback prop; the risk/indicator
               inline saves call handleSaveStateChange around their fetches. */}
           {selectedProdocId && ["general", "narratives", "sdg", "indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
-            <AutosaveIndicator state={editorSaveState} idleAsSaved />
+            <AutosaveIndicator state={editorSaveState} />
           )}
 
           {isPartner && selectedDoc?.status === "Open" && selectedProdocId && (

@@ -18,6 +18,8 @@ export function SearchableSelect({
   onChange,
   placeholder = "Select…",
   exclude,
+  allowCustom = false,
+  searchPlaceholder = "Search…",
   disabled,
   className,
 }: {
@@ -26,6 +28,8 @@ export function SearchableSelect({
   onChange: (v: string) => void;
   placeholder?: string;
   exclude?: readonly string[];
+  allowCustom?: boolean;
+  searchPlaceholder?: string;
   disabled?: boolean;
   className?: string;
 }) {
@@ -42,15 +46,27 @@ export function SearchableSelect({
   const [filter, setFilter] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  const trimmed = filter.trim();
   const filtered = filter
     ? items.filter((it) => it.label.toLowerCase().includes(filter.toLowerCase()))
     : items;
+
+  const trimmedLower = trimmed.toLowerCase();
+  const showAddRow =
+    allowCustom &&
+    trimmed.length > 0 &&
+    !allItems.some((it) => it.label.toLowerCase() === trimmedLower) &&
+    !(exclude ?? []).some((v) => v.toLowerCase() === trimmedLower);
 
   function handleOpenChange(open: boolean) {
     if (open) {
       setFilter("");
       setTimeout(() => inputRef.current?.focus(), 0);
     }
+  }
+
+  function selectCustom() {
+    onChange(trimmed);
   }
 
   return (
@@ -77,19 +93,23 @@ export function SearchableSelect({
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
-            placeholder="Search…"
+            placeholder={searchPlaceholder}
             className="w-full rounded-sm bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
         <div className="max-h-[260px] overflow-y-auto p-1">
-          {filtered.length === 0 ? (
+          {filtered.map((it) => (
+            <DropdownMenuItem key={it.value} onSelect={() => onChange(it.value)}>
+              {it.label}
+            </DropdownMenuItem>
+          ))}
+          {showAddRow && (
+            <DropdownMenuItem onSelect={selectCustom}>
+              Add <span className="font-medium">&ldquo;{trimmed}&rdquo;</span>
+            </DropdownMenuItem>
+          )}
+          {filtered.length === 0 && !showAddRow && (
             <div className="px-2 py-1.5 text-xs text-muted-foreground">No matches</div>
-          ) : (
-            filtered.map((it) => (
-              <DropdownMenuItem key={it.value} onSelect={() => onChange(it.value)}>
-                {it.label}
-              </DropdownMenuItem>
-            ))
           )}
         </div>
       </DropdownMenuContent>

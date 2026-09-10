@@ -127,7 +127,7 @@ export default function NarrativeQuestionsPage() {
           <div>
             <section className="rounded-xl border bg-card flex flex-col">
               <div className="border-b px-5 py-3.5">
-                <h2 className="text-sm font-semibold">Narrative Sections</h2>
+                <h2 className="t-heading-sub">Narrative Sections</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Seeds the narratives tab of each new project document. The description is shown under the section heading in the editor. Editing or removing a question here does not change existing projects.
                 </p>

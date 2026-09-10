@@ -1412,7 +1412,7 @@ export function WorkplanUpdatesManager({ projectId, startDate, durationMonths }:
       >
         {collapsed ? <ChevronRight className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold">{wu.title}</h3>
+          <h3 className="t-heading-sub">{wu.title}</h3>
           {!collapsed && <p className="text-xs text-muted-foreground">{wu.description}</p>}
         </div>
       </button>

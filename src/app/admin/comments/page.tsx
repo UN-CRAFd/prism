@@ -240,7 +240,7 @@ export default function AdminCommentsPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-green-600" />
-                <h2 className="text-base font-semibold">Completed by partner</h2>
+                <h2 className="t-heading-section">Completed by partner</h2>
                 <span className="text-xs text-muted-foreground">confirm or deny · {completed.length}</span>
               </div>
               {completed.length === 0 ? (
@@ -253,7 +253,7 @@ export default function AdminCommentsPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Send className="size-4 text-amber-500" />
-                <h2 className="text-base font-semibold">Sent out</h2>
+                <h2 className="t-heading-section">Sent out</h2>
                 <span className="text-xs text-muted-foreground">awaiting the partner · {sentOut.length}</span>
               </div>
               {sentOut.length === 0 ? (
@@ -266,7 +266,7 @@ export default function AdminCommentsPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Archive className="size-4 text-muted-foreground" />
-                <h2 className="text-base font-semibold">Archived</h2>
+                <h2 className="t-heading-section">Archived</h2>
                 <span className="text-xs text-muted-foreground">confirmed by CRAF&apos;d · {archived.length}</span>
               </div>
               {archived.length === 0 ? (

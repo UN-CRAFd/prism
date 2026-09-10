@@ -172,6 +172,51 @@
 }
 
 /**
+ * Typography scale — the single source of truth for heading type.
+ *
+ * Admin and partner share one shell, one font stack and (for the prodoc/report
+ * editors) the same components, so headings must not be re-specified per page.
+ * Each tier below fixes font-family / size / weight / line-height ONLY —
+ * never colour, margin or layout. Call sites keep their own layout utilities:
+ *
+ *   <h1 className="t-title-banner truncate">      ← type from here, truncate local
+ *
+ * The two title tiers encode a deliberate distinction, not drift:
+ *   t-title-banner  landing pages (dashboards, pickers, the guide)
+ *   t-title-page    working pages (list/management screens and the editors)
+ * Pick the tier that matches the page's role; don't invent a new size.
+ */
+/* line-height goes through --tw-leading, exactly as Tailwind's own text-*
+   utilities do, so adding a `leading-*` class to a heading still overrides. */
+@utility t-title-banner {
+  font-family: var(--font-qanelas), "Qanelas", sans-serif;
+  font-size: var(--text-3xl);
+  line-height: var(--tw-leading, var(--text-3xl--line-height));
+  font-weight: 700;
+}
+@utility t-title-page {
+  font-family: var(--font-qanelas), "Qanelas", sans-serif;
+  font-size: var(--text-2xl);
+  line-height: var(--tw-leading, var(--text-2xl--line-height));
+  font-weight: 700;
+}
+/* Section and group headings: the "icon + heading + count" rows on dashboards
+   and list pages, and any bare section heading on a page. */
+@utility t-heading-section {
+  font-size: var(--text-base);
+  line-height: var(--tw-leading, var(--text-base--line-height));
+  font-weight: 600;
+}
+/* Compact tier, one step down: card headers that sit above a text-xs blurb, and
+   sub-section headings inside the prodoc editor tabs. Intentionally smaller
+   than t-heading-section — this is a real tier, not an inconsistency. */
+@utility t-heading-sub {
+  font-size: var(--text-sm);
+  line-height: var(--tw-leading, var(--text-sm--line-height));
+  font-weight: 600;
+}
+
+/**
  * Scrollbar Management
  * 
  * Purpose: Prevent layout shifts when navigating between pages with different content heights

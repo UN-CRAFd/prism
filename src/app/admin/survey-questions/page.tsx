@@ -102,7 +102,7 @@ export default function SurveyQuestionsPage() {
               return (
                 <section key={t.value} className="rounded-xl border bg-card flex flex-col">
                   <div className="border-b px-5 py-3.5">
-                    <h2 className="text-sm font-semibold">{t.label}</h2>
+                    <h2 className="t-heading-sub">{t.label}</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">{blurb}</p>
                   </div>
 

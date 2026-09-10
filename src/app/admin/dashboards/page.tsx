@@ -45,7 +45,7 @@ export default function DashboardsPage() {
         ) : (
           <section className="space-y-3">
             <div>
-              <h2 className="text-sm font-semibold">Project periods</h2>
+              <h2 className="t-heading-section">Project periods</h2>
               <p className="text-xs text-muted-foreground">Start date through end of duration for every project.</p>
             </div>
             <ProjectGantt projects={projects} reports={reports} />

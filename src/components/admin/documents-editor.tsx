@@ -152,7 +152,7 @@ export function DocumentsEditor({
         <div className="rounded-xl border bg-card p-6 space-y-4">
           <div className="flex items-center gap-2">
             <Upload className="size-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">{d.uploadHeading}</h3>
+            <h3 className="t-heading-sub">{d.uploadHeading}</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
@@ -211,7 +211,7 @@ export function DocumentsEditor({
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="flex items-center gap-2 px-6 py-4 border-b">
           <FileText className="size-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">{d.listHeading}</h3>
+          <h3 className="t-heading-sub">{d.listHeading}</h3>
           <span className="text-xs text-muted-foreground">({documents.length})</span>
         </div>
 

@@ -67,7 +67,7 @@ export default function AdminSettingsPage() {
     <div className="flex flex-col min-h-full bg-background">
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">Administration</p>
-        <h1 className="text-3xl font-bold font-qanelas">Settings</h1>
+        <h1 className="t-title-banner">Settings</h1>
         <p className="text-neutral-400 text-sm mt-2">
           Manage the CRAF&apos;d Secretariat admin account
         </p>
@@ -78,7 +78,7 @@ export default function AdminSettingsPage() {
         <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-6">
           <div className="flex items-center gap-3 mb-4">
             <KeyRound className="size-5 text-amber-500 shrink-0" />
-            <h2 className="text-base font-semibold">Change admin password</h2>
+            <h2 className="t-heading-section">Change admin password</h2>
           </div>
           <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1 min-w-[160px] flex-1">
@@ -136,7 +136,7 @@ export default function AdminSettingsPage() {
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center gap-3 mb-1">
               <Tag className="size-5 text-amber-500 shrink-0" />
-              <h2 className="text-base font-semibold">Interface labels</h2>
+              <h2 className="t-heading-section">Interface labels</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
               Override any user-facing text across the platform (field names, headings,
@@ -151,7 +151,7 @@ export default function AdminSettingsPage() {
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center gap-3 mb-1">
               <List className="size-5 text-amber-500 shrink-0" />
-              <h2 className="text-base font-semibold">Dropdown options</h2>
+              <h2 className="t-heading-section">Dropdown options</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
               Add, edit, reorder, or remove the choices in the platform&apos;s dropdowns

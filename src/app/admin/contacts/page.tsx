@@ -276,7 +276,7 @@ export default function ContactsPage() {
 
             {editId != null && (
               <div className="mt-6 border-t pt-5 space-y-3">
-                <h4 className="text-sm font-semibold">Linked projects</h4>
+                <h4 className="t-heading-sub">Linked projects</h4>
                 <div className="max-w-xl">
                   <Combobox
                     items={projectComboItems}

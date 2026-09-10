@@ -861,7 +861,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       <div className="border-b px-8 h-32 flex items-center justify-between gap-4 shrink-0">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 min-w-0">
-            <h1 className="text-2xl font-bold font-qanelas truncate min-w-0" title={selectedDoc?.project_title}>{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
+            <h1 className="t-title-page truncate min-w-0" title={selectedDoc?.project_title}>{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
             {/* Partners edit two kinds of prodocs: their own projects (they're the
                 project lead) and ones they were granted editor rights on (owned by a
                 different org — see [[project-editors-prodoc-rights]]). This badge tells

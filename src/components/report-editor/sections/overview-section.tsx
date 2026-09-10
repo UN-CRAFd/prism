@@ -76,7 +76,7 @@ export function OverviewSection({ overview, updateOverview }: OverviewSectionPro
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="size-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">{labels.authorization.heading}</h3>
+          <h3 className="t-heading-sub">{labels.authorization.heading}</h3>
         </div>
 
         <div className="space-y-2">

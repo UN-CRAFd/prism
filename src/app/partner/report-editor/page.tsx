@@ -98,7 +98,7 @@ export default function ReportEditorPage() {
     <div className="flex flex-col min-h-full bg-background">
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 py-8">
-        <h1 className="text-3xl font-bold font-qanelas">{labels.dashboard.title}</h1>
+        <h1 className="t-title-banner">{labels.dashboard.title}</h1>
         {mounted && (
           <p className="text-neutral-400 text-sm mt-2">
             {labels.dashboard.subtitle} &middot;{" "}
@@ -131,7 +131,7 @@ export default function ReportEditorPage() {
             {/* ── Latest year — featured card ── */}
             <section className="lg:col-span-2">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold">
+                <h2 className="t-heading-section">
                   {latestYear} {labels.dashboard.annualReport}
                 </h2>
                 <span className="text-sm text-muted-foreground">
@@ -185,7 +185,7 @@ export default function ReportEditorPage() {
             {/* ── Previous years ── */}
             {previousYears.length > 0 && (
               <section className="lg:col-span-1">
-                <h2 className="text-base font-semibold mb-3">{labels.dashboard.previousYears}</h2>
+                <h2 className="t-heading-section mb-3">{labels.dashboard.previousYears}</h2>
                 <div className="flex flex-col gap-3">
                   {previousYears.map((year) => {
                     const yearReports = byYear[year];

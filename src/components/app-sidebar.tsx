@@ -300,13 +300,16 @@ export function AppSidebar() {
                 <Link
                   href={href}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                    // Top-level nav links mirror the admin nav below exactly —
+                    // same type, icon size and gap — so the two sidebars read
+                    // identically. Keep these in step if either side changes.
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     active
                       ? "bg-crafd-yellow/10 text-crafd-yellow"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
-                  <Icon className="size-3.5 shrink-0" />
+                  <Icon className="size-4 shrink-0" />
                   {label}
                 </Link>
 
@@ -334,7 +337,7 @@ export function AppSidebar() {
                             }
                           }}
                           className={cn(
-                            "flex items-center rounded-md px-3 py-1.5 text-[12px] transition-colors",
+                            "flex items-center rounded-md px-3 py-1.5 text-xs transition-colors",
                             subActive
                               ? "bg-crafd-yellow/10 text-crafd-yellow font-medium"
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -386,7 +389,7 @@ export function AppSidebar() {
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                           >
-                            <span className="truncate text-[12px] font-medium capitalize">{it.primary}</span>
+                            <span className="truncate text-xs font-medium capitalize">{it.primary}</span>
                             <span className="truncate text-[10px] opacity-70">{it.secondary}</span>
                           </Link>
 
@@ -409,7 +412,7 @@ export function AppSidebar() {
                                         key={s.value}
                                         href={`/partner/report-editor/${it.slug}/${it.year}/${s.value}`}
                                         className={cn(
-                                          "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition-colors",
+                                          "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
                                           secActive
                                             ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
                                             : "text-muted-foreground hover:bg-accent hover:text-foreground"

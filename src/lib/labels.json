@@ -365,7 +365,7 @@
       "result": "Result of the Partnership"
     },
     "remarks": {
-      "partnerOrganization": "List the organization that contributed as an implementing, counterpart, or ecosystem partner to the project.",
+      "partnerOrganization": "List the organizations that contributed as an implementing, counterpart, or ecosystem partner to the project.",
       "result": "Briefly describe what improved or changed because of the partnership, including concrete outputs or outcomes (e.g. better data, wider access, shared standards). For example: The organization collaborated with two additional data partners to deliver multi-sectoral needs assessments; during the 2026 humanitarian planning cycle, the partners aligned their data collection approaches and developed a standardized implementation package that will be integrated into their API in future iterations, improving consistency and reuse of data.",
       "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
     }

@@ -16,7 +16,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: T
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold">{labels.testimonials.leadershipHeading}</h3>
+        <h3 className="t-heading-sub">{labels.testimonials.leadershipHeading}</h3>
         {!readOnly && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             {labels.testimonials.leadershipInstruction}
@@ -31,7 +31,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: T
         />
       </div>
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold">{labels.testimonials.partnerHeading}</h3>
+        <h3 className="t-heading-sub">{labels.testimonials.partnerHeading}</h3>
         {!readOnly && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             {labels.testimonials.partnerInstruction}

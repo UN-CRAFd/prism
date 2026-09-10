@@ -216,7 +216,7 @@ export default function PartnerHomePage() {
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
-        <h1 className="text-3xl font-bold font-qanelas">
+        <h1 className="t-title-banner">
           {mounted ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}` : " "}
         </h1>
         <p className="text-neutral-400 text-sm mt-2">Partner Dashboard</p>
@@ -231,7 +231,7 @@ export default function PartnerHomePage() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <ListTodo className="size-4 text-muted-foreground" />
-                  <h2 className="text-base font-semibold">To-do</h2>
+                  <h2 className="t-heading-section">To-do</h2>
                 </div>
                 {!loading && pendingReports.length > 0 && (
                   <span className="inline-flex items-center justify-center rounded-full bg-crafd-yellow text-black text-[10px] font-bold w-5 h-5">
@@ -286,7 +286,7 @@ export default function PartnerHomePage() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <ListTodo className="size-4 text-muted-foreground" />
-                  <h2 className="text-base font-semibold">Your projects</h2>
+                  <h2 className="t-heading-section">Your projects</h2>
                 </div>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {myProjects.map(({ report, lead }) => {
@@ -331,7 +331,7 @@ export default function PartnerHomePage() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="size-4 text-muted-foreground" />
-                    <h2 className="text-base font-semibold">Feedback from CRAF&apos;d</h2>
+                    <h2 className="t-heading-section">Feedback from CRAF&apos;d</h2>
                   </div>
                   {comments.some((c) => !c.partner_addressed) && (
                     <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold w-5 h-5">
@@ -387,7 +387,7 @@ export default function PartnerHomePage() {
           <section className="lg:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <CalendarDays className="size-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold">Timeline</h2>
+              <h2 className="t-heading-section">Timeline</h2>
             </div>
 
             <div className="relative pl-4">

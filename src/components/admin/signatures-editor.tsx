@@ -156,7 +156,7 @@ export function SignaturesEditor({
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">{s.contactsHeading}</h3>
+          <h3 className="t-heading-sub">{s.contactsHeading}</h3>
         </div>
 
         {!hasAny ? (
@@ -292,7 +292,7 @@ export function SignaturesEditor({
       <div className="rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="size-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">{s.secretariatHeading}</h3>
+          <h3 className="t-heading-sub">{s.secretariatHeading}</h3>
         </div>
 
         <div className="flex items-center gap-3 rounded-xl border px-4 py-3">

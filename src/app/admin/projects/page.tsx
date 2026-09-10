@@ -915,7 +915,7 @@ export default function ProjectsPage() {
                   {groupMode === "partner"
                     ? <Building2 className="size-4 text-muted-foreground" />
                     : <CircleDot className="size-4 text-muted-foreground" />}
-                  <h3 className="text-base font-bold">{key}</h3>
+                  <h2 className="t-heading-section">{key}</h2>
                   <span className="text-sm text-muted-foreground">({rows.length})</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

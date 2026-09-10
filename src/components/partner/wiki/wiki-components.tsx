@@ -13,7 +13,7 @@ export function WikiShell({ children }: { children: React.ReactNode }) {
     <div className="guide-root flex flex-col min-h-full bg-background">
       <div className="guide-banner sticky top-0 z-10 bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">PRISM V.0.2</p>
-        <h1 className="text-3xl font-bold font-qanelas">Guide</h1>
+        <h1 className="t-title-banner">Guide</h1>
         <p className="text-neutral-400 text-sm mt-2">
           How to use the PRISM reporting platform
         </p>

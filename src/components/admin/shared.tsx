@@ -25,7 +25,7 @@ export function PageHeader({
   return (
     <div className="border-b px-8 min-h-32 py-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 shrink-0">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold font-qanelas truncate">{title}</h1>
+        <h1 className="t-title-page truncate">{title}</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
       </div>
       {children && <div className="flex items-center gap-2 shrink-0">{children}</div>}

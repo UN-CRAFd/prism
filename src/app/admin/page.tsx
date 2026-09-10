@@ -198,7 +198,7 @@ export default function AdminHomePage() {
     <div className="flex flex-col min-h-full bg-background">
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
-        <h1 className="text-3xl font-bold font-qanelas">
+        <h1 className="t-title-banner">
           {mounted ? `${greeting}, ${user?.name ?? "Admin"}` : "Good day, Admin"}
         </h1>
         <p className="text-neutral-400 text-sm mt-2">
@@ -264,7 +264,7 @@ export default function AdminHomePage() {
           {/* ── Left: reports by most recent partner edit ── */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold flex items-center gap-2">
+              <h2 className="t-heading-section flex items-center gap-2">
                 <TrendingUp className="size-4 text-muted-foreground" />
                 Recently Edited
               </h2>
@@ -321,7 +321,7 @@ export default function AdminHomePage() {
           {underReviewProdocs.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold flex items-center gap-2">
+                <h2 className="t-heading-section flex items-center gap-2">
                   <FileText className="size-4 text-muted-foreground" />
                   Submitted ProDocs
                 </h2>
@@ -354,7 +354,7 @@ export default function AdminHomePage() {
           {/* ── Right: comments the partner addressed, awaiting CRAF'd review ── */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold flex items-center gap-2">
+              <h2 className="t-heading-section flex items-center gap-2">
                 <MessageSquare className="size-4 text-muted-foreground" />
                 Awaiting Your Review
               </h2>

@@ -484,7 +484,7 @@ export default function AdminFullDataPage() {
       {/* Header */}
       <div className="border-b px-8 h-32 flex items-center shrink-0">
         <div>
-          <h1 className="text-2xl font-bold font-qanelas">Full Report Data</h1>
+          <h1 className="t-title-page">Full Report Data</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Browse every submission across all reports — filter by report, section and keyword.
           </p>

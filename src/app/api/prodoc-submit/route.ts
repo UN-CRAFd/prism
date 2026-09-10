@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const projectId = body.project_id;
+    const checkOnly = body.check_only === true;
     if (!projectId) {
       return NextResponse.json({ error: "project_id is required" }, { status: 400 });
     }
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
     const prodoc = prodocRows[0];
 
     if (prodoc.status !== "Open") {
+      if (checkOnly) {
+        return NextResponse.json({ ok: true, alreadySubmitted: true });
+      }
       return NextResponse.json(
         { error: "This project document has already been submitted and cannot be submitted again." },
         { status: 409 }
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (!proj.description?.trim()) emptyFields.push("Description");
     if (emptyFields.length > 0) {
       return NextResponse.json(
-        { error: `Complete the following required fields in General Information before submitting: ${emptyFields.join(", ")}.` },
+        { error: `Complete required fields in General: ${emptyFields.join(", ")}.` },
         { status: 422 }
       );
     }
@@ -94,14 +98,15 @@ export async function POST(request: NextRequest) {
     if (diff < 0 || diff > 1) {
       const fmt = (n: number) =>
         n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const direction = diff < 0 ? `${fmt(Math.abs(diff))} over` : `${fmt(diff)} short of`;
       return NextResponse.json(
         {
-          error: `Tranche total (${fmt(total)}) is ${direction} the approved funding amount (${fmt(approved)}). Please update the tranche matrix before submitting.`,
+          error: `Tranche total is ${fmt(Math.abs(diff))} ${diff < 0 ? "over" : "short of"} the approved amount.`,
         },
         { status: 422 }
       );
     }
+
+    if (checkOnly) return NextResponse.json({ ok: true });
 
     const client = await pool.connect();
     try {

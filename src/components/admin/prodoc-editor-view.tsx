@@ -164,6 +164,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     tranchesMatch: boolean;
     missingFields: string[];
   } | null>(null);
+  const [serverCheck, setServerCheck] = useState<{ ok: boolean; error: string | null } | null>(null);
   const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
 
   // Editor lock
@@ -252,6 +253,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setLoadingRisk(false); }
   }, []);
 
+  const runSubmitCheck = useCallback(async (projectId: number) => {
+    try {
+      const res = await fetch("/api/prodoc-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, check_only: true }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) setServerCheck({ ok: true, error: null });
+      else setServerCheck({ ok: false, error: data?.error ?? "Cannot submit yet." });
+    } catch {
+      // Network failure — don't block submit on a failed check.
+      setServerCheck(null);
+    }
+  }, []);
+
   const loadIndicators = useCallback(async (prodocId: string) => {
     setLoadingIndicators(true); setError(null);
     try {
@@ -275,6 +292,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       loadIndicators(selectedProdocId);
     }
   }, [selectedProdocId, selectedSection, loadRisks, loadIndicators]);
+
+  useEffect(() => {
+    if (!isPartner) return;
+    const doc = docs.find((d) => String(d.id) === selectedProdocId);
+    if (!doc) return;
+    runSubmitCheck(doc.project_id);
+  }, [selectedProdocId, docs, selectedSection, isPartner, runSubmitCheck]);
 
   // ── Editor lock effects ──────────────────────────────────────────────
 
@@ -548,6 +572,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (submitValidation.missingFields.length > 0) {
       submitBlockers.push(`Required in General: ${submitValidation.missingFields.join(", ")}.`);
     }
+  } else if (serverCheck && !serverCheck.ok && serverCheck.error) {
+    submitBlockers.push(serverCheck.error);
   }
 
   // Called by every handler that writes data. Resets the inactivity clock and

@@ -202,7 +202,7 @@ export function RiskSection({
                           value={state.updated_mitigation}
                           onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
                           placeholder={labels.placeholders.updatedMitigation}
-                          className="text-sm h-8 min-h-0 resize-none overflow-hidden py-1"
+                          className="text-sm min-h-[60px] resize-y"
                         />
                       </td>
                       <td className="px-4 py-3 align-middle text-center">

@@ -556,5 +556,11 @@
     "deleteConfirm": "Delete this section from the Guide? Partners will no longer see it.",
     "empty": "No Guide sections yet. Add one to get started.",
     "hiddenNote": "Hidden — partners can't see this section."
+  },
+  "wiki": {
+    "copyLink": "Copy link to this section",
+    "copied": "Link copied",
+    "print": "Print Guide",
+    "tocTitle": "Contents"
   }
 }

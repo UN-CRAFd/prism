@@ -267,7 +267,6 @@ body::-webkit-scrollbar {
   background: var(--muted, #f4f4f5);
   font-weight: 600;
 }
-
 /* Rendered rich content in read views / print — same formatting, no height box. */
 .rich-html > :first-child {
   margin-top: 0;
@@ -303,6 +302,202 @@ body::-webkit-scrollbar {
   color: var(--foreground);
   margin: 1.25em 0 0.5em;
   line-height: 1.3;
+}
+/* Guide sub-section numbers (1.1, 1.2…) injected into body headings by
+   decorateWikiHeadings in lib/wiki.ts — never authored, always derived. */
+.rich-html .wiki-num {
+  margin-right: 0.5em;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Guide anchor links. Styles both the injected body-heading anchors and the
+   <SectionHeading> one, so they look and behave identically. Revealed on hover
+   or keyboard focus, GitHub-README style. */
+.wiki-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4em;
+  color: var(--muted-foreground);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.wiki-anchor svg {
+  width: 1em;
+  height: 1em;
+}
+h1:hover > .wiki-anchor,
+h2:hover > .wiki-anchor,
+h3:hover > .wiki-anchor,
+h4:hover > .wiki-anchor,
+h5:hover > .wiki-anchor,
+h6:hover > .wiki-anchor,
+.wiki-anchor:hover,
+.wiki-anchor:focus-visible,
+.wiki-anchor[data-copied] {
+  opacity: 1;
+}
+.wiki-anchor:hover {
+  color: var(--foreground);
+}
+/* Confirmation bubble — the text comes from the data-copied value so it stays
+   admin-editable via the labels system. */
+.wiki-anchor[data-copied]::after {
+  content: attr(data-copied);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Deep links land below the sticky guide header. */
+.rich-html :is(h1, h2, h3, h4, h5, h6)[id] {
+  scroll-margin-top: 8rem;
+}
+
+/* Print-only table of contents. Present in the DOM but never shown on screen;
+   the print block below reveals it. Kept out of the accessibility tree too, so
+   screen-reader users aren't read a duplicate nav they can't see. */
+.guide-toc {
+  display: none;
+}
+
+/* ── Printing the Guide ────────────────────────────────────────────────────────
+   Every rule is scoped to `body.guide-print`, a class the guide page adds on
+   mount and removes on unmount, so printing any other page is untouched. The
+   partner layout is a fixed-height flex shell (h-screen + overflow-auto on
+   <main>) — without unwinding that, only the on-screen viewport would print. */
+@media print {
+  body.guide-print {
+    background: #fff;
+    overflow: visible;
+    height: auto;
+  }
+  /* Navigation, the print button itself, and the hover anchor icons. */
+  body.guide-print .no-print,
+  body.guide-print .wiki-anchor {
+    display: none !important;
+  }
+  /* Admin-only sections never appear in the printed guide. */
+  body.guide-print [data-guide-hidden] {
+    display: none !important;
+  }
+  /* Table of contents — print/PDF only, on its own leading page. The entries are
+     real <a href="#id"> links, which Chrome/Edge turn into internal link
+     annotations when printing to PDF; their targets are ordinary headings that
+     stay rendered in print, so the destinations resolve. */
+  body.guide-print .guide-toc {
+    display: block;
+    break-after: page;
+  }
+  body.guide-print .guide-toc-title {
+    margin: 0 0 0.75rem;
+    font-family: var(--font-qanelas), sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #000;
+  }
+  body.guide-print .guide-toc ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  body.guide-print .guide-toc li {
+    break-inside: avoid;
+  }
+  body.guide-print .guide-toc a {
+    display: flex;
+    gap: 0.5em;
+    padding: 0.15rem 0;
+    color: #1a1a1a;
+    text-decoration: none;
+  }
+  body.guide-print .guide-toc-num {
+    flex: 0 0 auto;
+    min-width: 2.2em;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Sub-entries (1.1, 1.2…) indent one step per level. */
+  body.guide-print .guide-toc li[data-toc-level="1"] > a {
+    font-weight: 600;
+  }
+  body.guide-print .guide-toc li[data-toc-level="2"] > a {
+    padding-left: 1.6em;
+    font-size: 0.95em;
+  }
+  body.guide-print .guide-toc li[data-toc-level="3"] > a {
+    padding-left: 3.2em;
+    font-size: 0.95em;
+  }
+  /* Unwind the app shell's scroll containers so the whole document flows. */
+  body.guide-print * {
+    overflow: visible !important;
+  }
+  body.guide-print :is(div, main, section, nav) {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+  /* The banner becomes the printed title block: ink on white, in flow. */
+  body.guide-print .guide-banner {
+    position: static !important;
+    height: auto !important;
+    padding: 0 0 0.75rem !important;
+    background: #fff !important;
+    color: #000 !important;
+    border-bottom: 2px solid var(--color-crafd-yellow);
+  }
+  body.guide-print .guide-banner p {
+    color: #4b5563 !important;
+  }
+  body.guide-print .guide-body {
+    padding: 0 !important;
+  }
+  body.guide-print .guide-body > div {
+    max-width: none !important;
+  }
+  /* Body copy is muted-grey on screen; darken it for legible print. */
+  body.guide-print .rich-html {
+    color: #1a1a1a !important;
+  }
+  /* Keep the section-number colours and the brand icons rather than letting the
+     browser drop backgrounds (matches the prodoc print view). */
+  body.guide-print * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Pagination: never strand a heading at the foot of a page, keep table rows
+     and list items whole, and repeat table headers across pages. */
+  body.guide-print :is(h1, h2, h3, h4, h5, h6) {
+    break-after: avoid-page;
+    break-inside: avoid;
+  }
+  body.guide-print thead {
+    display: table-header-group;
+  }
+  body.guide-print :is(tr, li) {
+    break-inside: avoid;
+  }
+  /* Printed links are dead ends, so spell external URLs out. In-page anchors are
+     left alone — the target is in the same document. */
+  body.guide-print .rich-html a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #4b5563;
+    word-break: break-all;
+  }
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
 }
 .rich-html h1 { font-size: 1.35em; }
 .rich-html h2 { font-size: 1.2em; }

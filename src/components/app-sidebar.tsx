@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
+import { numberWikiSections } from "@/lib/wiki";
 import { cn, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -40,7 +41,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 // The guide is a single long page; sub-links scroll to section anchors on it.
 // The section list is DB-driven (wiki_sections, editable at /admin/guide) — the
 // sidebar fetches it so nav stays in sync as admins add/reorder/hide/rename.
-type WikiSubLink = { hash: string; label: string };
+// `number` mirrors the ordinal shown on the guide page (null for hidden
+// sections, which only admins receive) — see numberWikiSections in lib/wiki.
+type WikiSubLink = { hash: string; label: string; number: string | null };
 
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
@@ -106,9 +109,15 @@ export function AppSidebar() {
     if (!mounted) return;
     fetch("/api/wiki-sections")
       .then((r) => (r.ok ? r.json() : []))
-      .then((rows: { slug: string; title: string }[]) => {
+      .then((rows: { slug: string; title: string; hidden: boolean }[]) => {
         if (Array.isArray(rows)) {
-          setWikiSections(rows.map((s) => ({ hash: s.slug, label: s.title })));
+          setWikiSections(
+            numberWikiSections(rows).map((s) => ({
+              hash: s.slug,
+              label: s.title,
+              number: s.number,
+            }))
+          );
         }
       })
       .catch(() => {});
@@ -217,7 +226,9 @@ export function AppSidebar() {
   }, [activeReportId, pathname]);
 
   return (
-    <div className="relative shrink-0">
+    // `no-print` only bites under body.guide-print (see globals.css), so printing
+    // any other page is unchanged.
+    <div className="no-print relative shrink-0">
     <aside className={cn(
       "flex h-screen flex-col border-r border-border bg-sidebar overflow-hidden transition-all duration-300 ease-in-out",
       isOpen ? "w-64" : "w-0"
@@ -329,6 +340,11 @@ export function AppSidebar() {
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
                           )}
                         >
+                          {sub.number && (
+                            <span className="mr-1.5 shrink-0 tabular-nums opacity-70">
+                              {sub.number}
+                            </span>
+                          )}
                           {sub.label}
                         </Link>
                       );

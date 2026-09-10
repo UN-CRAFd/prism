@@ -9,7 +9,7 @@ import { ArrowUp, ArrowDown, Eye, EyeOff, Trash2, Plus, Loader2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
-import { WIKI_ICON_NAMES, wikiIcon, DEFAULT_WIKI_ICON } from "@/lib/wiki";
+import { WIKI_ICON_NAMES, wikiIcon, DEFAULT_WIKI_ICON, numberWikiSections } from "@/lib/wiki";
 import labels from "@/lib/labels";
 
 // ── Guide (wiki) editor ───────────────────────────────────────────────────────
@@ -186,7 +186,9 @@ export function GuideEditor() {
         </div>
       )}
 
-      {sections.map((s, i) => {
+      {/* Numbers are derived from the current order (hidden sections are skipped),
+          so they match what partners see and re-shuffle as soon as a section moves. */}
+      {numberWikiSections(sections).map((s, i) => {
         const len = richTextLength(s.body_html);
         return (
           <div
@@ -203,12 +205,17 @@ export function GuideEditor() {
                 onChange={(name) => patchNow(s.id, { icon: name })}
               />
               <div className="flex-1 space-y-1.5">
-                <Input
-                  value={s.title}
-                  onChange={(e) => editField(s.id, { title: e.target.value })}
-                  placeholder={labels.guideEditor.titleLabel}
-                  className="font-medium"
-                />
+                <div className="flex items-center gap-2">
+                  <span className="w-5 shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">
+                    {s.number ?? "—"}
+                  </span>
+                  <Input
+                    value={s.title}
+                    onChange={(e) => editField(s.id, { title: e.target.value })}
+                    placeholder={labels.guideEditor.titleLabel}
+                    className="font-medium"
+                  />
+                </div>
                 <p className="text-[11px] text-muted-foreground font-mono">#{s.slug}</p>
               </div>
 

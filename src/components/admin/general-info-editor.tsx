@@ -213,7 +213,7 @@ export function GeneralInfoAdminEditor({
     [participatingOrgs, implementingOrgs]
   );
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const formRef = useRef<Form>(EMPTY_FORM);
@@ -429,8 +429,9 @@ export function GeneralInfoAdminEditor({
   }, [form.project_title, form.grant_size_usd, form.project_start_date, form.project_duration_months, form.geographic_scope, form.description]);
 
   useEffect(() => {
+    if (loading) return;
     onValidationChange?.({ tranchesMatch: tranchesMatchGrant, missingFields: missingRequiredFields });
-  }, [onValidationChange, tranchesMatchGrant, missingRequiredFields]);
+  }, [loading, onValidationChange, tranchesMatchGrant, missingRequiredFields]);
 
   // ── Organization list CRUD (immediate) ─────────────────────────────────
   async function addOrg(type: "participating" | "implementing") {

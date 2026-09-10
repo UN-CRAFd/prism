@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
@@ -763,35 +764,18 @@ export function GeneralInfoAdminEditor({
           {orgError && <p className="text-xs text-destructive">{orgError}</p>}
           {participatingOrgs.map((o) => (
             <div key={o.id} className="flex items-center gap-2">
-              {editingOrgId === o.id ? (
-                <>
-                  <Input
-                    value={editingOrgName}
-                    onChange={(e) => setEditingOrgName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
-                    className="h-8 flex-1 text-sm"
-                    autoFocus
-                    maxLength={ORG_NAME_MAX}
-                  />
-                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 text-sm">{o.name}</span>
-                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
-                </>
-              )}
+              <span className="flex-1 text-sm">{o.name}</span>
+              <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
             </div>
           ))}
           <div className="flex items-center gap-2">
-            <Input
+            <SearchableSelect
+              optionKey="projectPartners"
               value={newParticipatingOrg}
-              onChange={(e) => setNewParticipatingOrg(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("participating"); } }}
+              onChange={setNewParticipatingOrg}
               placeholder={g.placeholders.participatingOrganizations}
-              className="h-8 flex-1 text-sm"
-              maxLength={ORG_NAME_MAX}
+              exclude={participatingOrgs.map((o) => o.name)}
+              className="flex-1"
             />
             <Button size="sm" variant="outline" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
               <Plus className="size-3.5 mr-1" />Add

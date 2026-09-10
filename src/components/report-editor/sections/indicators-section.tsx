@@ -15,6 +15,7 @@ import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
+import { numericYear } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 
@@ -206,9 +207,9 @@ export function IndicatorsSection({
           </div>
           <div className="flex gap-2">
             <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-            <Input placeholder={labels.indicators.columns.baselineYear} type="number" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(e.target.value)} className="flex-[1.0]" />
+            <Input placeholder={labels.indicators.columns.baselineYear} type="text" inputMode="numeric" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(numericYear(e.target.value))} className="flex-[1.0]" />
             <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-            <Input placeholder={labels.indicators.columns.targetYear} type="number" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(e.target.value)} className="flex-[1.0]" />
+            <Input placeholder={labels.indicators.columns.targetYear} type="text" inputMode="numeric" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(numericYear(e.target.value))} className="flex-[1.0]" />
             <Button onClick={submitCreate} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
               {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
             </Button>

@@ -13,6 +13,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
+import { numericAmount, numericInteger, clampDuration } from "@/lib/numeric-input";
 import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import labels from "@/lib/labels";
@@ -76,7 +77,7 @@ function addMonthsISO(dateStr: string, months: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const base = new Date(Date.UTC(y, m - 1, d));
   base.setUTCMonth(base.getUTCMonth() + months);
-  return base.toISOString().slice(0, 10);
+  return isNaN(base.getTime()) ? "" : base.toISOString().slice(0, 10);
 }
 
 interface ProjectContact {
@@ -669,7 +670,7 @@ export function GeneralInfoAdminEditor({
                 : form.grant_size_usd.trim() !== "" && !isNaN(parseAmount(form.grant_size_usd))
                   ? formatUS(parseAmount(form.grant_size_usd))
                   : form.grant_size_usd}
-              onChange={(e) => setField("grant_size_usd", e.target.value)}
+              onChange={(e) => setField("grant_size_usd", numericAmount(e.target.value))}
               onFocus={() => setGrantFocused(true)}
               onBlur={() => {
                 setGrantFocused(false);
@@ -696,9 +697,9 @@ export function GeneralInfoAdminEditor({
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.durationMonths} <span className="text-destructive">*</span></label>
             <Input
-              type="number" min="0" step="1"
+              type="text" inputMode="numeric"
               value={form.project_duration_months}
-              onChange={(e) => setField("project_duration_months", e.target.value)}
+              onChange={(e) => setField("project_duration_months", clampDuration(e.target.value))}
               placeholder={g.placeholders.durationMonths}
               className="text-sm"
             />

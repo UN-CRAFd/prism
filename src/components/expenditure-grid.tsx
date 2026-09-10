@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
+import { numericAmount } from "@/lib/numeric-input";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
@@ -42,14 +43,6 @@ function parseAmount(s: string): number | null {
   if (cleaned === "") return null;
   const n = Number(cleaned);
   return isNaN(n) ? null : n;
-}
-
-// Keep money inputs numeric (review feedback): digits and at most one decimal
-// point — everything else typed or pasted is dropped before it reaches state.
-function numericAmount(v: string): string {
-  const s = v.replace(/[^\d.]/g, "");
-  const i = s.indexOf(".");
-  return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "");
 }
 
 // A read-only computed number cell (muted for approved, coloured for differences).

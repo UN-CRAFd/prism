@@ -330,7 +330,7 @@ export default function ProdocPrintPage() {
         </div>
         {Array.isArray(m.participating_organizations) && (m.participating_organizations as { id: number; name: string }[]).length > 0 ? (
           <div data-block style={{ marginTop: 10, fontSize: 12 }}>
-            <span style={{ color: MUTED }}>Participating organizations: </span>
+            <span style={{ color: MUTED }}>Project partners: </span>
             {(m.participating_organizations as { id: number; name: string }[]).map((o) => o.name).join(", ")}
           </div>
         ) : null}
@@ -729,8 +729,8 @@ export default function ProdocPrintPage() {
                   signedDate: c.signed_at,
                 }))
               : [{
-                  name: (m.partner_long_name as string) || (m.partner_short_name as string) || "Applicant",
-                  role: "Applicant",
+                  name: (m.partner_long_name as string) || (m.partner_short_name as string) || "Organization",
+                  role: "Signatory",
                   signedDate: null as string | null,
                 }]
             ).map((s, i) => (

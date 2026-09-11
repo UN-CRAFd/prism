@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Plus, Trash2, Pencil } from "lucide-react";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
@@ -108,7 +109,16 @@ export function RiskSection({
               <th className="text-left px-4 py-3 text-muted-foreground w-28">{labels.risk.columns.riskLevel}</th>
               <th className="text-left px-4 py-3 text-muted-foreground w-72">{labels.risk.columns.approvedMitigation}</th>
               <th className="text-left px-4 py-3 text-muted-foreground w-72">{labels.risk.columns.updatedMitigation}</th>
-              <th className="text-center px-4 py-3 text-muted-foreground w-24">{labels.risk.columns.revision}</th>
+              <th className="text-center px-4 py-3 text-muted-foreground w-24">
+                <span className="inline-flex items-center justify-center gap-1">
+                  {labels.risk.columns.revision}
+                  <InfoPopover
+                    description={labels.risk.remarks.revision}
+                    triggerTitle="About project revisions"
+                    descriptionHeading="What this means"
+                  />
+                </span>
+              </th>
               <th className="text-right px-4 py-3 text-muted-foreground w-24">{labels.risk.columns.actions}</th>
             </tr>
           </thead>

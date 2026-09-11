@@ -265,6 +265,9 @@
       "updatedMitigation": "Updated Mitigation",
       "revision": "Revision",
       "actions": "Actions"
+    },
+    "remarks": {
+      "revision": "Tick if this risk led to a project revision, such as a budget revision or a no-cost extension. For example: delays in licensing led to project delays and a no-cost extension."
     }
   },
   "overviewFields": {

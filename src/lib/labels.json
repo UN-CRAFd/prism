@@ -14,7 +14,7 @@
     "imageStandards": "Image standards: Please label and upload all required photos below in a PNG format here with a minimum resolution of 3000x2000px (>1.5 MB) or send via email/download link to maintain quality. For examples, refer to CRAF'd Annual Report. Please also provide credits in your submitted photos and videos in the respective tables below.",
     "placeholders": {
       "url": "https://…",
-      "organizationName": "Organization name…",
+      "organizationName": "Organization Name…",
       "fullName": "Full name"
     }
   },
@@ -260,9 +260,9 @@
       "risk": "Risk",
       "likelihood": "Likelihood",
       "impact": "Impact",
-      "riskLevel": "Risk Level",
-      "approvedMitigation": "Approved Mitigation",
-      "updatedMitigation": "Updated Mitigation",
+      "riskLevel": "Risk level",
+      "approvedMitigation": "Approved mitigation",
+      "updatedMitigation": "Updated mitigation",
       "revision": "Revision",
       "actions": "Actions"
     }
@@ -298,18 +298,18 @@
     "partnerHeading": "Partner / User Quotes",
     "columns": {
       "quote": "Quote",
-      "personName": "Name of person quoted",
-      "personTitle": "Title of person quoted",
+      "personName": "Name of Person Quoted",
+      "personTitle": "Title of Person Quoted",
       "photoLabel": "Photo label",
       "photoLink": "Photo",
-      "photoCredits": "Photo credits"
+      "photoCredits": "Photo Credits"
     },
     "placeholders": {
-      "quote": "Enter the quote…",
-      "personName": "Full name",
-      "personTitle": "Role / position",
+      "quote": "Enter the Quote…",
+      "personName": "Full Name",
+      "personTitle": "Role / Position",
       "photoLabel": "How to label the person in the photo",
-      "photoCredits": "Photographer / source"
+      "photoCredits": "Photographer / Source"
     },
     "photo": {
       "linkTab": "Link",
@@ -349,7 +349,7 @@
   "results": {
     "columns": {
       "context": "Context",
-      "dataDrivenDecision": "Data-driven Decision",
+      "dataDrivenDecision": "Data-Driven Decision",
       "resultingImpact": "Resulting Impact"
     },
     "remarks": {
@@ -365,7 +365,7 @@
       "result": "Result of the Partnership"
     },
     "remarks": {
-      "partnerOrganization": "List the organization that contributed as an implementing, counterpart, or ecosystem partner to the project.",
+      "partnerOrganization": "List the organizations that contributed as an implementing, counterpart, or ecosystem partner to the project.",
       "result": "Briefly describe what improved or changed because of the partnership, including concrete outputs or outcomes (e.g. better data, wider access, shared standards). For example: The organization collaborated with two additional data partners to deliver multi-sectoral needs assessments; during the 2026 humanitarian planning cycle, the partners aligned their data collection approaches and developed a standardized implementation package that will be integrated into their API in future iterations, improving consistency and reuse of data.",
       "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
     }
@@ -407,16 +407,16 @@
     "title": "Transfers to implementing partners",
     "currency": "USD",
     "columns": {
-      "organizationName": "State organization name",
-      "website": "Share website link",
-      "partnerType": "Select partner type",
-      "amountTransferred": "Mention amount transferred",
-      "linkedActivity": "State linked activity",
+      "organizationName": "Organization name",
+      "website": "Website link",
+      "partnerType": "Partner type",
+      "amountTransferred": "Amount transferred",
+      "linkedActivity": "Linked activity",
       "subTotal": "Transferred per organization",
       "total": "Total amount transferred"
     },
-    "selectPartnerType": "Select organization type",
-    "selectActivity": "Select linked activity",
+    "selectPartnerType": "Organization type",
+    "selectActivity": "Linked activity",
     "addEntry": "Add transfer",
     "empty": "No transfers have been added to this report yet."
   },
@@ -424,17 +424,17 @@
     "title": "Complementary funding for the project",
     "currency": "USD",
     "columns": {
-      "contributorName": "State contributor name",
-      "website": "Share website link",
-      "fundingType": "Select funding type",
-      "contributionAmount": "Mention total contribution",
-      "linkedActivities": "State linked activities",
+      "contributorName": "Contributor name",
+      "website": "Website link",
+      "fundingType": "Funding type",
+      "contributionAmount": "Total contribution",
+      "linkedActivities": "Linked activities",
       "subTotal": "Transferred per organization",
       "total": "Total"
     },
-    "selectFundingType": "Select funding type",
-    "selectActivities": "Select linked activities",
-    "activitiesSelected": "activities selected",
+    "selectFundingType": "Funding Type",
+    "selectActivities": "Linked Activities",
+    "activitiesSelected": "Activities Selected",
     "addEntry": "Add contributor",
     "empty": "No complementary funding has been added to this report yet."
   },
@@ -446,7 +446,7 @@
     "implementingPartners": "List implementing organizations…",
     "geographicScope": "Describe the geographic scope…",
     "assessmentContext": "Add context or explanation…",
-    "updatedMitigation": "Updated mitigation…",
+    "updatedMitigation": "Updated Mitigation…",
     "approvedMitigation": "Approved mitigation…",
     "newSurveyQuestion": "New survey question…",
     "riskName": "Risk name…",
@@ -470,7 +470,7 @@
     "achievedValue": "Value achieved this year…",
     "indicatorComment": "Explain the result…",
     "transferAmount": "e.g. 15000",
-    "complementaryContributorName": "Contributor name…",
+    "complementaryContributorName": "Contributor Name…",
     "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {

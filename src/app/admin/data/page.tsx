@@ -240,7 +240,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
     columns: [
       ...leadCols,
       { header: "Context", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.context, `rctx-${r.id}`, ctx) },
-      { header: "Data-driven Decision", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.data_driven_decision, `ddd-${r.id}`, ctx) },
+      { header: "Data-Driven Decision", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.data_driven_decision, `ddd-${r.id}`, ctx) },
       { header: "Resulting Impact", headClass: "w-[24%]", cell: (r, ctx) => trunc(r.resulting_impact, `ri-${r.id}`, ctx) },
       { header: "Links", cell: (r) => <LinksList raw={r.links as string | null} /> },
     ],

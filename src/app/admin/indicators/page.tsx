@@ -42,11 +42,6 @@ interface Indicator {
   usage: IndicatorUsage[];
 }
 
-function truncateText(text: string | null, maxChars: number): string {
-  if (!text) return "";
-  return text.length > maxChars ? text.slice(0, maxChars) + "…" : text;
-}
-
 function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
   if (usage.length === 0) {
     return <span className="text-[11px] italic text-muted-foreground">No longer used in any report</span>;
@@ -247,7 +242,9 @@ export default function IndicatorsPage() {
               <TableRow>
                 <TableHead>{labels.indicators.columns.indicator}</TableHead>
                 <TableHead className="w-28">{labels.indicators.columns.cycle}</TableHead>
-                <TableHead className="w-20">{labels.indicators.columns.meansOfVerification}</TableHead>
+                {/* Wide enough for the means of verification to wrap into a
+                    readable block now that it is no longer clipped at 150px. */}
+                <TableHead className="w-56">{labels.indicators.columns.meansOfVerification}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -264,7 +261,7 @@ export default function IndicatorsPage() {
                 </TableRow>,
                 ...catIndicators.map((ind) => (
                   <TableRow key={ind.id} className={ind.archived_at ? "opacity-50" : ""}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium align-top">
                       {ind.name}
                       {ind.is_standard ? (
                         <Badge variant="secondary" className="ml-2 text-[10px]">Standard</Badge>
@@ -274,12 +271,14 @@ export default function IndicatorsPage() {
                         </Badge>
                       )}
                       {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
-                      {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 truncate" style={{ minWidth: 0 }} title={ind.description}>{truncateText(ind.description, 170)}</p>}
+                      {/* TableCell defaults to whitespace-nowrap, so the description
+                          needs whitespace-normal to wrap onto further lines at all. */}
+                      {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 whitespace-normal [overflow-wrap:anywhere]">{ind.description}</p>}
                       {ind.archived_at && <div className="mt-1"><UsageBadges usage={ind.usage} /></div>}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{ind.cycle ? cycleLabel(ind.cycle) : <Dash />}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground truncate" title={ind.means_of_verification || undefined} style={{ minWidth: 0, maxWidth: '150px' }}>{ind.means_of_verification || <Dash />}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-xs text-muted-foreground align-top">{ind.cycle ? cycleLabel(ind.cycle) : <Dash />}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-normal [overflow-wrap:anywhere] align-top">{ind.means_of_verification || <Dash />}</TableCell>
+                    <TableCell className="align-top">
                       {ind.archived_at ? (
                         <Button variant="ghost" size="icon" className="size-7" title="Restore" onClick={() => handleRestore(ind.id)}>
                           <ArchiveRestore className="size-3.5" />
@@ -307,7 +306,9 @@ export default function IndicatorsPage() {
                     <HoverActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
                   )}
                 </div>
-                {ind.description && <p className="text-xs text-muted-foreground line-clamp-3">{ind.description}</p>}
+                {/* Cards stretch to the tallest in their grid row, so letting the
+                    description run full-length costs nothing but height. */}
+                {ind.description && <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{ind.description}</p>}
                 {ind.archived_at && <UsageBadges usage={ind.usage} />}
                 <div className="flex flex-wrap gap-1 mt-auto pt-1">
                   {ind.is_standard ? (

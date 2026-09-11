@@ -386,7 +386,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             trailCols={
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Agent</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress Update</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>
               </>
             }

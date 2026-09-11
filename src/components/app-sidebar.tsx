@@ -115,9 +115,24 @@ export function AppSidebar() {
   }, [mounted]);
 
   // On the single-page guide, keep the active sub-link in sync with what's
-  // actually on screen. A scroll-spy observer drives the highlight as the user
-  // scrolls; hashchange covers browser back/forward. Elsewhere, just mirror the
-  // URL hash. Runs after the guide's sections have mounted (deps on pathname).
+  // actually on screen: the active section is the last one whose heading has
+  // scrolled up under the sticky 128px header. hashchange covers browser
+  // back/forward. Elsewhere, just mirror the URL hash.
+  //
+  // Three things this has to survive, all of which broke the previous
+  // IntersectionObserver version:
+  //  1. The guide fetches its own sections and shows a spinner meanwhile, so
+  //     its `<section id="…">` anchors are NOT in the DOM when this effect
+  //     runs on a client-side navigation, and neither dependency changes
+  //     afterwards to trigger a retry. Resolving the anchors on every pass
+  //     instead of binding them once means late-mounting sorts itself out.
+  //  2. An observer callback only reports entries whose intersection actually
+  //     changed, so scrolling one section out delivered a single
+  //     non-intersecting entry, matched nothing, and left the highlight stuck.
+  //     Recomputing all positions each pass has no such gap.
+  //  3. The scroll happens on the `<main>` element in the layout, not the
+  //     window — scroll events don't bubble, so the listener is registered in
+  //     the capture phase to see them.
   useEffect(() => {
     if (pathname !== "/partner/wiki") {
       setWikiHash(window.location.hash.slice(1));
@@ -128,25 +143,56 @@ export function AppSidebar() {
     sync();
     window.addEventListener("hashchange", sync);
 
-    const els = wikiSections
-      .map((s) => document.getElementById(s.hash))
-      .filter((el): el is HTMLElement => el !== null);
-    // Highlight the section whose top has scrolled just under the sticky header
-    // (128px) — the top-most one still intersecting the upper band of the view.
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setWikiHash(visible[0].target.id);
-      },
-      { rootMargin: "-128px 0px -55% 0px" }
-    );
-    els.forEach((el) => observer.observe(el));
+    const HEADER_OFFSET = 128;
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      let active = "";
+      for (const s of wikiSections) {
+        const el = document.getElementById(s.hash);
+        if (!el) continue;
+        // Before any heading has reached the header line, the first section
+        // is the one being read.
+        if (!active) active = s.hash;
+        if (el.getBoundingClientRect().top <= HEADER_OFFSET + 1) active = s.hash;
+      }
+      // Empty while the guide is still loading — leave the hash alone so we
+      // don't clobber a deep link before the anchors exist.
+      if (active) setWikiHash(active);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+
+    // Arriving at the top of the guide fires no scroll event, so if the
+    // sections mount after the update() above, nothing would set the initial
+    // highlight until the user scrolled. Watch for them appearing, run once,
+    // then stop.
+    let mutations: MutationObserver | null = null;
+    const anchorsPresent = () =>
+      wikiSections.some((s) => document.getElementById(s.hash));
+    if (wikiSections.length > 0 && !anchorsPresent()) {
+      mutations = new MutationObserver(() => {
+        if (!anchorsPresent()) return;
+        update();
+        mutations?.disconnect();
+        mutations = null;
+      });
+      mutations.observe(document.body, { childList: true, subtree: true });
+    }
 
     return () => {
       window.removeEventListener("hashchange", sync);
-      observer.disconnect();
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+      mutations?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
     };
   }, [pathname, wikiSections]);
 

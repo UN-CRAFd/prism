@@ -25,12 +25,18 @@ function StatusBadge({ value }: { value: IndicatorStatus }) {
 
 // Frozen left columns for the indicator matrix (name + baseline + target stay put
 // while the per-year columns scroll horizontally — mirrors the expenditure grid).
+//
+// These widths have to stay exact numbers rather than a min/max range: each
+// column's `left` offset is the sum of the widths before it, so a fluid width
+// would desync the sticky offsets and overlap the columns. The indicator column
+// is the one that holds prose (name, and the description / means-of-verification
+// editors), so it gets the extra room.
 const ICOL = {
-  ind:      { left: 0,   w: 300 },
-  baseline: { left: 300, w: 120 },
-  target:   { left: 420, w: 120 },
+  ind:      { left: 0,   w: 380 },
+  baseline: { left: 380, w: 120 },
+  target:   { left: 500, w: 120 },
 } as const;
-const IND_FROZEN_WIDTH = 540;
+const IND_FROZEN_WIDTH = 620;
 
 function ifz(key: keyof typeof ICOL, z = 20): CSSProperties {
   const c = ICOL[key];
@@ -132,6 +138,11 @@ export function IndicatorsSection({
   // fields, which are required before the indicator can join the shared vocabulary.
   const [creating, setCreating] = useState(false);
 
+  // Past-year comments are collapsed to three lines so a long one doesn't make
+  // every row in the matrix tall; the toggle reveals the rest in place. Keyed by
+  // `${lineId}-${year}`. Mirrors the Show more/less on approved mitigations.
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+
   const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -200,10 +211,10 @@ export function IndicatorsSection({
               <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
             </Button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-start gap-2">
             <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) submitCreate(); }} className="flex-[2]" autoFocus />
-            <Input required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2]" />
-            <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2]" />
+            <Textarea required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
+            <Textarea required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
           </div>
           <div className="flex gap-2">
             <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
@@ -252,8 +263,12 @@ export function IndicatorsSection({
                     {editingIndicatorId === row.indicator_id ? (
                       <div className="flex flex-col gap-1.5">
                         <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
-                        <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm" />
-                        <Input value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm" />
+                        {/* Description and means of verification are prose, often
+                            several sentences — a single-line input showed only the
+                            first ~35 characters of them inside this narrow frozen
+                            column. Textareas grow with the content instead. */}
+                        <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
+                        <Textarea value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
                       </div>
                     ) : (
                       <>
@@ -329,9 +344,23 @@ export function IndicatorsSection({
                         <td className="px-2 py-2 border-t">
                           {cell?.status ? <StatusBadge value={cell.status as IndicatorStatus} /> : <span className="text-muted-foreground/40">—</span>}
                         </td>
-                        <td className="px-2 py-2 border-t text-muted-foreground">
+                        <td className="px-2 py-2 border-t text-muted-foreground align-top">
                           {cell?.comment
-                            ? <p className="line-clamp-3 text-xs">{cell.comment}</p>
+                            ? (() => {
+                                const key = `${row.currentLineId}-${year}`;
+                                const expanded = !!expandedComments[key];
+                                return (
+                                  <div>
+                                    <p className={cn("text-xs", !expanded && "line-clamp-3")}>{cell.comment}</p>
+                                    <button
+                                      onClick={() => setExpandedComments((prev) => ({ ...prev, [key]: !prev[key] }))}
+                                      className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      {expanded ? "Show less" : "Show more"}
+                                    </button>
+                                  </div>
+                                );
+                              })()
                             : <span className="text-muted-foreground/40">—</span>}
                         </td>
                       </Fragment>

@@ -1345,10 +1345,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                     <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
                   </Button>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-start gap-2">
                   <Input required placeholder={labels.placeholders.indicatorName} value={newIndName} onChange={(e) => setNewIndName(e.target.value)} className="flex-[2]" autoFocus />
-                  <Input required placeholder={labels.placeholders.indicatorDescription} value={newIndDescription} onChange={(e) => setNewIndDescription(e.target.value)} className="flex-[2]" />
-                  <Input required placeholder={labels.placeholders.meansOfVerification} value={newIndMeansOfVerification} onChange={(e) => setNewIndMeansOfVerification(e.target.value)} className="flex-[2]" />
+                  <Textarea required placeholder={labels.placeholders.indicatorDescription} value={newIndDescription} onChange={(e) => setNewIndDescription(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
+                  <Textarea required placeholder={labels.placeholders.meansOfVerification} value={newIndMeansOfVerification} onChange={(e) => setNewIndMeansOfVerification(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
                   <Button
                     onClick={submitIndicatorCreate}
                     disabled={addingIndicator || !newIndName.trim() || !newIndDescription.trim() || !newIndMeansOfVerification.trim()}
@@ -1390,8 +1390,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                 {isEditing ? (
                                   <div className="flex flex-col gap-1.5">
                                     <Input value={editingIndName} onChange={(e) => setEditingIndName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
-                                    <Input value={editingIndDescription} onChange={(e) => setEditingIndDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm" />
-                                    <Input value={editingIndMov} onChange={(e) => setEditingIndMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm" />
+                                    {/* Prose fields — a single-line input hid all but
+                                        the opening words of a multi-sentence value. */}
+                                    <Textarea value={editingIndDescription} onChange={(e) => setEditingIndDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
+                                    <Textarea value={editingIndMov} onChange={(e) => setEditingIndMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
                                   </div>
                                 ) : (
                                   <div className="flex items-start gap-2">

@@ -27,6 +27,7 @@ import {
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import { formatDate, timeAgo } from "@/lib/utils";
+import { clampDuration } from "@/lib/numeric-input";
 
 // Prodoc uses the same status set as reports (it IS a reports row). Values are
 // admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
@@ -761,7 +762,7 @@ export default function ProjectsPage() {
                 <Input value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" />
               </Field>
               <Field label="Duration (months)">
-                <Input value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} type="number" min={1} step={1} placeholder="e.g. 24" />
+                <Input value={durationMonths} onChange={(e) => setDurationMonths(clampDuration(e.target.value))} type="text" inputMode="numeric" placeholder="e.g. 24" />
               </Field>
               <Field label="Geographic scope">
                 {/* Same dropdown as the prodoc General Info tab: options come from
@@ -773,7 +774,6 @@ export default function ProjectsPage() {
                 >
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select a scope…" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={GEO_SCOPE_NONE}>Select a scope…</SelectItem>
                     {optionValues("geographicScope").map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}

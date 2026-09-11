@@ -40,7 +40,7 @@
     "documents": "Documents"
   },
   "tabInstructions": {
-    "general": "Edit the core project data, lifecycle status and description. Link the organization's applicants and the project contacts (focal points and project managers) below. Changes save automatically.",
+    "general": "Edit the core project data, lifecycle status and description. List the project contacts (focal points and signatories) below. Changes save automatically.",
     "overview": "Complete all required fields. These form the foundation of your annual report.",
     "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
     "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
@@ -147,7 +147,7 @@
       "universalMarkers": "Universal Markers",
       "optionalMarkers": "Optional Markers",
       "fundSpecificMarkers": "Fund-Specific Markers",
-      "participatingOrganizations": "Participating Organizations",
+      "participatingOrganizations": "Project Partners",
       "implementingPartners": "Implementing Organizations",
       "indirectCostRate": "Indirect support cost rate (%)",
       "description": "Description"
@@ -162,7 +162,7 @@
       "universalMarkers": "Comma-separated, e.g. Gender, Climate",
       "optionalMarkers": "Comma-separated markers",
       "fundSpecificMarkers": "Comma-separated markers",
-      "participatingOrganizations": "List the participating organizations…",
+      "participatingOrganizations": "List the project partners…",
       "implementingPartners": "List the implementing organizations…",
       "indirectCostRate": "7",
       "description": "Describe the project…"
@@ -182,8 +182,8 @@
       "matches": "Tranches match the funding amount.",
       "mismatch": "The project document cannot be submitted until the tranches add up to the funding amount ({grant}). Currently {total}."
     },
-    "participatingOrganizationsDescription": "Organizations that will receive funding directly from MPTFO, and have signed either an MoU or an active Framework agreement with MPTFO. POs can edit the project document, at the discretion of the project lead organization.",
-    "implementingOrganizationsDescription": "Organizations that will receive funding from the project lead or participating organizations. IOs can edit the project document, at the discretion of the project lead organization.",
+    "participatingOrganizationsDescription": "Organizations that will receive funding directly from MPTFO, and have signed either an MoU or an active Framework agreement with MPTFO. Project partners can edit the project document, at the discretion of the project lead organization.",
+    "implementingOrganizationsDescription": "Organizations that will receive funding from the project lead or project partners. IOs can edit the project document, at the discretion of the project lead organization.",
     "contactSearchPlaceholder": "Link an existing contact or type a new name…",
     "createContact": "Add contact",
     "contactName": "Name",
@@ -276,7 +276,7 @@
     "grantSizeUsd": "Grant Size (USD)",
     "startDate": "Start Date",
     "reportSubmissionDate": "Report Submission Date",
-    "participatingOrganizations": "Participating Organizations",
+    "participatingOrganizations": "Project Partners",
     "implementingPartners": "Implementing Organizations",
     "geographicScope": "Geographic Scope"
   },

@@ -8,7 +8,7 @@ import { CONTACT_ROLES } from "@/lib/contact-roles";
 // The contact records themselves live in partner_contacts (org-scoped) and are
 // created via /api/partner-contacts; this route manages the link and its roles.
 // roles is a '|'-delimited string of zero or more values from CONTACT_ROLES
-// (Primary focal point | Alternate focal point | Signatory | Applicant).
+// (Primary focal point | Alternate focal point | Signatory).
 // null and empty string are both accepted as "no roles assigned".
 //
 //   GET    ?project_id=X   → linked contacts for a project (joined w/ name…)

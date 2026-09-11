@@ -23,7 +23,7 @@ import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/work
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
-import { REPORT_SECTION_GROUPS, GROUP_STYLES } from "@/lib/report-sections";
+import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS } from "@/lib/report-sections";
 import { CommentsProvider } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
@@ -94,7 +94,6 @@ export function ReportEditor({
 
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
-  const [collapsedRows, setCollapsedRows] = useState<Record<number, boolean>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
 
   // Risk CRUD (admin-parity): add / edit core fields / delete, all report-scoped.
@@ -215,9 +214,6 @@ export function ReportEditor({
         };
       }
       setRiskStates(states);
-      const collapsed: Record<number, boolean> = {};
-      for (const r of data) collapsed[r.id] = true;
-      setCollapsedRows(collapsed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -475,10 +471,6 @@ export function ReportEditor({
     pushMapEdit(setRiskStates, riskStates, id, patch, { dirty: true });
   }
 
-  function toggleCollapse(id: number) {
-    setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
-
   async function handleRiskAdd() {
     if (!newRiskName.trim() || !reportId) return;
     setAddingRisk(true);
@@ -508,7 +500,6 @@ export function ReportEditor({
           dirty: false,
         },
       }));
-      setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
       setNewRiskName("");
       setNewRiskCategory([]);
       setNewRiskApprovedMitigation("");
@@ -622,7 +613,6 @@ export function ReportEditor({
                 dirty: false,
               },
             }));
-            setCollapsedRows((prev) => ({ ...prev, [created.id]: true }));
           } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to restore risk");
           }
@@ -953,7 +943,15 @@ export function ReportEditor({
       {/* Top bar */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-4 shrink-0">
         <div className="min-w-0 flex-1">
-          <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.title}</p>
+          <p className="text-neutral-400 text-sm mb-1">
+            {labels.partnerEditor.title}
+            {(() => {
+              const section = REPORT_SECTIONS.find((s) => s.value === params.section);
+              return section ? (
+                <><span className="mx-1">›</span><span className="text-neutral-200">{section.label}</span></>
+              ) : null;
+            })()}
+          </p>
           {selectedReport ? (
             <>
               <div className="flex items-center gap-3">
@@ -1216,7 +1214,6 @@ export function ReportEditor({
           <RiskSection
             risks={risks}
             riskStates={riskStates}
-            collapsedRows={collapsedRows}
             newRiskName={newRiskName}
             setNewRiskName={setNewRiskName}
             newRiskCategory={newRiskCategory}
@@ -1238,7 +1235,6 @@ export function ReportEditor({
             deletingRiskId={deletingRiskId}
             handleRiskDelete={handleRiskDelete}
             updateRisk={updateRisk}
-            toggleCollapse={toggleCollapse}
           />
 
         ) : params.section === "indicators" ? (

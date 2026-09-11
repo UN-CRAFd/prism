@@ -10,9 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
+import { numericAmount, numericInteger, clampDuration } from "@/lib/numeric-input";
 import { cn, shortName } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import labels from "@/lib/labels";
@@ -76,7 +78,7 @@ function addMonthsISO(dateStr: string, months: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const base = new Date(Date.UTC(y, m - 1, d));
   base.setUTCMonth(base.getUTCMonth() + months);
-  return base.toISOString().slice(0, 10);
+  return isNaN(base.getTime()) ? "" : base.toISOString().slice(0, 10);
 }
 
 interface ProjectContact {
@@ -174,8 +176,6 @@ export function GeneralInfoAdminEditor({
   const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
   const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
   const [newImplementingOrg, setNewImplementingOrg] = useState("");
-  const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
-  const [editingOrgName, setEditingOrgName] = useState("");
   const [orgError, setOrgError] = useState<string | null>(null);
   const [grantFocused, setGrantFocused] = useState(false);
 
@@ -212,7 +212,7 @@ export function GeneralInfoAdminEditor({
     [participatingOrgs, implementingOrgs]
   );
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const formRef = useRef<Form>(EMPTY_FORM);
@@ -428,8 +428,9 @@ export function GeneralInfoAdminEditor({
   }, [form.project_title, form.grant_size_usd, form.project_start_date, form.project_duration_months, form.geographic_scope, form.description]);
 
   useEffect(() => {
+    if (loading) return;
     onValidationChange?.({ tranchesMatch: tranchesMatchGrant, missingFields: missingRequiredFields });
-  }, [onValidationChange, tranchesMatchGrant, missingRequiredFields]);
+  }, [loading, onValidationChange, tranchesMatchGrant, missingRequiredFields]);
 
   // ── Organization list CRUD (immediate) ─────────────────────────────────
   async function addOrg(type: "participating" | "implementing") {
@@ -456,23 +457,6 @@ export function GeneralInfoAdminEditor({
     else setImplementingOrgs((prev) => prev.filter((o) => o.id !== id));
     setTrancheCells((prev) => prev.filter((c) => c.organization_id !== id));
     schedule();
-  }
-
-  async function commitOrgRename() {
-    if (editingOrgId == null) return;
-    const name = editingOrgName.trim();
-    if (!name) { setOrgError("Name cannot be empty."); return; }
-    if (name.length > ORG_NAME_MAX) { setOrgError(`Name must be ${ORG_NAME_MAX} characters or fewer.`); return; }
-    setOrgError(null);
-    const res = await fetch("/api/project-organizations", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editingOrgId, name }),
-    });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); setOrgError((err as { error?: string }).error || "Failed to rename"); return; }
-    setParticipatingOrgs((prev) => prev.map((o) => o.id === editingOrgId ? { ...o, name } : o));
-    setImplementingOrgs((prev) => prev.map((o) => o.id === editingOrgId ? { ...o, name } : o));
-    setEditingOrgId(null);
-    setEditingOrgName("");
   }
 
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
@@ -669,7 +653,7 @@ export function GeneralInfoAdminEditor({
                 : form.grant_size_usd.trim() !== "" && !isNaN(parseAmount(form.grant_size_usd))
                   ? formatUS(parseAmount(form.grant_size_usd))
                   : form.grant_size_usd}
-              onChange={(e) => setField("grant_size_usd", e.target.value)}
+              onChange={(e) => setField("grant_size_usd", numericAmount(e.target.value))}
               onFocus={() => setGrantFocused(true)}
               onBlur={() => {
                 setGrantFocused(false);
@@ -696,9 +680,9 @@ export function GeneralInfoAdminEditor({
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.durationMonths} <span className="text-destructive">*</span></label>
             <Input
-              type="number" min="0" step="1"
+              type="text" inputMode="numeric"
               value={form.project_duration_months}
-              onChange={(e) => setField("project_duration_months", e.target.value)}
+              onChange={(e) => setField("project_duration_months", clampDuration(e.target.value))}
               placeholder={g.placeholders.durationMonths}
               className="text-sm"
             />
@@ -726,7 +710,6 @@ export function GeneralInfoAdminEditor({
                 <SelectValue placeholder={g.placeholders.geographicScope} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={GEO_SCOPE_NONE}>{g.placeholders.geographicScope}</SelectItem>
                 {optionValues("geographicScope").map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
@@ -762,35 +745,18 @@ export function GeneralInfoAdminEditor({
           {orgError && <p className="text-xs text-destructive">{orgError}</p>}
           {participatingOrgs.map((o) => (
             <div key={o.id} className="flex items-center gap-2">
-              {editingOrgId === o.id ? (
-                <>
-                  <Input
-                    value={editingOrgName}
-                    onChange={(e) => setEditingOrgName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
-                    className="h-8 flex-1 text-sm"
-                    autoFocus
-                    maxLength={ORG_NAME_MAX}
-                  />
-                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 text-sm">{o.name}</span>
-                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
-                </>
-              )}
+              <span className="flex-1 text-sm">{o.name}</span>
+              <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
             </div>
           ))}
           <div className="flex items-center gap-2">
-            <Input
+            <SearchableSelect
+              optionKey="projectPartners"
               value={newParticipatingOrg}
-              onChange={(e) => setNewParticipatingOrg(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("participating"); } }}
+              onChange={setNewParticipatingOrg}
               placeholder={g.placeholders.participatingOrganizations}
-              className="h-8 flex-1 text-sm"
-              maxLength={ORG_NAME_MAX}
+              exclude={participatingOrgs.map((o) => o.name)}
+              className="flex-1"
             />
             <Button size="sm" variant="outline" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
               <Plus className="size-3.5 mr-1" />Add
@@ -810,37 +776,22 @@ export function GeneralInfoAdminEditor({
           </div>
           {implementingOrgs.map((o) => (
             <div key={o.id} className="flex items-center gap-2">
-              {editingOrgId === o.id ? (
-                <>
-                  <Input
-                    value={editingOrgName}
-                    onChange={(e) => setEditingOrgName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitOrgRename(); } if (e.key === "Escape") { setEditingOrgId(null); } }}
-                    className="h-8 flex-1 text-sm"
-                    autoFocus
-                    maxLength={ORG_NAME_MAX}
-                  />
-                  <button onClick={commitOrgRename} className="text-green-600 hover:text-green-700" aria-label="Save"><Check className="size-3.5" /></button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 text-sm">{o.name}</span>
-                  <button onClick={() => { setEditingOrgId(o.id); setEditingOrgName(o.name); setOrgError(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => deleteOrg(o.id, "implementing")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
-                </>
-              )}
+              <span className="flex-1 text-sm">{o.name}</span>
+              <button onClick={() => deleteOrg(o.id, "implementing")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
             </div>
           ))}
           <div className="flex items-center gap-2">
-            <Input
+            <SearchableSelect
+              optionKey="implementingOrganizations"
               value={newImplementingOrg}
-              onChange={(e) => setNewImplementingOrg(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOrg("implementing"); } }}
+              onChange={setNewImplementingOrg}
               placeholder={g.placeholders.implementingPartners}
-              className="h-8 flex-1 text-sm"
-              maxLength={ORG_NAME_MAX}
+              exclude={implementingOrgs.map((o) => o.name)}
+              allowCustom
+              searchPlaceholder="Search or type a new name…"
+              className="flex-1"
             />
-            <Button size="sm" variant="outline" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg.trim()}>
+            <Button size="sm" variant="outline" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg}>
               <Plus className="size-3.5 mr-1" />Add
             </Button>
           </div>

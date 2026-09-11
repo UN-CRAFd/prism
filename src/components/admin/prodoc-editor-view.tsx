@@ -15,6 +15,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
+import { numericYear, isValidYear } from "@/lib/numeric-input";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
@@ -155,12 +156,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+  // Per-line, per-field year validity. Keyed by indicator line id.
+  const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitValidation, setSubmitValidation] = useState<{
     tranchesMatch: boolean;
     missingFields: string[];
   } | null>(null);
+  const [serverCheck, setServerCheck] = useState<{ ok: boolean; error: string | null } | null>(null);
   const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
 
   // Editor lock
@@ -249,6 +253,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setLoadingRisk(false); }
   }, []);
 
+  const runSubmitCheck = useCallback(async (projectId: number) => {
+    try {
+      const res = await fetch("/api/prodoc-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, check_only: true }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) setServerCheck({ ok: true, error: null });
+      else setServerCheck({ ok: false, error: data?.error ?? "Cannot submit yet." });
+    } catch {
+      // Network failure — don't block submit on a failed check.
+      setServerCheck(null);
+    }
+  }, []);
+
   const loadIndicators = useCallback(async (prodocId: string) => {
     setLoadingIndicators(true); setError(null);
     try {
@@ -272,6 +292,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       loadIndicators(selectedProdocId);
     }
   }, [selectedProdocId, selectedSection, loadRisks, loadIndicators]);
+
+  useEffect(() => {
+    if (!isPartner) return;
+    const doc = docs.find((d) => String(d.id) === selectedProdocId);
+    if (!doc) return;
+    runSubmitCheck(doc.project_id);
+  }, [selectedProdocId, docs, selectedSection, isPartner, runSubmitCheck]);
 
   // ── Editor lock effects ──────────────────────────────────────────────
 
@@ -545,6 +572,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (submitValidation.missingFields.length > 0) {
       submitBlockers.push(`Required in General: ${submitValidation.missingFields.join(", ")}.`);
     }
+  } else if (serverCheck && !serverCheck.ok && serverCheck.error) {
+    submitBlockers.push(serverCheck.error);
   }
 
   // Called by every handler that writes data. Resets the inactivity clock and
@@ -783,6 +812,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   async function saveIndicatorLine(id: number) {
     const line = indicatorLines.find((l) => l.id === id);
     if (!line) return;
+    const badBaseline = !isValidYear(line.baseline_year);
+    const badTarget = !isValidYear(line.target_year);
+    setYearErrors((prev) => ({ ...prev, [id]: { baseline: badBaseline, target: badTarget } }));
+    if (badBaseline || badTarget) {
+      handleSaveStateChange("error");
+      return;
+    }
     handleSaveStateChange("saving");
     setError(null);
     const res = await fetch("/api/indicator-data", {
@@ -906,7 +942,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
               autosave editors report via the callback prop; the risk/indicator
               inline saves call handleSaveStateChange around their fetches. */}
           {selectedProdocId && ["general", "narratives", "sdg", "indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
-            <AutosaveIndicator state={editorSaveState} idleAsSaved />
+            <AutosaveIndicator state={editorSaveState} />
           )}
 
           {isPartner && selectedDoc?.status === "Open" && selectedProdocId && (
@@ -1384,12 +1420,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className="px-4 py-3">
                                 <Input
-                                  type="number" value={line.baseline_year ?? ""}
-                                  onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_year: e.target.value ? Number(e.target.value) : null })}
+                                  type="text" inputMode="numeric" value={line.baseline_year ?? ""}
+                                  onChange={(e) => { const y = numericYear(e.target.value); updateIndicatorLineLocal(line.id, { baseline_year: y ? Number(y) : null }); }}
                                   onBlur={() => saveIndicatorLine(line.id)}
                                   placeholder={labels.placeholders.year}
                                   className="text-sm h-8 w-20"
                                 />
+                                {yearErrors[line.id]?.baseline && (
+                                  <p className="text-xs text-destructive mt-1">Year not valid</p>
+                                )}
                               </td>
                               <td className="px-4 py-3">
                                 <Input
@@ -1403,12 +1442,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className="px-4 py-3">
                                 <Input
-                                  type="number" value={line.target_year ?? ""}
-                                  onChange={(e) => updateIndicatorLineLocal(line.id, { target_year: e.target.value ? Number(e.target.value) : null })}
+                                  type="text" inputMode="numeric" value={line.target_year ?? ""}
+                                  onChange={(e) => { const y = numericYear(e.target.value); updateIndicatorLineLocal(line.id, { target_year: y ? Number(y) : null }); }}
                                   onBlur={() => saveIndicatorLine(line.id)}
                                   placeholder={labels.placeholders.year}
                                   className="text-sm h-8 w-20"
                                 />
+                                {yearErrors[line.id]?.target && (
+                                  <p className="text-xs text-destructive mt-1">Year not valid</p>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 {isEditing ? (

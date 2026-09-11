@@ -23,7 +23,7 @@ import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/work
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
-import { REPORT_SECTION_GROUPS, GROUP_STYLES } from "@/lib/report-sections";
+import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS } from "@/lib/report-sections";
 import { CommentsProvider } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
@@ -943,7 +943,15 @@ export function ReportEditor({
       {/* Top bar */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-4 shrink-0">
         <div className="min-w-0 flex-1">
-          <p className="text-neutral-400 text-sm mb-1">{labels.partnerEditor.title}</p>
+          <p className="text-neutral-400 text-sm mb-1">
+            {labels.partnerEditor.title}
+            {(() => {
+              const section = REPORT_SECTIONS.find((s) => s.value === params.section);
+              return section ? (
+                <><span className="mx-1">›</span><span className="text-neutral-200">{section.label}</span></>
+              ) : null;
+            })()}
+          </p>
           {selectedReport ? (
             <>
               <div className="flex items-center gap-3">

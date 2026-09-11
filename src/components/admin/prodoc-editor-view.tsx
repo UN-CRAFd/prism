@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -551,6 +551,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
   selectedProjectIdRef.current = selectedDoc?.project_id ?? null;
+
+  // Per-section completion for the open project document (drives the tab checks).
+  const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
+  const completionProjectId = selectedDoc?.project_id ?? null;
+
+  useEffect(() => {
+    if (completionProjectId == null) { setSectionComplete({}); return; }
+    fetch(`/api/prodoc-completion?projectId=${completionProjectId}`)
+      .then((r) => r.json())
+      .then((d) => setSectionComplete(d.sections ?? {}))
+      .catch(() => {});
+  }, [completionProjectId, selectedSection]);
   // Status → who can edit (same rule as reports):
   //   Open → admin + partner · Under Review → admin only · Closed → no one
   const statusReadOnly =
@@ -1030,7 +1042,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                     : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              {sec.label}
+              <span className="inline-flex items-center gap-1.5">
+                {sec.label}
+                {sectionComplete[sec.value] && (
+                  <Check className="size-3.5 shrink-0 text-green-600" />
+                )}
+              </span>
             </button>
           );
         })}

@@ -653,7 +653,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
 // leadership quote (exactly one, 25-word limit) and up to three partner/user
 // quotes (20-word limit). Each has its own field set with the appropriate limit.
 const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
-  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%]", maxWords },
+  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords },
   { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40" },
   { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44" },
   { key: "photo_label", header: labels.testimonials.columns.photoLabel, type: "input", placeholder: labels.testimonials.placeholders.photoLabel, headClass: "w-40" },

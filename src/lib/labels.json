@@ -311,8 +311,8 @@
       "quote": "Enter the quote…",
       "personName": "Full name",
       "personTitle": "Role / Position",
-      "photoLabel": "How to label the person in the photo",
-      "photoCredits": "Photographer / Source"
+      "photoLabel": "Photo caption",
+      "photoCredits": "© Jane Doe"
     },
     "photo": {
       "linkTab": "Link",

@@ -385,7 +385,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             }
             trailCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Agent</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Project partner</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>
               </>
@@ -994,7 +994,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     );
   }
 
-  // Columns: [activity] (+[timeline label] in partner mode) + quarters + [agent]
+  // Columns: [activity] (+[timeline label] in partner mode) + quarters + [project partner]
   // (+[status]+[comment] in partner mode) + [delete].
   const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
 
@@ -1033,7 +1033,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               }
               trailCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Agent</th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>}
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>}
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted px-2 py-2 w-10 align-bottom" />
@@ -1137,7 +1137,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                             <Input
                               value={row.implementing_agent}
                               onChange={(e) => updateRow(row.key, { implementing_agent: e.target.value })}
-                              placeholder="Agent"
+                              placeholder="Project partner"
                               className="h-8 text-sm"
                             />
                           </td>
@@ -1151,7 +1151,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                             <DropdownMenuTrigger asChild>
                               <button className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm text-left flex items-center justify-between gap-1 truncate">
                                 <span className={cn("truncate", !selected.length && "text-muted-foreground")}>
-                                  {selected.length ? selected.join(", ") : "Agent"}
+                                  {selected.length ? selected.join(", ") : "Project partner"}
                                 </span>
                                 <ChevronDown className="size-3 shrink-0 opacity-50" />
                               </button>

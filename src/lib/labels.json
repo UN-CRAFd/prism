@@ -385,7 +385,9 @@
     },
     "columns": {
       "number": "#",
-      "indicator": "Indicator",
+      "indicator": "CRAF'd Standard Indicators",
+      "standardIndicator": "CRAF'd standard indicators",
+      "customIndicator": "Customised project indicators",
       "category": "Category",
       "cycle": "Cycle",
       "meansOfVerification": "Means of Verification",

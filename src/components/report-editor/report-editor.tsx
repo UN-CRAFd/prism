@@ -54,7 +54,7 @@ function toSlug(r: Report): string {
 // Quant tables that scroll inside their own bounded box with a frozen column
 // header (rather than scrolling with the whole page). The section fills the
 // leftover height so the header stays pinned while the body scrolls.
-const FILL_HEIGHT_SECTIONS = new Set(["workplan", "indicators", "transfers", "complementary", "expenditure"]);
+const FILL_HEIGHT_SECTIONS = new Set(["workplan", "transfers", "complementary", "expenditure"]);
 
 export interface ReportEditorProps {
   // "partner" filters reports to the logged-in partner and is editable;

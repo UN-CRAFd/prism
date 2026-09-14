@@ -260,9 +260,9 @@
       "risk": "Risk",
       "likelihood": "Likelihood",
       "impact": "Impact",
-      "riskLevel": "Risk Level",
-      "approvedMitigation": "Approved Mitigation",
-      "updatedMitigation": "Updated Mitigation",
+      "riskLevel": "Risk level",
+      "approvedMitigation": "Approved mitigation",
+      "updatedMitigation": "Updated mitigation",
       "revision": "Revision",
       "actions": "Actions"
     },
@@ -310,9 +310,9 @@
     "placeholders": {
       "quote": "Enter the quote…",
       "personName": "Full name",
-      "personTitle": "Role / position",
+      "personTitle": "Role / Position",
       "photoLabel": "How to label the person in the photo",
-      "photoCredits": "Photographer / source"
+      "photoCredits": "Photographer / Source"
     },
     "photo": {
       "linkTab": "Link",
@@ -340,8 +340,8 @@
   "lessons": {
     "columns": {
       "category": "Category",
-      "lessonLearned": "Lesson Learned",
-      "adjustmentInformed": "Adjustment Informed"
+      "lessonLearned": "Lesson learned",
+      "adjustmentInformed": "Adjustment informed"
     },
     "remarks": {
       "category": "Select the category of the lesson learned.",
@@ -352,8 +352,8 @@
   "results": {
     "columns": {
       "context": "Context",
-      "dataDrivenDecision": "Data-driven Decision",
-      "resultingImpact": "Resulting Impact"
+      "dataDrivenDecision": "Data-driven decision",
+      "resultingImpact": "Resulting impact"
     },
     "remarks": {
       "context": "Briefly describe the problem, risk, or decision gap in a fragile or crisis-affected setting. For example: Repeated intercommunal tensions in Akobo County, South Sudan, were causing cyclical displacement, with limited early warning to prevent escalation before violence occurred.",
@@ -364,8 +364,8 @@
   },
   "partnerships": {
     "columns": {
-      "partnerOrganization": "Partner Organization",
-      "result": "Result of the Partnership"
+      "partnerOrganization": "Partner organization",
+      "result": "Result of the partnership"
     },
     "remarks": {
       "partnerOrganization": "List the organizations that contributed as an implementing, counterpart, or ecosystem partner to the project.",
@@ -395,7 +395,7 @@
       "target": "Target",
       "targetValue": "Target Value",
       "targetYear": "Target Year",
-      "achievedValue": "Achieved Value",
+      "achievedValue": "Achieved value",
       "status": "Status",
       "comment": "Comment",
       "actions": "Actions"
@@ -410,16 +410,16 @@
     "title": "Transfers to implementing partners",
     "currency": "USD",
     "columns": {
-      "organizationName": "State organization name",
-      "website": "Share website link",
-      "partnerType": "Select partner type",
-      "amountTransferred": "Mention amount transferred",
-      "linkedActivity": "State linked activity",
+      "organizationName": "Organization name",
+      "website": "Website link",
+      "partnerType": "Partner type",
+      "amountTransferred": "Amount transferred",
+      "linkedActivity": "Linked activity",
       "subTotal": "Transferred per organization",
       "total": "Total amount transferred"
     },
-    "selectPartnerType": "Select organization type",
-    "selectActivity": "Select linked activity",
+    "selectPartnerType": "Organization type",
+    "selectActivity": "Linked activity",
     "addEntry": "Add transfer",
     "empty": "No transfers have been added to this report yet."
   },
@@ -427,17 +427,17 @@
     "title": "Complementary funding for the project",
     "currency": "USD",
     "columns": {
-      "contributorName": "State contributor name",
-      "website": "Share website link",
-      "fundingType": "Select funding type",
-      "contributionAmount": "Mention total contribution",
-      "linkedActivities": "State linked activities",
+      "contributorName": "Contributor name",
+      "website": "Website link",
+      "fundingType": "Funding type",
+      "contributionAmount": "Total contribution",
+      "linkedActivities": "Linked activities",
       "subTotal": "Transferred per organization",
       "total": "Total"
     },
-    "selectFundingType": "Select funding type",
-    "selectActivities": "Select linked activities",
-    "activitiesSelected": "activities selected",
+    "selectFundingType": "Funding type",
+    "selectActivities": "Linked activities",
+    "activitiesSelected": "Activities selected",
     "addEntry": "Add contributor",
     "empty": "No complementary funding has been added to this report yet."
   },
@@ -449,7 +449,7 @@
     "implementingPartners": "List implementing organizations…",
     "geographicScope": "Describe the geographic scope…",
     "assessmentContext": "Add context or explanation…",
-    "updatedMitigation": "Updated mitigation…",
+    "updatedMitigation": "Updated Mitigation…",
     "approvedMitigation": "Approved mitigation…",
     "newSurveyQuestion": "New survey question…",
     "riskName": "Risk name…",

@@ -44,7 +44,10 @@ export function InfoPopover({
         top = Math.max(r.top - panelHeight - 4, margin);
       }
     }
-    // Final clamp: never above the top of the viewport.
+    // Final clamp: keep the whole panel inside the viewport, bottom edge first
+    // then top, so a panel taller than the space available still starts on
+    // screen (the panel scrolls internally via its max-height).
+    top = Math.min(top, window.innerHeight - panelHeight - margin);
     top = Math.max(top, margin);
 
     const right = Math.max(margin, window.innerWidth - r.right);
@@ -89,7 +92,11 @@ export function InfoPopover({
           {pos && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
           <div
             ref={panelRef}
-            className="fixed z-50 w-72 rounded-lg border bg-popover shadow-lg text-popover-foreground p-3 space-y-3"
+            // max-h + overflow keep a long description reachable: the panel is
+            // position:fixed, so anything spilling past the viewport edge could
+            // never be scrolled to. Capping at 70vh means the measured
+            // offsetHeight below always fits, and the text scrolls inside.
+            className="fixed z-50 w-72 max-h-[70vh] overflow-y-auto overscroll-contain rounded-lg border bg-popover shadow-lg text-popover-foreground p-3 space-y-3"
             style={pos
               ? { top: pos.top, right: pos.right }
               : { top: -9999, right: -9999, visibility: "hidden" }}

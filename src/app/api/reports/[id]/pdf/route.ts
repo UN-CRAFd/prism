@@ -220,7 +220,7 @@ export async function GET(
     if (data.partnerships.length > 0) {
       addTable(
         "Partnerships",
-        ["Partner Organization", "Result"],
+        ["Partner organization", "Result"],
         data.partnerships.map((p) => [(p.partner_organization ?? "").substring(0, 30), (p.result ?? "").substring(0, 40)])
       );
     }

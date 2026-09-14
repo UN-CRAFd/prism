@@ -4,10 +4,17 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 // `field-sizing-content` grows the box to fit its text. We keep the vertical
-// grow but cap it at max-h-[120px] (scrolls internally beyond that), and lock
+// grow but cap it at max-h-[320px] (scrolls internally beyond that), and lock
 // the horizontal axis so typing never widens the box: full width of the
 // container, and long lines wrap onto a new line (break-words handles unbroken
 // strings) instead of extending sideways.
+//
+// The cap is deliberately generous: these boxes hold multi-sentence
+// descriptions (budget category notes, tranche descriptions, risk mitigations,
+// indicator descriptions) and most of them live in narrow table columns, where
+// a tighter cap showed only a handful of lines and forced the user to scroll
+// inside a box a few lines tall. 320px shows a realistic description in full
+// while still bounding how tall a table row can get.
 //
 // Once the user grabs the resize handle (detected on mousedown by checking
 // whether the click lands in the bottom-right 16×16px corner of the element),
@@ -20,7 +27,7 @@ import { cn } from "@/lib/utils";
 
 const BASE =
   "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-16 w-full max-w-full rounded-md border bg-transparent px-3 py-2 text-base whitespace-pre-wrap [overflow-wrap:anywhere] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
-const AUTO_CLASSES = "field-sizing-content max-h-[120px] overflow-y-auto";
+const AUTO_CLASSES = "field-sizing-content max-h-[320px] overflow-y-auto";
 const INVALID = "aria-invalid:ring-destructive/20 aria-invalid:border-destructive";
 
 const HANDLE_SIZE = 16;

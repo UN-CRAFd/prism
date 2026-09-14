@@ -14,7 +14,7 @@
     "imageStandards": "Image standards: Please label and upload all required photos below in a PNG format here with a minimum resolution of 3000x2000px (>1.5 MB) or send via email/download link to maintain quality. For examples, refer to CRAF'd Annual Report. Please also provide credits in your submitted photos and videos in the respective tables below.",
     "placeholders": {
       "url": "https://…",
-      "organizationName": "Organization Name…",
+      "organizationName": "Organization name…",
       "fullName": "Full name"
     }
   },
@@ -298,15 +298,15 @@
     "partnerHeading": "Partner / User Quotes",
     "columns": {
       "quote": "Quote",
-      "personName": "Name of Person Quoted",
-      "personTitle": "Title of Person Quoted",
+      "personName": "Name of person quoted",
+      "personTitle": "Title of person quoted",
       "photoLabel": "Photo label",
       "photoLink": "Photo",
-      "photoCredits": "Photo Credits"
+      "photoCredits": "Photo credits"
     },
     "placeholders": {
-      "quote": "Enter the Quote…",
-      "personName": "Full Name",
+      "quote": "Enter the quote…",
+      "personName": "Full name",
       "personTitle": "Role / Position",
       "photoLabel": "How to label the person in the photo",
       "photoCredits": "Photographer / Source"
@@ -337,8 +337,8 @@
   "lessons": {
     "columns": {
       "category": "Category",
-      "lessonLearned": "Lesson Learned",
-      "adjustmentInformed": "Adjustment Informed"
+      "lessonLearned": "Lesson learned",
+      "adjustmentInformed": "Adjustment informed"
     },
     "remarks": {
       "category": "Select the category of the lesson learned.",
@@ -349,8 +349,8 @@
   "results": {
     "columns": {
       "context": "Context",
-      "dataDrivenDecision": "Data-Driven Decision",
-      "resultingImpact": "Resulting Impact"
+      "dataDrivenDecision": "Data-driven decision",
+      "resultingImpact": "Resulting impact"
     },
     "remarks": {
       "context": "Briefly describe the problem, risk, or decision gap in a fragile or crisis-affected setting. For example: Repeated intercommunal tensions in Akobo County, South Sudan, were causing cyclical displacement, with limited early warning to prevent escalation before violence occurred.",
@@ -361,8 +361,8 @@
   },
   "partnerships": {
     "columns": {
-      "partnerOrganization": "Partner Organization",
-      "result": "Result of the Partnership"
+      "partnerOrganization": "Partner organization",
+      "result": "Result of the partnership"
     },
     "remarks": {
       "partnerOrganization": "List the organizations that contributed as an implementing, counterpart, or ecosystem partner to the project.",
@@ -392,7 +392,7 @@
       "target": "Target",
       "targetValue": "Target Value",
       "targetYear": "Target Year",
-      "achievedValue": "Achieved Value",
+      "achievedValue": "Achieved value",
       "status": "Status",
       "comment": "Comment",
       "actions": "Actions"
@@ -432,9 +432,9 @@
       "subTotal": "Transferred per organization",
       "total": "Total"
     },
-    "selectFundingType": "Funding Type",
-    "selectActivities": "Linked Activities",
-    "activitiesSelected": "Activities Selected",
+    "selectFundingType": "Funding type",
+    "selectActivities": "Linked activities",
+    "activitiesSelected": "Activities selected",
     "addEntry": "Add contributor",
     "empty": "No complementary funding has been added to this report yet."
   },
@@ -470,7 +470,7 @@
     "achievedValue": "Value achieved this year…",
     "indicatorComment": "Explain the result…",
     "transferAmount": "e.g. 15000",
-    "complementaryContributorName": "Contributor Name…",
+    "complementaryContributorName": "Contributor name…",
     "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {

@@ -1,6 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+
+// Session inactivity logout. Deliberately separate from LOCK_TIMEOUT_MS in
+// src/app/api/prodoc-lock/route.ts and src/components/admin/prodoc-editor-view.tsx
+// (the ProDoc edit lock), which is a different feature that happens to use the same duration.
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 export type UserRole = "admin" | "partner";
 
@@ -61,6 +66,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clear the server session cookie too; ignore transport errors on logout.
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   }, []);
+
+  const lastActivityRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    if (!user) return;
+
+    lastActivityRef.current = Date.now();
+
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    const activityEvents = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"] as const;
+    const passiveEvents = new Set(["mousemove", "mousedown", "scroll", "touchstart", "click"]);
+
+    for (const event of activityEvents) {
+      window.addEventListener(event, updateActivity, passiveEvents.has(event) ? { passive: true } : undefined);
+    }
+
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= INACTIVITY_TIMEOUT_MS) {
+        logout();
+      }
+    }, 30_000);
+
+    return () => {
+      for (const event of activityEvents) {
+        window.removeEventListener(event, updateActivity);
+      }
+      clearInterval(interval);
+    };
+  }, [user, logout]);
 
   return (
     <AuthContext.Provider

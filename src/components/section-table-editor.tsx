@@ -73,6 +73,7 @@ interface RowState {
   values: Record<string, string>;
   links: Record<string, string[]>;
   dirty: boolean;
+  sort_order?: number;
 }
 
 // Row coming back from the API: scalar columns + comma-joined link strings.
@@ -236,11 +237,13 @@ export function SectionTableEditor({
   spec,
   onSaveStateChange,
   commentSection,
+  pushCommand,
 }: {
   reportId: number;
   spec: SectionSpec;
   onSaveStateChange?: (s: SaveState) => void;
   commentSection?: string;
+  pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
   const { endpoint, fields, requiredField, addLabel, emptyText, min, seed, max, kind } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
@@ -297,6 +300,7 @@ export function SectionTableEditor({
             })
           ),
           dirty: false,
+          sort_order: typeof r.sort_order === "number" ? r.sort_order : undefined,
         };
       });
       const seedTo = Math.max(min ?? 0, seed ?? 0);
@@ -402,12 +406,31 @@ export function SectionTableEditor({
   useEffect(() => () => { flushNow(); }, [flushNow]);
 
   function updateField(i: number, key: string, value: string) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, values: { ...r.values, [key]: value }, dirty: true } : r)));
-    schedule();
+    const field = fields.find((f) => f.key === key);
+    if (field?.type === "select") {
+      const row = rowsRef.current[i];
+      const before = row.values[key];
+      setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, values: { ...r.values, [key]: value }, dirty: true } : r)));
+      schedule();
+      pushCommand({
+        undo: () => { setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, values: { ...r.values, [key]: before }, dirty: true } : r)); schedule(); },
+        redo: () => { setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, values: { ...r.values, [key]: value }, dirty: true } : r)); schedule(); },
+      });
+    } else {
+      setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, values: { ...r.values, [key]: value }, dirty: true } : r)));
+      schedule();
+    }
   }
   function mutateLinks(i: number, key: string, fn: (arr: string[]) => string[]) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, links: { ...r.links, [key]: fn(r.links[key]) }, dirty: true } : r)));
+    const row = rowsRef.current[i];
+    const before = row.links[key];
+    const after = fn(before);
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, links: { ...r.links, [key]: after }, dirty: true } : r)));
     schedule();
+    pushCommand({
+      undo: () => { setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, links: { ...r.links, [key]: before }, dirty: true } : r)); schedule(); },
+      redo: () => { setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, links: { ...r.links, [key]: after }, dirty: true } : r)); schedule(); },
+    });
   }
   // Sync locally-known values (e.g. photo metadata) without marking the row dirty
   // or scheduling a save — the server already persisted these via the photo route.
@@ -416,7 +439,35 @@ export function SectionTableEditor({
   }
   function addRow() {
     if (max !== undefined && rows.length >= max) return;
-    setRows((prev) => [...prev, emptyRow(true)]);
+    const newRow = emptyRow(true);
+    setRows((prev) => [...prev, newRow]);
+    let currentId: number | null = null;
+    let snapshot: RowState = newRow;
+    pushCommand({
+      undo: async () => {
+        snapshot = rowsRef.current.find((r) => r.key === newRow.key) ?? snapshot;
+        const effectiveId = snapshot.id ?? idByKeyRef.current.get(newRow.key) ?? null;
+        if (effectiveId != null) {
+          await fetch(`${endpoint}?id=${effectiveId}`, { method: "DELETE" });
+          currentId = effectiveId;
+        }
+        idByKeyRef.current.delete(newRow.key);
+        setRows((prev) => prev.filter((r) => r.key !== newRow.key));
+      },
+      redo: async () => {
+        if (currentId == null) {
+          setRows((prev) => [...prev, { ...snapshot, dirty: true }]);
+        } else {
+          const body = { reportId, ...(kind ? { kind } : {}), ...buildPayload(snapshot) };
+          const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+          if (!res.ok) return;
+          const saved: { id: number } = await res.json();
+          currentId = saved.id;
+          idByKeyRef.current.set(newRow.key, saved.id);
+          setRows((prev) => [...prev, { ...snapshot, id: saved.id, dirty: false }]);
+        }
+      },
+    });
   }
   async function deleteRow(i: number) {
     const row = rows[i];
@@ -426,6 +477,31 @@ export function SectionTableEditor({
     if (effectiveId != null) await fetch(`${endpoint}?id=${effectiveId}`, { method: "DELETE" });
     idByKeyRef.current.delete(row.key);
     setRows((prev) => prev.filter((_, idx) => idx !== i));
+    let currentId: number | null = null;
+    const isEmpty = fields.every((f) =>
+      f.type === "links" ? row.links[f.key].every((l) => !l.trim()) : !(row.values[f.key] ?? "").trim()
+    );
+    pushCommand({
+      undo: async () => {
+        if (effectiveId === null && isEmpty) {
+          setRows((prev) => { const next = [...prev]; next.splice(i, 0, { ...row, dirty: false }); return next; });
+          return;
+        }
+        const body: Record<string, unknown> = { reportId, ...(kind ? { kind } : {}), ...buildPayload(row) };
+        if (row.sort_order !== undefined) body.sort_order = row.sort_order;
+        const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (!res.ok) return;
+        const saved: { id: number } = await res.json();
+        currentId = saved.id;
+        idByKeyRef.current.set(row.key, saved.id);
+        setRows((prev) => { const next = [...prev]; next.splice(i, 0, { ...row, id: saved.id, dirty: false }); return next; });
+      },
+      redo: async () => {
+        if (currentId != null) await fetch(`${endpoint}?id=${currentId}`, { method: "DELETE" });
+        idByKeyRef.current.delete(row.key);
+        setRows((prev) => prev.filter((r) => r.key !== row.key));
+      },
+    });
   }
 
   if (loading) {

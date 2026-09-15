@@ -9,9 +9,10 @@ export interface TestimonialsSectionProps {
   reportId: number;
   readOnly: boolean;
   onSaveStateChange: (s: SaveState) => void;
+  pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }
 
-export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: TestimonialsSectionProps) {
+export function TestimonialsSection({ reportId, readOnly, onSaveStateChange, pushCommand }: TestimonialsSectionProps) {
   const specs = useMemo(() => buildTestimonialSpecs(), []);
   return (
     <div className="space-y-8">
@@ -28,6 +29,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: T
           spec={specs.leadership}
           onSaveStateChange={onSaveStateChange}
           commentSection="testimonials"
+          pushCommand={pushCommand}
         />
       </div>
       <div className="space-y-3">
@@ -43,6 +45,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange }: T
           spec={specs.partner}
           onSaveStateChange={onSaveStateChange}
           commentSection="testimonials"
+          pushCommand={pushCommand}
         />
       </div>
     </div>

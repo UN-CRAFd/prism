@@ -895,8 +895,18 @@ export function ReportEditor({
   const redoRef = useRef(redo);
   useEffect(() => { undoRef.current = undo; redoRef.current = redo; });
   useEffect(() => {
+    const TEXT_INPUT_TYPES = new Set(["text", "search", "url", "tel", "email", "password"]);
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
+      const t = e.target as HTMLElement | null;
+      if (t) {
+        if (t.tagName === "TEXTAREA") return;
+        if (t.tagName === "INPUT") {
+          const type = (t as HTMLInputElement).type.toLowerCase();
+          if (!type || TEXT_INPUT_TYPES.has(type)) return;
+        }
+        if ((t as HTMLElement).isContentEditable) return;
+      }
       const k = e.key.toLowerCase();
       if (k === "z") { e.preventDefault(); if (e.shiftKey) redoRef.current(); else undoRef.current(); }
       else if (k === "y") { e.preventDefault(); redoRef.current(); }
@@ -1299,7 +1309,7 @@ export function ReportEditor({
 
         ) : params.section === "testimonials" ? (
           reportId ? (
-            <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={setChildSaveState} />
+            <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={setChildSaveState} pushCommand={pushCommand} />
           ) : null
 
         ) : params.section in sectionSpecs ? (
@@ -1310,6 +1320,7 @@ export function ReportEditor({
               spec={sectionSpecs[params.section]}
               onSaveStateChange={setChildSaveState}
               commentSection={params.section}
+              pushCommand={pushCommand}
             />
           ) : null
 

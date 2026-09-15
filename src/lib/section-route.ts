@@ -118,7 +118,11 @@ export function makeSectionRoute(config: SectionConfig) {
           { status: 400 }
         );
       }
-      const nextOrder = count + 1;
+      const nextOrder =
+        (typeof body.sort_order === "number" && Number.isFinite(body.sort_order) &&
+         Number.isInteger(body.sort_order) && body.sort_order >= 1 && body.sort_order <= count + 1)
+          ? body.sort_order
+          : count + 1;
 
       const cols = ["report_id", ...fields, "sort_order"];
       const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");

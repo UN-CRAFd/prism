@@ -134,12 +134,20 @@ function coerce(key: FieldKey, value: string): unknown {
   }
 }
 
+function resolveId(map: Map<number, number>, id: number): number {
+  let cur = id;
+  const seen = new Set<number>();
+  while (map.has(cur) && !seen.has(cur)) { seen.add(cur); cur = map.get(cur)!; }
+  return cur;
+}
+
 export function GeneralInfoAdminEditor({
   projectId,
   onSaveStateChange,
   isAdmin = true,
   readOnly = false,
   onValidationChange,
+  pushCommand,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
@@ -151,6 +159,7 @@ export function GeneralInfoAdminEditor({
   // Called whenever the submission-blocking validation state changes. The
   // parent uses this to disable the Submit button and show a reason.
   onValidationChange?: (v: { tranchesMatch: boolean; missingFields: string[] }) => void;
+  pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
   const confirm = useConfirm();
 
@@ -231,6 +240,9 @@ export function GeneralInfoAdminEditor({
   participatingOrgsRef.current = participatingOrgs;
   const trancheCountRef = useRef(1);
   trancheCountRef.current = trancheCount;
+
+  const contactLinkAliasRef = useRef<Map<number, number>>(new Map());
+  const orgAliasRef = useRef<Map<number, number>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -446,34 +458,113 @@ export function GeneralInfoAdminEditor({
     const created: OrgRow = await res.json();
     if (type === "participating") { setParticipatingOrgs((prev) => [...prev, created]); setNewParticipatingOrg(""); }
     else { setImplementingOrgs((prev) => [...prev, created]); setNewImplementingOrg(""); }
+    const orgAnchorId = created.id;
+    pushCommand({
+      undo: async () => {
+        const liveId = resolveId(orgAliasRef.current, orgAnchorId);
+        const r = await fetch(`/api/project-organizations?id=${liveId}`, { method: "DELETE" });
+        if (!r.ok) { setOrgError("Failed to undo org add"); return; }
+        if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== liveId));
+        else setImplementingOrgs((prev) => prev.filter((o) => o.id !== liveId));
+        setTrancheCells((prev) => prev.filter((c) => c.organization_id !== liveId));
+        schedule();
+      },
+      redo: async () => {
+        const r = await fetch("/api/project-organizations", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: projectId, name, type }),
+        });
+        if (!r.ok) { setOrgError("Failed to redo org add"); return; }
+        const recreated: OrgRow = await r.json();
+        orgAliasRef.current.set(resolveId(orgAliasRef.current, orgAnchorId), recreated.id);
+        if (type === "participating") setParticipatingOrgs((prev) => [...prev, recreated]);
+        else setImplementingOrgs((prev) => [...prev, recreated]);
+      },
+    });
   }
 
   async function deleteOrg(id: number, type: "participating" | "implementing") {
     if (!await confirm({ message: "Remove this organization from the project?" })) return;
     setOrgError(null);
+    const orgList = type === "participating" ? participatingOrgs : implementingOrgs;
+    const capturedOrg = orgList.find((o) => o.id === id);
+    const capturedIndex = orgList.findIndex((o) => o.id === id);
+    const capturedCells = trancheCells.filter((c) => c.organization_id === id);
     const res = await fetch(`/api/project-organizations?id=${id}`, { method: "DELETE" });
     if (!res.ok) { setOrgError("Failed to delete"); return; }
     if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== id));
     else setImplementingOrgs((prev) => prev.filter((o) => o.id !== id));
     setTrancheCells((prev) => prev.filter((c) => c.organization_id !== id));
     schedule();
+    if (capturedOrg) {
+      const orgKnownId = id;
+      pushCommand({
+        undo: async () => {
+          const r = await fetch("/api/project-organizations", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_id: projectId, name: capturedOrg.name, type }),
+          });
+          if (!r.ok) { setOrgError("Failed to restore org"); return; }
+          const created: OrgRow = await r.json();
+          orgAliasRef.current.set(resolveId(orgAliasRef.current, orgKnownId), created.id);
+          const remappedCells = capturedCells.map((c) => ({ ...c, organization_id: created.id }));
+          if (type === "participating") setParticipatingOrgs((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, created); return next; });
+          else setImplementingOrgs((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, created); return next; });
+          setTrancheCells((prev) => [...prev, ...remappedCells]);
+          schedule();
+        },
+        redo: async () => {
+          const liveId = resolveId(orgAliasRef.current, orgKnownId);
+          const r = await fetch(`/api/project-organizations?id=${liveId}`, { method: "DELETE" });
+          if (!r.ok) { setOrgError("Failed to redo org delete"); return; }
+          if (type === "participating") setParticipatingOrgs((prev) => prev.filter((o) => o.id !== liveId));
+          else setImplementingOrgs((prev) => prev.filter((o) => o.id !== liveId));
+          setTrancheCells((prev) => prev.filter((c) => c.organization_id !== liveId));
+          schedule();
+        },
+      });
+    }
   }
 
   // ── Contacts CRUD (immediate) ───────────────────────────────────────────
-  async function linkContact(contactId: number, extras?: { roles?: string | null }) {
+  async function linkContact(contactId: number, extras?: { roles?: string | null }): Promise<ProjectContact | undefined> {
     const res = await fetch("/api/project-contacts", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId, contact_id: contactId, ...extras }),
     });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to link contact"); return; }
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to link contact"); return undefined; }
     const created: ProjectContact = await res.json();
     setContacts((prev) => [...prev, created]);
+    return created;
   }
 
   async function handleContactSelect(item: ComboboxItem) {
     setAddingContact(true); setError(null);
-    try { await linkContact(item.id); }
-    finally { setAddingContact(false); }
+    try {
+      const linked = await linkContact(item.id);
+      if (linked) {
+        const linkAnchorId = linked.id;
+        const contactId = item.id;
+        pushCommand({
+          undo: async () => {
+            const liveId = resolveId(contactLinkAliasRef.current, linkAnchorId);
+            const r = await fetch(`/api/project-contacts?id=${liveId}`, { method: "DELETE" });
+            if (!r.ok) { setError("Failed to undo contact link"); return; }
+            setContacts((prev) => prev.filter((c) => c.id !== liveId));
+          },
+          redo: async () => {
+            const r = await fetch("/api/project-contacts", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ project_id: projectId, contact_id: contactId }),
+            });
+            if (!r.ok) { setError("Failed to redo contact link"); return; }
+            const recreated: ProjectContact = await r.json();
+            contactLinkAliasRef.current.set(resolveId(contactLinkAliasRef.current, linkAnchorId), recreated.id);
+            setContacts((prev) => [...prev, recreated]);
+          },
+        });
+      }
+    } finally { setAddingContact(false); }
   }
 
   function handleContactCreate(name: string) {
@@ -507,9 +598,30 @@ export function GeneralInfoAdminEditor({
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to add contact"); }
       const created: OrgContact = await res.json();
       setOrgContacts((prev) => [...prev, created]);
-      await linkContact(created.id, {
-        roles: pendingContactRoles.length ? pendingContactRoles.join("|") : null,
-      });
+      const capturedContactId = created.id;
+      const capturedRoles = pendingContactRoles.length ? pendingContactRoles.join("|") : null;
+      const linked = await linkContact(capturedContactId, { roles: capturedRoles });
+      if (linked) {
+        const linkAnchorId = linked.id;
+        pushCommand({
+          undo: async () => {
+            const liveId = resolveId(contactLinkAliasRef.current, linkAnchorId);
+            const r = await fetch(`/api/project-contacts?id=${liveId}`, { method: "DELETE" });
+            if (!r.ok) { setError("Failed to undo contact add"); return; }
+            setContacts((prev) => prev.filter((c) => c.id !== liveId));
+          },
+          redo: async () => {
+            const r = await fetch("/api/project-contacts", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ project_id: projectId, contact_id: capturedContactId, roles: capturedRoles }),
+            });
+            if (!r.ok) { setError("Failed to redo contact add"); return; }
+            const recreated: ProjectContact = await r.json();
+            contactLinkAliasRef.current.set(resolveId(contactLinkAliasRef.current, linkAnchorId), recreated.id);
+            setContacts((prev) => [...prev, recreated]);
+          },
+        });
+      }
       setPendingContactName(null);
       setPendingContactEmail("");
       setPendingContactOrg("");
@@ -521,13 +633,33 @@ export function GeneralInfoAdminEditor({
   }
 
   async function patchContact(id: number, patch: Partial<Pick<ProjectContact, "roles">>) {
+    const prevRoles = contacts.find((c) => c.id === id)?.roles ?? null;
+    const newRoles = patch.roles ?? null;
     setContacts((prev) => prev.map((c) => c.id === id ? { ...c, ...patch } : c));
     setError(null);
     const res = await fetch("/api/project-contacts", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...patch }),
     });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); }
+    if (!res.ok) { const err = await res.json().catch(() => ({})); setError(err.error || "Failed to update contact"); return; }
+    pushCommand({
+      undo: async () => {
+        const r = await fetch("/api/project-contacts", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, roles: prevRoles }),
+        });
+        if (!r.ok) { setError("Failed to undo role change"); return; }
+        setContacts((prev) => prev.map((c) => c.id === id ? { ...c, roles: prevRoles } : c));
+      },
+      redo: async () => {
+        const r = await fetch("/api/project-contacts", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, roles: newRoles }),
+        });
+        if (!r.ok) { setError("Failed to redo role change"); return; }
+        setContacts((prev) => prev.map((c) => c.id === id ? { ...c, roles: newRoles } : c));
+      },
+    });
   }
 
   // Edit the contact's identity (name / role / email) on the shared
@@ -556,9 +688,32 @@ export function GeneralInfoAdminEditor({
     const c = contacts.find((x) => x.id === id);
     if (!await confirm({ message: `Remove ${c?.name ?? "this contact"} from the project?`, confirmLabel: "Remove", variant: "default" })) return;
     setError(null);
+    const capturedContact = c;
+    const capturedIndex = contacts.findIndex((x) => x.id === id);
     const res = await fetch(`/api/project-contacts?id=${id}`, { method: "DELETE" });
     if (!res.ok) { setError("Failed to remove contact"); return; }
     setContacts((prev) => prev.filter((x) => x.id !== id));
+    if (capturedContact) {
+      const linkKnownId = id;
+      pushCommand({
+        undo: async () => {
+          const r = await fetch("/api/project-contacts", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_id: projectId, contact_id: capturedContact.contact_id, roles: capturedContact.roles }),
+          });
+          if (!r.ok) { setError("Failed to restore contact link"); return; }
+          const created: ProjectContact = await r.json();
+          contactLinkAliasRef.current.set(resolveId(contactLinkAliasRef.current, linkKnownId), created.id);
+          setContacts((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, created); return next; });
+        },
+        redo: async () => {
+          const liveId = resolveId(contactLinkAliasRef.current, linkKnownId);
+          const r = await fetch(`/api/project-contacts?id=${liveId}`, { method: "DELETE" });
+          if (!r.ok) { setError("Failed to redo contact unlink"); return; }
+          setContacts((prev) => prev.filter((x) => x.id !== liveId));
+        },
+      });
+    }
   }
 
   // Candidate contacts to link: not already linked, and (when a "belongs to"

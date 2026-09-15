@@ -1412,7 +1412,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "general" ? (
-          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} onValidationChange={isPartner ? handleValidationChange : undefined} /> : null
+          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} onValidationChange={isPartner ? handleValidationChange : undefined} pushCommand={pushCommand} /> : null
 
         ) : selectedSection === "risk" ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>

@@ -210,7 +210,7 @@ interface ProgressState {
   comment: string;
 }
 
-export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight, readOnly = false }: { reportId: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean; readOnly?: boolean }) {
+export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight, readOnly = false, pushCommand }: { reportId: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean; readOnly?: boolean; pushCommand: (cmd: { undo: () => void; redo: () => void }) => void }) {
   const [data, setData] = useState<WorkplanMatrix | null>(null);
   const [progress, setProgress] = useState<Record<number, ProgressState>>({});
   const [loading, setLoading] = useState(true);
@@ -305,12 +305,20 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   }, []);
 
   function updateProgress(activityId: number, patch: Partial<ProgressState>) {
+    const before: ProgressState = progressRef.current[activityId] ?? { updated_quarters: [], status: null, comment: "" };
+    const after: ProgressState = { ...before, ...patch };
     setProgress((prev) => {
       const base: ProgressState = prev[activityId] ?? { updated_quarters: [], status: null, comment: "" };
       return { ...prev, [activityId]: { ...base, ...patch } };
     });
     dirtyRef.current.add(activityId);
     schedule();
+    if (!("comment" in patch)) {
+      pushCommand({
+        undo: () => { const comment = progressRef.current[activityId]?.comment ?? before.comment; setProgress((prev) => ({ ...prev, [activityId]: { ...before, comment } })); dirtyRef.current.add(activityId); schedule(); },
+        redo: () => { const comment = progressRef.current[activityId]?.comment ?? after.comment; setProgress((prev) => ({ ...prev, [activityId]: { ...after, comment } })); dirtyRef.current.add(activityId); schedule(); },
+      });
+    }
   }
 
   function toggleQuarter(activityId: number, q: string) {

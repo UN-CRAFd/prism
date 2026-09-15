@@ -1342,6 +1342,7 @@ export function ReportEditor({
                 onSaveStateChange={setChildSaveState}
                 fillHeight
                 readOnly={readOnly}
+                pushCommand={pushCommand}
               />
             </div>
           ) : null

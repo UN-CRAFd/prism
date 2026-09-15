@@ -35,6 +35,7 @@ import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import { getEditorSessionId } from "@/lib/editor-session-id";
+import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -141,6 +142,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const router = useRouter();
   const params = useParams<{ project?: string; section?: string }>();
   const { user } = useAuth();
+
+  const { pushCommand } = useUndoHistory({
+    resetKeys: [params.project, params.section],
+  });
 
   const isPartner = mode === "partner";
   const routeBase = isPartner ? "/partner/prodoc-editor" : "/admin/prodoc-editor";
@@ -468,15 +473,34 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     handleSaveStateChange("saving");
     setAddingRisk(true); setError(null);
     try {
+      const addBody = { reportId: Number(selectedProdocId), risk_name: newRiskName, risk_category: newRiskCategory, approved_mitigation: newRiskApprovedMitigation || null };
       const res = await fetch("/api/risk", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId: Number(selectedProdocId), risk_name: newRiskName, risk_category: newRiskCategory, approved_mitigation: newRiskApprovedMitigation || null }),
+        body: JSON.stringify(addBody),
       });
       if (!res.ok) throw new Error("Failed to add risk");
       const created: Risk = await res.json();
       setRisks((prev) => [...prev, created]);
       setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
       handleSaveStateChange("saved");
+      let currentId = created.id;
+      pushCommand({
+        undo: async () => {
+          const res = await fetch(`/api/risk?id=${currentId}`, { method: "DELETE" });
+          if (!res.ok) { setError("Failed to undo risk add"); return; }
+          setRisks((prev) => prev.filter((r) => r.id !== currentId));
+        },
+        redo: async () => {
+          const res = await fetch("/api/risk", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(addBody),
+          });
+          if (!res.ok) { setError("Failed to redo risk add"); return; }
+          const recreated: Risk = await res.json();
+          currentId = recreated.id;
+          setRisks((prev) => [...prev, recreated]);
+        },
+      });
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
     finally { setAddingRisk(false); }
   }
@@ -486,15 +510,40 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     handleSaveStateChange("saving");
     setError(null);
     try {
+      const prevRisk = risks.find((r) => r.id === id);
+      const prevValues = prevRisk ? { risk_name: prevRisk.risk_name, risk_category: prevRisk.risk_category, approved_mitigation: prevRisk.approved_mitigation } : null;
+      const newValues = { risk_name: editingRiskName, risk_category: editingRiskCategory, approved_mitigation: editingRiskApprovedMitigation || null };
       const res = await fetch("/api/risk", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, risk_name: editingRiskName, risk_category: editingRiskCategory, approved_mitigation: editingRiskApprovedMitigation || null }),
+        body: JSON.stringify({ id, ...newValues }),
       });
       if (!res.ok) throw new Error("Failed to update risk");
       const updated: Risk = await res.json();
       setRisks((prev) => prev.map((r) => r.id === id ? updated : r));
       setEditingRiskId(null);
       handleSaveStateChange("saved");
+      if (prevValues) {
+        pushCommand({
+          undo: async () => {
+            const res = await fetch("/api/risk", {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id, ...prevValues }),
+            });
+            if (!res.ok) { setError("Failed to undo risk edit"); return; }
+            const reverted: Risk = await res.json();
+            setRisks((prev) => prev.map((r) => r.id === id ? reverted : r));
+          },
+          redo: async () => {
+            const res = await fetch("/api/risk", {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id, ...newValues }),
+            });
+            if (!res.ok) { setError("Failed to redo risk edit"); return; }
+            const reapplied: Risk = await res.json();
+            setRisks((prev) => prev.map((r) => r.id === id ? reapplied : r));
+          },
+        });
+      }
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
   }
 
@@ -525,10 +574,42 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     handleSaveStateChange("saving");
     setDeletingRiskId(id); setError(null);
     try {
+      const capturedRisk = risk!;
+      const capturedIndex = risks.findIndex((r) => r.id === id);
       const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete risk");
       setRisks((prev) => prev.filter((r) => r.id !== id));
       handleSaveStateChange("saved");
+      let currentId: number | null = null;
+      pushCommand({
+        undo: async () => {
+          const cRes = await fetch("/api/risk", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reportId: capturedRisk.report_id, risk_name: capturedRisk.risk_name, risk_category: capturedRisk.risk_category ?? [], approved_mitigation: capturedRisk.approved_mitigation ?? null }),
+          });
+          if (!cRes.ok) { setError("Failed to restore risk"); return; }
+          const created: Risk = await cRes.json();
+          currentId = created.id;
+          if (capturedRisk.likelihood != null || capturedRisk.impact != null) {
+            const pRes = await fetch("/api/risk", {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: created.id, likelihood: capturedRisk.likelihood, impact: capturedRisk.impact }),
+            });
+            if (!pRes.ok) { setError("Failed to restore risk assessment"); return; }
+            const patched: Risk = await pRes.json();
+            setRisks((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, patched); return next; });
+          } else {
+            setRisks((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, created); return next; });
+          }
+        },
+        redo: async () => {
+          if (currentId == null) return;
+          const delId = currentId;
+          const res = await fetch(`/api/risk?id=${delId}`, { method: "DELETE" });
+          if (!res.ok) { setError("Failed to redo risk delete"); return; }
+          setRisks((prev) => prev.filter((r) => r.id !== delId));
+        },
+      });
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
     finally { setDeletingRiskId(null); }
   }
@@ -536,6 +617,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // Likelihood/impact are inline dropdowns (no edit mode) — save immediately on
   // change, optimistic like the indicator baseline/target cells.
   async function updateRiskAssessment(id: number, patch: { likelihood?: number | null; impact?: number | null }) {
+    const prevRisk = risks.find((r) => r.id === id);
+    const prevValues = prevRisk ? { likelihood: prevRisk.likelihood, impact: prevRisk.impact } : null;
     handleSaveStateChange("saving");
     setRisks((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     setError(null);
@@ -543,8 +626,28 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...patch }),
     });
-    if (!res.ok) { setError("Failed to save risk assessment"); handleSaveStateChange("error"); }
-    else handleSaveStateChange("saved");
+    if (!res.ok) { setError("Failed to save risk assessment"); handleSaveStateChange("error"); return; }
+    handleSaveStateChange("saved");
+    if (prevValues) {
+      pushCommand({
+        undo: async () => {
+          const res = await fetch("/api/risk", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, ...prevValues }),
+          });
+          if (!res.ok) { setError("Failed to undo risk assessment"); return; }
+          setRisks((prev) => prev.map((r) => (r.id === id ? { ...r, ...prevValues } : r)));
+        },
+        redo: async () => {
+          const res = await fetch("/api/risk", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, ...patch }),
+          });
+          if (!res.ok) { setError("Failed to redo risk assessment"); return; }
+          setRisks((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+        },
+      });
+    }
   }
 
   // ── Indicators CRUD ───────────────────────────────────────────────────────

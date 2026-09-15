@@ -20,6 +20,7 @@ import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
+import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
@@ -39,7 +40,6 @@ import {
   type IndicatorMatrixRow,
   type LibraryIndicator,
   type IndicatorState,
-  type HistoryCommand,
 } from "@/components/report-editor/types";
 import { OverviewSection } from "@/components/report-editor/sections/overview-section";
 import { SurveysSection } from "@/components/report-editor/sections/surveys-section";
@@ -128,9 +128,12 @@ export function ReportEditor({
   const [indicatorLibrary, setIndicatorLibrary] = useState<LibraryIndicator[]>([]);
 
   // Undo / redo over the parent-managed section edits. History is per section
-  // visit (reset below when the section or report changes).
-  const [undoStack, setUndoStack] = useState<HistoryCommand[]>([]);
-  const [redoStack, setRedoStack] = useState<HistoryCommand[]>([]);
+  // visit (reset when the section or report changes, inside the hook).
+  const scheduleRef = useRef<(() => void) | undefined>(undefined);
+  const { pushCommand, undo, redo, canUndo, canRedo } = useUndoHistory({
+    resetKeys: [reportId, params.section],
+    onAfterApply: () => scheduleRef.current?.(),
+  });
 
   // Every section autosaves. The child editors (list sections, expenditure,
   // workplan) report their save state up via onSaveStateChange; the parent-managed
@@ -447,6 +450,7 @@ export function ReportEditor({
   };
 
   const parentAutosave = useAutosave(flushParent);
+  useEffect(() => { scheduleRef.current = parentAutosave.schedule; }, [parentAutosave.schedule]);
 
   // Flush any pending parent-managed edit when navigating away from the editor.
   useEffect(() => () => { parentAutosave.flushNow(); }, [parentAutosave.flushNow]);
@@ -842,12 +846,6 @@ export function ReportEditor({
     );
   }
 
-  // ── Undo / redo (command stack) ────────────────────────────────────────────
-  function pushCommand(cmd: HistoryCommand) {
-    setUndoStack((s) => [...s, cmd].slice(-100));
-    setRedoStack([]);
-  }
-
   // A single-field edit on a keyed-state map. Captures the before/after values so
   // undo restores the previous value (re-flagged dirty so autosave persists it)
   // and redo re-applies. `dirty` is the section's dirty flag(s).
@@ -867,53 +865,6 @@ export function ReportEditor({
     });
     parentAutosave.schedule();
   }
-
-  function undo() {
-    if (!undoStack.length) return;
-    const cmd = undoStack[undoStack.length - 1];
-    setUndoStack((s) => s.slice(0, -1));
-    setRedoStack((r) => [...r, cmd]);
-    cmd.undo();
-    parentAutosave.schedule();
-  }
-
-  function redo() {
-    if (!redoStack.length) return;
-    const cmd = redoStack[redoStack.length - 1];
-    setRedoStack((r) => r.slice(0, -1));
-    setUndoStack((s) => [...s, cmd]);
-    cmd.redo();
-    parentAutosave.schedule();
-  }
-
-  // History is scoped to the current section visit — reset it when the section
-  // or report changes.
-  useEffect(() => { setUndoStack([]); setRedoStack([]); }, [reportId, params.section]);
-
-  // Keyboard shortcuts: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z or Ctrl+Y = redo.
-  const undoRef = useRef(undo);
-  const redoRef = useRef(redo);
-  useEffect(() => { undoRef.current = undo; redoRef.current = redo; });
-  useEffect(() => {
-    const TEXT_INPUT_TYPES = new Set(["text", "search", "url", "tel", "email", "password"]);
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const t = e.target as HTMLElement | null;
-      if (t) {
-        if (t.tagName === "TEXTAREA") return;
-        if (t.tagName === "INPUT") {
-          const type = (t as HTMLInputElement).type.toLowerCase();
-          if (!type || TEXT_INPUT_TYPES.has(type)) return;
-        }
-        if ((t as HTMLElement).isContentEditable) return;
-      }
-      const k = e.key.toLowerCase();
-      if (k === "z") { e.preventDefault(); if (e.shiftKey) redoRef.current(); else undoRef.current(); }
-      else if (k === "y") { e.preventDefault(); redoRef.current(); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
@@ -1084,7 +1035,7 @@ export function ReportEditor({
             <div className="flex items-center gap-0.5">
               <button
                 onClick={undo}
-                disabled={undoStack.length === 0}
+                disabled={!canUndo}
                 title="Undo (Ctrl+Z)"
                 aria-label="Undo"
                 className="p-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
@@ -1093,7 +1044,7 @@ export function ReportEditor({
               </button>
               <button
                 onClick={redo}
-                disabled={redoStack.length === 0}
+                disabled={!canRedo}
                 title="Redo (Ctrl+Shift+Z)"
                 aria-label="Redo"
                 className="p-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"

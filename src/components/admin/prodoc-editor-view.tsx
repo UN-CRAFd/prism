@@ -1711,7 +1711,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           // activities + quarters). Report-time update windows are managed in the
           // report editor, not here.
           selectedDoc ? (
-            <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} />
+            <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} pushCommand={pushCommand} />
           ) : null
         ) : selectedSection === "expenditure" ? (
           selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} /> : null

@@ -557,7 +557,7 @@ interface ProgressState {
   comment: string;
 }
 
-export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange, fillHeight }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean }) {
+export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange, fillHeight, pushCommand }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean; pushCommand: (cmd: { undo: () => void; redo: () => void }) => void }) {
   const partnerMode = reportId != null;
   const confirm = useConfirm();
 
@@ -737,7 +737,27 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
   function toggleUpdatedQuarter(activityId: number, q: string) {
     const cur = progressRef.current[activityId]?.updated_quarters ?? [];
-    updateProgress(activityId, { updated_quarters: cur.includes(q) ? cur.filter((x) => x !== q) : [...cur, q] });
+    const before = cur;
+    const after = cur.includes(q) ? cur.filter((x) => x !== q) : [...cur, q];
+    updateProgress(activityId, { updated_quarters: after });
+    pushCommand({
+      undo: () => {
+        setProgress((prev) => {
+          const base = prev[activityId] ?? { updated_quarters: [], status: null, comment: "" };
+          return { ...prev, [activityId]: { ...base, updated_quarters: before } };
+        });
+        progressDirtyRef.current.add(activityId);
+        scheduleProgressFlush();
+      },
+      redo: () => {
+        setProgress((prev) => {
+          const base = prev[activityId] ?? { updated_quarters: [], status: null, comment: "" };
+          return { ...prev, [activityId]: { ...base, updated_quarters: after } };
+        });
+        progressDirtyRef.current.add(activityId);
+        scheduleProgressFlush();
+      },
+    });
   }
 
   // ── Auto-save ─────────────────────────────────────────────────────────────
@@ -832,6 +852,37 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   }
   normalizeRef.current = normalize;
 
+  function pushDeleteCommand(capturedRows: AdminRow[], capturedIndices: number[]) {
+    // Insert at ascending original indices — each insertion restores the offset for the following one.
+    const pairs = capturedIndices
+      .map((idx, i) => ({ idx, row: capturedRows[i] }))
+      .sort((a, b) => a.idx - b.idx);
+    pushCommand({
+      undo: () => {
+        for (const { row } of pairs) idByKeyRef.current.delete(row.key);
+        setRows((prev) => {
+          const next = [...prev];
+          for (const { idx, row } of pairs)
+            next.splice(idx, 0, { ...row, id: null, dirty: true, rev: row.rev + 1 });
+          return normalize(next);
+        });
+        scheduleFlush();
+      },
+      redo: async () => {
+        const keys = new Set(capturedRows.map((r) => r.key));
+        const toDelete = rowsRef.current.filter((r) => keys.has(r.key));
+        await Promise.all(
+          toDelete
+            .map((r) => r.id ?? idByKeyRef.current.get(r.key) ?? null)
+            .filter((id): id is number => id !== null)
+            .map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" }))
+        );
+        setRows((prev) => normalize(prev.filter((r) => !keys.has(r.key))));
+        scheduleFlush();
+      },
+    });
+  }
+
   // ── Mutations ───────────────────────────────────────────────────────────
 
   function updateRow(key: number, patch: Partial<AdminRow>) {
@@ -840,14 +891,26 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   }
 
   function toggleQuarter(key: number, q: string) {
+    const row = rowsRef.current.find((r) => r.key === key);
+    const before = row?.planned_quarters ?? [];
+    const after = before.includes(q) ? before.filter((x) => x !== q) : [...before, q];
     setRows((prev) =>
       prev.map((r) => {
         if (r.key !== key) return r;
-        const has = r.planned_quarters.includes(q);
-        return { ...r, planned_quarters: has ? r.planned_quarters.filter((x) => x !== q) : [...r.planned_quarters, q], dirty: true, rev: r.rev + 1 };
+        return { ...r, planned_quarters: after, dirty: true, rev: r.rev + 1 };
       })
     );
     scheduleFlush();
+    pushCommand({
+      undo: () => {
+        setRows((prev) => prev.map((r) => r.key !== key ? r : { ...r, planned_quarters: before, dirty: true, rev: r.rev + 1 }));
+        scheduleFlush();
+      },
+      redo: () => {
+        setRows((prev) => prev.map((r) => r.key !== key ? r : { ...r, planned_quarters: after, dirty: true, rev: r.rev + 1 }));
+        scheduleFlush();
+      },
+    });
   }
 
   function updateSection(sectionId: number, patch: { objective_num?: string; objective_text?: string }) {
@@ -863,12 +926,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   }
 
   function addActivity(sectionId: number) {
+    const newKey = ++keyRef.current;
     setRows((prev) => {
       const section = prev.filter((r) => r.sectionId === sectionId);
       const template = section[0];
       const lastIdx = prev.map((r) => r.sectionId).lastIndexOf(sectionId);
       const newRow: AdminRow = {
-        key: ++keyRef.current,
+        key: newKey,
         id: null,
         clusterId: template?.clusterId ?? 0,
         sectionId,
@@ -887,19 +951,46 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       return normalize(next);
     });
     scheduleFlush();
+    pushCommand({
+      undo: async () => {
+        const liveId = rowsRef.current.find((r) => r.key === newKey)?.id ?? idByKeyRef.current.get(newKey) ?? null;
+        if (liveId != null) await fetch(`/api/workplan-activities?id=${liveId}`, { method: "DELETE" });
+        idByKeyRef.current.delete(newKey);
+        setRows((prev) => normalize(prev.filter((r) => r.key !== newKey)));
+        scheduleFlush();
+      },
+      redo: () => {
+        idByKeyRef.current.delete(newKey);
+        setRows((prev) => {
+          const section = prev.filter((r) => r.sectionId === sectionId);
+          const template = section[0];
+          const lastIdx = prev.map((r) => r.sectionId).lastIndexOf(sectionId);
+          const reRow: AdminRow = {
+            key: newKey, id: null, clusterId: template?.clusterId ?? 0, sectionId,
+            outcome: template?.outcome ?? "", objective_num: template?.objective_num ?? "",
+            objective_text: template?.objective_text ?? "", activity_num: "", activity_text: "",
+            implementing_agent: defaultAgent ?? "", planned_quarters: [], sort_order: 0, dirty: true, rev: 0,
+          };
+          return normalize([...prev.slice(0, lastIdx + 1), reRow, ...prev.slice(lastIdx + 1)]);
+        });
+        scheduleFlush();
+      },
+    });
   }
 
   // Add a new objective within a specific outcome cluster.
   function addObjective(clusterId: number) {
+    const newKey = ++keyRef.current;
+    const newSectionId = ++sectionIdRef.current;
     setRows((prev) => {
       const cluster = prev.filter((r) => r.clusterId === clusterId);
       const template = cluster[0];
       const lastIdx = prev.map((r) => r.clusterId).lastIndexOf(clusterId);
       const newRow: AdminRow = {
-        key: ++keyRef.current,
+        key: newKey,
         id: null,
         clusterId,
-        sectionId: ++sectionIdRef.current,
+        sectionId: newSectionId,
         outcome: template?.outcome ?? "",
         objective_num: "",
         objective_text: "",
@@ -915,39 +1006,81 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       return normalize(next);
     });
     scheduleFlush();
+    pushCommand({
+      undo: async () => {
+        const liveId = rowsRef.current.find((r) => r.key === newKey)?.id ?? idByKeyRef.current.get(newKey) ?? null;
+        if (liveId != null) await fetch(`/api/workplan-activities?id=${liveId}`, { method: "DELETE" });
+        idByKeyRef.current.delete(newKey);
+        setRows((prev) => normalize(prev.filter((r) => r.key !== newKey)));
+        scheduleFlush();
+      },
+      redo: () => {
+        idByKeyRef.current.delete(newKey);
+        setRows((prev) => {
+          const cluster = prev.filter((r) => r.clusterId === clusterId);
+          const template = cluster[0];
+          const lastIdx = prev.map((r) => r.clusterId).lastIndexOf(clusterId);
+          const reRow: AdminRow = {
+            key: newKey, id: null, clusterId, sectionId: newSectionId,
+            outcome: template?.outcome ?? "", objective_num: "", objective_text: "",
+            activity_num: "", activity_text: "", implementing_agent: defaultAgent ?? "",
+            planned_quarters: [], sort_order: 0, dirty: true, rev: 0,
+          };
+          const next = lastIdx >= 0 ? [...prev.slice(0, lastIdx + 1), reRow, ...prev.slice(lastIdx + 1)] : [...prev, reRow];
+          return normalize(next);
+        });
+        scheduleFlush();
+      },
+    });
   }
 
   // Add a new outcome cluster, seeded with one empty objective.
   function addOutcome() {
-    setRows((prev) => {
-      const newRow: AdminRow = {
-        key: ++keyRef.current,
-        id: null,
-        clusterId: ++clusterIdRef.current,
-        sectionId: ++sectionIdRef.current,
-        outcome: "",
-        objective_num: "",
-        objective_text: "",
-        activity_num: "",
-        activity_text: "",
-        implementing_agent: defaultAgent ?? "",
-        planned_quarters: [],
-        sort_order: 0,
-        dirty: true,
-        rev: 0,
-      };
-      return normalize([...prev, newRow]);
-    });
+    const newKey = ++keyRef.current;
+    const newRow: AdminRow = {
+      key: newKey,
+      id: null,
+      clusterId: ++clusterIdRef.current,
+      sectionId: ++sectionIdRef.current,
+      outcome: "",
+      objective_num: "",
+      objective_text: "",
+      activity_num: "",
+      activity_text: "",
+      implementing_agent: defaultAgent ?? "",
+      planned_quarters: [],
+      sort_order: 0,
+      dirty: true,
+      rev: 0,
+    };
+    setRows((prev) => normalize([...prev, newRow]));
     scheduleFlush();
+    pushCommand({
+      undo: async () => {
+        const liveId = rowsRef.current.find((r) => r.key === newKey)?.id ?? idByKeyRef.current.get(newKey) ?? null;
+        if (liveId != null) await fetch(`/api/workplan-activities?id=${liveId}`, { method: "DELETE" });
+        idByKeyRef.current.delete(newKey);
+        setRows((prev) => normalize(prev.filter((r) => r.key !== newKey)));
+        scheduleFlush();
+      },
+      redo: () => {
+        idByKeyRef.current.delete(newKey);
+        setRows((prev) => normalize([...prev, { ...newRow, dirty: true, rev: newRow.rev + 1 }]));
+        scheduleFlush();
+      },
+    });
   }
 
   async function deleteActivity(key: number) {
     const row = rowsRef.current.find((r) => r.key === key);
     const hasContent = row && (row.activity_text?.trim() || row.implementing_agent?.trim());
     if (hasContent && !await confirm({ message: "Delete this activity?" })) return;
+    const capturedRows = row ? [row] : [];
+    const capturedIndices = row ? [rowsRef.current.findIndex((r) => r.key === key)] : [];
     if (row?.id != null) await fetch(`/api/workplan-activities?id=${row.id}`, { method: "DELETE" });
     setRows((prev) => normalize(prev.filter((r) => r.key !== key)));
     scheduleFlush();
+    if (capturedRows.length) pushDeleteCommand(capturedRows, capturedIndices);
   }
 
   async function deleteObjective(sectionId: number) {
@@ -955,10 +1088,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
     if (!await confirm({ message: `Delete this Objective and its ${label}?` })) return;
+    const capturedRows = activities;
+    const capturedIndices = activities.map((r) => rowsRef.current.findIndex((x) => x.key === r.key));
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.sectionId !== sectionId)));
     scheduleFlush();
+    if (capturedRows.length) pushDeleteCommand(capturedRows, capturedIndices);
   }
 
   async function deleteCluster(clusterId: number) {
@@ -966,10 +1102,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
     if (!await confirm({ message: `Delete this Outcome and all its Objectives and ${label}?` })) return;
+    const capturedRows = activities;
+    const capturedIndices = activities.map((r) => rowsRef.current.findIndex((x) => x.key === r.key));
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
     await Promise.all(ids.map((id) => fetch(`/api/workplan-activities?id=${id}`, { method: "DELETE" })));
     setRows((prev) => normalize(prev.filter((r) => r.clusterId !== clusterId)));
     scheduleFlush();
+    if (capturedRows.length) pushDeleteCommand(capturedRows, capturedIndices);
   }
 
 
@@ -1171,7 +1310,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                                   checked={selected.includes(opt)}
                                   onCheckedChange={(on) => {
                                     const next = on ? [...selected, opt] : selected.filter((s) => s !== opt);
-                                    updateRow(row.key, { implementing_agent: joinAgents(next) });
+                                    const before = row.implementing_agent;
+                                    const after = joinAgents(next);
+                                    updateRow(row.key, { implementing_agent: after });
+                                    pushCommand({
+                                      undo: () => { updateRow(row.key, { implementing_agent: before }); },
+                                      redo: () => { updateRow(row.key, { implementing_agent: after }); },
+                                    });
                                   }}
                                   onSelect={(e) => e.preventDefault()}
                                 >
@@ -1187,7 +1332,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                                       checked
                                       onCheckedChange={() => {
                                         const next = selected.filter((s) => s !== tok);
-                                        updateRow(row.key, { implementing_agent: joinAgents(next) });
+                                        const before = row.implementing_agent;
+                                        const after = joinAgents(next);
+                                        updateRow(row.key, { implementing_agent: after });
+                                        pushCommand({
+                                          undo: () => { updateRow(row.key, { implementing_agent: before }); },
+                                          redo: () => { updateRow(row.key, { implementing_agent: after }); },
+                                        });
                                       }}
                                       onSelect={(e) => e.preventDefault()}
                                     >

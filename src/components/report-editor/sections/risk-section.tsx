@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
+import { ClampedText } from "@/components/report-editor/clamped-text";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
 import type { Risk, RiskState } from "@/components/report-editor/types";
@@ -78,7 +79,6 @@ export function RiskSection({
   handleRiskDelete,
   updateRisk,
 }: RiskSectionProps) {
-  const [expandedMitigation, setExpandedMitigation] = useState<Record<number, boolean>>({});
   return (
     <div className="space-y-4">
       {/* Add a new risk (report-scoped, same as the admin editor) */}
@@ -191,17 +191,7 @@ export function RiskSection({
                   </td>
                   <td className="px-4 py-3 align-top max-w-[280px]">
                     {risk.approved_mitigation ? (
-                      <div>
-                        <p className={cn("text-sm text-muted-foreground leading-relaxed", !expandedMitigation[risk.id] && "line-clamp-3")}>
-                          {risk.approved_mitigation}
-                        </p>
-                        <button
-                          onClick={() => setExpandedMitigation((prev) => ({ ...prev, [risk.id]: !prev[risk.id] }))}
-                          className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {expandedMitigation[risk.id] ? "Show less" : "Show more"}
-                        </button>
-                      </div>
+                      <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground leading-relaxed" />
                     ) : (
                       <span className="text-sm text-muted-foreground/40">—</span>
                     )}

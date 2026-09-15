@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
+import { ClampedText } from "@/components/report-editor/clamped-text";
 import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
@@ -137,11 +138,6 @@ export function IndicatorsSection({
   // name and reveal the description / means-of-verification / baseline / target
   // fields, which are required before the indicator can join the shared vocabulary.
   const [creating, setCreating] = useState(false);
-
-  // Past-year comments are collapsed to three lines so a long one doesn't make
-  // every row in the matrix tall; the toggle reveals the rest in place. Keyed by
-  // `${lineId}-${year}`. Mirrors the Show more/less on approved mitigations.
-  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
   const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
@@ -346,21 +342,7 @@ export function IndicatorsSection({
                         </td>
                         <td className="px-2 py-2 border-t text-muted-foreground align-top">
                           {cell?.comment
-                            ? (() => {
-                                const key = `${row.currentLineId}-${year}`;
-                                const expanded = !!expandedComments[key];
-                                return (
-                                  <div>
-                                    <p className={cn("text-xs", !expanded && "line-clamp-3")}>{cell.comment}</p>
-                                    <button
-                                      onClick={() => setExpandedComments((prev) => ({ ...prev, [key]: !prev[key] }))}
-                                      className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                      {expanded ? "Show less" : "Show more"}
-                                    </button>
-                                  </div>
-                                );
-                              })()
+                            ? <ClampedText text={cell.comment} className="text-xs" />
                             : <span className="text-muted-foreground/40">—</span>}
                         </td>
                       </Fragment>

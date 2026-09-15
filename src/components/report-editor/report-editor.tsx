@@ -16,7 +16,7 @@ import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { type ComboboxItem } from "@/components/ui/combobox";
-import { Loader2, FileQuestion, Undo2, Redo2, Lock } from "lucide-react";
+import { Loader2, FileQuestion, Lock } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
@@ -130,7 +130,7 @@ export function ReportEditor({
   // Undo / redo over the parent-managed section edits. History is per section
   // visit (reset when the section or report changes, inside the hook).
   const scheduleRef = useRef<(() => void) | undefined>(undefined);
-  const { pushCommand, undo, redo, canUndo, canRedo } = useUndoHistory({
+  const { pushCommand } = useUndoHistory({
     resetKeys: [reportId, params.section],
     onAfterApply: () => scheduleRef.current?.(),
   });
@@ -1031,28 +1031,6 @@ export function ReportEditor({
             </SelectContent>
           </Select>
 
-          {reportId && !sectionLoading && !notFound && (
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={undo}
-                disabled={!canUndo}
-                title="Undo (Ctrl+Z)"
-                aria-label="Undo"
-                className="p-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-              >
-                <Undo2 className="size-4" />
-              </button>
-              <button
-                onClick={redo}
-                disabled={!canRedo}
-                title="Redo (Ctrl+Shift+Z)"
-                aria-label="Redo"
-                className="p-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-              >
-                <Redo2 className="size-4" />
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

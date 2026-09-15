@@ -21,6 +21,15 @@ export const SUBHEAD_TEXT = "text-xs font-bold";
 // Shared header-cell base for a frozen leading column.
 const HEAD_CELL = `px-3 py-2 ${HEAD_TEXT} text-muted-foreground border-b bg-neutral-100 align-bottom`;
 
+// The frozen header is two stacked rows, so row two's sticky offset has to equal
+// row one's *rendered* height exactly — a mismatch makes the sub-column header
+// slide up into the year row as the body scrolls. `height` on a table cell is only
+// a minimum, so row one is pinned at h-9 (36px) with padding small enough that its
+// text can never outgrow it: 20px line-height + 12px (py-1.5) + 1px border = 33px.
+// Keep these two in step; changing the padding or type scale means re-deriving both.
+const YEAR_ROW_HEIGHT = "h-9 py-1.5";
+const SUBHEAD_STICKY_TOP = "top-9";
+
 // Current-year header highlight. An OPAQUE blend (crafd-yellow 20% mixed into
 // white — visually identical to bg-crafd-yellow/20 over the white card) so that
 // when the header is frozen (fillHeight), body rows scrolling underneath stay
@@ -50,6 +59,7 @@ export function MatrixTableShell({
   subCols,
   trailingCols = [],
   fillHeight = false,
+  hugContent = false,
   children,
 }: {
   minWidth: number;
@@ -64,10 +74,19 @@ export function MatrixTableShell({
   // top header (30) which sits above the frozen-left body cells (20); the corner
   // is the only place the two frozen axes overlap.
   fillHeight?: boolean;
+  // fillHeight only: let the card stop under its last row instead of stretching to
+  // the bottom of its slot. The slot still claims the same share of the height —
+  // this only decides whether a short table draws its border around the rows and
+  // leaves the rest blank, or around the whole (mostly empty) slot.
+  hugContent?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+    // Outer = invisible layout slot that claims the height; inner = the visible card.
+    // Splitting them is what makes `hugContent` possible: the slot keeps its size
+    // while the card is free to be shorter.
+    <div className={cn(fillHeight && "flex-1 min-h-0")}>
+    <div className={cn("rounded-xl border bg-card", fillHeight ? (hugContent ? "max-h-full overflow-auto" : "h-full overflow-auto") : "overflow-x-auto")}>
       <table className={MATRIX_TABLE} style={{ minWidth }}>
         <thead>
           {/* Year-group header */}
@@ -87,10 +106,11 @@ export function MatrixTableShell({
                 key={year}
                 colSpan={subCols.length}
                 className={cn(
-                  "px-2 py-2 text-center text-muted-foreground border-l border-b",
+                  "px-2 text-center text-muted-foreground border-l border-b",
+                  YEAR_ROW_HEIGHT,
                   HEAD_TEXT,
                   year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100",
-                  fillHeight && "sticky top-0 z-30 h-8"
+                  fillHeight && "sticky top-0 z-30"
                 )}
               >
                 {year}
@@ -111,7 +131,7 @@ export function MatrixTableShell({
                   {subCols.map((sc, i) => (
                     <th
                       key={i}
-                      className={cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, i === 0 && "border-l", sc.minWidth, bg, fillHeight && "sticky top-8 z-30")}
+                      className={cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, i === 0 && "border-l", sc.minWidth, bg, fillHeight && cn("sticky z-30", SUBHEAD_STICKY_TOP))}
                     >
                       {sc.label}
                     </th>
@@ -123,6 +143,7 @@ export function MatrixTableShell({
         </thead>
         {children}
       </table>
+    </div>
     </div>
   );
 }

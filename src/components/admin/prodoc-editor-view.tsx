@@ -35,6 +35,7 @@ import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import { getEditorSessionId } from "@/lib/editor-session-id";
+import { ProdocIndicatorsSection, type ProdocIndicatorEdit } from "@/components/admin/prodoc-indicators-section";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -519,6 +520,75 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
   }
 
+  async function handleProdocIndicatorEdit(indicatorId: number, lineId: number, patch: ProdocIndicatorEdit) {
+    handleSaveStateChange("saving");
+    setError(null);
+    try {
+      const indicatorRes = await fetch(`/api/indicators/${indicatorId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: patch.name,
+          description: patch.description,
+          means_of_verification: patch.means_of_verification,
+        }),
+      });
+      if (!indicatorRes.ok) throw new Error("Failed to update indicator");
+      const updated = await indicatorRes.json();
+      const lineRes = await fetch("/api/indicator-data", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: lineId,
+          baseline_value: patch.baseline_value,
+          baseline_year: patch.baseline_year,
+          target_value: patch.target_value,
+          target_year: patch.target_year,
+        }),
+      });
+      if (!lineRes.ok) throw new Error("Failed to update indicator values");
+      setIndicatorLines((prev) => prev.map((line) => line.id === lineId
+        ? {
+            ...line,
+            indicator_name: updated.name,
+            indicator_description: updated.description,
+            means_of_verification: updated.means_of_verification,
+            baseline_value: patch.baseline_value,
+            baseline_year: patch.baseline_year,
+            target_value: patch.target_value,
+            target_year: patch.target_year,
+          }
+        : line));
+      handleSaveStateChange("saved");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update indicator");
+      handleSaveStateChange("error");
+      throw e;
+    }
+  }
+
+  async function handleProdocIndicatorValues(
+    lineId: number,
+    values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year">,
+  ) {
+    handleSaveStateChange("saving");
+    setError(null);
+    try {
+      const res = await fetch("/api/indicator-data", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lineId, ...values }),
+      });
+      if (!res.ok) throw new Error("Failed to update indicator values");
+      setIndicatorLines((prev) => prev.map((line) => line.id === lineId ? { ...line, ...values } : line));
+      handleSaveStateChange("saved");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update indicator values");
+      handleSaveStateChange("error");
+      throw e;
+    }
+  }
+
   async function handleRiskDelete(id: number) {
     const risk = risks.find((r) => r.id === id);
     if (!await confirm({ message: `Delete risk "${risk?.risk_name ?? "this risk"}"?` })) return;
@@ -740,28 +810,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (!selectedProdocId || !selectedDoc) return;
     handleSaveStateChange("saving");
 
-    // Calculate baseline year (project start) and target year (project end)
-    let baselineYear: number | null = null;
-    let targetYear: number | null = null;
-
-    if (selectedDoc.project_start_date) {
-      baselineYear = new Date(selectedDoc.project_start_date).getFullYear();
-      if (selectedDoc.project_duration_months) {
-        const endDate = new Date(selectedDoc.project_start_date);
-        endDate.setMonth(endDate.getMonth() + selectedDoc.project_duration_months);
-        targetYear = endDate.getFullYear();
-      } else {
-        targetYear = baselineYear;
-      }
-    }
-
     const res = await fetch("/api/indicator-data", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reportId: Number(selectedProdocId),
         indicator_id: indicatorId,
-        baseline_year: baselineYear,
-        target_year: targetYear,
+        baseline_year: null,
+        target_year: null,
       }),
     });
     if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to add indicator"); handleSaveStateChange("error"); return; }
@@ -774,6 +829,31 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     setAddingIndicator(true); setError(null);
     try { await addIndicatorLine(item.id); }
     finally { setAddingIndicator(false); }
+  }
+
+  async function handleProdocIndicatorCreate(name: string, description: string, meansOfVerification: string) {
+    setAddingIndicator(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/indicators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description, means_of_verification: meansOfVerification, is_standard: false }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create indicator");
+      }
+      const created: LibraryIndicator = await res.json();
+      setLibrary((prev) => [...prev, created]);
+      await addIndicatorLine(created.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create indicator");
+      handleSaveStateChange("error");
+      throw e;
+    } finally {
+      setAddingIndicator(false);
+    }
   }
 
   // Opening the create panel from the search box — pre-fill the typed text as the
@@ -871,7 +951,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         ? `Used by ${lib.usage_project_count} project${lib.usage_project_count === 1 ? "" : "s"}`
         : "Custom",
     }));
-
   // ── Render ──────────────────────────────────────────────────────────────
 
   const sectionLoading =
@@ -1339,6 +1418,19 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "indicators" ? (
+          <ProdocIndicatorsSection
+            lines={indicatorLines}
+            indicatorItems={indicatorComboItems}
+            onAdd={handleIndicatorSelect}
+            onCreate={handleProdocIndicatorCreate}
+            onEdit={handleProdocIndicatorEdit}
+            onUpdateValues={handleProdocIndicatorValues}
+            onDelete={handleIndicatorDelete}
+            isAdmin={!isPartner}
+            readOnly={readOnly}
+            fillHeight={fillHeight}
+          />
+        ) : selectedSection === "indicators" && false ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
             <div className="max-w-xl">
               <Combobox

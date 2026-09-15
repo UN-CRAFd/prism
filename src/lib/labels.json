@@ -180,7 +180,8 @@
       "total": "Total",
       "grantSize": "Funding amount",
       "matches": "Tranches match the funding amount.",
-      "mismatch": "The project document cannot be submitted until the tranches add up to the funding amount ({grant}). Currently {total}."
+      "mismatchOver": "Tranches are {difference} over the grant total — the project document cannot be submitted until they match.",
+      "mismatchUnder": "Tranches are {difference} under the grant total — the project document cannot be submitted until they match."
     },
     "participatingOrganizationsDescription": "Organizations that will receive funding directly from MPTFO, and have signed either an MoU or an active Framework agreement with MPTFO. Project partners can edit the project document, at the discretion of the project lead organization.",
     "implementingOrganizationsDescription": "Organizations that will receive funding from the project lead or project partners. IOs can edit the project document, at the discretion of the project lead organization.",

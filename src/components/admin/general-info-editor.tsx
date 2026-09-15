@@ -1066,7 +1066,7 @@ export function GeneralInfoAdminEditor({
                       <span className="text-sm font-semibold tabular-nums">{fmtUsd(trancheTotal)}</span>
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
                           grantSize == null
                             ? "bg-muted text-muted-foreground"
                             : tranchesMatchGrant
@@ -1093,16 +1093,22 @@ export function GeneralInfoAdminEditor({
           </div>
         )}
 
-        {grantSize != null && participatingOrgs.length > 0 && !tranchesMatchGrant && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900">
-            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-            <span>
-              {g.tranches.mismatch
-                .replace("{grant}", fmtUsd(grantSize))
-                .replace("{total}", fmtUsd(trancheTotal))}
-            </span>
-          </div>
-        )}
+        {grantSize != null && participatingOrgs.length > 0 && !tranchesMatchGrant && (() => {
+          const isOver = trancheTotal > grantSize;
+          const difference = fmtUsd(Math.abs(trancheTotal - grantSize));
+          const message = isOver
+            ? g.tranches.mismatchOver.replace("{difference}", difference)
+            : g.tranches.mismatchUnder.replace("{difference}", difference);
+          return (
+            <div className={cn(
+              "flex items-start gap-2 rounded-md border px-3 py-2.5 text-sm font-medium",
+              isOver ? "border-red-300 bg-red-50 text-red-900" : "border-amber-300 bg-amber-50 text-amber-900"
+            )}>
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+              <span>{message}</span>
+            </div>
+          );
+        })()}
 
         <Button onClick={addTrancheColumn} size="sm" variant="outline" className="shrink-0">
           <Plus className="size-4 mr-1" />Add more tranches

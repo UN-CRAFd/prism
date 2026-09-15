@@ -43,6 +43,13 @@ function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; imp
   return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
 }
 
+function resolveId(map: Map<number, number>, id: number): number {
+  let cur = id;
+  const seen = new Set<number>();
+  while (map.has(cur) && !seen.has(cur)) { seen.add(cur); cur = map.get(cur)!; }
+  return cur;
+}
+
 // ── Project Document Editor ──────────────────────────────────────────────────
 // Defines the baseline/template for a project on its project document (prodoc —
 // the single reports row with data_type='prodoc'). Risk/indicators are stored
@@ -215,6 +222,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [newIndName, setNewIndName] = useState("");
   const [newIndDescription, setNewIndDescription] = useState("");
   const [newIndMeansOfVerification, setNewIndMeansOfVerification] = useState("");
+
+  const riskIdAliasRef = useRef<Map<number, number>>(new Map());
+  const indicatorIdAliasRef = useRef<Map<number, number>>(new Map());
 
   // ── Load project documents & pre-select from URL params ─────────────────
 
@@ -483,12 +493,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       setRisks((prev) => [...prev, created]);
       setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
       handleSaveStateChange("saved");
-      let currentId = created.id;
+      const riskAnchorId = created.id;
       pushCommand({
         undo: async () => {
-          const res = await fetch(`/api/risk?id=${currentId}`, { method: "DELETE" });
+          const liveId = resolveId(riskIdAliasRef.current, riskAnchorId);
+          const res = await fetch(`/api/risk?id=${liveId}`, { method: "DELETE" });
           if (!res.ok) { setError("Failed to undo risk add"); return; }
-          setRisks((prev) => prev.filter((r) => r.id !== currentId));
+          setRisks((prev) => prev.filter((r) => r.id !== liveId));
         },
         redo: async () => {
           const res = await fetch("/api/risk", {
@@ -497,7 +508,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           });
           if (!res.ok) { setError("Failed to redo risk add"); return; }
           const recreated: Risk = await res.json();
-          currentId = recreated.id;
+          riskIdAliasRef.current.set(resolveId(riskIdAliasRef.current, riskAnchorId), recreated.id);
           setRisks((prev) => [...prev, recreated]);
         },
       });
@@ -552,9 +563,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     handleSaveStateChange("saving");
     setError(null);
     try {
+      const prevLine = indicatorLines.find((l) => l.indicator_id === indicatorId);
+      const prevValues = prevLine ? { name: prevLine.indicator_name, description: prevLine.indicator_description, means_of_verification: prevLine.means_of_verification } : null;
+      const newValues = { name: editingIndName, description: editingIndDescription || null, means_of_verification: editingIndMov || null };
       const res = await fetch(`/api/indicators/${indicatorId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editingIndName, description: editingIndDescription || null, means_of_verification: editingIndMov || null }),
+        body: JSON.stringify(newValues),
       });
       if (!res.ok) throw new Error("Failed to update indicator");
       const updated = await res.json();
@@ -565,6 +579,36 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       ));
       setEditingIndicatorId(null);
       handleSaveStateChange("saved");
+      if (prevValues) {
+        pushCommand({
+          undo: async () => {
+            const res = await fetch(`/api/indicators/${indicatorId}`, {
+              method: "PUT", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(prevValues),
+            });
+            if (!res.ok) { setError("Failed to undo indicator edit"); return; }
+            const reverted = await res.json();
+            setIndicatorLines((prev) => prev.map((l) =>
+              l.indicator_id === indicatorId
+                ? { ...l, indicator_name: reverted.name, indicator_description: reverted.description, means_of_verification: reverted.means_of_verification }
+                : l
+            ));
+          },
+          redo: async () => {
+            const res = await fetch(`/api/indicators/${indicatorId}`, {
+              method: "PUT", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(newValues),
+            });
+            if (!res.ok) { setError("Failed to redo indicator edit"); return; }
+            const reapplied = await res.json();
+            setIndicatorLines((prev) => prev.map((l) =>
+              l.indicator_id === indicatorId
+                ? { ...l, indicator_name: reapplied.name, indicator_description: reapplied.description, means_of_verification: reapplied.means_of_verification }
+                : l
+            ));
+          },
+        });
+      }
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
   }
 
@@ -580,7 +624,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       if (!res.ok) throw new Error("Failed to delete risk");
       setRisks((prev) => prev.filter((r) => r.id !== id));
       handleSaveStateChange("saved");
-      let currentId: number | null = null;
+      const riskKnownId = id;
       pushCommand({
         undo: async () => {
           const cRes = await fetch("/api/risk", {
@@ -589,7 +633,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           });
           if (!cRes.ok) { setError("Failed to restore risk"); return; }
           const created: Risk = await cRes.json();
-          currentId = created.id;
+          riskIdAliasRef.current.set(resolveId(riskIdAliasRef.current, riskKnownId), created.id);
           if (capturedRisk.likelihood != null || capturedRisk.impact != null) {
             const pRes = await fetch("/api/risk", {
               method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -603,11 +647,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           }
         },
         redo: async () => {
-          if (currentId == null) return;
-          const delId = currentId;
-          const res = await fetch(`/api/risk?id=${delId}`, { method: "DELETE" });
+          const liveId = resolveId(riskIdAliasRef.current, riskKnownId);
+          const res = await fetch(`/api/risk?id=${liveId}`, { method: "DELETE" });
           if (!res.ok) { setError("Failed to redo risk delete"); return; }
-          setRisks((prev) => prev.filter((r) => r.id !== delId));
+          setRisks((prev) => prev.filter((r) => r.id !== liveId));
         },
       });
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); handleSaveStateChange("error"); }
@@ -858,19 +901,34 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       }
     }
 
+    const addBody = { reportId: Number(selectedProdocId), indicator_id: indicatorId, baseline_year: baselineYear, target_year: targetYear };
     const res = await fetch("/api/indicator-data", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reportId: Number(selectedProdocId),
-        indicator_id: indicatorId,
-        baseline_year: baselineYear,
-        target_year: targetYear,
-      }),
+      body: JSON.stringify(addBody),
     });
     if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to add indicator"); handleSaveStateChange("error"); return; }
     const created: IndicatorLine = await res.json();
     setIndicatorLines((prev) => [...prev, created]);
     handleSaveStateChange("saved");
+    const indAnchorId = created.id;
+    pushCommand({
+      undo: async () => {
+        const liveId = resolveId(indicatorIdAliasRef.current, indAnchorId);
+        const res = await fetch(`/api/indicator-data?id=${liveId}`, { method: "DELETE" });
+        if (!res.ok) { setError("Failed to undo indicator add"); return; }
+        setIndicatorLines((prev) => prev.filter((l) => l.id !== liveId));
+      },
+      redo: async () => {
+        const res = await fetch("/api/indicator-data", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(addBody),
+        });
+        if (!res.ok) { setError("Failed to redo indicator add"); return; }
+        const recreated: IndicatorLine = await res.json();
+        indicatorIdAliasRef.current.set(resolveId(indicatorIdAliasRef.current, indAnchorId), recreated.id);
+        setIndicatorLines((prev) => [...prev, recreated]);
+      },
+    });
   }
 
   async function handleIndicatorSelect(item: ComboboxItem) {
@@ -954,10 +1012,44 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (!await confirm({ message: "Remove this indicator from the project document?", confirmLabel: "Remove", variant: "default" })) return;
     handleSaveStateChange("saving");
     setError(null);
+    const capturedLine = indicatorLines.find((l) => l.id === id);
+    const capturedIndex = indicatorLines.findIndex((l) => l.id === id);
+    const capturedReportId = Number(selectedProdocId);
     const res = await fetch(`/api/indicator-data?id=${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); setError(err.error || "Failed to remove"); handleSaveStateChange("error"); return; }
     setIndicatorLines((prev) => prev.filter((l) => l.id !== id));
     handleSaveStateChange("saved");
+    if (capturedLine) {
+      const indKnownId = id;
+      pushCommand({
+        undo: async () => {
+          const cRes = await fetch("/api/indicator-data", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reportId: capturedReportId, indicator_id: capturedLine.indicator_id, baseline_year: capturedLine.baseline_year, target_year: capturedLine.target_year }),
+          });
+          if (!cRes.ok) { setError("Failed to restore indicator"); return; }
+          const created: IndicatorLine = await cRes.json();
+          indicatorIdAliasRef.current.set(resolveId(indicatorIdAliasRef.current, indKnownId), created.id);
+          if (capturedLine.baseline_value != null || capturedLine.target_value != null) {
+            const pRes = await fetch("/api/indicator-data", {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: created.id, baseline_value: capturedLine.baseline_value, baseline_year: capturedLine.baseline_year, target_value: capturedLine.target_value, target_year: capturedLine.target_year }),
+            });
+            if (!pRes.ok) { setError("Failed to restore indicator values"); return; }
+            const patched: IndicatorLine = await pRes.json();
+            setIndicatorLines((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, patched); return next; });
+          } else {
+            setIndicatorLines((prev) => { const next = [...prev]; next.splice(capturedIndex, 0, created); return next; });
+          }
+        },
+        redo: async () => {
+          const liveId = resolveId(indicatorIdAliasRef.current, indKnownId);
+          const res = await fetch(`/api/indicator-data?id=${liveId}`, { method: "DELETE" });
+          if (!res.ok) { setError("Failed to redo indicator delete"); return; }
+          setIndicatorLines((prev) => prev.filter((l) => l.id !== liveId));
+        },
+      });
+    }
   }
 
   // Suggestion ordering comes from the API (standard first, then custom indicators

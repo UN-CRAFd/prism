@@ -956,9 +956,16 @@ export function GeneralInfoAdminEditor({
       {/* Programme & project cost — tranche matrix (second: review feedback
           moved the tranche release section above the contacts). */}
       <div className="order-2 rounded-xl border bg-card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Coins className="size-4 text-muted-foreground" />
-          <h3 className="t-heading-sub">{g.tranches.heading}</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Coins className="size-4 text-muted-foreground" />
+            <h3 className="t-heading-sub">{g.tranches.heading}</h3>
+          </div>
+          {participatingOrgs.length > 0 && (
+            <Button onClick={addTrancheColumn} size="sm" variant="outline" className="shrink-0">
+              <Plus className="size-4 mr-1" />Add more tranches
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">{g.tranches.description}</p>
 
@@ -1110,9 +1117,6 @@ export function GeneralInfoAdminEditor({
           );
         })()}
 
-        <Button onClick={addTrancheColumn} size="sm" variant="outline" className="shrink-0">
-          <Plus className="size-4 mr-1" />Add more tranches
-        </Button>
       </div>
 
       {/* Applicants — project contacts (last: review feedback moved contacts

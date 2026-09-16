@@ -1014,7 +1014,7 @@ export function GeneralInfoAdminEditor({
                                   : amount.trim() !== "" && !isNaN(parseAmount(amount))
                                     ? formatUS(parseAmount(amount))
                                     : amount}
-                                onChange={(e) => setCell(org.id, tn, { amount: e.target.value })}
+                                onChange={(e) => setCell(org.id, tn, { amount: numericAmount(e.target.value) })}
                                 onFocus={() => setFocusedCellKey(cellKey)}
                                 onBlur={() => {
                                   setFocusedCellKey(null);

@@ -14,6 +14,7 @@ import { MatrixTableShell, HEAD_TEXT } from "@/components/report-editor/matrix-t
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { optionValues } from "@/lib/options";
 import { activityLabel, formatAmount } from "@/lib/transfers";
+import { numericAmount } from "@/lib/numeric-input";
 import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
 import {
   DropdownMenu,
@@ -510,6 +511,7 @@ function LinkedActivityPicker({
 export function ContributorMatrix(props: ContributorMatrixProps) {
   const { config } = props;
   const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
+  const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -605,10 +607,27 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                     {years.map((year) => {
                       const current = year === currentYear;
                       if (current) {
+                        const cellKey = `${row.entityId}-${year}`;
+                        const focused = focusedCellKey === cellKey;
+                        const parsed = parseFloat(state.amount);
                         return (
                           <Fragment key={year}>
                             <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
-                              <Input type="number" min={0} value={state.amount} onChange={(e) => updateCell(row.entityId, { amount: e.target.value })} placeholder={config.labels.amountPlaceholder} className="text-sm h-8 text-right tabular-nums" />
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={focused ? state.amount : (state.amount.trim() !== "" && !isNaN(parsed) ? parsed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : state.amount)}
+                                onChange={(e) => updateCell(row.entityId, { amount: numericAmount(e.target.value) })}
+                                onFocus={() => setFocusedCellKey(cellKey)}
+                                onBlur={() => {
+                                  setFocusedCellKey(null);
+                                  if (state.amount.trim() !== "" && !isNaN(parsed)) {
+                                    updateCell(row.entityId, { amount: String(parsed) });
+                                  }
+                                }}
+                                placeholder={config.labels.amountPlaceholder}
+                                className="text-sm h-8 text-right tabular-nums"
+                              />
                             </td>
                             <td className="px-1 py-1 border-t bg-crafd-yellow/10">
                               <LinkedActivityPicker

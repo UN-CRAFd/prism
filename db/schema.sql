@@ -274,6 +274,7 @@ CREATE TABLE IF NOT EXISTS reports (
     year                   SMALLINT       NOT NULL CHECK (year BETWEEN 2020 AND 2050),
     report_submission_date DATE,
     authorized             BOOLEAN        NOT NULL DEFAULT FALSE,
+    submitted_at           TIMESTAMPTZ,                            -- when the partner formally submitted
     status                 TEXT           NOT NULL DEFAULT 'Open',
     data_type              data_type_enum NOT NULL DEFAULT 'report'::data_type_enum,
     report_type            TEXT,

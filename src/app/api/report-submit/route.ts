@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
 
       const updated = await client.query<{ id: number; status: string }>(
         `UPDATE reporting_platform.reports
-            SET status = 'Under Review'
+            SET status = 'Under Review',
+                submitted_at = now()
           WHERE id = $1 AND status = 'Open'
           RETURNING id, status`,
         [reportId]

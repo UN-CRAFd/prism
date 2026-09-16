@@ -362,6 +362,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   const totalCols = 2 + quarters.length + 3;
   let lastOutcome: string | null = null;
   let lastObjective: string | null = null;
+  let outcomeOrdinal = 0;
 
   return (
     <div className={cn(fillHeight ? "flex flex-col flex-1 min-h-0" : "")}>
@@ -402,6 +403,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
           <tbody>
             {activities.map((a) => {
               const showOutcome = a.outcome && a.outcome !== lastOutcome;
+              if (showOutcome) outcomeOrdinal++;
               if (a.outcome) lastOutcome = a.outcome;
               const objKey = `${a.objective_num ?? ""}|${a.objective_text ?? ""}`;
               const showObjective = objKey.trim() !== "|" && objKey !== lastObjective;
@@ -414,7 +416,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 <Fragment key={a.id}>
                   {showOutcome && (
                     <tr className="bg-neutral-100 border-y">
-                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700">{a.outcome}</td>
+                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700"><span className="mr-1">Outcome {outcomeOrdinal}:</span>{a.outcome}</td>
                     </tr>
                   )}
                   {showObjective && (
@@ -836,16 +838,19 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   }, []);
 
   // Keep sort_order + numbering aligned with array position; mark changed rows dirty.
-  // Objectives are numbered by section order (1, 2, …); activities as "<objective>.<n>".
+  // Outcomes 1, 2, …; Objectives 1.1, 1.2, …; Activities 1.1.1, 1.1.2, …
   function normalize(list: AdminRow[]): AdminRow[] {
+    let outcomeOrdinal = 0;
     let objOrdinal = 0;
+    let lastCluster: number | null = null;
     let lastSection: number | null = null;
     let activityCount = 0;
     return list.map((r, i) => {
+      if (r.clusterId !== lastCluster) { outcomeOrdinal++; objOrdinal = 0; lastCluster = r.clusterId; lastSection = null; }
       if (r.sectionId !== lastSection) { objOrdinal++; lastSection = r.sectionId; activityCount = 0; }
       activityCount++;
-      const objective_num = String(objOrdinal);
-      const activity_num = `${objOrdinal}.${activityCount}`;
+      const objective_num = `${outcomeOrdinal}.${objOrdinal}`;
+      const activity_num = `${outcomeOrdinal}.${objOrdinal}.${activityCount}`;
       if (r.sort_order === i && r.objective_num === objective_num && r.activity_num === activity_num) return r;
       return { ...r, sort_order: i, objective_num, activity_num, dirty: true, rev: r.rev + 1 };
     });

@@ -146,7 +146,6 @@ export function GeneralInfoAdminEditor({
   onSaveStateChange,
   isAdmin = true,
   readOnly = false,
-  onValidationChange,
   pushCommand,
 }: {
   projectId: number;
@@ -156,9 +155,6 @@ export function GeneralInfoAdminEditor({
   // When the prodoc is view-only, the blue instructions box is hidden (the
   // parent shows the amber view-only bar instead).
   readOnly?: boolean;
-  // Called whenever the submission-blocking validation state changes. The
-  // parent uses this to disable the Submit button and show a reason.
-  onValidationChange?: (v: { tranchesMatch: boolean; missingFields: string[] }) => void;
   pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
   const confirm = useConfirm();
@@ -426,23 +422,6 @@ export function GeneralInfoAdminEditor({
       : null;
   const tranchesMatchGrant = grantSize != null && trancheTotal <= grantSize + 0.005 && trancheTotal >= grantSize - 1;
   const fmtUsd = (n: number) => formatUS(n);
-
-  const missingRequiredFields = useMemo(() => {
-    const checks: [string, string][] = [
-      [form.project_title, "Project name"],
-      [form.grant_size_usd, "Funding amount (USD)"],
-      [form.project_start_date, "Start date"],
-      [form.project_duration_months, "Duration (months)"],
-      [form.geographic_scope, "Geographic scope"],
-      [form.description, "Description"],
-    ];
-    return checks.filter(([v]) => !v.trim()).map(([, label]) => label);
-  }, [form.project_title, form.grant_size_usd, form.project_start_date, form.project_duration_months, form.geographic_scope, form.description]);
-
-  useEffect(() => {
-    if (loading) return;
-    onValidationChange?.({ tranchesMatch: tranchesMatchGrant, missingFields: missingRequiredFields });
-  }, [loading, onValidationChange, tranchesMatchGrant, missingRequiredFields]);
 
   // ── Organization list CRUD (immediate) ─────────────────────────────────
   async function addOrg(type: "participating" | "implementing") {

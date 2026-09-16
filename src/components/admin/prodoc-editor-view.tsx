@@ -172,11 +172,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitValidation, setSubmitValidation] = useState<{
-    tranchesMatch: boolean;
-    missingFields: string[];
-  } | null>(null);
-  const [serverCheck, setServerCheck] = useState<{ ok: boolean; error: string | null } | null>(null);
   const [editorSaveState, setEditorSaveState] = useState<SaveState>("idle");
 
   // Editor lock
@@ -268,22 +263,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setLoadingRisk(false); }
   }, []);
 
-  const runSubmitCheck = useCallback(async (projectId: number) => {
-    try {
-      const res = await fetch("/api/prodoc-submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId, check_only: true }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok) setServerCheck({ ok: true, error: null });
-      else setServerCheck({ ok: false, error: data?.error ?? "Cannot submit yet." });
-    } catch {
-      // Network failure — don't block submit on a failed check.
-      setServerCheck(null);
-    }
-  }, []);
-
   const loadIndicators = useCallback(async (prodocId: string) => {
     setLoadingIndicators(true); setError(null);
     try {
@@ -307,13 +286,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       loadIndicators(selectedProdocId);
     }
   }, [selectedProdocId, selectedSection, loadRisks, loadIndicators]);
-
-  useEffect(() => {
-    if (!isPartner) return;
-    const doc = docs.find((d) => String(d.id) === selectedProdocId);
-    if (!doc) return;
-    runSubmitCheck(doc.project_id);
-  }, [selectedProdocId, docs, selectedSection, isPartner, runSubmitCheck]);
 
   // ── Editor lock effects ──────────────────────────────────────────────
 
@@ -463,7 +435,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   function handleDocChange(val: string) {
     setSelectedProdocId(val);
-    setError(null); setSubmitError(null); setSubmitValidation(null);
+    setError(null); setSubmitError(null);
     setRisks([]); setIndicatorLines([]); setLibrary([]);
     const doc = docs.find((d) => String(d.id) === val);
     if (doc) pushUrl(doc, "general");
@@ -699,11 +671,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   selectedProjectIdRef.current = selectedDoc?.project_id ?? null;
 
   // Per-section completion for the open project document (drives the tab checks).
-  const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
+  const [sectionComplete, setSectionComplete] = useState<Record<string, boolean> | null>(null);
   const completionProjectId = selectedDoc?.project_id ?? null;
 
   useEffect(() => {
-    if (completionProjectId == null) { setSectionComplete({}); return; }
+    if (completionProjectId == null) { setSectionComplete(null); return; }
     fetch(`/api/prodoc-completion?projectId=${completionProjectId}`)
       .then((r) => r.json())
       .then((d) => setSectionComplete(d.sections ?? {}))
@@ -721,17 +693,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const readOnly = statusReadOnly || lockBlocking;
 
   // Reasons the Submit button should be disabled (UX guard; server re-validates).
-  // null submitValidation means the General tab hasn't loaded yet — optimistic.
   const submitBlockers: string[] = [];
-  if (submitValidation) {
-    if (!submitValidation.tranchesMatch) {
-      submitBlockers.push("Tranche total must match the approved funding amount.");
-    }
-    if (submitValidation.missingFields.length > 0) {
-      submitBlockers.push(`Required in General: ${submitValidation.missingFields.join(", ")}.`);
-    }
-  } else if (serverCheck && !serverCheck.ok && serverCheck.error) {
-    submitBlockers.push(serverCheck.error);
+  if (sectionComplete !== null) {
+    const count = Object.entries(sectionComplete)
+      .filter(([, done]) => done === false).length;
+    if (count > 0)
+      submitBlockers.push(`${count} ${count === 1 ? "section" : "sections"} incomplete`);
   }
 
   // Called by every handler that writes data. Resets the inactivity clock and
@@ -749,12 +716,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (state === "saving") noteEdit();
   }
 
-  // Called by GeneralInfoAdminEditor whenever tranche match or required-field
-  // completeness changes. The parent holds the last-known state so the Submit
-  // button stays disabled even when the partner navigates to another section.
-  const handleValidationChange = useCallback((v: { tranchesMatch: boolean; missingFields: string[] }) => {
-    setSubmitValidation(v);
-  }, []);
+  const prevSaveStateRef = useRef<SaveState | null>(null);
+  useEffect(() => {
+    if (editorSaveState === "saved" && prevSaveStateRef.current !== "saved" && completionProjectId != null)
+      fetch(`/api/prodoc-completion?projectId=${completionProjectId}`)
+        .then((r) => r.json())
+        .then((d) => setSectionComplete(d.sections ?? {}))
+        .catch(() => {});
+    prevSaveStateRef.current = editorSaveState;
+  }, [editorSaveState, completionProjectId]);
 
   // Partner submits the project document for secretariat review.
   // Errors from the API are shown near the button (submitError) rather than in
@@ -1239,7 +1209,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             >
               <span className="inline-flex items-center gap-1.5">
                 {sec.label}
-                {sectionComplete[sec.value] && (
+                {sectionComplete?.[sec.value] && (
                   <Check className="size-3.5 shrink-0 text-green-600" />
                 )}
               </span>
@@ -1412,7 +1382,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           </div>
 
         ) : selectedSection === "general" ? (
-          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} onValidationChange={isPartner ? handleValidationChange : undefined} pushCommand={pushCommand} /> : null
+          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} pushCommand={pushCommand} /> : null
 
         ) : selectedSection === "risk" ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>

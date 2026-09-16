@@ -41,17 +41,22 @@ export async function GET(req: NextRequest) {
     const prodocId = prodoc[0].id;
 
     const [general, narratives, indicators, risk, expenditure, workplan] = await Promise.all([
-      // General — the project/partner header fields all present.
+      // General — the same required fields the General tab validates client-side.
       query<Row>(
-        `SELECT (p.project_title IS NOT NULL
-              AND p.mptfo_project_number IS NOT NULL
-              AND pt.long_name IS NOT NULL
+        `SELECT (p.project_title IS NOT NULL AND p.project_title <> ''
               AND p.grant_size_usd IS NOT NULL
-              AND p.geographic_scope IS NOT NULL
               AND p.project_start_date IS NOT NULL
-              AND p.project_duration_months IS NOT NULL) AS complete
+              AND p.project_duration_months IS NOT NULL
+              AND p.geographic_scope IS NOT NULL AND p.geographic_scope <> ''
+              AND p.description IS NOT NULL AND p.description <> ''
+              AND COALESCE(
+                    (SELECT SUM(tc.amount)
+                       FROM reporting_platform.project_tranche_cells tc
+                      WHERE tc.project_id = p.id),
+                    0
+                  ) BETWEEN p.grant_size_usd::numeric - 1
+                        AND p.grant_size_usd::numeric) AS complete
            FROM reporting_platform.projects p
-           JOIN reporting_platform.partners pt ON pt.id = p.partner_id
           WHERE p.id = $1`,
         [projectId]
       ).then((r) => r[0]?.complete === true),

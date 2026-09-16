@@ -54,7 +54,7 @@ function toSlug(r: Report): string {
 // Quant tables that scroll inside their own bounded box with a frozen column
 // header (rather than scrolling with the whole page). The section fills the
 // leftover height so the header stays pinned while the body scrolls.
-const FILL_HEIGHT_SECTIONS = new Set(["workplan", "indicators", "transfers", "complementary", "expenditure"]);
+const FILL_HEIGHT_SECTIONS = new Set(["workplan", "transfers", "complementary", "expenditure", "indicators"]);
 
 export interface ReportEditorProps {
   // "partner" filters reports to the logged-in partner and is editable;
@@ -243,6 +243,10 @@ export function ReportEditor({
       for (const row of data.rows) {
         const cell = data.currentYear != null ? row.byYear[data.currentYear] : undefined;
         states[row.currentLineId] = {
+          baseline_value: row.baseline_value ?? "",
+          baseline_year: row.baseline_year != null ? String(row.baseline_year) : "",
+          target_value: row.target_value ?? "",
+          target_year: row.target_year != null ? String(row.target_year) : "",
           achieved_value: cell?.achieved_value ?? "",
           status: cell?.status ?? null,
           comment: cell?.comment ?? "",
@@ -422,7 +426,7 @@ export function ReportEditor({
     const dirtyRisks = risks.filter((r) => riskStates[r.id]?.dirty);
     const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ l: riskStates[r.id].likelihood, i: riskStates[r.id].impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
     const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
-    const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify({ v: indicatorStates[r.currentLineId].achieved_value, s: indicatorStates[r.currentLineId].status, c: indicatorStates[r.currentLineId].comment })]));
+    const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify(indicatorStates[r.currentLineId])]));
     const saveOverview = overviewDirty;
     const overviewSnap = JSON.stringify(overview);
 
@@ -439,7 +443,16 @@ export function ReportEditor({
         }),
         ...dirtyInd.map((r) => {
           const st = indicatorStates[r.currentLineId];
-          return fetch("/api/indicator-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.currentLineId, achieved_value: st.achieved_value || null, status: st.status, comment: st.comment || null }) }).then(ok);
+          return fetch("/api/indicator-data", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+            id: r.currentLineId,
+            baseline_value: st.baseline_value || null,
+            baseline_year: st.baseline_year || null,
+            target_value: st.target_value || null,
+            target_year: st.target_year || null,
+            achieved_value: st.achieved_value || null,
+            status: st.status,
+            comment: st.comment || null,
+          }) }).then(ok);
         }),
         ...(saveOverview ? [fetch("/api/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId, authorized: overview.authorized }) }).then(ok)] : []),
       ]);
@@ -460,7 +473,7 @@ export function ReportEditor({
     });
     if (dirtyInd.length) setIndicatorStates((prev) => {
       const n = { ...prev };
-      for (const r of dirtyInd) { const cur = prev[r.currentLineId]; if (cur && JSON.stringify({ v: cur.achieved_value, s: cur.status, c: cur.comment }) === indSnap.get(r.currentLineId)) n[r.currentLineId] = { ...cur, dirty: false }; }
+      for (const r of dirtyInd) { const cur = prev[r.currentLineId]; if (cur && JSON.stringify(cur) === indSnap.get(r.currentLineId)) n[r.currentLineId] = { ...cur, dirty: false }; }
       return n;
     });
     if (saveOverview && JSON.stringify(overviewRef.current) === overviewSnap) setOverviewDirty(false);
@@ -842,6 +855,7 @@ export function ReportEditor({
       setDeletingIndicatorLineId(null);
     }
   }
+
 
   async function handleIndicatorEdit(
     indicatorId: number,
@@ -1234,7 +1248,7 @@ export function ReportEditor({
             isAdmin={mode === "admin"}
             deletingIndicatorLineId={deletingIndicatorLineId}
             handleIndicatorDelete={handleIndicatorDelete}
-            onEditIndicator={mode === "admin" ? handleIndicatorEdit : undefined}
+            canManageIndicators={false}
             fillHeight={fillHeight}
           />
 

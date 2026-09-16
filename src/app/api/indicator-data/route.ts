@@ -30,6 +30,26 @@ const toYear = (v: unknown) => {
   return Number.isNaN(n) ? null : n;
 };
 
+// Keep existing annual reports in sync when a project-document indicator is
+// added after those reports were created. The unique constraint makes this safe
+// to call repeatedly while loading an annual report.
+async function syncAnnualIndicators(projectId: number) {
+  await query(
+    `INSERT INTO reporting_platform.indicator_data
+       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, sort_order)
+     SELECT annual.id, pd.indicator_id, pd.baseline_value, pd.baseline_year,
+            pd.target_value, pd.target_year, pd.sort_order
+       FROM reporting_platform.reports annual
+       JOIN reporting_platform.reports prodoc
+         ON prodoc.project_id = annual.project_id AND prodoc.data_type = 'prodoc'
+       JOIN reporting_platform.indicator_data pd ON pd.report_id = prodoc.id
+      WHERE annual.project_id = $1
+        AND annual.data_type = 'report'
+     ON CONFLICT (report_id, indicator_id) DO NOTHING`,
+    [projectId]
+  );
+}
+
 // Flat cross-report listing (admin "Full Data" view): one row per indicator line
 // per report — i.e. one row per year-entry, with project/partner context joined.
 const SELECT_ALL = `
@@ -69,6 +89,15 @@ export async function GET(req: NextRequest) {
   const gate = await guardReport(session, reportId);
   if (gate) return gate;
 
+  const reportMeta = await query<{ project_id: number; data_type: string }>(
+    `SELECT project_id, data_type FROM reporting_platform.reports WHERE id = $1`,
+    [reportId]
+  );
+  const isAnnualReport = reportMeta[0]?.data_type === "report";
+  if (isAnnualReport && reportMeta[0]) {
+    await syncAnnualIndicators(reportMeta[0].project_id);
+  }
+
   // Matrix view (partner report): pivot each indicator on the current report across
   // every year of the same project, so previous/later reports for that exact
   // indicator show alongside the current one.
@@ -82,9 +111,18 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const reportFilter = isAnnualReport
+      ? `AND d.indicator_id IN (
+           SELECT pd.indicator_id
+             FROM reporting_platform.indicator_data pd
+             JOIN reporting_platform.reports prodoc ON prodoc.id = pd.report_id
+            WHERE prodoc.project_id = (SELECT project_id FROM reporting_platform.reports WHERE id = $1)
+              AND prodoc.data_type = 'prodoc'
+         )`
+      : "";
     const rows = await query(
       `${SELECT_WITH_INDICATOR}
-        WHERE d.report_id = $1
+        WHERE d.report_id = $1 ${reportFilter}
         ORDER BY d.sort_order ASC, d.id ASC`,
       [reportId]
     );
@@ -118,14 +156,22 @@ type MatrixRawRow = {
 };
 
 async function getMatrix(reportId: string) {
-  const meta = await query<{ project_id: number; year: number }>(
-    `SELECT project_id, year FROM reporting_platform.reports WHERE id = $1`,
+  const meta = await query<{ project_id: number; year: number; data_type: string }>(
+    `SELECT project_id, year, data_type FROM reporting_platform.reports WHERE id = $1`,
     [reportId]
   );
   if (meta.length === 0) {
     return NextResponse.json({ years: [], currentYear: null, rows: [] });
   }
-  const { project_id: projectId, year: currentYear } = meta[0];
+  const { project_id: projectId, year: currentYear, data_type: dataType } = meta[0];
+  const projectIndicatorFilter = dataType === "report"
+    ? `AND d.indicator_id IN (
+         SELECT pd.indicator_id
+           FROM reporting_platform.indicator_data pd
+           JOIN reporting_platform.reports prodoc ON prodoc.id = pd.report_id
+          WHERE prodoc.project_id = $1 AND prodoc.data_type = 'prodoc'
+       )`
+    : "";
 
   const rows = await query<MatrixRawRow>(
     `SELECT d.id, d.report_id, d.indicator_id,
@@ -141,6 +187,7 @@ async function getMatrix(reportId: string) {
         AND d.indicator_id IN (
           SELECT indicator_id FROM reporting_platform.indicator_data WHERE report_id = $2
         )
+        ${projectIndicatorFilter}
       ORDER BY r.year ASC`,
     [projectId, reportId]
   );
@@ -199,6 +246,26 @@ export async function POST(req: NextRequest) {
   const gate = await guardReport(session, reportId as string | number, { requireOpen: true });
   if (gate) return gate;
 
+  const reportMeta = await query<{ project_id: number; data_type: string }>(
+    `SELECT project_id, data_type FROM reporting_platform.reports WHERE id = $1`,
+    [reportId]
+  );
+  if (reportMeta[0]?.data_type === "report") {
+    const projectIndicator = await query(
+      `SELECT 1
+         FROM reporting_platform.indicator_data pd
+         JOIN reporting_platform.reports prodoc ON prodoc.id = pd.report_id
+        WHERE prodoc.project_id = $1
+          AND prodoc.data_type = 'prodoc'
+          AND pd.indicator_id = $2
+        LIMIT 1`,
+      [reportMeta[0].project_id, indicator_id]
+    );
+    if (!projectIndicator.length) {
+      return NextResponse.json({ error: "Add this indicator to the project document first" }, { status: 400 });
+    }
+  }
+
   // Indicators are a shared global vocabulary, so any (non-archived) indicator may
   // be attached to a report the caller owns. Just confirm the indicator exists.
   const exists = await query(
@@ -239,6 +306,27 @@ export async function POST(req: NextRequest) {
 
     // Return the row joined with its indicator so the client can render immediately.
     const rows = await query(`${SELECT_WITH_INDICATOR} WHERE d.id = $1`, [inserted[0].id]);
+
+    if (reportMeta[0]?.data_type === "prodoc") {
+      await query(
+        `INSERT INTO reporting_platform.indicator_data
+           (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, sort_order)
+         SELECT annual.id, $1, $2, $3, $4, $5, $6
+           FROM reporting_platform.reports annual
+          WHERE annual.project_id = $7
+            AND annual.data_type = 'report'
+         ON CONFLICT (report_id, indicator_id) DO NOTHING`,
+        [
+          indicator_id,
+          body.baseline_value || null,
+          toYear(body.baseline_year),
+          body.target_value || null,
+          toYear(body.target_year),
+          body.sort_order ?? inserted[0].id,
+          reportMeta[0].project_id,
+        ]
+      );
+    }
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     logger.error("POST /api/indicator-data error:", err);

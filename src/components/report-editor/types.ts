@@ -103,6 +103,10 @@ export interface IndicatorMatrixRow {
 }
 
 export interface IndicatorState {
+  baseline_value: string;
+  baseline_year: string;
+  target_value: string;
+  target_year: string;
   achieved_value: string;
   status: string | null;
   comment: string;

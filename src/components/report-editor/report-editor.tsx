@@ -145,6 +145,7 @@ export function ReportEditor({
   const [error, setError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [sectionCompletion, setSectionCompletion] = useState<Record<string, boolean> | null>(null);
 
   const loadSurveys = useCallback(async (id: number) => {
     setLoadingSurveys(true);
@@ -256,6 +257,17 @@ export function ReportEditor({
     }
   }, []);
 
+  const fetchCompletion = useCallback(async (id: number) => {
+    try {
+      const res = await fetch(`/api/report-completion?reportId=${id}`);
+      if (!res.ok) return;
+      const data: { sections: Record<string, boolean> } = await res.json();
+      setSectionCompletion(data.sections);
+    } catch {
+      // don't block submit on transient network errors
+    }
+  }, []);
+
   // Load reports once per project/year
   useEffect(() => {
     if (!user) return;
@@ -310,6 +322,11 @@ export function ReportEditor({
     // Config-driven list sections + the transfer/complementary matrices load their
     // own data inside <SectionTableEditor> / <ContributorMatrix>.
   }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators]);
+
+  useEffect(() => {
+    if (!reportId) return;
+    fetchCompletion(reportId);
+  }, [reportId, params.section, fetchCompletion]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -887,12 +904,25 @@ export function ReportEditor({
   const notFound = !loadingReports && !selectedReport;
 
   const submitBlockers: string[] = [];
-  if (!overview.authorized) submitBlockers.push("Tick the authorization checkbox in the Overview tab before submitting.");
+  const authorizedComplete = sectionCompletion !== null ? sectionCompletion["overview"] : overview.authorized;
+  if (!authorizedComplete) submitBlockers.push("Tick the authorization checkbox in the Overview tab before submitting.");
+  if (sectionCompletion !== null) {
+    const count = REPORT_SECTIONS.filter((s) => s.value !== "overview" && sectionCompletion[s.value] === false).length;
+    if (count > 0)
+      submitBlockers.push(`${count} ${count === 1 ? "section" : "sections"} incomplete`);
+  }
 
   // The parent-managed sections drive `parentAutosave`; the rest report up via
   // `childSaveState`. The top-bar indicator shows whichever owns the active tab.
   const parentManaged = ["surveys", "overview", "risk", "indicators"].includes(params.section);
   const displaySaveState = parentManaged ? parentAutosave.state : childSaveState;
+
+  const prevSaveStateRef = useRef<SaveState | null>(null);
+  useEffect(() => {
+    if (displaySaveState === "saved" && prevSaveStateRef.current !== "saved" && reportId)
+      fetchCompletion(reportId);
+    prevSaveStateRef.current = displaySaveState;
+  }, [displaySaveState, reportId, fetchCompletion]);
 
   // Sections whose table freezes its column header inside a bounded scroll box.
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);

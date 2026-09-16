@@ -41,30 +41,18 @@ export async function GET(req: NextRequest) {
                 COUNT(*) FILTER (WHERE ${field} IS NOT NULL AND ${field} <> '')::int AS filled
            FROM reporting_platform.${table} WHERE report_id = $1`,
         [reportId]
-      ).then((r) => n(r[0]?.filled) >= min && n(r[0]?.filled) === n(r[0]?.total));
+      ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.filled) >= min && n(r[0]?.filled) === n(r[0]?.total));
 
     const [
       overview, surveys, risk, indicators, transfers, complementary,
       achievements, partnerships, results, lessons, coverage,
       workplan, expenditure, testimonials,
     ] = await Promise.all([
-      // Overview — admin-owned project/partner fields all present (read-only to
-      // partners; assembled from projects + partners rather than an overview table).
+      // Overview — complete when the partner has ticked the authorization checkbox.
       query<Row>(
-        `SELECT (p.project_title IS NOT NULL
-              AND p.mptfo_project_number IS NOT NULL
-              AND pt.long_name IS NOT NULL
-              AND pt.organization_website IS NOT NULL
-              AND p.grant_size_usd IS NOT NULL
-              AND p.geographic_scope IS NOT NULL
-              AND p.project_start_date IS NOT NULL
-              AND p.project_duration_months IS NOT NULL) AS complete
-           FROM reporting_platform.reports  r
-           JOIN reporting_platform.projects p  ON p.id  = r.project_id
-           JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-          WHERE r.id = $1`,
+        `SELECT authorized FROM reporting_platform.reports WHERE id = $1`,
         [reportId]
-      ).then((r) => r[0]?.complete === true),
+      ).then((r) => r[0]?.authorized === true),
 
       // Surveys — every question assessed.
       query<Row>(
@@ -88,24 +76,29 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Transfers — every row has amount + linked activity.
+      // Transfers — zero rows is OK (not all projects use this); non-zero rows require
+      // the partner to be selected and the amount to be filled.
       query<Row>(
         `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE amount_transferred IS NOT NULL AND linked_activity_id IS NOT NULL)::int AS ok
-           FROM reporting_platform.transfer_data WHERE report_id = $1`,
+                COUNT(*) FILTER (WHERE tp.organization_name IS NOT NULL AND tp.organization_name <> ''
+                                   AND d.amount_transferred IS NOT NULL)::int AS ok
+           FROM reporting_platform.transfer_data d
+           JOIN reporting_platform.transfer_partners tp ON tp.id = d.transfer_partner_id
+          WHERE d.report_id = $1`,
         [reportId]
-      ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
+      ).then((r) => n(r[0]?.total) === 0 || n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Complementary — every row has amount + at least one linked activity.
+      // Complementary — zero rows is OK (not all projects use this); non-zero rows
+      // require the contributor to be selected and the amount to be filled.
       query<Row>(
         `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE contribution_amount IS NOT NULL AND EXISTS (
-                  SELECT 1 FROM reporting_platform.complementary_data_activities cda
-                   WHERE cda.complementary_data_id = cd.id
-                ))::int AS ok
-           FROM reporting_platform.complementary_data cd WHERE cd.report_id = $1`,
+                COUNT(*) FILTER (WHERE c.contributor_name IS NOT NULL AND c.contributor_name <> ''
+                                   AND cd.contribution_amount IS NOT NULL)::int AS ok
+           FROM reporting_platform.complementary_data cd
+           JOIN reporting_platform.complementary_contributors c ON c.id = cd.contributor_id
+          WHERE cd.report_id = $1`,
         [reportId]
-      ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
+      ).then((r) => n(r[0]?.total) === 0 || n(r[0]?.ok) === n(r[0]?.total)),
 
       listSection("key_achievements", "achievement", 1),
       listSection("partnerships", "partner_organization", 1),
@@ -134,15 +127,16 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => n(r[0]?.cats) > 0 && n(r[0]?.filled) >= n(r[0]?.cats)),
 
-      // Testimonials — the required leadership quote is present.
+      // Testimonials — a leadership quote and at least one partner quote are both present.
       query<Row>(
-        `SELECT EXISTS (
-           SELECT 1 FROM reporting_platform.testimonials
-            WHERE report_id = $1 AND kind = 'leadership'
-              AND quote IS NOT NULL AND quote <> ''
-         ) AS complete`,
+        `SELECT EXISTS (SELECT 1 FROM reporting_platform.testimonials
+                         WHERE report_id = $1 AND kind = 'leadership'
+                           AND quote IS NOT NULL AND quote <> '') AS leadership_ok,
+               EXISTS (SELECT 1 FROM reporting_platform.testimonials
+                         WHERE report_id = $1 AND kind = 'partner'
+                           AND quote IS NOT NULL AND quote <> '') AS partner_ok`,
         [reportId]
-      ).then((r) => r[0]?.complete === true),
+      ).then((r) => r[0]?.leadership_ok === true && r[0]?.partner_ok === true),
     ]);
 
     const sections: Record<string, boolean> = {

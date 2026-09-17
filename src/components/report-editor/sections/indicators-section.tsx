@@ -19,6 +19,8 @@ import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStat
 import { numericYear } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
+import { activityLabel } from "@/lib/transfers";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
   return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
@@ -96,6 +98,8 @@ export interface IndicatorsSectionProps {
 
   // Freeze the column headers to the top while the matrix body scrolls.
   fillHeight?: boolean;
+  activities: ContributorActivity[];
+  activityById: Map<number, ContributorActivity>;
 }
 
 export function IndicatorsSection({
@@ -128,6 +132,8 @@ export function IndicatorsSection({
   onEditIndicator,
   canManageIndicators = true,
   fillHeight = false,
+  activities,
+  activityById,
 }: IndicatorsSectionProps) {
   const readOnly = useReadOnly();
   // Name, description and means of verification are all mandatory for a
@@ -212,7 +218,7 @@ export function IndicatorsSection({
     // inside — same as the project document's indicator tables. A separate dashed
     // placeholder would make the two boxes look unlike each other exactly when one
     // of them is empty. 3 frozen + 3 per year + the trailing column when present.
-    const emptyColSpan = 3 + indicatorYears.length * 3 + (showActions ? 1 : 0);
+    const emptyColSpan = 3 + indicatorYears.length * 3 + 1 + (showActions ? 1 : 0);
 
     return (
       <MatrixTableShell
@@ -239,9 +245,10 @@ export function IndicatorsSection({
           { label: labels.indicators.columns.status, minWidth: "min-w-[140px]" },
           { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
         ]}
-        trailingCols={showActions ? [
-          { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
-        ] : []}
+        trailingCols={[
+          { label: "Linked activity", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
+          ...(showActions ? [{ className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" }] : []),
+        ]}
       >
         <tbody>
           {rows.length === 0 && (
@@ -366,6 +373,12 @@ export function IndicatorsSection({
                     </Fragment>
                   );
                 })}
+
+                <td className="px-3 py-2 border-l border-t text-sm text-muted-foreground">
+                  {row.linked_activity_id != null
+                    ? activityLabel(activityById.get(row.linked_activity_id)) || "—"
+                    : "—"}
+                </td>
 
                 {showActions && (
                 <td className="px-2 py-2 border-l border-t text-center">

@@ -29,7 +29,7 @@ import { CommentsProvider } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
-import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG } from "@/components/report-editor/contributor-matrix";
+import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG, type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import {
   EMPTY_OVERVIEW,
   type Survey,
@@ -112,6 +112,22 @@ export function ReportEditor({
   const [indicatorCurrentYear, setIndicatorCurrentYear] = useState<number | null>(null);
   const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
   const [loadingIndicators, setLoadingIndicators] = useState(false);
+
+  // Activities for the linked-activity column in the indicators table (read-only display).
+  const [activities, setActivities] = useState<ContributorActivity[]>([]);
+  const activityById = useMemo(
+    () => new Map(activities.map((a) => [a.id, a])),
+    [activities]
+  );
+
+  const loadActivities = useCallback(async (projectId: number) => {
+    try {
+      const res = await fetch(`/api/workplan-activities?projectId=${projectId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setActivities(Array.isArray(data.activities) ? data.activities : []);
+    } catch { /* quiet — empty list is fine */ }
+  }, []);
 
   // Custom indicators: partners may define their own (project-scoped) indicators.
   const [newIndicatorName, setNewIndicatorName] = useState("");
@@ -322,10 +338,14 @@ export function ReportEditor({
     if (params.section === "surveys") loadSurveys(reportId);
     else if (params.section === "overview") loadOverview(reportId);
     else if (params.section === "risk") loadRisk(reportId);
-    else if (params.section === "indicators") loadIndicators(reportId);
+    else if (params.section === "indicators") {
+      loadIndicators(reportId);
+      const projectId = reports.find((r) => r.id === reportId)?.project_id;
+      if (projectId) loadActivities(projectId);
+    }
     // Config-driven list sections + the transfer/complementary matrices load their
     // own data inside <SectionTableEditor> / <ContributorMatrix>.
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators]);
+  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators, loadActivities, reports]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -1250,6 +1270,8 @@ export function ReportEditor({
             handleIndicatorDelete={handleIndicatorDelete}
             canManageIndicators={false}
             fillHeight={fillHeight}
+            activities={activities}
+            activityById={activityById}
           />
 
         ) : params.section === "transfers" ? (

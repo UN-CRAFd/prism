@@ -53,6 +53,8 @@ export interface Risk {
   risk_category: string[] | null;
   likelihood: number | null;
   impact: number | null;
+  updated_likelihood: number | null;
+  updated_impact: number | null;
   approved_mitigation: string | null;
   updated_mitigation: string | null;
   project_revision: boolean;
@@ -61,6 +63,8 @@ export interface Risk {
 export interface RiskState {
   likelihood: number | null;
   impact: number | null;
+  updated_likelihood: number | null;
+  updated_impact: number | null;
   approved_mitigation: string;
   updated_mitigation: string;
   project_revision: boolean;

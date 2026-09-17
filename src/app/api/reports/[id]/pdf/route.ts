@@ -15,6 +15,8 @@ interface RiskRow {
   risk_name: string;
   likelihood: number | null;
   impact: number | null;
+  updated_likelihood: number | null;
+  updated_impact: number | null;
   approved_mitigation: string | null;
   updated_mitigation: string | null;
 }
@@ -55,7 +57,7 @@ async function fetchReportData(reportId: string) {
   const [reportRes, surveysRes, risksRes, achievementsRes, partnershipsRes, resultsRes, lessonsRes, coverageRes] = await Promise.all([
     query("SELECT r.*, p.project_title, p.short_name AS project_short_name, pt.short_name AS partner_short_name, pt.long_name AS partner_long_name FROM reporting_platform.reports r JOIN reporting_platform.projects p ON p.id = r.project_id JOIN reporting_platform.partners pt ON pt.id = p.partner_id WHERE r.id = $1", [reportId]),
     query("SELECT question, assessment, context FROM reporting_platform.surveys WHERE report_id = $1 ORDER BY id", [reportId]),
-    query("SELECT risk_name, likelihood, impact, approved_mitigation, updated_mitigation FROM reporting_platform.risk_management WHERE report_id = $1 ORDER BY id", [reportId]),
+    query("SELECT risk_name, likelihood, impact, updated_likelihood, updated_impact, approved_mitigation, updated_mitigation FROM reporting_platform.risk_management WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT achievement, significance, links FROM reporting_platform.key_achievements WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT partner_organization, result, links FROM reporting_platform.partnerships WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT context, data_driven_decision, resulting_impact, links FROM reporting_platform.results WHERE report_id = $1 ORDER BY id", [reportId]),
@@ -256,11 +258,13 @@ export async function GET(
     if (data.risks.length > 0) {
       addTable(
         "Risk Management",
-        ["Risk", "Likelihood", "Impact", "Mitigation"],
+        ["Risk", "Appr. L", "Upd. L", "Appr. I", "Upd. I", "Mitigation"],
         data.risks.map((r) => [
           (r.risk_name ?? "").substring(0, 20),
           r.likelihood ?? "—",
+          r.updated_likelihood ?? "—",
           r.impact ?? "—",
+          r.updated_impact ?? "—",
           (r.approved_mitigation ?? "").substring(0, 30),
         ])
       );

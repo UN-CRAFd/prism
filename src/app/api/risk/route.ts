@@ -138,15 +138,26 @@ export async function PATCH(req: NextRequest) {
   const gate = await guardRow(session, "risk_management", id as string | number, { requireOpen: true });
   if (gate) return gate;
 
+  // Partners may update only the per-report "updated_*" assessment fields.
+  // Any attempt to modify the ProDoc-approved likelihood or impact from a
+  // partner session is rejected here, before the SQL runs.
+  const isAdmin = session.role === "admin";
+  if (!isAdmin && ("likelihood" in fields || "impact" in fields)) {
+    return NextResponse.json(
+      { error: "Partners may not modify the approved likelihood or impact." },
+      { status: 403 }
+    );
+  }
+
   // risk_category lives in the junction table, not on risk_management.
-  const allowed = ["risk_name", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "project_revision"] as const;
+  const allowed = ["risk_name", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "updated_likelihood", "updated_impact", "project_revision"] as const;
   const updates: string[] = [];
   const values: unknown[] = [id];
 
   for (const field of allowed) {
     if (!(field in fields)) continue;
     let val: unknown = fields[field];
-    if (field === "likelihood" || field === "impact") val = toNumber(val);
+    if (field === "likelihood" || field === "impact" || field === "updated_likelihood" || field === "updated_impact") val = toNumber(val);
     else if (field === "project_revision") val = Boolean(val);
     else val = val || null;
     values.push(val);

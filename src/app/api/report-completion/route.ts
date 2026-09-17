@@ -61,9 +61,10 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Risk — every risk scored (likelihood + impact).
+      // Risk — every risk has a partner-entered updated assessment.
+      // Uses updated_likelihood / updated_impact (not the approved ProDoc columns).
       query<Row>(
-        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE likelihood IS NOT NULL AND impact IS NOT NULL)::int AS ok
+        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE updated_likelihood IS NOT NULL AND updated_impact IS NOT NULL)::int AS ok
            FROM reporting_platform.risk_management WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),

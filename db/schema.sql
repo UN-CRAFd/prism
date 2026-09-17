@@ -501,6 +501,8 @@ CREATE TABLE IF NOT EXISTS risk_management (
     risk_name           TEXT         NOT NULL,
     likelihood          SMALLINT     CHECK (likelihood BETWEEN 1 AND 5),
     impact              SMALLINT     CHECK (impact BETWEEN 1 AND 5),
+    updated_likelihood  SMALLINT     CHECK (updated_likelihood BETWEEN 1 AND 5),
+    updated_impact      SMALLINT     CHECK (updated_impact BETWEEN 1 AND 5),
     approved_mitigation TEXT,
     updated_mitigation  TEXT,
     project_revision    BOOLEAN      NOT NULL DEFAULT FALSE,

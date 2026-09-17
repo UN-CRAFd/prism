@@ -293,20 +293,38 @@ const SECTION_CONFIGS: SectionConfig[] = [
         },
       },
       {
-        header: "Likelihood", headClass: "w-[100px]", center: true, cell: (r) => {
+        header: "Appr. Likelihood", headClass: "w-[120px]", center: true, cell: (r) => {
           const v = r.likelihood as number | null;
           return <div className="flex justify-center pt-0.5">{v != null ? <ValueBadge value={likelihoodLabel(v)} colors={SCALE_COLORS[v] ?? FALLBACK_COLORS} /> : DASH}</div>;
         },
       },
       {
-        header: "Impact", headClass: "w-[90px]", center: true, cell: (r) => {
+        header: "Upd. Likelihood", headClass: "w-[110px]", center: true, cell: (r) => {
+          const v = r.updated_likelihood as number | null;
+          return <div className="flex justify-center pt-0.5">{v != null ? <ValueBadge value={likelihoodLabel(v)} colors={SCALE_COLORS[v] ?? FALLBACK_COLORS} /> : DASH}</div>;
+        },
+      },
+      {
+        header: "Appr. Impact", headClass: "w-[100px]", center: true, cell: (r) => {
           const v = r.impact as number | null;
           return <div className="flex justify-center pt-0.5">{v != null ? <ValueBadge value={impactLabel(v)} colors={SCALE_COLORS[v] ?? FALLBACK_COLORS} /> : DASH}</div>;
         },
       },
       {
-        header: "Level", headClass: "w-[90px]", center: true, cell: (r) => {
+        header: "Upd. Impact", headClass: "w-[90px]", center: true, cell: (r) => {
+          const v = r.updated_impact as number | null;
+          return <div className="flex justify-center pt-0.5">{v != null ? <ValueBadge value={impactLabel(v)} colors={SCALE_COLORS[v] ?? FALLBACK_COLORS} /> : DASH}</div>;
+        },
+      },
+      {
+        header: "Appr. Level", headClass: "w-[90px]", center: true, cell: (r) => {
           const key = computeRiskLevelKey(r.likelihood as number | null, r.impact as number | null);
+          return <div className="flex justify-center pt-0.5">{key ? <ValueBadge value={riskLevelLabel(key)} colors={RISK_LEVEL_COLORS[key]} /> : DASH}</div>;
+        },
+      },
+      {
+        header: "Upd. Level", headClass: "w-[90px]", center: true, cell: (r) => {
+          const key = computeRiskLevelKey(r.updated_likelihood as number | null, r.updated_impact as number | null);
           return <div className="flex justify-center pt-0.5">{key ? <ValueBadge value={riskLevelLabel(key)} colors={RISK_LEVEL_COLORS[key]} /> : DASH}</div>;
         },
       },

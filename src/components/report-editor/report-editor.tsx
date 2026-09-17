@@ -227,6 +227,8 @@ export function ReportEditor({
         states[r.id] = {
           likelihood: r.likelihood,
           impact: r.impact,
+          updated_likelihood: r.updated_likelihood,
+          updated_impact: r.updated_impact,
           approved_mitigation: r.approved_mitigation ?? "",
           updated_mitigation: r.updated_mitigation ?? "",
           project_revision: r.project_revision,
@@ -444,7 +446,7 @@ export function ReportEditor({
     const dirtySurveys = surveys.filter((s) => rowStates[s.id]?.dirty);
     const surveySnap = new Map(dirtySurveys.map((s) => [s.id, JSON.stringify({ a: rowStates[s.id].assessment, c: rowStates[s.id].context })]));
     const dirtyRisks = risks.filter((r) => riskStates[r.id]?.dirty);
-    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ l: riskStates[r.id].likelihood, i: riskStates[r.id].impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
+    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
     const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
     const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify(indicatorStates[r.currentLineId])]));
     const saveOverview = overviewDirty;
@@ -459,7 +461,7 @@ export function ReportEditor({
         }),
         ...dirtyRisks.map((r) => {
           const st = riskStates[r.id];
-          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id, likelihood: st.likelihood, impact: st.impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision }) }).then(ok);
+          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id, updated_likelihood: st.updated_likelihood, updated_impact: st.updated_impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision }) }).then(ok);
         }),
         ...dirtyInd.map((r) => {
           const st = indicatorStates[r.currentLineId];
@@ -488,7 +490,7 @@ export function ReportEditor({
     });
     if (dirtyRisks.length) setRiskStates((prev) => {
       const n = { ...prev };
-      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ l: cur.likelihood, i: cur.impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
+      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
       return n;
     });
     if (dirtyInd.length) setIndicatorStates((prev) => {
@@ -548,6 +550,8 @@ export function ReportEditor({
         [created.id]: {
           likelihood: created.likelihood,
           impact: created.impact,
+          updated_likelihood: created.updated_likelihood,
+          updated_impact: created.updated_impact,
           approved_mitigation: created.approved_mitigation ?? "",
           updated_mitigation: created.updated_mitigation ?? "",
           project_revision: created.project_revision,
@@ -605,7 +609,7 @@ export function ReportEditor({
     const risk = risks.find((r) => r.id === id);
     const state = riskStates[id];
     if (!risk) return;
-    const hasContent = risk.risk_name?.trim() || state?.likelihood != null || state?.impact != null || state?.updated_mitigation?.trim();
+    const hasContent = risk.risk_name?.trim() || state?.updated_likelihood != null || state?.updated_impact != null || state?.updated_mitigation?.trim();
     if (hasContent && !await confirm({ message: `Delete risk "${risk.risk_name}"?`, confirmLabel: "Delete" })) return;
     setDeletingRiskId(id);
     setError(null);
@@ -661,6 +665,8 @@ export function ReportEditor({
               [created.id]: {
                 likelihood: state?.likelihood ?? null,
                 impact: state?.impact ?? null,
+                updated_likelihood: state?.updated_likelihood ?? null,
+                updated_impact: state?.updated_impact ?? null,
                 approved_mitigation: risk.approved_mitigation ?? "",
                 updated_mitigation: state?.updated_mitigation ?? "",
                 project_revision: state?.project_revision ?? false,

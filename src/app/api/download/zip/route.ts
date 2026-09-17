@@ -190,7 +190,10 @@ const EXPORTS: Record<string, SectionExport> = {
   risk: {
     headers: [
       "year", "project_name", "partner", "risk_name", "risk_category",
-      "likelihood", "impact", "approved_mitigation", "updated_mitigation", "project_revision",
+      "approved_likelihood", "updated_likelihood",
+      "approved_impact", "updated_impact",
+      "approved_risk_level", "updated_risk_level",
+      "approved_mitigation", "updated_mitigation", "project_revision",
     ],
     sql: reportScoped(
       "risk_management", "rm", "report_id",
@@ -198,7 +201,15 @@ const EXPORTS: Record<string, SectionExport> = {
        (SELECT string_agg(rc.category, ', ' ORDER BY rc.category)
           FROM reporting_platform.risk_categories rc
          WHERE rc.risk_id = rm.id) AS risk_category,
-       rm.likelihood, rm.impact, rm.approved_mitigation, rm.updated_mitigation, rm.project_revision`,
+       rm.likelihood AS approved_likelihood,
+       rm.updated_likelihood,
+       rm.impact AS approved_impact,
+       rm.updated_impact,
+       CASE WHEN rm.likelihood IS NOT NULL AND rm.impact IS NOT NULL
+            THEN (rm.likelihood * rm.impact)::text ELSE NULL END AS approved_risk_level,
+       CASE WHEN rm.updated_likelihood IS NOT NULL AND rm.updated_impact IS NOT NULL
+            THEN (rm.updated_likelihood * rm.updated_impact)::text ELSE NULL END AS updated_risk_level,
+       rm.approved_mitigation, rm.updated_mitigation, rm.project_revision`,
       "rm.id"
     ),
   },

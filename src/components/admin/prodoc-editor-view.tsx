@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
@@ -37,6 +37,7 @@ import { optionValues } from "@/lib/options";
 import { getEditorSessionId } from "@/lib/editor-session-id";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { ProdocIndicatorsSection, type ProdocIndicatorEdit } from "@/components/admin/prodoc-indicators-section";
+import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -100,6 +101,7 @@ interface IndicatorLine {
   category: string | null;
   cycle: string | null;
   is_standard: boolean;
+  linked_activity_id: number | null;
 }
 
 interface LibraryIndicator {
@@ -219,6 +221,24 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [newIndDescription, setNewIndDescription] = useState("");
   const [newIndMeansOfVerification, setNewIndMeansOfVerification] = useState("");
 
+  // Workplan activities for the linked-activity picker on the indicators tab.
+  const [activities, setActivities] = useState<ContributorActivity[]>([]);
+  const activityById = useMemo(
+    () => new Map(activities.map((a) => [a.id, a])),
+    [activities]
+  );
+
+  const loadActivities = useCallback(async (prodocId: string) => {
+    const projectId = docs.find((d) => String(d.id) === prodocId)?.project_id;
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/workplan-activities?projectId=${projectId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setActivities(Array.isArray(data.activities) ? data.activities : []);
+    } catch { /* quiet — empty list is fine */ }
+  }, [docs]);
+
   const riskIdAliasRef = useRef<Map<number, number>>(new Map());
   const indicatorIdAliasRef = useRef<Map<number, number>>(new Map());
 
@@ -281,12 +301,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   useEffect(() => {
     if (!selectedProdocId) return;
-    setRisks([]); setIndicatorLines([]); setLibrary([]);
+    setRisks([]); setIndicatorLines([]); setLibrary([]); setActivities([]);
     if (selectedSection === "risk") loadRisks(selectedProdocId);
     else if (selectedSection === "indicators") {
       loadIndicators(selectedProdocId);
+      loadActivities(selectedProdocId);
     }
-  }, [selectedProdocId, selectedSection, loadRisks, loadIndicators]);
+  }, [selectedProdocId, selectedSection, loadRisks, loadIndicators, loadActivities]);
 
   // ── Editor lock effects ──────────────────────────────────────────────
 
@@ -634,7 +655,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleProdocIndicatorValues(
     lineId: number,
-    values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year">,
+    values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">,
   ) {
     handleSaveStateChange("saving");
     setError(null);
@@ -1609,6 +1630,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             isAdmin={!isPartner}
             readOnly={readOnly}
             fillHeight={fillHeight}
+            activities={activities}
+            activityById={activityById}
           />
         ) : selectedSection === "indicators" && false ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>

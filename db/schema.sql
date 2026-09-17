@@ -479,6 +479,7 @@ CREATE TABLE IF NOT EXISTS indicator_data (
     achieved_value TEXT,
     status         TEXT,
     comment        TEXT,
+    linked_activity_id INTEGER      REFERENCES workplan_activities(id) ON DELETE SET NULL, -- workplan activity this indicator supports
     sort_order     SMALLINT       NOT NULL DEFAULT 1,
     created_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW(),

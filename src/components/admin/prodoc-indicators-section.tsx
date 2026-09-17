@@ -11,6 +11,7 @@ import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
 import { numericYear } from "@/lib/numeric-input";
 import { cycleLabel } from "@/lib/indicators";
+import { type ContributorActivity, LinkedActivityPicker } from "@/components/report-editor/contributor-matrix";
 
 export interface ProdocIndicatorLine {
   id: number;
@@ -19,6 +20,7 @@ export interface ProdocIndicatorLine {
   baseline_year: number | null;
   target_value: string | null;
   target_year: number | null;
+  linked_activity_id: number | null;
   indicator_name: string;
   indicator_description: string | null;
   means_of_verification: string | null;
@@ -35,6 +37,7 @@ export interface ProdocIndicatorEdit {
   baseline_year: number | null;
   target_value: string | null;
   target_year: number | null;
+  linked_activity_id: number | null;
 }
 
 export function ProdocIndicatorsSection({
@@ -48,17 +51,21 @@ export function ProdocIndicatorsSection({
   isAdmin,
   readOnly,
   fillHeight,
+  activities,
+  activityById,
 }: {
   lines: ProdocIndicatorLine[];
   indicatorItems: ComboboxItem[];
   onAdd: (item: ComboboxItem) => Promise<void>;
   onCreate: (name: string, description: string, meansOfVerification: string) => Promise<void>;
   onEdit: (indicatorId: number, lineId: number, patch: ProdocIndicatorEdit) => Promise<void>;
-  onUpdateValues: (lineId: number, values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year">) => Promise<void>;
+  onUpdateValues: (lineId: number, values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">) => Promise<void>;
   onDelete: (lineId: number) => Promise<void>;
   isAdmin: boolean;
   readOnly: boolean;
   fillHeight: boolean;
+  activities: ContributorActivity[];
+  activityById: Map<number, ContributorActivity>;
 }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<ProdocIndicatorEdit | null>(null);
@@ -69,7 +76,7 @@ export function ProdocIndicatorsSection({
   const [createDescription, setCreateDescription] = useState("");
   const [createMeansOfVerification, setCreateMeansOfVerification] = useState("");
   const [creatingBusy, setCreatingBusy] = useState(false);
-  const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year">>>({});
+  const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">>>({});
 
   function startEdit(line: ProdocIndicatorLine) {
     setEditingId(line.id);
@@ -81,6 +88,7 @@ export function ProdocIndicatorsSection({
       baseline_year: line.baseline_year,
       target_value: line.target_value,
       target_year: line.target_year,
+      linked_activity_id: line.linked_activity_id,
     });
   }
 
@@ -111,6 +119,7 @@ export function ProdocIndicatorsSection({
       baseline_year: line.baseline_year,
       target_value: line.target_value,
       target_year: line.target_year,
+      linked_activity_id: line.linked_activity_id,
     };
     return valueDrafts[line.id] ? { ...saved, ...valueDrafts[line.id] } : saved;
   }
@@ -196,12 +205,13 @@ export function ProdocIndicatorsSection({
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.baselineYear}</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.targetYear}</th>
+              <th className={headCell + " w-48"} style={headShadow}>Linked activity</th>
               <th className={headCell + " w-24 text-right"} style={headShadow} />
             </tr>
           </thead>
           <tbody className="divide-y">
             {tableLines.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
             ) : tableLines.map((line) => {
               const isEditing = editingId === line.id && draft;
               const values = valuesFor(line);
@@ -242,6 +252,22 @@ export function ProdocIndicatorsSection({
                   </td>
                   <td className="px-4 py-3">
                     <Input inputMode="numeric" value={values.target_year ?? ""} disabled={readOnly} onChange={(e) => { const year = numericYear(e.target.value); updateValues(line.id, { target_year: year ? Number(year) : null }); }} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetYear} className="h-8" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className={readOnly ? "pointer-events-none opacity-50" : ""}>
+                      <LinkedActivityPicker
+                        activities={activities}
+                        activityById={activityById}
+                        multiple={false}
+                        selected={line.linked_activity_id != null ? [line.linked_activity_id] : []}
+                        emptyLabel="No activity"
+                        onChange={async (ids) => {
+                          const linked_activity_id = ids[0] ?? null;
+                          updateValues(line.id, { linked_activity_id });
+                          await onUpdateValues(line.id, { ...valuesFor(line), linked_activity_id });
+                        }}
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {isEditing ? (

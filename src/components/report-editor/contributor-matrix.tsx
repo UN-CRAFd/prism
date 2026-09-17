@@ -453,7 +453,7 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
 // it). Selection is always the generic number[] the row state already stores, so
 // the caller just persists whatever ids come back. Read-only is inherited from
 // the surrounding <ReadOnlyProvider> via DropdownMenuTrigger.
-function LinkedActivityPicker({
+export function LinkedActivityPicker({
   activities,
   activityById,
   selected,
@@ -496,7 +496,7 @@ function LinkedActivityPicker({
                     : checked ? [] : [a.id]
                 )
               }
-              onSelect={(e) => e.preventDefault()}
+              onSelect={multiple ? (e) => e.preventDefault() : undefined}
               className="text-xs"
             >
               <span className="line-clamp-2">{activityLabel(a)}</span>

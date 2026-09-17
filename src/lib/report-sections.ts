@@ -52,9 +52,9 @@ export const REPORT_SECTIONS: ReportSection[] = [
   { value: "lessons", get label() { return labels.sections.lessons; }, group: "Qualitative" },
   { value: "external-coverage", get label() { return labels.sections.externalCoverage; }, group: "Qualitative" },
   { value: "testimonials", get label() { return labels.sections.testimonials; }, group: "Qualitative" },
-  // Quantitative: Indicators → Complementary Funding
-  { value: "indicators", get label() { return labels.sections.indicators; }, group: "Quantitative" },
+  // Quantitative: Workplan → Complementary Funding
   { value: "workplan", get label() { return labels.sections.workplan; }, group: "Quantitative" },
+  { value: "indicators", get label() { return labels.sections.indicators; }, group: "Quantitative" },
   { value: "expenditure", get label() { return labels.sections.expenditure; }, group: "Quantitative" },
   { value: "risk", get label() { return labels.sections.risk; }, group: "Quantitative" },
   { value: "transfers", get label() { return labels.sections.transfers; }, group: "Quantitative" },

@@ -25,7 +25,7 @@ import { SectionTableEditor, buildSectionSpecs } from "@/components/section-tabl
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS } from "@/lib/report-sections";
-import { CommentsProvider } from "@/components/report-editor/comments-context";
+import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
@@ -1179,6 +1179,17 @@ export function ReportEditor({
             <span>
               This report is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
             </span>
+          </div>
+        )}
+
+        {/* Section-level comment thread — mirrors the prodoc editor. Placed outside
+            the read-only fieldset so admins can comment on Under Review reports and
+            partners can still confirm on a locked one. ItemComments self-hides when
+            there are no comments and the user cannot create them. */}
+        {reportId && !sectionLoading && !notFound && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+            {mode === "admin" && <span>Comment on this section:</span>}
+            <ItemComments section={params.section} itemId={null} />
           </div>
         )}
 

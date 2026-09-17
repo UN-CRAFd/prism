@@ -260,41 +260,46 @@ export function IndicatorsSection({
               </td>
             </tr>
           )}
-          {rows.map((row) => {
+          {rows.map((row, idx) => {
             const state = indicatorStates[row.currentLineId];
             if (!state) return null;
             return (
               <tr key={row.indicator_id} className="align-top">
                 <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
-                  {editingIndicatorId === row.indicator_id ? (
-                    <div className="flex flex-col gap-1.5">
-                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
-                      <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
-                      <Textarea value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 w-6 text-xs tabular-nums text-muted-foreground text-right">{idx + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      {editingIndicatorId === row.indicator_id ? (
+                        <div className="flex flex-col gap-1.5">
+                          <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
+                          <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
+                          <Textarea value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start gap-2">
+                            {/* The info icon sits inside the <p>, so it trails the name
+                                directly and wraps with it. As a sibling it would be a
+                                flex item and the flex-1 name would push it to the far
+                                edge of the column. Only the comments button, which is a
+                                row-level action rather than part of the label, stays
+                                pinned right. Matches the project document's rows. */}
+                            <p className="font-medium leading-snug flex-1">
+                              {row.indicator_name}
+                              <span className="ml-1.5 inline-block align-middle">
+                                <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
+                              </span>
+                            </p>
+                            <ItemComments section="indicators" itemId={row.currentLineId} />
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
+                            {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
+                          </div>
+                        </>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-start gap-2">
-                        {/* The info icon sits inside the <p>, so it trails the name
-                            directly and wraps with it. As a sibling it would be a
-                            flex item and the flex-1 name would push it to the far
-                            edge of the column. Only the comments button, which is a
-                            row-level action rather than part of the label, stays
-                            pinned right. Matches the project document's rows. */}
-                        <p className="font-medium leading-snug flex-1">
-                          {row.indicator_name}
-                          <span className="ml-1.5 inline-block align-middle">
-                            <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
-                          </span>
-                        </p>
-                        <ItemComments section="indicators" itemId={row.currentLineId} />
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
-                        {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
-                      </div>
-                    </>
-                  )}
+                  </div>
                 </td>
                 <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
                   {canManageIndicators && tableType === "project" && editingIndicatorId === row.indicator_id ? (

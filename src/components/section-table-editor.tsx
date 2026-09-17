@@ -528,10 +528,9 @@ export function SectionTableEditor({
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-10">#</th>
             {fields.map((f) => (
               <th key={f.key} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", f.headClass)}>
-                {/* Photo/link columns collect images & materials — surface the CRAF'd
-                    image standards behind an info icon so contributors upload/label
-                    them correctly. */}
-                {f.type === "photo" || f.type === "links" ? (
+                {/* Photo columns collect images — surface the CRAF'd image standards
+                    behind an info icon so contributors upload/label them correctly. */}
+                {f.type === "photo" ? (
                   <span className="inline-flex items-center gap-1">
                     {f.header}
                     <Tooltip>

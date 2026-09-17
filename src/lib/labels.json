@@ -21,7 +21,7 @@
   "sections": {
     "general": "General Information",
     "overview": "Overview",
-    "surveys": "Surveys",
+    "surveys": "Survey",
     "risk": "Risk Management",
     "keyAchievements": "Key Achievements",
     "partnerships": "Partnerships",
@@ -481,7 +481,7 @@
   },
   "partnerEditor": {
     "title": "Report Editor",
-    "assessmentLabel": "Assessment",
+    "assessmentLabel": "Rating",
     "contextLabel": "Context",
     "selectReport": "Select a report",
     "saveChanges": "Save changes",

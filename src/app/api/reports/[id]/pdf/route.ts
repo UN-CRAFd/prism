@@ -203,8 +203,8 @@ export async function GET(
     // Surveys
     if (data.surveys.length > 0) {
       addTable(
-        "Surveys",
-        ["Question", "Assessment", "Context"],
+        "Survey",
+        ["Question", "Rating", "Context"],
         data.surveys.map((s) => [s.question, s.assessment ?? "—", (s.context ?? "").substring(0, 50)])
       );
     }

@@ -299,16 +299,8 @@ export function ReportEditor({
       .then((r) => r.json())
       .then((all: Report[]) => {
         const list = Array.isArray(all) ? all : [];
-        // Admins see every report; partners only their own organization's.
-        const filtered = mode === "admin"
-          ? list
-          : list.filter(
-              (r) =>
-                r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-                r.partner_short_name === user.organization
-            );
-        setReports(filtered);
-        const match = filtered.find(
+        setReports(list);
+        const match = list.find(
           (r) => toSlug(r) === params.project && String(r.year) === params.year
         );
         if (match) {
@@ -1028,7 +1020,8 @@ export function ReportEditor({
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
           )}
 
-          {mode !== "admin" && selectedReport?.status === "Open" && (
+          {mode !== "admin" && selectedReport?.status === "Open" &&
+            user?.organization?.toLowerCase() === selectedReport?.partner_short_name?.toLowerCase() && (
             <div className="flex flex-col items-end gap-1 shrink-0">
               <Button
                 size="sm"

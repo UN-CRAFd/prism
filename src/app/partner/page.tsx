@@ -77,21 +77,15 @@ export default function PartnerHomePage() {
 
   useEffect(() => {
     if (!user) return;
-    const forPartner = (r: Report) =>
-      r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-      r.partner_short_name === user.organization;
 
+    // The API is the security boundary; both fetches are already scoped to
+    // reports this partner may access (owned + editor-granted projects).
     fetch("/api/reports?data_type=report")
       .then((r) => r.json())
-      .then((all: Report[]) => setReports(all.filter(forPartner)))
+      .then((all: Report[]) => setReports(all))
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    // Prodocs give us every project (and its dates) even with zero reports. The
-    // API already scopes these to what this partner may see — their own projects
-    // PLUS any they were granted edit rights on — so keep them all (don't filter
-    // by owner, or editor projects would drop out). `forPartner` still decides
-    // the lead-vs-implementing badge below.
     fetch("/api/reports?data_type=prodoc")
       .then((r) => r.json())
       .then((all: Report[]) => setProjects(all))

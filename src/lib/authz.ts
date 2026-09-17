@@ -66,9 +66,9 @@ export async function resolvePartnerId(session: Session): Promise<number | null>
   return rows.length ? rows[0].id : null;
 }
 
-// Project ids where the caller is an EDITOR (implementing partner with prodoc
-// edit rights) — used to widen list queries so those projects/prodocs surface
-// for the partner even though they don't own them. Returns [] for admins / when
+// Project ids where the caller is an EDITOR (implementing partner granted
+// access via project_editors) — used to widen list queries so those projects
+// and all their reports surface for the partner. Returns [] for admins / when
 // the partner has no editor grants.
 export async function editorProjectIds(session: Session): Promise<number[]> {
   if (session.role === "admin") return [];
@@ -83,10 +83,9 @@ export async function editorProjectIds(session: Session): Promise<number[]> {
 
 // ── Ownership checks (partner short_name === session.org) ────────────────────
 
-// A partner owns a report when it belongs to their org (by short_name). Editors
-// (implementing partners in project_editors) are granted PRODOC-ONLY rights, so
-// they also match — but only when the report is the project document
-// (data_type='prodoc'), never an actual reporting-year report.
+// A partner owns a report when it belongs to their org (by short_name), OR
+// when they are listed in project_editors for that report's project. Both arms
+// cover all data_type values (prodoc and annual/final reports alike).
 async function orgOwnsReport(
   org: string,
   reportId: number | string,
@@ -102,7 +101,7 @@ async function orgOwnsReport(
       SELECT 1
        FROM reporting_platform.reports r
        JOIN reporting_platform.project_editors pe ON pe.project_id = r.project_id
-      WHERE r.id = $1 AND pe.partner_id = $3 AND r.data_type = 'prodoc'
+      WHERE r.id = $1 AND pe.partner_id = $3
       LIMIT 1`,
     [reportId, org, partnerId]
   );
@@ -175,8 +174,8 @@ async function orgOwnsPartner(org: string, partnerId: number | string): Promise<
   return rows.length > 0;
 }
 
-// Row-level counterpart of orgOwnsReport: the org owns the row's report, OR an
-// editor may reach it when that report is a prodoc (data_type='prodoc').
+// Row-level counterpart of orgOwnsReport: the org owns the row's report, OR
+// they are listed in project_editors for that report's project.
 async function orgOwnsRow(
   org: string,
   table: string,
@@ -196,7 +195,7 @@ async function orgOwnsRow(
        FROM reporting_platform.${table} t
        JOIN reporting_platform.reports r ON r.id = t.report_id
        JOIN reporting_platform.project_editors pe ON pe.project_id = r.project_id
-      WHERE t.id = $1 AND pe.partner_id = $3 AND r.data_type = 'prodoc'
+      WHERE t.id = $1 AND pe.partner_id = $3
       LIMIT 1`,
     [rowId, org, partnerId]
   );
@@ -249,6 +248,25 @@ async function orgOwnsPartnerRow(
   return rows.length > 0;
 }
 
+// Lead-only ownership check for reports: matches only when the session org is
+// the project's lead/owner partner. Does NOT check project_editors — used
+// exclusively to gate report submission, which only the project lead may do.
+async function orgOwnsReportAsOwner(
+  org: string,
+  reportId: number | string
+): Promise<boolean> {
+  const rows = await query(
+    `SELECT 1
+       FROM reporting_platform.reports  r
+       JOIN reporting_platform.projects p  ON p.id  = r.project_id
+       JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+      WHERE r.id = $1 AND lower(pt.short_name) = lower($2)
+      LIMIT 1`,
+    [reportId, org]
+  );
+  return rows.length > 0;
+}
+
 // ── Guards: return null when access is allowed, or a NextResponse to return. ──
 
 /**
@@ -269,6 +287,21 @@ export async function guardReport(
     const status = await reportStatusById(reportId);
     if (status !== OPEN_STATUS) return locked();
   }
+  return null;
+}
+
+/**
+ * Allow admins; allow partners only when their org is the project's lead/owner.
+ * Partners associated via project_editors receive 403, preserving their full
+ * editing access on all other report endpoints while restricting submission.
+ */
+export async function guardReportOwner(
+  session: Session,
+  reportId: number | string | null | undefined
+): Promise<NextResponse | null> {
+  if (session.role === "admin") return null;
+  if (!session.org || !reportId) return forbidden();
+  if (!(await orgOwnsReportAsOwner(session.org, reportId))) return forbidden();
   return null;
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
-import { requireSession, guardReport } from "@/lib/authz";
+import { requireSession, guardReportOwner } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { logStatusChange } from "@/lib/version-log";
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "report_id is required" }, { status: 400 });
     }
 
-    const gate = await guardReport(session, reportId);
+    const gate = await guardReportOwner(session, reportId);
     if (gate) return gate;
 
     const rows = await query<{ id: number; status: string; authorized: boolean; data_type: string; project_id: number; year: number; report_type: string }>(

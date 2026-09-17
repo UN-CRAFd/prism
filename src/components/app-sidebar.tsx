@@ -214,20 +214,14 @@ export function AppSidebar() {
     fetch("/api/reports?data_type=report")
       .then((r) => r.json())
       .then((all: SidebarReport[]) => {
-        const filtered = Array.isArray(all)
-          ? all.filter(
-              (r) =>
-                r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-                r.partner_short_name === user.organization
-            )
-          : [];
-        filtered.sort(
+        const items = Array.isArray(all) ? [...all] : [];
+        items.sort(
           (a, b) =>
             (a.project_short_name ?? a.project_title).localeCompare(b.project_short_name ?? b.project_title) ||
             b.year - a.year
         );
-        setReports(filtered);
-        setHasReports(filtered.length > 0);
+        setReports(items);
+        setHasReports(items.length > 0);
       })
       .catch(() => {});
   }, [mounted, isPartner, user]);

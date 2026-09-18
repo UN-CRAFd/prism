@@ -16,7 +16,7 @@ import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { type ComboboxItem } from "@/components/ui/combobox";
-import { Loader2, FileQuestion, Lock } from "lucide-react";
+import { Loader2, FileQuestion, Lock, ChevronRight } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
@@ -959,6 +959,11 @@ export function ReportEditor({
   // Sections whose table freezes its column header inside a bounded scroll box.
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
 
+  const nextSection = (() => {
+    const i = REPORT_SECTIONS.findIndex((s) => s.value === params.section);
+    return i >= 0 && i < REPORT_SECTIONS.length - 1 ? REPORT_SECTIONS[i + 1] : null;
+  })();
+
   return (
     <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"} role={mode === "admin" ? "admin" : "partner"}>
     <div className="flex flex-col h-full bg-background">
@@ -1370,6 +1375,15 @@ export function ReportEditor({
         </div>
         </fieldset>
         </ReadOnlyProvider>
+
+        {nextSection && reportId && !notFound && !loadingReports && !sectionLoading && (
+          <div className={cn("flex justify-end", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+            <Button variant="outline" onClick={() => handleSectionChange(nextSection.value)}>
+              Next: {nextSection.label}
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
 

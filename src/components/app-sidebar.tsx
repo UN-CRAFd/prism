@@ -16,6 +16,7 @@ import {
   FileStack,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Edit,
   BarChart3,
   UploadCloud,
@@ -93,6 +94,7 @@ export function AppSidebar() {
   // back to the initial avatar.
   const [logoExt, setLogoExt] = useState<"webp" | "png" | "none">("webp");
   const [reports, setReports] = useState<SidebarReport[]>([]);
+  const [prodocs, setProdocs] = useState<SidebarReport[]>([]);
   // Whether any project document / reporting-year report exists in the viewer's
   // scope. Drives whether the two editor nav entries appear (hidden when empty).
   // `null` = not yet loaded, so we don't flash-hide before the fetch resolves.
@@ -242,7 +244,11 @@ export function AppSidebar() {
     }
     fetch("/api/reports?data_type=prodoc")
       .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => setHasProdocs(Array.isArray(rows) && rows.length > 0))
+      .then((rows) => {
+        const list: SidebarReport[] = Array.isArray(rows) ? rows : [];
+        setProdocs(list);
+        setHasProdocs(list.length > 0);
+      })
       .catch(() => {});
   }, [mounted, isPartner, user]);
 
@@ -252,6 +258,14 @@ export function AppSidebar() {
   // Refetched when the section path changes so a check appears once a section is
   // filled out and the user navigates on.
   const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
+  const [reportSectionsCollapsed, setReportSectionsCollapsed] = useState(false);
+  const prodocItems = Array.from(
+    new Map(prodocs.map((p) => [reportSlug(p), p])).values()
+  );
+  const openProdocSlug = isPartner && pathname.startsWith("/partner/prodoc-editor/")
+    ? pathname.split("/").filter(Boolean)[2] ?? null
+    : null;
+
   const openReport = isPartner ? parseReportPath(pathname) : null;
   const activeReportId = openReport
     ? reports.find((r) => reportSlug(r) === openReport.project && String(r.year) === openReport.year)?.id ?? null
@@ -331,10 +345,12 @@ export function AppSidebar() {
           ].map(({ href, label, icon: Icon, isActive }) => {
             const active = isActive(pathname);
             const isEditor = href === "/partner/report-editor";
+            const isProdocEditor = href === "/partner/prodoc-editor";
             const isWiki = href === "/partner/wiki";
             const showWikiSubs = isWiki && pathname.startsWith("/partner/wiki");
             const report = isEditor ? parseReportPath(pathname) : null;
             const showReports = isEditor && (!!report || pathname.startsWith("/partner/report-editor"));
+            const showProdocs = isProdocEditor && prodocItems.length > 0;
             return (
               <div key={href}>
                 <Link
@@ -395,6 +411,31 @@ export function AppSidebar() {
                   </div>
                 )}
 
+                {showProdocs && (
+                  <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                    {prodocItems.map((p) => {
+                      const slug = (p.project_short_name ?? p.project_title).toLowerCase().replace(/\s+/g, "-");
+                      const pActive = openProdocSlug === slug;
+                      return (
+                        <Link
+                          key={slug}
+                          href={`/partner/prodoc-editor/${slug}/general`}
+                          className={cn(
+                            "flex flex-col rounded-md px-3 py-1.5 transition-colors",
+                            pActive
+                              ? "bg-crafd-yellow/10 text-crafd-yellow"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          <span className="truncate text-xs font-medium">
+                            {p.project_title}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {showReports && (() => {
                   // Level 1 = every report the partner can edit; level 2 = the
                   // sections of the report currently open (if any). Fall back to a
@@ -428,14 +469,29 @@ export function AppSidebar() {
                                 ? "bg-crafd-yellow/10 text-crafd-yellow"
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
+                            onClick={(e) => {
+                              if (it.isActive) {
+                                e.preventDefault();
+                                setReportSectionsCollapsed((v) => !v);
+                              } else {
+                                setReportSectionsCollapsed(false);
+                              }
+                            }}
                           >
-                            <span className="truncate text-xs font-medium capitalize">{it.primary}</span>
+                            <span className="flex items-center gap-1">
+                              <span className="truncate text-xs font-medium capitalize">{it.primary}</span>
+                              {it.isActive && (
+                                reportSectionsCollapsed
+                                  ? <ChevronRight className="size-3 shrink-0" />
+                                  : <ChevronDown className="size-3 shrink-0" />
+                              )}
+                            </span>
                             <span className="truncate text-[10px] opacity-70">{it.secondary}</span>
                           </Link>
 
                           {/* Level 2: sections of the open report, split into
                               Qualitative / Quantitative groups. */}
-                          {it.isActive && report && (
+                          {it.isActive && report && !reportSectionsCollapsed && (
                             <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                               {REPORT_SECTION_GROUPS.map((grp) => (
                                 <div key={grp.label} className="flex flex-col gap-0.5">

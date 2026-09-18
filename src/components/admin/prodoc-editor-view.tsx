@@ -1238,7 +1238,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           )}
 
           {isPartner && selectedDoc?.status === "Open" && selectedProdocId && (
-            <div className="flex flex-col items-end gap-1 shrink-0">
+            <div className="relative flex items-center shrink-0">
               <Button
                 size="sm"
                 className="h-9"
@@ -1249,7 +1249,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 Submit
               </Button>
               {(submitBlockers.length > 0 || submitError) && (
-                <p className="text-xs text-amber-700 max-w-[240px] text-right leading-snug">
+                <p className="absolute top-full right-0 mt-1 text-xs text-amber-700 whitespace-nowrap text-right leading-snug">
                   {submitError ?? submitBlockers.join(" ")}
                 </p>
               )}
@@ -1268,7 +1268,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             </Button>
           )}
 
-          {(!isPartner || docs.length > 1) && (
+          {!isPartner && (
             <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
             <SelectTrigger className="w-[320px] max-w-[45vw] h-9">
               {loadingDocs ? (
@@ -1276,7 +1276,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
                 </span>
               ) : selectedDoc ? (
-                <span className="truncate">{selectedDoc.project_short_name || selectedDoc.project_title}</span>
+                <span className="truncate">{selectedDoc.project_title}</span>
               ) : (
                 <span className="text-muted-foreground">Select a project</span>
               )}
@@ -1294,7 +1294,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <SelectLabel>{shortName(partner)}</SelectLabel>
                   {grouped.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>
-                      {d.project_short_name || d.project_title}
+                      {d.project_title}
                     </SelectItem>
                   ))}
                 </SelectGroup>

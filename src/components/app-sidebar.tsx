@@ -350,7 +350,7 @@ export function AppSidebar() {
             const showWikiSubs = isWiki && pathname.startsWith("/partner/wiki");
             const report = isEditor ? parseReportPath(pathname) : null;
             const showReports = isEditor && (!!report || pathname.startsWith("/partner/report-editor"));
-            const showProdocs = isProdocEditor && prodocItems.length > 0;
+            const showProdocs = isProdocEditor && prodocItems.length > 0 && pathname.startsWith("/partner/prodoc-editor");
             return (
               <div key={href}>
                 <Link

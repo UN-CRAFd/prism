@@ -465,7 +465,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     const status = (isActive ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
                     const comment = isActive ? (ps?.comment ?? "") : (cell?.comment ?? "");
                     return (
-                      <tr key={u.id} className={cn("border-t", isActive && "bg-crafd-yellow/5")}>
+                      <tr key={u.id} className={cn("border-t", isActive ? "bg-crafd-yellow/5" : "opacity-60")}>
                         <td className="px-2 py-2 text-[11px] font-medium whitespace-nowrap">
                           <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
                         </td>

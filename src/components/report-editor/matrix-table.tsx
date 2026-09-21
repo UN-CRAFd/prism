@@ -57,6 +57,7 @@ export function MatrixTableShell({
   years,
   currentYear,
   subCols,
+  pastSubCols,
   trailingCols = [],
   fillHeight = false,
   hugContent = false,
@@ -67,6 +68,9 @@ export function MatrixTableShell({
   years: number[];
   currentYear: number | null;
   subCols: MatrixSubCol[];
+  // When provided, non-current years use these sub-columns instead of subCols.
+  // If omitted, all years use subCols (preserves existing behaviour).
+  pastSubCols?: MatrixSubCol[];
   trailingCols?: MatrixTrailingCol[];
   // When true the table lives in a bounded scroll box (parent is a flex column)
   // and the two header rows freeze to the top as the body scrolls — same frozen
@@ -101,21 +105,24 @@ export function MatrixTableShell({
                 {c.label}
               </th>
             ))}
-            {years.map((year) => (
-              <th
-                key={year}
-                colSpan={subCols.length}
-                className={cn(
-                  "px-2 text-center text-muted-foreground border-l border-b",
-                  YEAR_ROW_HEIGHT,
-                  HEAD_TEXT,
-                  year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100",
-                  fillHeight && "sticky top-0 z-30"
-                )}
-              >
-                {year}
-              </th>
-            ))}
+            {years.map((year) => {
+              const cols = (year !== currentYear && pastSubCols) ? pastSubCols : subCols;
+              return (
+                <th
+                  key={year}
+                  colSpan={cols.length}
+                  className={cn(
+                    "px-2 text-center text-muted-foreground border-l border-b",
+                    YEAR_ROW_HEIGHT,
+                    HEAD_TEXT,
+                    year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100",
+                    fillHeight && "sticky top-0 z-30"
+                  )}
+                >
+                  {year}
+                </th>
+              );
+            })}
             {trailingCols.map((c, i) => (
               <th key={i} rowSpan={2} className={cn(c.className, fillHeight && "sticky top-0 z-30")}>
                 {c.label}
@@ -126,9 +133,10 @@ export function MatrixTableShell({
           <tr className="text-[11px] text-muted-foreground">
             {years.map((year) => {
               const bg = year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-50";
+              const cols = (year !== currentYear && pastSubCols) ? pastSubCols : subCols;
               return (
                 <Fragment key={year}>
-                  {subCols.map((sc, i) => (
+                  {cols.map((sc, i) => (
                     <th
                       key={i}
                       className={cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, i === 0 && "border-l", sc.minWidth, bg, fillHeight && cn("sticky z-30", SUBHEAD_STICKY_TOP))}

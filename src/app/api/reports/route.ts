@@ -85,16 +85,15 @@ export async function GET(request: Request) {
     const values: unknown[] = [];
     if (dataType) conditions.push(`r.data_type = '${dataType === "prodoc" ? "prodoc" : "report"}'`);
     if (scoped) {
-      // A partner sees reports their org owns PLUS the prodocs of projects they
-      // were granted edit rights on (project_editors). Editor rights cover the
-      // prodoc only, never annual reports, so that arm is prodoc-scoped.
+      // A partner sees reports their org owns PLUS all reports (any data_type)
+      // for projects they were granted access to via project_editors.
       values.push(session.org);
       const ownArm = `lower(p.short_name) = lower($${values.length})`;
       const editorIds = await editorProjectIds(session);
       if (editorIds.length) {
         values.push(editorIds);
         conditions.push(
-          `(${ownArm} OR (r.data_type = 'prodoc' AND r.project_id = ANY($${values.length}::int[])))`
+          `(${ownArm} OR r.project_id = ANY($${values.length}::int[]))`
         );
       } else {
         conditions.push(ownArm);

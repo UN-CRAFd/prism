@@ -785,7 +785,7 @@ export default function ProjectsPage() {
                   partners={partners.filter((p) => String(p.id) !== partnerId)}
                   value={editorIds}
                   onChange={setEditorIds}
-                  placeholder="Partners who can edit this prodoc…"
+                  placeholder="Partners who can edit this project's ProDoc and reports…"
                 />
               </Field>
             </div>

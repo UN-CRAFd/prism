@@ -103,7 +103,8 @@ export async function GET(req: NextRequest) {
       `SELECT e.category_id, r.year, e.annual_expenditure, e.comment
          FROM reporting_platform.expenditure_entries e
          JOIN reporting_platform.reports r ON r.id = e.report_id
-        WHERE r.project_id = $1`,
+        WHERE r.project_id = $1
+          AND r.data_type = 'report'`,
       [project_id]
     );
 

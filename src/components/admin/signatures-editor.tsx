@@ -229,9 +229,7 @@ export function SignaturesEditor({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    {s.fieldName} <span className="text-destructive">*</span>
-                  </label>
+                  <label className="text-xs font-medium text-muted-foreground">{s.fieldName}</label>
                   <Input
                     value={form.name}
                     onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); if (nameError) setNameError(null); }}
@@ -260,9 +258,6 @@ export function SignaturesEditor({
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-destructive">*</span> required
-              </p>
               <div className="flex items-center gap-2">
                 <Button size="sm" onClick={addStandalone} disabled={addBusy}>
                   {addBusy ? <Loader2 className="size-4 animate-spin" /> : s.addSignatorySubmit}

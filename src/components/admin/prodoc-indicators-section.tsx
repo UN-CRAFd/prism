@@ -247,6 +247,7 @@ export function ProdocIndicatorsSection({
         <table className="w-full text-sm min-w-[1100px]">
           <thead>
             <tr>
+              <th className={headCell + " w-8 text-right pr-3"} style={headShadow}>#</th>
               <th className={headCell} style={headShadow}>
                 <span className="flex items-center gap-1.5">
                   {type === "standard" ? labels.indicators.columns.standardIndicator : labels.indicators.columns.customIndicator}
@@ -274,12 +275,13 @@ export function ProdocIndicatorsSection({
           </thead>
           <tbody className="divide-y">
             {tableLines.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
-            ) : tableLines.map((line) => {
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
+            ) : tableLines.map((line, idx) => {
               const isEditing = editingId === line.id && draft;
               const values = valuesFor(line);
               return (
                 <tr key={line.id} className="align-top transition-colors hover:bg-muted/20">
+                  <td className="px-4 py-3 w-8 text-right text-xs tabular-nums text-muted-foreground align-top">{idx + 1}.</td>
                   <td className="px-4 py-3">
                     {isEditing ? (
                       <div className="flex flex-col gap-1.5">

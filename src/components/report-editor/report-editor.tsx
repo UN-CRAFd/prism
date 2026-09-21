@@ -16,7 +16,7 @@ import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { type ComboboxItem } from "@/components/ui/combobox";
-import { Loader2, FileQuestion, Lock } from "lucide-react";
+import { Loader2, FileQuestion, Lock, ChevronRight } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
@@ -299,16 +299,8 @@ export function ReportEditor({
       .then((r) => r.json())
       .then((all: Report[]) => {
         const list = Array.isArray(all) ? all : [];
-        // Admins see every report; partners only their own organization's.
-        const filtered = mode === "admin"
-          ? list
-          : list.filter(
-              (r) =>
-                r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-                r.partner_short_name === user.organization
-            );
-        setReports(filtered);
-        const match = filtered.find(
+        setReports(list);
+        const match = list.find(
           (r) => toSlug(r) === params.project && String(r.year) === params.year
         );
         if (match) {
@@ -943,14 +935,22 @@ export function ReportEditor({
     params.section === "indicators" ? loadingIndicators : false;
   const notFound = !loadingReports && !selectedReport;
 
+  const incompleteSections =
+    sectionCompletion !== null
+      ? REPORT_SECTIONS.filter(
+          (s) => s.value !== "overview" && sectionCompletion[s.value] === false
+        )
+      : [];
+
   const submitBlockers: string[] = [];
-  const authorizedComplete = sectionCompletion !== null ? sectionCompletion["overview"] : overview.authorized;
-  if (!authorizedComplete) submitBlockers.push("Tick the authorization checkbox in the Overview tab before submitting.");
-  if (sectionCompletion !== null) {
-    const count = REPORT_SECTIONS.filter((s) => s.value !== "overview" && sectionCompletion[s.value] === false).length;
-    if (count > 0)
-      submitBlockers.push(`${count} ${count === 1 ? "section" : "sections"} incomplete`);
-  }
+  const authorizedComplete =
+    sectionCompletion !== null ? sectionCompletion["overview"] : overview.authorized;
+  if (!authorizedComplete)
+    submitBlockers.push("Tick the authorization checkbox in the Overview tab before submitting.");
+  if (incompleteSections.length > 0)
+    submitBlockers.push(
+      `Complete ${incompleteSections.length === 1 ? "this section" : "these sections"} first: ${incompleteSections.map((s) => s.label).join(", ")}.`
+    );
 
   // The parent-managed sections drive `parentAutosave`; the rest report up via
   // `childSaveState`. The top-bar indicator shows whichever owns the active tab.
@@ -966,6 +966,16 @@ export function ReportEditor({
 
   // Sections whose table freezes its column header inside a bounded scroll box.
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
+
+  const nextSection = (() => {
+    const i = REPORT_SECTIONS.findIndex((s) => s.value === params.section);
+    return i >= 0 && i < REPORT_SECTIONS.length - 1 ? REPORT_SECTIONS[i + 1] : null;
+  })();
+
+  const canSubmit =
+    mode !== "admin" &&
+    selectedReport?.status === "Open" &&
+    user?.organization?.toLowerCase() === selectedReport?.partner_short_name?.toLowerCase();
 
   return (
     <CommentsProvider reportId={reportId} enabled={reportId != null} readOnly={mode !== "admin"} role={mode === "admin" ? "admin" : "partner"}>
@@ -1026,25 +1036,6 @@ export function ReportEditor({
         <div className="flex items-center gap-3 shrink-0">
           {reportId && !sectionLoading && !notFound && (
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
-          )}
-
-          {mode !== "admin" && selectedReport?.status === "Open" && (
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <Button
-                size="sm"
-                className="h-9 bg-white text-neutral-900 hover:bg-neutral-100"
-                onClick={handleSubmit}
-                disabled={submitLoading || submitBlockers.length > 0}
-              >
-                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
-                Submit
-              </Button>
-              {(submitBlockers.length > 0 || submitError) && (
-                <p className="text-xs text-amber-300 max-w-[240px] text-right leading-snug">
-                  {submitError ?? submitBlockers.join(" ")}
-                </p>
-              )}
-            </div>
           )}
 
           <Select
@@ -1377,6 +1368,29 @@ export function ReportEditor({
         </div>
         </fieldset>
         </ReadOnlyProvider>
+
+        {reportId && !notFound && !loadingReports && !sectionLoading && (
+          <div className={cn("flex justify-end", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+            {nextSection ? (
+              <Button variant="outline" onClick={() => handleSectionChange(nextSection.value)}>
+                Next: {nextSection.label}
+                <ChevronRight className="size-4" />
+              </Button>
+            ) : canSubmit ? (
+              <div className="flex flex-col items-end gap-2">
+                <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
+                  {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                  Submit
+                </Button>
+                {(submitBlockers.length > 0 || submitError) && (
+                  <p className="text-xs text-amber-700 max-w-[420px] text-right leading-snug">
+                    {submitError ?? submitBlockers.join(" ")}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
 

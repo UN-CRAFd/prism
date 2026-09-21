@@ -36,7 +36,7 @@ export function OverviewSection({ overview, updateOverview }: OverviewSectionPro
       <div className="rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            These project details are managed by the CRAF&apos;d Secretariat. Contact them if anything needs updating.
+            These project details are managed by the CRAF&apos;d Secretariat.
           </p>
           <ItemComments section="overview" itemId={null} />
         </div>

@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { ClampedText } from "@/components/report-editor/clamped-text";
 import { MatrixTableShell, TableExpandToggle } from "@/components/report-editor/matrix-table";
+import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
@@ -140,6 +140,7 @@ export function IndicatorsSection({
   activityById,
 }: IndicatorsSectionProps) {
   const readOnly = useReadOnly();
+  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear);
   // Name, description and means of verification are all mandatory for a
   // partner-defined custom indicator; baseline/target remain optional.
   const canAddIndicator =
@@ -255,8 +256,16 @@ export function IndicatorsSection({
     // An empty table keeps its box, border and frozen header and says so on a row
     // inside — same as the project document's indicator tables. A separate dashed
     // placeholder would make the two boxes look unlike each other exactly when one
-    // of them is empty. 3 frozen + 3 per year + the trailing column when present.
-    const emptyColSpan = 3 + indicatorYears.length * 3 + 1 + (showActions ? 1 : 0);
+    // of them is empty. 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
+    const emptyColSpan = 3
+      + visibleYears.reduce((acc, y) => acc + (y === indicatorCurrentYear ? 3 : 2), 0)
+      + 1
+      + (showActions ? 1 : 0);
+
+    const pastSubCols = [
+      { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[90px]" },
+      { label: labels.indicators.columns.status, minWidth: "min-w-[110px]" },
+    ];
 
     const isExpanded = expanded[tableType];
 
@@ -288,13 +297,14 @@ export function IndicatorsSection({
           { label: labels.indicators.columns.baseline, style: ifz("baseline", 30) },
           { label: labels.indicators.columns.target, style: ifz("target", 30) },
         ]}
-        years={indicatorYears}
+        years={visibleYears}
         currentYear={indicatorCurrentYear}
         subCols={[
-          { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[130px]" },
-          { label: labels.indicators.columns.status, minWidth: "min-w-[140px]" },
+          { label: labels.indicators.columns.achievedValue, minWidth: "w-[100px] min-w-[100px]" },
+          { label: labels.indicators.columns.status, minWidth: "w-px whitespace-nowrap" },
           { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
         ]}
+        pastSubCols={pastSubCols}
         trailingCols={[
           { label: "Linked activity", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
           ...(showActions ? [{ className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" }] : []),
@@ -310,41 +320,46 @@ export function IndicatorsSection({
               </td>
             </tr>
           )}
-          {rows.map((row) => {
+          {rows.map((row, idx) => {
             const state = indicatorStates[row.currentLineId];
             if (!state) return null;
             return (
               <tr key={row.indicator_id} className="align-top">
                 <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
-                  {editingIndicatorId === row.indicator_id ? (
-                    <div className="flex flex-col gap-1.5">
-                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
-                      <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
-                      <Textarea value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 w-6 text-xs tabular-nums text-muted-foreground text-right">{idx + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      {editingIndicatorId === row.indicator_id ? (
+                        <div className="flex flex-col gap-1.5">
+                          <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
+                          <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
+                          <Textarea value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start gap-2">
+                            {/* The info icon sits inside the <p>, so it trails the name
+                                directly and wraps with it. As a sibling it would be a
+                                flex item and the flex-1 name would push it to the far
+                                edge of the column. Only the comments button, which is a
+                                row-level action rather than part of the label, stays
+                                pinned right. Matches the project document's rows. */}
+                            <p className="font-medium leading-snug flex-1">
+                              {row.indicator_name}
+                              <span className="ml-1.5 inline-block align-middle">
+                                <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
+                              </span>
+                            </p>
+                            <ItemComments section="indicators" itemId={row.currentLineId} />
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
+                            {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
+                          </div>
+                        </>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-start gap-2">
-                        {/* The info icon sits inside the <p>, so it trails the name
-                            directly and wraps with it. As a sibling it would be a
-                            flex item and the flex-1 name would push it to the far
-                            edge of the column. Only the comments button, which is a
-                            row-level action rather than part of the label, stays
-                            pinned right. Matches the project document's rows. */}
-                        <p className="font-medium leading-snug flex-1">
-                          {row.indicator_name}
-                          <span className="ml-1.5 inline-block align-middle">
-                            <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
-                          </span>
-                        </p>
-                        <ItemComments section="indicators" itemId={row.currentLineId} />
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
-                        {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
-                      </div>
-                    </>
-                  )}
+                  </div>
                 </td>
                 <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
                   {canManageIndicators && tableType === "project" && editingIndicatorId === row.indicator_id ? (
@@ -363,7 +378,7 @@ export function IndicatorsSection({
                   ) : <ValueYear value={tableType === "project" ? state.target_value : row.target_value} year={tableType === "project" ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />}
                 </td>
 
-                {indicatorYears.map((year) => {
+                {visibleYears.map((year) => {
                   const current = year === indicatorCurrentYear;
                   if (current) {
                     return (
@@ -377,12 +392,12 @@ export function IndicatorsSection({
                             className="text-sm h-8"
                           />
                         </td>
-                        <td className="px-1 py-1 border-t bg-crafd-yellow/10">
+                        <td className="px-1 py-1 border-t bg-crafd-yellow/10 whitespace-nowrap">
                           <Select
                             value={state.status ?? "none"}
                             onValueChange={(v) => updateIndicator(row.currentLineId, { status: v === "none" ? null : v })}
                           >
-                            <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
+                            <SelectTrigger className="w-auto h-8 px-2 gap-1.5">
                               {state.status
                                 ? <StatusBadge value={state.status as IndicatorStatus} />
                                 : <span className="text-muted-foreground text-sm px-1">—</span>}
@@ -409,16 +424,11 @@ export function IndicatorsSection({
                   const cell = row.byYear[year];
                   return (
                     <Fragment key={year}>
-                      <td className="px-2 py-2 border-l border-t text-muted-foreground tabular-nums">
+                      <td className="px-2 py-2 border-l border-t text-muted-foreground tabular-nums bg-neutral-50 opacity-60">
                         {cell?.achieved_value || <span className="text-muted-foreground/40">—</span>}
                       </td>
-                      <td className="px-2 py-2 border-t">
+                      <td className="px-2 py-2 border-t text-muted-foreground bg-neutral-50 opacity-60">
                         {cell?.status ? <StatusBadge value={cell.status as IndicatorStatus} /> : <span className="text-muted-foreground/40">—</span>}
-                      </td>
-                      <td className="px-2 py-2 border-t text-muted-foreground align-top">
-                        {cell?.comment
-                          ? <ClampedText text={cell.comment} className="text-xs" />
-                          : <span className="text-muted-foreground/40">—</span>}
                       </td>
                     </Fragment>
                   );
@@ -498,6 +508,11 @@ export function IndicatorsSection({
     // wrapper scrolls them instead. The tab above is overflow-hidden, so without
     // the scroll moving here an expanded table's extra rows would simply be clipped.
     <div className={cn("flex flex-col gap-4", fillHeight && "flex-1 min-h-0", anyExpanded && "overflow-auto")}>
+      {pastYears.length > 0 && (
+        <div className="shrink-0">
+          <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
+        </div>
+      )}
       {renderIndicatorTable(standardRows, "standard")}
 
       {canManageIndicators && (

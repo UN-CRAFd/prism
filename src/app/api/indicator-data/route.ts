@@ -185,12 +185,13 @@ async function getMatrix(reportId: string) {
        JOIN reporting_platform.reports r ON r.id = d.report_id
        JOIN reporting_platform.indicators i ON i.id = d.indicator_id
       WHERE r.project_id = $1
+        AND r.data_type = $3
         AND d.indicator_id IN (
           SELECT indicator_id FROM reporting_platform.indicator_data WHERE report_id = $2
         )
         ${projectIndicatorFilter}
       ORDER BY r.year ASC`,
-    [projectId, reportId]
+    [projectId, reportId, dataType]
   );
 
   // Row skeleton + order come from the current report's lines.

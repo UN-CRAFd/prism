@@ -11,6 +11,7 @@ import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell, HEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { optionValues } from "@/lib/options";
 import { activityLabel, formatAmount } from "@/lib/transfers";
@@ -512,6 +513,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   const { config } = props;
   const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
   const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
+  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(years, currentYear);
 
   if (loading) {
     return (
@@ -536,10 +538,11 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   return (
     <div className={cn("space-y-4", props.fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       {/* Add a blank row — the partner fills every field inline below */}
-      <div>
+      <div className="flex items-center gap-4 flex-wrap">
         <Button onClick={onAdd} disabled={adding} size="sm">
           {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{config.labels.addEntry}</>}
         </Button>
+        <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
       </div>
 
       {rows.length === 0 ? (
@@ -555,11 +558,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             { label: config.labels.websiteColumn, style: tfz("website", 30) },
             { label: config.labels.typeColumn, style: tfz("type", 30) },
           ]}
-          years={years}
+          years={visibleYears}
           currentYear={currentYear}
           subCols={[
             { label: config.labels.amountColumn, minWidth: config.labels.amountMinWidth },
             { label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth },
+          ]}
+          pastSubCols={[
+            { label: config.labels.amountColumn, minWidth: "min-w-[110px]" },
           ]}
           trailingCols={[
             { label: config.labels.subTotalColumn, className: `px-3 py-2 text-right ${HEAD_TEXT} text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]` },
@@ -604,7 +610,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                     </td>
 
                     {/* Scrollable per-year cells */}
-                    {years.map((year) => {
+                    {visibleYears.map((year) => {
                       const current = year === currentYear;
                       if (current) {
                         const cellKey = `${row.entityId}-${year}`;
@@ -644,22 +650,9 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                       }
                       const cell = row.byYear[year];
                       return (
-                        <Fragment key={year}>
-                          <td className="px-2 py-2 border-l border-t text-muted-foreground text-right tabular-nums">
-                            {cell?.amount != null ? formatAmount(cell.amount) : <span className="text-muted-foreground/40">—</span>}
-                          </td>
-                          <td className="px-2 py-2 border-t text-muted-foreground">
-                            {cell && cell.activityIds.length > 0 ? (
-                              <div className="flex flex-col gap-0.5">
-                                {cell.activityIds.map((aid) => (
-                                  <span key={aid} className="line-clamp-1 text-xs font-medium">{activityLabel(activityById.get(aid))}</span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground/40">—</span>
-                            )}
-                          </td>
-                        </Fragment>
+                        <td key={year} className="px-2 py-2 border-l border-t text-muted-foreground text-right tabular-nums bg-neutral-50 opacity-60">
+                          {cell?.amount != null ? formatAmount(cell.amount) : <span className="text-muted-foreground/40">—</span>}
+                        </td>
                       );
                     })}
 
@@ -681,12 +674,19 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                 <td style={tfz("org", 30)} className="px-3 py-3 border-r border-t bg-neutral-100 whitespace-nowrap">{config.labels.totalColumn}</td>
                 <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />
                 <td style={tfz("type", 30)} className="border-r border-t bg-neutral-100" />
-                {years.map((year) => (
-                  <Fragment key={year}>
-                    <td className={cn("px-2 py-3 border-l border-t text-right tabular-nums", year === currentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")}>{formatAmount(yearTotal(year))}</td>
-                    <td className={cn("border-t", year === currentYear ? "bg-crafd-yellow/20" : "bg-neutral-100")} />
-                  </Fragment>
-                ))}
+                {visibleYears.map((year) => {
+                  if (year === currentYear) {
+                    return (
+                      <Fragment key={year}>
+                        <td className="px-2 py-3 border-l border-t text-right tabular-nums bg-crafd-yellow/20">{formatAmount(yearTotal(year))}</td>
+                        <td className="border-t bg-crafd-yellow/20" />
+                      </Fragment>
+                    );
+                  }
+                  return (
+                    <td key={year} className="px-2 py-3 border-l border-t text-right tabular-nums bg-neutral-100 opacity-60">{formatAmount(yearTotal(year))}</td>
+                  );
+                })}
                 <td className="px-3 py-3 border-l border-t text-right tabular-nums bg-neutral-100">{formatAmount(grandTotal)}</td>
                 <td className="border-l border-t bg-neutral-100" />
               </tr>

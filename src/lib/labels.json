@@ -8,6 +8,7 @@
     "saved": "Saved",
     "saveFailed": "Save failed",
     "cancel": "Cancel",
+    "formerReports": "Former reports:",
     "columns": {
       "links": "Links / Materials"
     },
@@ -50,7 +51,7 @@
     "lessons": "Capture up to five lessons from this reporting period that shaped or will shape project implementation. For each lesson, select a category, describe what your organization learned, and explain what you changed or plan to change as a result.",
     "external-coverage": "Document how your project's work reached external audiences and stakeholders during this reporting period. For each item, select the type of coverage or engagement, describe what was shared, indicate the reach or uptake, and provide links to supporting materials.",
     "workplan": "Review the planned timeline (baseline) for each activity, then update the active window highlighted below — check off the quarters reflecting the updated timeline, select a progress update and add a short comment justifying the status where relevant. You can only edit the active update window while your report is Open; earlier windows are shown for reference.",
-    "expenditure": "Enter the actual expenditure for this reporting year against each budget category, in USD. Approved budgets, differences, sub-totals, indirect support costs and totals are calculated automatically. Add a comment where the expenditure differs meaningfully from the approved budget.",
+    "expenditure": "Enter the actual expenditure for this reporting year against each budget category, in USD. Approved budgets, differences, sub-totals, indirect support costs and totals are calculated automatically. Add a description of the key outputs the expenditure covers.",
     "indicators": "Report progress against each indicator for this reporting period. For each indicator, enter the value achieved this year, select whether it is on track, and add a short comment explaining the result. Baselines and targets were set when the report was prepared and are shown for reference.",
     "transfers": "List the organizations you transferred funds to during this reporting period. For each organization, provide its name, website and type, then enter the amount transferred this year (USD) and link it to the workplan activity it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",
     "complementary": "List the contributors that provided complementary funding to the project during this reporting period. For each contributor, provide its name, website and funding type (in cash or in kind), then enter the total contribution this year (USD) and link it to the workplan activities it supported. Amounts for previous years are shown for reference; only the currently selected year is editable.",

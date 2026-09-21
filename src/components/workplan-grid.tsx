@@ -1150,6 +1150,23 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   // (+[status]+[comment] in partner mode) + [delete].
   const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
 
+  // Sits at the foot of the table, where the new outcome actually appears.
+  // Deliberately a muted echo of the black outcome header above it — same bar,
+  // same uppercase chip, carrying the number the outcome will take — so it
+  // reads as the next one in the sequence rather than a detached control.
+  const addOutcomeBar = (
+    <button
+      type="button"
+      onClick={addOutcome}
+      className="group flex w-full items-center gap-2 bg-neutral-800/85 px-3 py-2.5 text-left text-white transition-colors hover:bg-neutral-800"
+    >
+      <Plus className="size-4 shrink-0 text-white/70 transition-colors group-hover:text-white" />
+      <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider transition-colors group-hover:bg-white/25">
+        Add outcome {clusters.length + 1}
+      </span>
+    </button>
+  );
+
   return (
     <div className={cn(fillHeight ? "flex flex-col gap-5 flex-1 min-h-0" : "space-y-5")}>
       {error && (
@@ -1169,9 +1186,12 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       )}
 
       {clusters.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-          No outcomes yet. Add one to start building the workplan.
-        </div>
+        <>
+          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+            No outcomes yet. Add one to start building the workplan.
+          </div>
+          <div className="overflow-hidden rounded-xl border">{addOutcomeBar}</div>
+        </>
       ) : (
         <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
           <table className="w-full text-sm border-collapse">
@@ -1448,14 +1468,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                   ))}
                 </Fragment>
               ))}
+              <tr>
+                <td colSpan={totalCols} className="p-0">{addOutcomeBar}</td>
+              </tr>
             </tbody>
           </table>
         </div>
       )}
-
-      <Button onClick={addOutcome} variant="outline" size="sm">
-        <Plus className="size-4 mr-1" /> Add outcome
-      </Button>
     </div>
   );
 }

@@ -84,6 +84,50 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// PATCH /api/standard-surveys — { id, question } (reword the question)
+//
+// Editing only changes the library entry. Reports that already snapshotted the
+// question keep their own copy, so past answers stay attached to the wording
+// they were given — same contract as DELETE below.
+export async function PATCH(req: NextRequest) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const id = Number(body.id);
+  const question = typeof body.question === "string" ? body.question.trim() : "";
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+  if (!question) {
+    return NextResponse.json({ error: "question is required" }, { status: 400 });
+  }
+
+  try {
+    const rows = await query(
+      `UPDATE reporting_platform.standard_survey_questions
+          SET question = $2
+        WHERE id = $1
+        RETURNING id, report_type, question, sort_order`,
+      [id, question]
+    );
+    if (rows.length === 0) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    // (report_type, question) is unique — reword onto an existing question and
+    // the insert-side 409 message applies just as well.
+    if (typeof err === "object" && err !== null && (err as { code?: string }).code === "23505") {
+      return NextResponse.json({ error: "That question already exists for this report type" }, { status: 409 });
+    }
+    logger.error("PATCH /api/standard-surveys error:", err);
+    return NextResponse.json({ error: "Failed to update standard survey question" }, { status: 500 });
+  }
+}
+
 // DELETE /api/standard-surveys?id=123
 export async function DELETE(req: NextRequest) {
   const gate = await requireAdmin();

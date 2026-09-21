@@ -318,6 +318,7 @@
     "photo": {
       "linkTab": "Link",
       "uploadTab": "Upload",
+      "download": "Download",
       "remove": "Remove",
       "hint": "PNG, JPG or WEBP · max {mb} MB",
       "errorType": "That image type is not allowed (PNG, JPG or WEBP).",

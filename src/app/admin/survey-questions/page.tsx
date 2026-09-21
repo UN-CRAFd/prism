@@ -6,7 +6,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, ListChecks, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Loader2, ListChecks, Trash2, Pencil, Check, X } from "lucide-react";
 import { PageHeader, ErrorBanner, LoadingState } from "@/components/admin/shared";
 import { optionItems } from "@/lib/options";
 
@@ -35,6 +36,11 @@ export default function SurveyQuestionsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const types = optionItems("reportType");
   const [adding, setAdding] = useState<ReportType | null>(null);
+
+  // Inline edit state — one question at a time, across all types.
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editQuestion, setEditQuestion] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +77,35 @@ export default function SurveyQuestionsPage() {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setAdding(null);
+    }
+  }
+
+  function startEdit(q: StandardQuestion) {
+    setEditId(q.id);
+    setEditQuestion(q.question);
+    setError(null);
+  }
+
+  async function handleEditSave() {
+    if (editId === null) return;
+    const question = editQuestion.trim();
+    if (!question) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/standard-surveys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editId, question }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to update question"); }
+      const updated: StandardQuestion = await res.json();
+      setQuestions((prev) => prev.map((q) => q.id === updated.id ? updated : q));
+      setEditId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -116,14 +151,44 @@ export default function SurveyQuestionsPage() {
                       {list.map((q, i) => (
                         <li key={q.id} className="flex items-start gap-3 px-5 py-3">
                           <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-                          <p className="flex-1 text-sm">{q.question}</p>
-                          <button
-                            onClick={() => handleDelete(q)}
-                            className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                            aria-label="Delete question"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                          {editId === q.id ? (
+                            <div className="flex-1 flex flex-col gap-2">
+                              <Textarea
+                                value={editQuestion}
+                                onChange={(e) => setEditQuestion(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Escape") setEditId(null); }}
+                                placeholder="Survey question"
+                                className="min-h-[70px] resize-y text-sm"
+                                autoFocus
+                              />
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" onClick={handleEditSave} disabled={savingEdit || !editQuestion.trim()}>
+                                  {savingEdit ? <Loader2 className="size-4 animate-spin" /> : <><Check className="size-4 mr-1" />Save</>}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setEditId(null)}>
+                                  <X className="size-4 mr-1" />Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="flex-1 text-sm">{q.question}</p>
+                              <button
+                                onClick={() => startEdit(q)}
+                                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                aria-label="Edit question"
+                              >
+                                <Pencil className="size-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(q)}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                                aria-label="Delete question"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </>
+                          )}
                         </li>
                       ))}
                     </ul>

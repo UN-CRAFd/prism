@@ -11,6 +11,7 @@ import { MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/do
 //
 //   POST   multipart/form-data { file }  → store the image, clear photo_link
 //   GET                                  → stream the image inline (for <img>)
+//   GET    ?download=1                   → same bytes, as an attachment (save to disk)
 //   DELETE                               → remove the uploaded image
 
 type PhotoRow = {
@@ -71,10 +72,11 @@ export async function POST(
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const download = req.nextUrl.searchParams.get("download") === "1";
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -99,7 +101,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": photo.photo_mime_type || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${safeName}"`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${safeName}"`,
         "Content-Length": String(body.byteLength),
         "Cache-Control": "private, no-store",
       },

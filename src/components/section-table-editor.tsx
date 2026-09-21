@@ -12,7 +12,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Info, Loader2, Plus, Trash2, X } from "lucide-react";
+import { Download, Info, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { cn } from "@/lib/utils";
@@ -205,8 +205,18 @@ function PhotoField({
         <div className="space-y-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${endpoint}/${rowId}/photo`} alt={photoFileName} className="h-16 w-16 rounded object-cover border" />
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground truncate max-w-[8rem]" title={photoFileName}>{photoFileName}</span>
+          <p className="text-xs text-muted-foreground truncate max-w-[10rem]" title={photoFileName}>{photoFileName}</p>
+          <div className="flex items-center gap-3">
+            {/* ?download=1 flips the photo route's Content-Disposition to
+                attachment so the browser saves the original file rather than
+                opening it — same pattern as the documents list. */}
+            <a
+              href={`${endpoint}/${rowId}/photo?download=1`}
+              download={photoFileName}
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            >
+              <Download className="size-3" /> {p.download}
+            </a>
             <button type="button" onClick={remove} disabled={busy} className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1 disabled:opacity-50">
               {busy ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />} {p.remove}
             </button>

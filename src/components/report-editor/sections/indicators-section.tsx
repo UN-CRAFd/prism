@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type CSSProperties } from "react";
+import { Fragment, useRef, useState, type CSSProperties } from "react";
 import { Loader2, Plus, Trash2, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { ClampedText } from "@/components/report-editor/clamped-text";
-import { MatrixTableShell } from "@/components/report-editor/matrix-table";
+import { MatrixTableShell, TableExpandToggle } from "@/components/report-editor/matrix-table";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
@@ -40,6 +40,10 @@ const ICOL = {
   target:   { left: 500, w: 120 },
 } as const;
 const IND_FROZEN_WIDTH = 620;
+
+// The tab renders one table per kind, each with its own independent height toggle.
+const IND_TABLE_TYPES = ["standard", "project"] as const;
+type IndTableType = (typeof IND_TABLE_TYPES)[number];
 
 function ifz(key: keyof typeof ICOL, z = 20): CSSProperties {
   const c = ICOL[key];
@@ -203,7 +207,41 @@ export function IndicatorsSection({
   const standardRows = indicatorRows.filter((row) => row.is_standard);
   const projectRows = indicatorRows.filter((row) => !row.is_standard);
 
-  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: "standard" | "project") => {
+  // Expanded tables drop their height cap and show every row at once. Only
+  // meaningful under fillHeight, where the two tables otherwise split the tab's
+  // height and each scrolls in a short box. Once either is expanded the section
+  // itself takes over scrolling (see the wrapper below) and the expanded table
+  // runs to its natural height.
+  const [expanded, setExpanded] = useState<Record<IndTableType, boolean>>({ standard: false, project: false });
+  const anyExpanded = fillHeight && (expanded.standard || expanded.project);
+
+  // Expanding is a layout change for *both* tables: the section starts scrolling,
+  // so neither can keep its flex share any more. Left alone, the table nobody
+  // clicked would silently resize to whatever cap replaced its share. So at the
+  // moment the split is abandoned, measure each card and pin the ones that stay
+  // collapsed to the height they already had — the toggle then only ever changes
+  // its own table. Cleared when both are collapsed and the flex split resumes.
+  const [pinnedHeights, setPinnedHeights] = useState<Partial<Record<IndTableType, number>>>({});
+  const cardRefs = useRef<Record<IndTableType, HTMLDivElement | null>>({ standard: null, project: null });
+
+  const toggleExpanded = (tableType: IndTableType) => {
+    const next = { ...expanded, [tableType]: !expanded[tableType] };
+    const wasAny = expanded.standard || expanded.project;
+    const nowAny = next.standard || next.project;
+    if (!wasAny && nowAny) {
+      const measured: Partial<Record<IndTableType, number>> = {};
+      for (const key of IND_TABLE_TYPES) {
+        const el = cardRefs.current[key];
+        if (el) measured[key] = el.getBoundingClientRect().height;
+      }
+      setPinnedHeights(measured);
+    } else if (wasAny && !nowAny) {
+      setPinnedHeights({});
+    }
+    setExpanded(next);
+  };
+
+  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: IndTableType) => {
     const tableDescription = tableType === "standard"
       ? "These are standard indicators which are used across all CRAF'd-supported projects."
       : "These are custom indicators added for this project specifically.";
@@ -220,10 +258,14 @@ export function IndicatorsSection({
     // of them is empty. 3 frozen + 3 per year + the trailing column when present.
     const emptyColSpan = 3 + indicatorYears.length * 3 + 1 + (showActions ? 1 : 0);
 
+    const isExpanded = expanded[tableType];
+
     return (
       <MatrixTableShell
-        fillHeight={fillHeight}
+        fillHeight={fillHeight && !anyExpanded}
         hugContent
+        maxHeightPx={anyExpanded && !isExpanded ? pinnedHeights[tableType] : undefined}
+        cardRef={(el) => { cardRefs.current[tableType] = el; }}
         minWidth={IND_FROZEN_WIDTH}
         leadingCols={[
           {
@@ -231,6 +273,14 @@ export function IndicatorsSection({
               <div className="flex items-center gap-1.5">
                 {tableType === "standard" ? labels.indicators.columns.standardIndicator : labels.indicators.columns.customIndicator}
                 <InfoPopover description={tableDescription} triggerTitle={`${tableType === "standard" ? "Standard" : "Custom project"} indicator table information`} />
+                {/* Height toggle, pushed to the right edge of the frozen first
+                    column. Only earns its place under fillHeight — anywhere else
+                    the table is already at its natural height. */}
+                {fillHeight && (
+                  <span className="ml-auto pl-2">
+                    <TableExpandToggle expanded={isExpanded} onToggle={() => toggleExpanded(tableType)} />
+                  </span>
+                )}
               </div>
             ),
             style: ifz("ind", 30),
@@ -443,7 +493,11 @@ export function IndicatorsSection({
     // No wrapper around each table: MatrixTableShell brings its own layout slot, and
     // a second one would break the `max-h-full` cap by giving the card an
     // auto-height parent to measure against.
-    <div className={cn("flex flex-col gap-4", fillHeight && "flex-1 min-h-0")}>
+    //
+    // anyExpanded flips that arrangement: the tables go to natural height and this
+    // wrapper scrolls them instead. The tab above is overflow-hidden, so without
+    // the scroll moving here an expanded table's extra rows would simply be clipped.
+    <div className={cn("flex flex-col gap-4", fillHeight && "flex-1 min-h-0", anyExpanded && "overflow-auto")}>
       {renderIndicatorTable(standardRows, "standard")}
 
       {canManageIndicators && (

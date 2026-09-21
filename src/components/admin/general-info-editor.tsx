@@ -736,7 +736,7 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.projectTitle} <span className="text-destructive">*</span></label>
+          <label className="text-xs text-muted-foreground">{g.fields.projectTitle}</label>
           <Input
             value={form.project_title}
             onChange={(e) => setField("project_title", e.target.value)}
@@ -778,7 +778,7 @@ export function GeneralInfoAdminEditor({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.grantSize} <span className="text-destructive">*</span></label>
+            <label className="text-xs text-muted-foreground">{g.fields.grantSize}</label>
             <Input
               type="text"
               inputMode="decimal"
@@ -802,7 +802,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.startDate} <span className="text-destructive">*</span></label>
+            <label className="text-xs text-muted-foreground">{g.fields.startDate}</label>
             <Input
               type="date"
               value={form.project_start_date}
@@ -812,7 +812,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.durationMonths} <span className="text-destructive">*</span></label>
+            <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
             <Input
               type="text" inputMode="numeric"
               value={form.project_duration_months}
@@ -835,7 +835,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.geographicScope} <span className="text-destructive">*</span></label>
+            <label className="text-xs text-muted-foreground">{g.fields.geographicScope}</label>
             <Select
               value={form.geographic_scope || GEO_SCOPE_NONE}
               onValueChange={(v) => setField("geographic_scope", v === GEO_SCOPE_NONE ? "" : v)}
@@ -854,7 +854,7 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.description} <span className="text-destructive">*</span></label>
+          <label className="text-xs text-muted-foreground">{g.fields.description}</label>
           <RichTextEditor
             value={form.description}
             onChange={(html) => setField("description", html)}
@@ -863,8 +863,6 @@ export function GeneralInfoAdminEditor({
             maxChars={DESCRIPTION_MAX_CHARS}
           />
         </div>
-
-        <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> required</p>
 
         {/* Participating Organizations list */}
         <div className="space-y-2">

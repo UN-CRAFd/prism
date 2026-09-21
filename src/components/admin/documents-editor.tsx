@@ -157,7 +157,7 @@ export function DocumentsEditor({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{d.columns.type} <span className="text-destructive">*</span></label>
+              <label className="text-xs font-medium text-muted-foreground">{d.columns.type}</label>
               <Select value={docType} onValueChange={setDocType}>
                 <SelectTrigger className="w-full"><SelectValue placeholder={d.typePlaceholder} /></SelectTrigger>
                 <SelectContent>
@@ -169,9 +169,7 @@ export function DocumentsEditor({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                {d.columns.name} <span className="text-destructive">*</span>
-              </label>
+              <label className="text-xs font-medium text-muted-foreground">{d.columns.name}</label>
               <Input
                 type="text"
                 value={docName}
@@ -187,7 +185,7 @@ export function DocumentsEditor({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{d.columns.file} <span className="text-destructive">*</span></label>
+              <label className="text-xs font-medium text-muted-foreground">{d.columns.file}</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -202,7 +200,6 @@ export function DocumentsEditor({
             </Button>
           </div>
 
-          <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> required</p>
           <p className="text-xs text-muted-foreground">{d.allowedHint.replace("{mb}", String(MAX_DOC_MB))}</p>
         </div>
       )}

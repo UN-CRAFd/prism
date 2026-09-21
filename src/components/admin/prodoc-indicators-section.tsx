@@ -314,8 +314,15 @@ export function ProdocIndicatorsSection({
       {/* Adding only ever creates a customised project indicator, so it belongs
           with that table — under its bottom-right corner, with the create form
           opening downwards from there. The CRAF'd standard library is the
-          controlled vocabulary and is curated from the admin indicators page. */}
-      {table === "custom" && !readOnly && (
+          controlled vocabulary and is curated from the admin indicators page.
+
+          Kept mounted when the document is read-only instead of hidden: the
+          surrounding <fieldset disabled> greys it out natively, the same way every
+          input on this tab is greyed rather than removed. Hiding it made the tab
+          look broken whenever the editing lock lapsed — a 15-minute idle timeout
+          silently flips the whole prodoc to read-only — with no hint that the
+          control still exists and that "Start editing" brings it back. */}
+      {table === "custom" && (
         <div className="flex shrink-0 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
             {creating ? <X className="size-4" /> : <Plus className="size-4" />}

@@ -271,6 +271,13 @@ export function AppSidebar() {
   const activeReportId = openReport
     ? reports.find((r) => reportSlug(r) === openReport.project && String(r.year) === openReport.year)?.id ?? null
     : null;
+  const activeReportRow = activeReportId ? reports.find((r) => r.id === activeReportId) ?? null : null;
+  const matchingProdoc = activeReportRow
+    ? prodocItems.find((p) => p.project_title === activeReportRow.project_title) ?? null
+    : null;
+  const prodocNavHref = matchingProdoc
+    ? `/partner/prodoc-editor/${(matchingProdoc.project_short_name ?? matchingProdoc.project_title).toLowerCase().replace(/\s+/g, "-")}/general`
+    : null;
 
   useEffect(() => {
     if (activeReportId == null) { setSectionComplete({}); return; }
@@ -355,7 +362,7 @@ export function AppSidebar() {
             return (
               <div key={href}>
                 <Link
-                  href={href}
+                  href={isProdocEditor && prodocNavHref ? prodocNavHref : href}
                   className={cn(
                     // Top-level nav links mirror the admin nav below exactly —
                     // same type, icon size and gap — so the two sidebars read

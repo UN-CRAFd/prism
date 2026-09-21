@@ -206,7 +206,7 @@ export function IndicatorsSection({
   const standardRows = indicatorRows.filter((row) => row.is_standard);
   const projectRows = indicatorRows.filter((row) => !row.is_standard);
 
-  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: "standard" | "project") => {
+  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: "standard" | "project", footer?: React.ReactNode) => {
     const tableDescription = tableType === "standard"
       ? "These are standard indicators which are used across all CRAF'd-supported projects."
       : "These are custom indicators added for this project specifically.";
@@ -235,6 +235,7 @@ export function IndicatorsSection({
       <MatrixTableShell
         fillHeight={fillHeight}
         hugContent
+        footer={footer}
         minWidth={IND_FROZEN_WIDTH}
         leadingCols={[
           {
@@ -448,10 +449,64 @@ export function IndicatorsSection({
     );
   };
 
+  // Adding belongs with the customised project table: creating one always makes a
+  // custom indicator, and the CRAF'd standard set is the controlled vocabulary that
+  // partners cannot modify. Handed to MatrixTableShell as its `footer` so it sits
+  // just under the table's bottom-right corner rather than at the foot of the tab,
+  // with the picker / create form opening downwards from there.
+  const addIndicatorFooter = !canManageIndicators ? undefined : (
+    <div className="flex shrink-0 flex-col items-end gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : setShowPicker((visible) => !visible)} className="gap-1">
+        {showPicker ? <X className="size-4" /> : <Plus className="size-4" />} {showPicker ? "Cancel" : "Add indicator"}
+      </Button>
+      {showPicker && (
+        <div className="w-full max-w-xl">
+          <Combobox
+            items={indicatorComboItems}
+            placeholder={labels.placeholders.indicatorSearch}
+            onSelect={(item) => {
+              // Reuse can also pull in a CRAF'd standard indicator, which lands
+              // in the other table — follow it, or the row is added out of sight.
+              if (item.is_standard) setTable("standard");
+              handleIndicatorSelectExisting(item.id);
+            }}
+            onCreate={openCreate}
+            createLabel={labels.adminEditor.createIndicator}
+            busy={addingIndicator}
+          />
+        </div>
+      )}
+      {creating && (
+        <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 w-full">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
+            <Button variant="ghost" size="sm" onClick={cancelCreate} className="h-7 px-2 text-muted-foreground">
+              <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
+            </Button>
+          </div>
+          <div className="flex items-start gap-2">
+            <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) submitCreate(); }} className="flex-[2]" autoFocus />
+            <Textarea required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
+            <Textarea required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
+          </div>
+          <div className="flex gap-2">
+            <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
+            <Input placeholder={labels.indicators.columns.baselineYear} type="text" inputMode="numeric" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(numericYear(e.target.value))} className="flex-[1.0]" />
+            <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
+            <Input placeholder={labels.indicators.columns.targetYear} type="text" inputMode="numeric" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(numericYear(e.target.value))} className="flex-[1.0]" />
+            <Button onClick={submitCreate} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
+              {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     // Same shape as the project document's indicators tab. fillHeight: the section
-    // claims the tab's remaining height and never scrolls itself — the two tables
-    // split that height between them and scroll internally, so the page stays put.
+    // claims the tab's remaining height and never scrolls itself — the chosen table
+    // claims that height and scrolls internally, so the page stays put.
     // No wrapper around each table: MatrixTableShell brings its own layout slot, and
     // a second one would break the `max-h-full` cap by giving the card an
     // auto-height parent to measure against.
@@ -471,61 +526,7 @@ export function IndicatorsSection({
         </div>
       </div>
       {table === "standard" && renderIndicatorTable(standardRows, "standard")}
-      {table === "custom" && renderIndicatorTable(projectRows, "project")}
-
-      {/* Adding belongs with the customised project table: creating one always
-          makes a custom indicator, and the CRAF'd standard set is the controlled
-          vocabulary that partners cannot modify. It sits under the table's
-          bottom-right corner, and the picker / create form open downwards from
-          there rather than pushing the table around. */}
-      {canManageIndicators && table === "custom" && (
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : setShowPicker((visible) => !visible)} className="gap-1">
-          {showPicker ? <X className="size-4" /> : <Plus className="size-4" />} {showPicker ? "Cancel" : "Add indicator"}
-        </Button>
-        {showPicker && (
-          <div className="w-full max-w-xl">
-            <Combobox
-              items={indicatorComboItems}
-              placeholder={labels.placeholders.indicatorSearch}
-              onSelect={(item) => {
-                // Reuse can also pull in a CRAF'd standard indicator, which lands
-                // in the other table — follow it, or the row is added out of sight.
-                if (item.is_standard) setTable("standard");
-                handleIndicatorSelectExisting(item.id);
-              }}
-              onCreate={openCreate}
-              createLabel={labels.adminEditor.createIndicator}
-              busy={addingIndicator}
-            />
-          </div>
-        )}
-        {creating && (
-          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 w-full">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
-              <Button variant="ghost" size="sm" onClick={cancelCreate} className="h-7 px-2 text-muted-foreground">
-                <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
-              </Button>
-            </div>
-            <div className="flex items-start gap-2">
-              <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) submitCreate(); }} className="flex-[2]" autoFocus />
-              <Textarea required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
-              <Textarea required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
-            </div>
-            <div className="flex gap-2">
-              <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-              <Input placeholder={labels.indicators.columns.baselineYear} type="text" inputMode="numeric" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(numericYear(e.target.value))} className="flex-[1.0]" />
-              <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-              <Input placeholder={labels.indicators.columns.targetYear} type="text" inputMode="numeric" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(numericYear(e.target.value))} className="flex-[1.0]" />
-              <Button onClick={submitCreate} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
-                {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-      )}
+      {table === "custom" && renderIndicatorTable(projectRows, "project", addIndicatorFooter)}
     </div>
   );
 }

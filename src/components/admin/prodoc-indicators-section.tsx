@@ -176,21 +176,26 @@ export function ProdocIndicatorsSection({
   const headCell = "sticky top-0 z-10 bg-neutral-100 px-4 py-3 text-left text-muted-foreground " + HEAD_TEXT;
   const headShadow = { boxShadow: "inset 0 -1px 0 var(--border)" };
 
-  function renderTable(tableLines: ProdocIndicatorLine[], type: "standard" | "custom") {
+  function renderTable(tableLines: ProdocIndicatorLine[], type: "standard" | "custom", footer?: React.ReactNode) {
     return (
       // Two nested elements with different jobs. The outer one is an invisible layout
-      // slot: `flex-1 min-h-0` claims an equal share of whatever height the tab has
-      // left, which is what keeps the two boxes in the same proportion regardless of
-      // how many rows each holds. (`min-h-0` is load-bearing — without it flexbox
-      // floors the slot at the table's natural height and the page scrolls again.)
+      // slot: `flex-1 min-h-0` claims whatever height the tab has left, which is what
+      // caps the table so it scrolls inside itself instead of growing the page.
+      // (`min-h-0` is load-bearing — without it flexbox floors the slot at the
+      // table's natural height and the page scrolls again.)
       //
-      // The inner one is the visible card. It is sized by its content and only capped
-      // at `max-h-full`, so with a handful of rows the border closes under the last
-      // one and the rest of the slot is left blank, while a full table fills the slot
-      // and scrolls inside itself. `overflow-auto` covers both axes: the table's
-      // 1100px min-width still needs the horizontal scroll on a narrow window.
-      <div className={fillHeight ? "flex-1 min-h-0" : ""}>
-      <div className={"rounded-xl border bg-card overflow-auto " + (fillHeight ? "max-h-full" : "max-h-[28rem]")}>
+      // `footer` rides INSIDE that slot, directly under the card, so it tracks the
+      // card's real bottom edge. Left as a sibling of the slot it would be pinned to
+      // the bottom of the tab, stranded far below a short table.
+      //
+      // The card is the visible box. As a `flex-1`-free flex item it keeps its content
+      // height (`basis: auto`) and only shrinks when the slot runs out of room, so with
+      // a handful of rows the border closes under the last one and the leftover space
+      // falls below the footer, while a full table fills the slot and scrolls inside
+      // itself. `min-h-0` lets that shrink actually happen. `overflow-auto` covers both
+      // axes: the table's 1100px min-width still needs horizontal scroll when narrow.
+      <div className={"flex flex-col gap-2 " + (fillHeight ? "flex-1 min-h-0" : "")}>
+      <div className={"rounded-xl border bg-card overflow-auto min-h-0 " + (fillHeight ? "" : "max-h-[28rem]")}>
         <table className="w-full text-sm min-w-[1100px]">
           <thead>
             <tr>
@@ -292,6 +297,7 @@ export function ProdocIndicatorsSection({
           </tbody>
         </table>
       </div>
+      {footer}
       </div>
     );
   }
@@ -299,39 +305,25 @@ export function ProdocIndicatorsSection({
   const standardLines = lines.filter((line) => line.is_standard);
   const customLines = lines.filter((line) => !line.is_standard);
 
-  return (
-    <div className={"flex flex-col gap-4 " + (fillHeight ? "flex-1 min-h-0" : "")}>
-      <div className="flex shrink-0 justify-end">
-        <IndicatorTableSwitch
-          value={table}
-          onChange={setTable}
-          standardCount={standardLines.length}
-          customCount={customLines.length}
-        />
-      </div>
-      {table === "standard" && renderTable(standardLines, "standard")}
-      {table === "custom" && renderTable(customLines, "custom")}
-      {/* Adding only ever creates a customised project indicator, so it belongs
-          with that table — under its bottom-right corner, with the create form
-          opening downwards from there. The CRAF'd standard library is the
-          controlled vocabulary and is curated from the admin indicators page.
-
-          Kept mounted when the document is read-only instead of hidden: the
-          surrounding <fieldset disabled> greys it out natively, the same way every
-          input on this tab is greyed rather than removed. Hiding it made the tab
-          look broken whenever the editing lock lapsed — a 15-minute idle timeout
-          silently flips the whole prodoc to read-only — with no hint that the
-          control still exists and that "Start editing" brings it back. */}
-      {table === "custom" && (
-        <div className="flex shrink-0 justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
-            {creating ? <X className="size-4" /> : <Plus className="size-4" />}
-            {creating ? "Cancel" : "Add indicator"}
-          </Button>
-        </div>
-      )}
-      {table === "custom" && creating && (
-        <div className="flex w-full shrink-0 flex-col gap-2 rounded-lg border bg-muted/20 p-3">
+  // Adding only ever creates a customised project indicator, so this rides with
+  // that table only — tucked under its bottom-right corner, with the create form
+  // opening downwards from there. The CRAF'd standard library is the controlled
+  // vocabulary and is curated from the admin indicators page.
+  //
+  // Kept mounted when the document is read-only instead of hidden: the surrounding
+  // <fieldset disabled> greys it out natively, the same way every input on this tab
+  // is greyed rather than removed. Hiding it made the tab look broken whenever the
+  // editing lock lapsed — a 15-minute idle timeout silently flips the whole prodoc
+  // to read-only — with no hint that the control still exists and that "Start
+  // editing" brings it back.
+  const addIndicatorFooter = (
+    <div className="flex shrink-0 flex-col items-end gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
+        {creating ? <X className="size-4" /> : <Plus className="size-4" />}
+        {creating ? "Cancel" : "Add indicator"}
+      </Button>
+      {creating && (
+        <div className="flex w-full flex-col gap-2 rounded-lg border bg-muted/20 p-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
             <Button variant="ghost" size="sm" onClick={cancelCreate} className="h-7 px-2 text-muted-foreground">
@@ -348,6 +340,21 @@ export function ProdocIndicatorsSection({
           </div>
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <div className={"flex flex-col gap-4 " + (fillHeight ? "flex-1 min-h-0" : "")}>
+      <div className="flex shrink-0 justify-end">
+        <IndicatorTableSwitch
+          value={table}
+          onChange={setTable}
+          standardCount={standardLines.length}
+          customCount={customLines.length}
+        />
+      </div>
+      {table === "standard" && renderTable(standardLines, "standard")}
+      {table === "custom" && renderTable(customLines, "custom", addIndicatorFooter)}
     </div>
   );
 }

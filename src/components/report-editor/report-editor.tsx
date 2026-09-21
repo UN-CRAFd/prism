@@ -782,6 +782,7 @@ export function ReportEditor({
     .map((lib) => ({
       id: lib.id,
       label: lib.name,
+      is_standard: lib.is_standard,
       hint: lib.is_standard
         ? "Standard"
         : (lib.usage_project_count ?? 0) > 0

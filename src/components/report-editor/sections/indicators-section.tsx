@@ -472,14 +472,22 @@ export function IndicatorsSection({
       </div>
       {table === "standard" && renderIndicatorTable(standardRows, "standard")}
 
-      {canManageIndicators && (
+      {/* Adding belongs with the customised project table: creating one always
+          makes a custom indicator, and the CRAF'd standard set is the controlled
+          vocabulary that partners cannot modify. */}
+      {canManageIndicators && table === "custom" && (
       <div className="flex shrink-0 flex-col items-start gap-2">
         {showPicker && (
           <div className="max-w-xl">
             <Combobox
               items={indicatorComboItems}
               placeholder={labels.placeholders.indicatorSearch}
-              onSelect={(item) => handleIndicatorSelectExisting(item.id)}
+              onSelect={(item) => {
+                // Reuse can also pull in a CRAF'd standard indicator, which lands
+                // in the other table — follow it, or the row is added out of sight.
+                if (item.is_standard) setTable("standard");
+                handleIndicatorSelectExisting(item.id);
+              }}
               onCreate={openCreate}
               createLabel={labels.adminEditor.createIndicator}
               busy={addingIndicator}

@@ -310,7 +310,10 @@ export function ProdocIndicatorsSection({
         />
       </div>
       {table === "standard" && renderTable(standardLines, "standard")}
-      {!readOnly && (
+      {/* Adding only ever creates a customised project indicator, so it belongs
+          with that table. The CRAF'd standard library is the controlled
+          vocabulary and is curated from the admin indicators page. */}
+      {table === "custom" && !readOnly && (
         <div className="flex shrink-0 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
             {creating ? <X className="size-4" /> : <Plus className="size-4" />}
@@ -318,7 +321,7 @@ export function ProdocIndicatorsSection({
           </Button>
         </div>
       )}
-      {creating && (
+      {table === "custom" && creating && (
         <div className="flex w-full shrink-0 flex-col gap-2 rounded-lg border bg-muted/20 p-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>

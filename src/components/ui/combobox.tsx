@@ -10,6 +10,10 @@ export interface ComboboxItem {
   id: number;
   label: string;
   hint?: string;
+  // Passthrough for the caller's onSelect — the combobox itself ignores it. The
+  // indicator picker uses it to tell which of the two indicator tables a reused
+  // entry will land in.
+  is_standard?: boolean;
 }
 
 // A lightweight typeahead: filters `items` by the typed query, lets the user pick

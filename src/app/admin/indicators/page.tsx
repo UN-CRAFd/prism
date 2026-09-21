@@ -82,7 +82,11 @@ export default function IndicatorsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/indicators${showArchived ? "?include_archived=1" : ""}`);
+      // standard_only: this page curates the CRAF'd standard library. Custom
+      // indicators belong to the projects that created them and are added and
+      // managed from those projects' indicators tabs, so listing them here mixed
+      // one project's vocabulary into a general admin page.
+      const res = await fetch(`/api/indicators?standard_only=1${showArchived ? "&include_archived=1" : ""}`);
       if (!res.ok) throw new Error("Failed to fetch indicators");
       setIndicators(await res.json());
     } catch (e) {
@@ -166,7 +170,7 @@ export default function IndicatorsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Indicators" description="Manage the shared indicator library — standard and partner-created custom indicators">
+      <PageHeader title="Indicators" description="Manage the CRAF'd standard indicator library — custom indicators are managed from each project's indicators tab">
         <label className="flex items-center gap-2 text-xs text-muted-foreground mr-2 cursor-pointer">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="size-3.5 rounded" />
           Show archived
@@ -268,13 +272,8 @@ export default function IndicatorsPage() {
                   <TableRow key={ind.id} className={ind.archived_at ? "opacity-50" : ""}>
                     <TableCell className="font-medium align-top">
                       {ind.name}
-                      {ind.is_standard ? (
-                        <Badge variant="secondary" className="ml-2 text-[10px]">Standard</Badge>
-                      ) : (
-                        <Badge variant="outline" className="ml-2 text-[10px]">
-                          Custom{ind.usage_project_count ? ` · ${ind.usage_project_count} project${ind.usage_project_count === 1 ? "" : "s"}` : ""}
-                        </Badge>
-                      )}
+                      {/* No standard/custom badge: every row on this page is
+                          standard now, so it would say the same thing throughout. */}
                       {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
                       {/* TableCell defaults to whitespace-nowrap, so the description
                           needs whitespace-normal to wrap onto further lines at all. */}
@@ -316,13 +315,6 @@ export default function IndicatorsPage() {
                 {ind.description && <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{ind.description}</p>}
                 {ind.archived_at && <UsageBadges usage={ind.usage} />}
                 <div className="flex flex-wrap gap-1 mt-auto pt-1">
-                  {ind.is_standard ? (
-                    <Badge variant="secondary" className="text-xs font-normal">Standard</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      Custom{ind.usage_project_count ? ` · ${ind.usage_project_count} project${ind.usage_project_count === 1 ? "" : "s"}` : ""}
-                    </Badge>
-                  )}
                   {ind.category && <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge>}
                   {ind.cycle && <Badge variant="outline" className="text-xs font-normal">{cycleLabel(ind.cycle)}</Badge>}
                 </div>

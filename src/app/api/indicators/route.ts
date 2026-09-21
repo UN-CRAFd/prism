@@ -12,15 +12,21 @@ import { logger } from "@/lib/logger";
 //   indicator_data) so the editors can surface recurring customs as suggestions.
 //   ?project_id=X       → accepted for backwards-compat but no longer filters.
 //   &include_archived=1 → also include soft-deleted (archived) rows.
+//   &standard_only=1    → only the CRAF'd standard library. For the admin
+//                         indicators page, which curates that library; custom
+//                         indicators belong to the projects that created them and
+//                         are managed from those projects' indicators tabs.
 export async function GET(req: NextRequest) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
 
   const includeArchived = req.nextUrl.searchParams.get("include_archived") === "1";
+  const standardOnly = req.nextUrl.searchParams.get("standard_only") === "1";
 
   try {
     const where: string[] = [];
     if (!includeArchived) where.push("i.archived_at IS NULL");
+    if (standardOnly) where.push("i.is_standard");
 
     const rows = await query(
       `SELECT i.id, i.name, i.description, i.means_of_verification, i.category, i.cycle,

@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ComboboxItem } from "@/components/ui/combobox";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { HEAD_TEXT, TableExpandToggle } from "@/components/report-editor/matrix-table";
+import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
 import { numericYear } from "@/lib/numeric-input";
 import { cycleLabel } from "@/lib/indicators";
@@ -39,10 +39,6 @@ export interface ProdocIndicatorEdit {
   target_year: number | null;
   linked_activity_id: number | null;
 }
-
-// The tab renders one table per kind, each with its own independent height toggle.
-const PRODOC_TABLE_TYPES = ["standard", "custom"] as const;
-type ProdocTableType = (typeof PRODOC_TABLE_TYPES)[number];
 
 export function ProdocIndicatorsSection({
   lines,
@@ -81,39 +77,6 @@ export function ProdocIndicatorsSection({
   const [createMeansOfVerification, setCreateMeansOfVerification] = useState("");
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">>>({});
-
-  // Expanded tables drop their height cap and show every row at once. Only
-  // meaningful under fillHeight, where the two tables otherwise split the tab's
-  // height and each scrolls in a short box. Once either is expanded this section
-  // takes over scrolling and the expanded table runs to its natural height.
-  const [expanded, setExpanded] = useState<Record<ProdocTableType, boolean>>({ standard: false, custom: false });
-  const anyExpanded = fillHeight && (expanded.standard || expanded.custom);
-
-  // Expanding is a layout change for *both* tables: the section starts scrolling,
-  // so neither can keep its flex share any more. Left alone, the table nobody
-  // clicked would silently resize to whatever cap replaced its share. So at the
-  // moment the split is abandoned, measure each card and pin the ones that stay
-  // collapsed to the height they already had — the toggle then only ever changes
-  // its own table. Cleared when both are collapsed and the flex split resumes.
-  const [pinnedHeights, setPinnedHeights] = useState<Partial<Record<ProdocTableType, number>>>({});
-  const cardRefs = useRef<Record<ProdocTableType, HTMLDivElement | null>>({ standard: null, custom: null });
-
-  function toggleExpanded(type: ProdocTableType) {
-    const next = { ...expanded, [type]: !expanded[type] };
-    const wasAny = expanded.standard || expanded.custom;
-    const nowAny = next.standard || next.custom;
-    if (!wasAny && nowAny) {
-      const measured: Partial<Record<ProdocTableType, number>> = {};
-      for (const key of PRODOC_TABLE_TYPES) {
-        const el = cardRefs.current[key];
-        if (el) measured[key] = el.getBoundingClientRect().height;
-      }
-      setPinnedHeights(measured);
-    } else if (wasAny && !nowAny) {
-      setPinnedHeights({});
-    }
-    setExpanded(next);
-  }
 
   function startEdit(line: ProdocIndicatorLine) {
     setEditingId(line.id);
@@ -211,21 +174,7 @@ export function ProdocIndicatorsSection({
   const headCell = "sticky top-0 z-10 bg-neutral-100 px-4 py-3 text-left text-muted-foreground " + HEAD_TEXT;
   const headShadow = { boxShadow: "inset 0 -1px 0 var(--border)" };
 
-  // How tall a card is allowed to get:
-  //   expanded            — uncapped, every row on screen (the section scrolls)
-  //   sibling expanded    — pinned to the height it had before the split was
-  //                         abandoned, so expanding one table never resizes the other
-  //   fillHeight, neither — the default even split of the tab's height
-  //   no fillHeight       — the page already scrolls; keep the standing cap
-  function heightCap(type: ProdocTableType): { className: string; style?: CSSProperties } {
-    if (!fillHeight) return { className: "max-h-[28rem]" };
-    if (expanded[type]) return { className: "" };
-    if (anyExpanded) return { className: "", style: { maxHeight: pinnedHeights[type] } };
-    return { className: "max-h-full" };
-  }
-
-  function renderTable(tableLines: ProdocIndicatorLine[], type: ProdocTableType) {
-    const cap = heightCap(type);
+  function renderTable(tableLines: ProdocIndicatorLine[], type: "standard" | "custom") {
     return (
       // Two nested elements with different jobs. The outer one is an invisible layout
       // slot: `flex-1 min-h-0` claims an equal share of whatever height the tab has
@@ -238,31 +187,19 @@ export function ProdocIndicatorsSection({
       // one and the rest of the slot is left blank, while a full table fills the slot
       // and scrolls inside itself. `overflow-auto` covers both axes: the table's
       // 1100px min-width still needs the horizontal scroll on a narrow window.
-      <div className={fillHeight && !anyExpanded ? "flex-1 min-h-0" : ""}>
-      <div
-        ref={(el) => { cardRefs.current[type] = el; }}
-        style={cap.style}
-        className={"rounded-xl border bg-card overflow-auto " + cap.className}
-      >
+      <div className={fillHeight ? "flex-1 min-h-0" : ""}>
+      <div className={"rounded-xl border bg-card overflow-auto " + (fillHeight ? "max-h-full" : "max-h-[28rem]")}>
         <table className="w-full text-sm min-w-[1100px]">
           <thead>
             <tr>
               <th className={headCell + " w-8 text-right pr-3"} style={headShadow}>#</th>
               <th className={headCell} style={headShadow}>
-                <span className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5">
                   {type === "standard" ? labels.indicators.columns.standardIndicator : labels.indicators.columns.customIndicator}
                   <InfoPopover description={type === "standard"
                     ? "These are standard indicators used across all CRAF'd-supported projects."
                     : "These are custom indicators specific to this project document."}
                   />
-                  {/* Height toggle, pushed to the right edge of the first column.
-                      Only earns its place under fillHeight — anywhere else the
-                      table is already at its natural height. */}
-                  {fillHeight && (
-                    <span className="ml-auto pl-2">
-                      <TableExpandToggle expanded={expanded[type]} onToggle={() => toggleExpanded(type)} />
-                    </span>
-                  )}
                 </span>
               </th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.baselineValue}</th>
@@ -361,9 +298,7 @@ export function ProdocIndicatorsSection({
   const customLines = lines.filter((line) => !line.is_standard);
 
   return (
-    // anyExpanded moves the scrolling here: the tab above is overflow-hidden, so
-    // without it an expanded table's extra rows would simply be clipped.
-    <div className={"flex flex-col gap-4 " + (fillHeight ? "flex-1 min-h-0 " : "") + (anyExpanded ? "overflow-auto" : "")}>
+    <div className={"flex flex-col gap-4 " + (fillHeight ? "flex-1 min-h-0" : "")}>
       {renderTable(standardLines, "standard")}
       {!readOnly && (
         <div className="flex shrink-0 justify-end">

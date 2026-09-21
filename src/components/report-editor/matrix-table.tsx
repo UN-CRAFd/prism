@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties, type ReactNode, type Ref } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Shared shell for the report editor's "year-matrix" tables (indicators,
@@ -10,53 +10,6 @@ import { cn } from "@/lib/utils";
 // single edit. The bespoke <tbody>/<tfoot> are passed as children.
 
 export const MATRIX_TABLE = "w-full text-sm border-separate border-spacing-0";
-
-// Expand / collapse affordance for a table that lives in a height-capped box.
-// The fullscreen gesture: two corner arrows on the top-left ↔ bottom-right
-// diagonal, pointing outwards to expand and inwards to collapse. lucide's
-// Maximize2/Minimize2 are the same idea drawn on the other diagonal, so the
-// paths below are those mirrored (x → 24-x), kept in lucide's 24x24 stroke
-// style so the icon sits with the rest of the set.
-export function TableExpandToggle({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
-  const label = expanded ? "Collapse table to fit the page" : "Expand table to show all rows";
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      aria-label={label}
-      title={label}
-      className="shrink-0 text-muted-foreground/70 hover:text-foreground transition-colors"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="size-4"
-        aria-hidden="true"
-      >
-        {expanded ? (
-          <>
-            <path d="M4 10h6V4" />
-            <path d="m10 10-7-7" />
-            <path d="M20 14h-6v6" />
-            <path d="m14 14 7 7" />
-          </>
-        ) : (
-          <>
-            <path d="M9 3H3v6" />
-            <path d="m3 3 7 7" />
-            <path d="M15 21h6v-6" />
-            <path d="m21 21-7-7" />
-          </>
-        )}
-      </svg>
-    </button>
-  );
-}
 
 // Unified column-header typography for every quant table (report + prodoc).
 // HEAD_TEXT: primary column headers (row labels, year groups, single-row heads).
@@ -108,8 +61,6 @@ export function MatrixTableShell({
   trailingCols = [],
   fillHeight = false,
   hugContent = false,
-  maxHeightPx,
-  cardRef,
   children,
 }: {
   minWidth: number;
@@ -132,13 +83,6 @@ export function MatrixTableShell({
   // this only decides whether a short table draws its border around the rows and
   // leaves the rest blank, or around the whole (mostly empty) slot.
   hugContent?: boolean;
-  // Without fillHeight the card is as tall as its rows. Pass a pixel cap to hold
-  // it at a measured height instead and let the body scroll inside — used to pin
-  // a table at the size it already had when a sibling was expanded out of the
-  // shared flex layout.
-  maxHeightPx?: number;
-  // The visible card (border + scroll box), so callers can measure its height.
-  cardRef?: Ref<HTMLDivElement>;
   children: ReactNode;
 }) {
   return (
@@ -146,16 +90,7 @@ export function MatrixTableShell({
     // Splitting them is what makes `hugContent` possible: the slot keeps its size
     // while the card is free to be shorter.
     <div className={cn(fillHeight && "flex-1 min-h-0")}>
-    <div
-      ref={cardRef}
-      style={maxHeightPx === undefined ? undefined : { maxHeight: maxHeightPx }}
-      className={cn(
-        "rounded-xl border bg-card",
-        fillHeight
-          ? (hugContent ? "max-h-full overflow-auto" : "h-full overflow-auto")
-          : (maxHeightPx === undefined ? "overflow-x-auto" : "overflow-auto")
-      )}
-    >
+    <div className={cn("rounded-xl border bg-card", fillHeight ? (hugContent ? "max-h-full overflow-auto" : "h-full overflow-auto") : "overflow-x-auto")}>
       <table className={MATRIX_TABLE} style={{ minWidth }}>
         <thead>
           {/* Year-group header */}

@@ -13,6 +13,7 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
+import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
@@ -150,6 +151,7 @@ export function IndicatorsSection({
   // fields, which are required before the indicator can join the shared vocabulary.
   const [creating, setCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [table, setTable] = useState<IndicatorTableKey>("standard");
 
   const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
@@ -454,12 +456,21 @@ export function IndicatorsSection({
     // a second one would break the `max-h-full` cap by giving the card an
     // auto-height parent to measure against.
     <div className={cn("flex flex-col gap-4", fillHeight && "flex-1 min-h-0")}>
-      {pastYears.length > 0 && (
-        <div className="shrink-0">
-          <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
+      {/* Past-year chips keep the left of the row; the table switch sits on the
+          right. PastYearChips renders nothing when there are no past years, so
+          the switch is pushed right with ml-auto rather than justify-between. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
+        <div className="ml-auto">
+          <IndicatorTableSwitch
+            value={table}
+            onChange={setTable}
+            standardCount={standardRows.length}
+            customCount={projectRows.length}
+          />
         </div>
-      )}
-      {renderIndicatorTable(standardRows, "standard")}
+      </div>
+      {table === "standard" && renderIndicatorTable(standardRows, "standard")}
 
       {canManageIndicators && (
       <div className="flex shrink-0 flex-col items-start gap-2">
@@ -505,7 +516,7 @@ export function IndicatorsSection({
       </div>
       )}
 
-      {renderIndicatorTable(projectRows, "project")}
+      {table === "custom" && renderIndicatorTable(projectRows, "project")}
     </div>
   );
 }

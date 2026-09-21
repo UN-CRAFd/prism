@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ComboboxItem } from "@/components/ui/combobox";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import labels from "@/lib/labels";
 import { numericYear } from "@/lib/numeric-input";
 import { cycleLabel } from "@/lib/indicators";
@@ -67,6 +68,7 @@ export function ProdocIndicatorsSection({
   activities: ContributorActivity[];
   activityById: Map<number, ContributorActivity>;
 }) {
+  const [table, setTable] = useState<IndicatorTableKey>("standard");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<ProdocIndicatorEdit | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -299,7 +301,15 @@ export function ProdocIndicatorsSection({
 
   return (
     <div className={"flex flex-col gap-4 " + (fillHeight ? "flex-1 min-h-0" : "")}>
-      {renderTable(standardLines, "standard")}
+      <div className="flex shrink-0 justify-end">
+        <IndicatorTableSwitch
+          value={table}
+          onChange={setTable}
+          standardCount={standardLines.length}
+          customCount={customLines.length}
+        />
+      </div>
+      {table === "standard" && renderTable(standardLines, "standard")}
       {!readOnly && (
         <div className="flex shrink-0 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
@@ -326,7 +336,7 @@ export function ProdocIndicatorsSection({
           </div>
         </div>
       )}
-      {renderTable(customLines, "custom")}
+      {table === "custom" && renderTable(customLines, "custom")}
     </div>
   );
 }

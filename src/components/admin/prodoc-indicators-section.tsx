@@ -310,9 +310,11 @@ export function ProdocIndicatorsSection({
         />
       </div>
       {table === "standard" && renderTable(standardLines, "standard")}
+      {table === "custom" && renderTable(customLines, "custom")}
       {/* Adding only ever creates a customised project indicator, so it belongs
-          with that table. The CRAF'd standard library is the controlled
-          vocabulary and is curated from the admin indicators page. */}
+          with that table — under its bottom-right corner, with the create form
+          opening downwards from there. The CRAF'd standard library is the
+          controlled vocabulary and is curated from the admin indicators page. */}
       {table === "custom" && !readOnly && (
         <div className="flex shrink-0 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
@@ -339,7 +341,6 @@ export function ProdocIndicatorsSection({
           </div>
         </div>
       )}
-      {table === "custom" && renderTable(customLines, "custom")}
     </div>
   );
 }

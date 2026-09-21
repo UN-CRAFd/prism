@@ -471,14 +471,20 @@ export function IndicatorsSection({
         </div>
       </div>
       {table === "standard" && renderIndicatorTable(standardRows, "standard")}
+      {table === "custom" && renderIndicatorTable(projectRows, "project")}
 
       {/* Adding belongs with the customised project table: creating one always
           makes a custom indicator, and the CRAF'd standard set is the controlled
-          vocabulary that partners cannot modify. */}
+          vocabulary that partners cannot modify. It sits under the table's
+          bottom-right corner, and the picker / create form open downwards from
+          there rather than pushing the table around. */}
       {canManageIndicators && table === "custom" && (
-      <div className="flex shrink-0 flex-col items-start gap-2">
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : setShowPicker((visible) => !visible)} className="gap-1">
+          {showPicker ? <X className="size-4" /> : <Plus className="size-4" />} {showPicker ? "Cancel" : "Add indicator"}
+        </Button>
         {showPicker && (
-          <div className="max-w-xl">
+          <div className="w-full max-w-xl">
             <Combobox
               items={indicatorComboItems}
               placeholder={labels.placeholders.indicatorSearch}
@@ -518,13 +524,8 @@ export function IndicatorsSection({
             </div>
           </div>
         )}
-        <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : setShowPicker((visible) => !visible)} className="gap-1">
-          {showPicker ? <X className="size-4" /> : <Plus className="size-4" />} {showPicker ? "Cancel" : "Add indicator"}
-        </Button>
       </div>
       )}
-
-      {table === "custom" && renderIndicatorTable(projectRows, "project")}
     </div>
   );
 }

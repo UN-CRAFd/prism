@@ -262,9 +262,10 @@ export function AppSidebar() {
   const prodocItems = Array.from(
     new Map(prodocs.map((p) => [reportSlug(p), p])).values()
   );
-  const openProdocSlug = isPartner && pathname.startsWith("/partner/prodoc-editor/")
-    ? pathname.split("/").filter(Boolean)[2] ?? null
-    : null;
+  const prodocParts = pathname.split("/").filter(Boolean);
+  const inProdoc = isPartner && pathname.startsWith("/partner/prodoc-editor/");
+  const openProdocSlug = inProdoc ? prodocParts[2] ?? null : null;
+  const openProdocSection = (inProdoc ? prodocParts[3] : null) ?? "general";
 
   const openReport = isPartner ? parseReportPath(pathname) : null;
   const activeReportId = openReport
@@ -419,7 +420,7 @@ export function AppSidebar() {
                       return (
                         <Link
                           key={slug}
-                          href={`/partner/prodoc-editor/${slug}/general`}
+                          href={`/partner/prodoc-editor/${slug}/${openProdocSection}`}
                           className={cn(
                             "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                             pActive

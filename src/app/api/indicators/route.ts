@@ -63,7 +63,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const isStandard = body.is_standard === undefined ? true : Boolean(body.is_standard);
+  // Default to a CUSTOM indicator. "Standard" is the controlled CRAF'd
+  // vocabulary and has to be asked for explicitly — the admin library page is the
+  // only caller that does. Every other surface (the partner report editor and both
+  // project-document editors) creates partner-defined indicators, and defaulting
+  // the other way meant a single caller forgetting the flag would file them under
+  // "CRAF'd standard indicators" on every project that reused them.
+  const isStandard = Boolean(body.is_standard);
 
   // For custom (partner-defined) indicators, description and means of verification
   // are mandatory alongside the name.

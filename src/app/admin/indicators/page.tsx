@@ -129,6 +129,11 @@ export default function IndicatorsPage() {
         cycle: cycle === NONE ? null : cycle,
         description: description.trim() || null,
         means_of_verification: mov.trim() || null,
+        // This page IS the CRAF'd standard library, so it is the one caller that
+        // asks for a standard indicator. Everywhere else creates customs, and the
+        // API defaults to custom rather than inferring it from a missing flag.
+        // Ignored on PUT (is_standard is not an editable field).
+        is_standard: true,
       };
       const res = await fetch(
         editId ? `/api/indicators/${editId}` : "/api/indicators",

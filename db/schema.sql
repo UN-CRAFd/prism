@@ -456,7 +456,12 @@ CREATE TABLE IF NOT EXISTS indicators (
     means_of_verification TEXT,
     category              TEXT,
     cycle                 TEXT,
-    is_standard           BOOLEAN                 NOT NULL DEFAULT TRUE,
+    -- Defaults to custom: an indicator only joins the CRAF'd standard library
+    -- when a caller says so outright (the seed below, and the admin library
+    -- page). Partner-created indicators come in through the report and
+    -- project-document editors, so a TRUE default filed them under "CRAF'd
+    -- standard indicators" whenever the flag was left off.
+    is_standard           BOOLEAN                 NOT NULL DEFAULT FALSE,
     archived_at           TIMESTAMPTZ,
     created_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW()

@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Check, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -784,13 +784,16 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const readOnly = statusReadOnly || lockBlocking;
 
   // Reasons the Submit button should be disabled (UX guard; server re-validates).
+  const incompleteSections =
+    sectionComplete !== null
+      ? Object.entries(sectionComplete)
+          .filter(([, done]) => done === false)
+          .map(([value]) => SECTIONS.find((s) => s.value === value)?.label ?? value)
+      : [];
+
   const submitBlockers: string[] = [];
-  if (sectionComplete !== null) {
-    const count = Object.entries(sectionComplete)
-      .filter(([, done]) => done === false).length;
-    if (count > 0)
-      submitBlockers.push(`${count} ${count === 1 ? "section" : "sections"} incomplete`);
-  }
+  if (incompleteSections.length > 0)
+    submitBlockers.push(`Complete ${incompleteSections.length === 1 ? "this section" : "these sections"} first: ${incompleteSections.join(", ")}.`);
 
   // Called by every handler that writes data. Resets the inactivity clock and
   // clears the expiry warning if it was showing.
@@ -1165,6 +1168,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     !!selectedProdocId &&
     ["workplan", "expenditure", "indicators", "risk"].includes(selectedSection);
 
+  const nextSection = (() => {
+    const i = sections.findIndex((s) => s.value === selectedSection);
+    return i >= 0 && i < sections.length - 1 ? sections[i + 1] : null;
+  })();
+
   // Frozen column header for the inline risk/indicators tables: pin each header
   // cell to the top of the bounded scroll box. The tables are border-collapse,
   // so the collapsed bottom border vanishes on sticky cells — an inset box-shadow
@@ -1235,25 +1243,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
               inline saves call handleSaveStateChange around their fetches. */}
           {selectedProdocId && ["general", "narratives", "sdg", "indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
             <AutosaveIndicator state={editorSaveState} />
-          )}
-
-          {isPartner && selectedDoc?.status === "Open" && selectedProdocId && (
-            <div className="relative flex items-center shrink-0">
-              <Button
-                size="sm"
-                className="h-9"
-                onClick={handleSubmit}
-                disabled={submitLoading || submitBlockers.length > 0}
-              >
-                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
-                Submit
-              </Button>
-              {(submitBlockers.length > 0 || submitError) && (
-                <p className="absolute top-full right-0 mt-1 text-xs text-amber-700 whitespace-nowrap text-right leading-snug">
-                  {submitError ?? submitBlockers.join(" ")}
-                </p>
-              )}
-            </div>
           )}
 
           {selectedProdocId && (
@@ -1819,6 +1808,28 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </div>
         </fieldset>
         </ReadOnlyProvider>
+        {selectedProdocId && !sectionLoading && (
+          <div className={cn("flex justify-end", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+            {nextSection ? (
+              <Button variant="outline" onClick={() => handleSectionChange(nextSection.value)}>
+                Next: {nextSection.label}
+                <ChevronRight className="size-4" />
+              </Button>
+            ) : isPartner && selectedDoc?.status === "Open" ? (
+              <div className="flex flex-col items-end gap-2">
+                <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
+                  {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                  Submit
+                </Button>
+                {(submitBlockers.length > 0 || submitError) && (
+                  <p className="text-xs text-amber-700 max-w-[420px] text-right leading-snug">
+                    {submitError ?? submitBlockers.join(" ")}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
 

@@ -233,6 +233,7 @@ export function ExpenditurePartnerEditor({
         <td style={fz("app")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={appT} kind="approved" /></td>
         <td style={fz("exp")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
         <td style={fz("diff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={appT - expT} kind="diff" /></td>
+        <td className={cn("border-l border-t", bg)} />
         {visibleYears.map((y) => {
           const ap = withIndirect(sumApproved(y), mult);
           if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} />;
@@ -258,8 +259,18 @@ export function ExpenditurePartnerEditor({
           <tr className="text-xs">
             <th rowSpan={2} style={fillHeight ? { ...fz("cat", 40), top: 0 } : fz("cat", 30)} className={cn("text-left px-3 py-2 text-muted-foreground border-r border-b bg-neutral-100 align-bottom", HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
             <th colSpan={3} style={fillHeight ? { position: "sticky", left: FCOL.app.left, top: 0, zIndex: 40 } : { position: "sticky", left: FCOL.app.left, zIndex: 30 }} className={cn("px-2 py-2 text-center text-muted-foreground border-r border-b bg-neutral-100", HEAD_TEXT, fillHeight && "h-8")}>Total</th>
+            <th
+              rowSpan={2}
+              className={cn(
+                "text-left px-2 py-2 text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[200px]",
+                HEAD_TEXT,
+                fillHeight && "sticky top-0 z-30"
+              )}
+            >
+              Description
+            </th>
             {visibleYears.map((y) => (
-              <th key={y} colSpan={y === currentYear ? 4 : hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>{y}</th>
+              <th key={y} colSpan={hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>{y}</th>
             ))}
           </tr>
           <tr className="text-muted-foreground">
@@ -268,7 +279,7 @@ export function ExpenditurePartnerEditor({
             <th style={fillHeight ? { ...fz("diff", 40), top: 32 } : fz("diff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Difference</th>
             {visibleYears.map((y) =>
               hasReport(y)
-                ? <FragmentYearHead key={y} current={y === currentYear} past={y !== currentYear} fillHeight={fillHeight} />
+                ? <FragmentYearHead key={y} current={y === currentYear} fillHeight={fillHeight} />
                 : <ApprovedOnlyHead key={y} fillHeight={fillHeight} />
             )}
           </tr>
@@ -289,6 +300,14 @@ export function ExpenditurePartnerEditor({
                 <td style={fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={appT} kind="strong" /></td>
                 <td style={fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} kind="strong" /></td>
                 <td style={fz("diff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={appT - expT} kind="diff" /></td>
+                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                  <Textarea
+                    value={edits[c.id]?.comment ?? ""}
+                    onChange={(e) => update(c.id, { comment: e.target.value })}
+                    placeholder="Include all the key outputs yearwise."
+                    className="text-xs min-h-[60px] resize-y w-full"
+                  />
+                </td>
                 {visibleYears.map((y) => {
                     const ap = budFor(y, c.id);
                     // Years without a report show only the approved annual budget.
@@ -304,9 +323,7 @@ export function ExpenditurePartnerEditor({
                         exp={ex}
                         diff={num(ap) - num(ex)}
                         expInput={edits[c.id]?.exp ?? ""}
-                        comment={editable ? (edits[c.id]?.comment ?? "") : (data.expenditure.find((x) => x.category_id === c.id && x.year === y)?.comment ?? "")}
                         onExp={(v) => update(c.id, { exp: numericAmount(v) })}
-                        onComment={(v) => update(c.id, { comment: v })}
                       />
                     );
                   })}
@@ -324,14 +341,13 @@ export function ExpenditurePartnerEditor({
 }
 
 // Header sub-cells for one year (approved / expenditure / difference / comment).
-function FragmentYearHead({ current, past = false, fillHeight = false }: { current: boolean; past?: boolean; fillHeight?: boolean }) {
+function FragmentYearHead({ current, fillHeight = false }: { current: boolean; fillHeight?: boolean }) {
   const sticky = fillHeight && "sticky top-8 z-30";
   return (
     <>
       <th className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Approved annual budget</th>
       <th className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", SUBHEAD_TEXT, current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Annual expenditure</th>
       <th className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", SUBHEAD_TEXT, current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Difference</th>
-      {!past && <th className={cn("px-2 py-1.5 text-left border-b min-w-[160px]", SUBHEAD_TEXT, current ? CURRENT_YEAR_HEAD : "bg-neutral-50", sticky)}>Comment</th>}
     </>
   );
 }
@@ -357,7 +373,7 @@ function ApprovedOnlyCell({ approved }: { approved: number | null }) {
 
 // Body cells for one year on a category row.
 function YearCells({
-  editable, past = false, approved, exp, diff, expInput, comment, onExp, onComment,
+  editable, past = false, approved, exp, diff, expInput, onExp,
 }: {
   editable: boolean;
   past?: boolean;
@@ -365,9 +381,7 @@ function YearCells({
   exp: number | null;
   diff: number;
   expInput: string;
-  comment: string;
   onExp: (v: string) => void;
-  onComment: (v: string) => void;
 }) {
   return (
     <>
@@ -388,15 +402,6 @@ function YearCells({
         )}
       </td>
       <td className={cn("px-2 py-2 text-right border-t", past && "bg-neutral-50 opacity-60")}><Num value={diff} kind="diff" /></td>
-      {!past && (
-        <td className={cn("px-1 py-1 border-t", editable && "bg-crafd-yellow/10")}>
-          {editable ? (
-            <Textarea value={comment} onChange={(e) => onComment(e.target.value)} placeholder="Comment…" className="text-xs min-h-[36px] resize-y" />
-          ) : (
-            <span className="text-xs text-muted-foreground">{comment}</span>
-          )}
-        </td>
-      )}
     </>
   );
 }
@@ -408,7 +413,6 @@ function FooterYearCells({ approved, exp, strong, past = false }: { approved: nu
       <td className={cn("px-2 py-2 text-right border-l border-t", past && "opacity-60")}><Num value={approved} kind="approved" /></td>
       <td className={cn("px-2 py-2 text-right border-t", past && "opacity-60")}><Num value={exp} kind={strong ? "strong" : "plain"} /></td>
       <td className={cn("px-2 py-2 text-right border-t", past && "opacity-60")}><Num value={approved - exp} kind="diff" /></td>
-      {!past && <td className="px-2 py-2 border-t" />}
     </>
   );
 }

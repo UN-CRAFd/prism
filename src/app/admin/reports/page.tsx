@@ -117,9 +117,13 @@ export default function ReportsPage() {
 
   const confirm = useConfirm();
 
-  async function handleDelete(id: number) {
-    if (!await confirm({ message: "Delete this report and all its indicator data?" })) return;
-    const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
+  async function handleDelete(r: ReportRow) {
+    if (!await confirm({
+      title: `Delete the ${r.year} ${r.report_type ?? "annual"} report for ${shortName(r.partner_short_name)}?`,
+      message: "This deletes the report and everything in it. It cannot be undone.",
+      variant: "destructive",
+    })) return;
+    const res = await fetch(`/api/reports/${r.id}`, { method: "DELETE" });
     if (res.ok) loadData();
     else setError("Failed to delete report");
   }
@@ -271,7 +275,7 @@ export default function ReportsPage() {
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => handleDelete(r.id)}
+                        onClick={() => handleDelete(r)}
                         className="rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         title="Delete"
                       >
@@ -304,7 +308,7 @@ export default function ReportsPage() {
                       key={r.id}
                       report={r}
                       groupMode={groupMode}
-                      onDelete={() => handleDelete(r.id)}
+                      onDelete={() => handleDelete(r)}
                     />
                   ))}
                 </div>

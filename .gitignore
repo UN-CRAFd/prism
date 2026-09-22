@@ -44,3 +44,4 @@ scripts/inspect-comments.mjs
 check-log-rows.cjs
 check-version-log.cjs
 check-submitted.cjs
+check-partner-passwords.cjs

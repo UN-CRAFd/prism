@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,15 +15,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Trash2,
-  Loader2,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowRight,
-  Printer,
+  Check,
+  CheckCircle2,
   CircleDot,
   Clock,
-  CheckCircle2,
+  Copy,
+  MoreHorizontal,
   Share2,
-  Check,
 } from "lucide-react";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
@@ -60,6 +73,72 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   Closed:          <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
 };
 
+function ShareDialogUI({
+  link,
+  error,
+  onClose,
+}: {
+  link: string;
+  error: string | null;
+  onClose: () => void;
+}) {
+  const [justCopied, setJustCopied] = useState(false);
+
+  function copyLink() {
+    navigator.clipboard.writeText(link).then(() => {
+      setJustCopied(true);
+      setTimeout(() => setJustCopied(false), 2000);
+    });
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      <div
+        className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 space-y-4">
+          {error ? (
+            <>
+              <p className="text-sm font-semibold text-destructive">Failed to create share link</p>
+              <p className="text-sm text-muted-foreground">{error}</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                <p className="text-sm font-semibold">Link copied</p>
+              </div>
+              <input
+                readOnly
+                value={link}
+                className="w-full rounded border border-border bg-muted px-3 py-1.5 text-xs font-mono text-muted-foreground select-all"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                The link directs the recipient to a password page — the first visit sets the
+                partner&apos;s password; every subsequent visit requires that password to sign
+                in as the partner organization. Links are valid for 90 days.
+              </p>
+            </>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            {!error && (
+              <Button variant="outline" size="sm" onClick={copyLink} className="gap-1.5">
+                {justCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+                {justCopied ? "Copied" : "Copy"}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function ReportCard({
   report,
   onDelete,
@@ -70,10 +149,11 @@ export function ReportCard({
   groupMode?: GroupMode;
 }) {
   const router = useRouter();
-  const [printing, setPrinting] = useState(false);
+  // The /api/reports/[id]/pdf endpoint still exists but its output is not presentable
+  // yet, so the Print control was pulled rather than the feature deleted.
   const [status, setStatus] = useState<ReportRow["status"]>(report.status);
   const [pendingStatus, setPendingStatus] = useState<ReportRow["status"] | null>(null);
-  const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
+  const [shareDialog, setShareDialog] = useState<{ link: string; error: string | null } | null>(null);
 
   async function handleShare() {
     try {
@@ -82,36 +162,16 @@ export function ReportCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId: report.id }),
       });
-      if (!res.ok) throw new Error("Failed to create link");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create link");
+      }
       const { token } = await res.json();
-      await navigator.clipboard.writeText(`${window.location.origin}/m/${token}`);
-      setShareState("copied");
+      const link = `${window.location.origin}/m/${token}`;
+      await navigator.clipboard.writeText(link);
+      setShareDialog({ link, error: null });
     } catch (e) {
-      console.error("Share failed:", e);
-      setShareState("error");
-    } finally {
-      setTimeout(() => setShareState("idle"), 2000);
-    }
-  }
-
-  async function handlePrint() {
-    setPrinting(true);
-    try {
-      const response = await fetch(`/api/reports/${report.id}/pdf`);
-      if (!response.ok) throw new Error("Failed to generate PDF");
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${report.project_short_name || "report"}_${report.year}_report.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error("Print failed:", e);
-    } finally {
-      setPrinting(false);
+      setShareDialog({ link: "", error: e instanceof Error ? e.message : "Failed to create share link" });
     }
   }
 
@@ -143,19 +203,41 @@ export function ReportCard({
       onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/overview`)}
       className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
     >
-      {/* Delete — top right on hover */}
-      <div className="absolute right-2.5 top-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="rounded p-1 text-muted-foreground/30 hover:text-destructive transition-colors"
-          title="Delete"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
+      {/* ⋯ menu — top right, always visible */}
+      <div className="absolute right-2.5 top-2.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onClick={(e) => e.stopPropagation()}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuRadioGroup value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
+                  {optionValues("reportStatus").map((s) => (
+                    <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={handleShare}>
+              <Share2 />
+              Share
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Top line: badges + due date */}
-      <div className="flex items-center gap-2 pr-6">
+      <div className="flex items-center gap-2 pr-8">
         <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
           {groupMode === "organization" ? report.year : shortName(report.partner_short_name)}
         </Badge>
@@ -171,7 +253,7 @@ export function ReportCard({
 
       {/* Project title */}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold leading-snug line-clamp-2">
+        <p className="text-sm font-semibold leading-snug">
           {report.project_title}
         </p>
         {report.last_edited && (
@@ -181,55 +263,15 @@ export function ReportCard({
         )}
       </div>
 
-      {/* Bottom: status | share | print | open. Status sizes to its label (so
-          "Under Review" never clips); the other three share the rest equally. */}
-      <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
-        {/* 1. Status dropdown */}
-        <Select value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
-          <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(status)}`}>
-            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-              {STATUS_ICONS[status]}
-              <SelectValue />
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {optionValues("reportStatus").map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* 2. Share */}
+      {/* Bottom: status badge + open */}
+      <div className="flex items-center gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${reportStatusStyle(status)}`}>
+          {STATUS_ICONS[status]}
+          {status}
+        </span>
         <button
-          onClick={handleShare}
-          className={`h-7 flex items-center justify-center gap-1.5 rounded border text-[11px] font-medium transition-colors ${
-            shareState === "copied"
-              ? "border-emerald-200 text-emerald-600"
-              : shareState === "error"
-              ? "border-destructive/30 text-destructive"
-              : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-          title={shareState === "copied" ? "Link copied!" : shareState === "error" ? "Failed to copy" : "Copy share link"}
-        >
-          {shareState === "copied" ? <Check className="size-3" /> : <Share2 className="size-3" />}
-          {shareState === "copied" ? "Copied" : "Share"}
-        </button>
-
-        {/* 3. Print */}
-        <button
-          onClick={handlePrint}
-          disabled={printing}
-          className="h-7 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-          title="Print to PDF"
-        >
-          {printing ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
-          Print
-        </button>
-
-        {/* 4. Open report */}
-        <button
-          onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/overview`)}
-          className="h-7 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          onClick={(e) => { e.stopPropagation(); router.push(`/admin/report-editor/${slug}/${report.year}/overview`); }}
+          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Open report"
         >
           Open
@@ -237,6 +279,14 @@ export function ReportCard({
         </button>
       </div>
     </Card>
+
+    {shareDialog && (
+      <ShareDialogUI
+        link={shareDialog.link}
+        error={shareDialog.error}
+        onClose={() => setShareDialog(null)}
+      />
+    )}
 
     <StatusChangeDialog
       open={pendingStatus !== null}

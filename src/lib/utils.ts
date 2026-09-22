@@ -5,6 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// The one definition of the URL slug form for project names.
+// Spaces → hyphens, lowercase; other punctuation is left as-is.
+export function projectSlug(shortName: string | null | undefined, title: string): string {
+  return (shortName ?? title).toLowerCase().replace(/\s+/g, "-");
+}
+
 // Partner/project short names are always DISPLAYED in uppercase (e.g. "IDMC",
 // "ACLED"), regardless of how they're stored. Null-safe: returns "" for a
 // missing value so callers can `shortName(x) || fallback`. Use only for display

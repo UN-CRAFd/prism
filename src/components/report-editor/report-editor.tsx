@@ -17,7 +17,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { type ComboboxItem } from "@/components/ui/combobox";
 import { Loader2, FileQuestion, Lock, ChevronRight } from "lucide-react";
-import { cn, shortName } from "@/lib/utils";
+import { cn, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor, WorkplanUpdatesManager } from "@/components/workplan-grid";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
@@ -48,7 +48,7 @@ import { IndicatorsSection } from "@/components/report-editor/sections/indicator
 import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
 
 function toSlug(r: Report): string {
-  return (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
+  return projectSlug(r.project_short_name, r.project_title);
 }
 
 // Quant tables that scroll inside their own bounded box with a frozen column

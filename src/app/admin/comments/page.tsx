@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   MessageSquare, ArrowRight, Pencil, Check, X, RotateCcw, Loader2, Send, CheckCircle2, Archive, Trash2,
 } from "lucide-react";
-import { cn, shortName } from "@/lib/utils";
+import { cn, projectSlug, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -34,7 +34,7 @@ interface AdminComment {
 }
 
 function toSlug(c: AdminComment): string {
-  return (c.project_short_name ?? c.project_title).toLowerCase().replace(/\s+/g, "-");
+  return projectSlug(c.project_short_name, c.project_title);
 }
 
 export default function AdminCommentsPage() {

@@ -24,7 +24,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { formatDate, timeAgo, shortName } from "@/lib/utils";
+import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import { PageHeader, ViewToggle, FilterBar, FilterSelect, ALL } from "@/components/admin/shared";
 import {
@@ -125,7 +125,7 @@ export default function ReportsPage() {
   }
 
   function navigateToReport(r: ReportRow) {
-    const slug = (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
+    const slug = projectSlug(r.project_short_name, r.project_title);
     router.push(`/admin/report-editor/${slug}/${r.year}/overview`);
   }
 

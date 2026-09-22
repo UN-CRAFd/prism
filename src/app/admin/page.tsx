@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportStatusStyle } from "@/lib/reports";
-import { timeAgo, shortName } from "@/lib/utils";
+import { projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { CommentContextBadges } from "@/components/comment-context-badges";
 import type { Report } from "@/lib/types";
 
@@ -291,7 +291,7 @@ export default function AdminHomePage() {
             ) : (
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
                 {recentActivity.map((r) => {
-                  const slug = (r.project_short_name ?? r.project_title).toLowerCase().replace(/\s+/g, "-");
+                  const slug = projectSlug(r.project_short_name, r.project_title);
                   return (
                     <button
                       key={r.id}
@@ -328,7 +328,7 @@ export default function AdminHomePage() {
               </div>
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
                 {underReviewProdocs.map((p) => {
-                  const slug = (p.project_short_name ?? p.project_title).toLowerCase().replace(/\s+/g, "-");
+                  const slug = projectSlug(p.project_short_name, p.project_title);
                   return (
                     <button
                       key={p.id}
@@ -379,7 +379,7 @@ export default function AdminHomePage() {
             ) : (
               <div className="rounded-xl border bg-card divide-y overflow-hidden">
                 {reviewComments.map((c) => {
-                  const slug = (c.project_short_name ?? c.project_title).toLowerCase().replace(/\s+/g, "-");
+                  const slug = projectSlug(c.project_short_name, c.project_title);
                   return (
                     <button
                       key={c.id}

@@ -16,7 +16,7 @@ import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
-import { shortName as displayShortName } from "@/lib/utils";
+import { projectSlug, shortName as displayShortName } from "@/lib/utils";
 
 // -- Types ------------------------------------------------------------------
 
@@ -169,7 +169,7 @@ export default function PartnersPage() {
   }
 
   function openProjectDoc(projectTitle: string, projectShortName: string | null) {
-    const slug = (projectShortName ?? projectTitle).toLowerCase().replace(/\s+/g, "-");
+    const slug = projectSlug(projectShortName, projectTitle);
     router.push(`/admin/prodoc-editor/${slug}/general`);
   }
 

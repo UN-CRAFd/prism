@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Check, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
-import { cn, shortName } from "@/lib/utils";
+import { cn, projectSlug, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
@@ -145,7 +145,7 @@ const LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 const LOCK_WARNING_MS = 14 * 60 * 1000; // warn 1 minute before timeout
 
 function toSlug(d: Prodoc) {
-  return (d.project_short_name ?? d.project_title).toLowerCase().replace(/\s+/g, "-");
+  return projectSlug(d.project_short_name, d.project_title);
 }
 
 export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner" }) {

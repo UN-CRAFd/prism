@@ -34,7 +34,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
 import { numberWikiSections } from "@/lib/wiki";
-import { cn, shortName } from "@/lib/utils";
+import { cn, projectSlug, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -252,7 +252,7 @@ export function AppSidebar() {
       .catch(() => {});
   }, [mounted, isPartner, user]);
 
-  const reportSlug = (r: SidebarReport) => (r.project_short_name ?? r.project_title).toLowerCase();
+  const reportSlug = (r: SidebarReport) => projectSlug(r.project_short_name, r.project_title);
 
   // Per-section completion for the report currently open (drives the checkmarks).
   // Refetched when the section path changes so a check appears once a section is
@@ -276,7 +276,7 @@ export function AppSidebar() {
     ? prodocItems.find((p) => p.project_title === activeReportRow.project_title) ?? null
     : null;
   const prodocNavHref = matchingProdoc
-    ? `/partner/prodoc-editor/${(matchingProdoc.project_short_name ?? matchingProdoc.project_title).toLowerCase().replace(/\s+/g, "-")}/general`
+    ? `/partner/prodoc-editor/${projectSlug(matchingProdoc.project_short_name, matchingProdoc.project_title)}/general`
     : null;
 
   useEffect(() => {
@@ -422,7 +422,7 @@ export function AppSidebar() {
                 {showProdocs && (
                   <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
                     {prodocItems.map((p) => {
-                      const slug = (p.project_short_name ?? p.project_title).toLowerCase().replace(/\s+/g, "-");
+                      const slug = projectSlug(p.project_short_name, p.project_title);
                       const pActive = openProdocSlug === slug;
                       return (
                         <Link

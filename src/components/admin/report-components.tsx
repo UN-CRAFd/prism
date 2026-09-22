@@ -23,7 +23,7 @@ import {
   Share2,
   Check,
 } from "lucide-react";
-import { formatDate, timeAgo, shortName } from "@/lib/utils";
+import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
@@ -135,7 +135,7 @@ export function ReportCard({
     });
   }
 
-  const slug = (report.project_short_name ?? report.project_title).toLowerCase().replace(/\s+/g, "-");
+  const slug = projectSlug(report.project_short_name, report.project_title);
 
   return (
     <>

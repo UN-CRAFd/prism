@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn, formatDate, shortName } from "@/lib/utils";
+import { cn, formatDate, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import {
   AlertCircle,
@@ -286,9 +286,7 @@ export default function PartnerHomePage() {
                   {myProjects.map(({ report, lead }) => {
                     // Match the prodoc-editor's slug (whitespace → hyphens) so the
                     // link pre-selects this project.
-                    const slug = (report.project_short_name ?? report.project_title)
-                      .toLowerCase()
-                      .replace(/\s+/g, "-");
+                    const slug = projectSlug(report.project_short_name, report.project_title);
                     return (
                       <button
                         key={report.project_id}

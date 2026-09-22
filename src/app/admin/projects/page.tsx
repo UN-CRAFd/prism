@@ -26,7 +26,7 @@ import {
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, projectSlug, timeAgo } from "@/lib/utils";
 import { clampDuration } from "@/lib/numeric-input";
 
 // Prodoc uses the same status set as reports (it IS a reports row). Values are
@@ -440,7 +440,7 @@ export default function ProjectsPage() {
 
   // ── Project document (prodoc) actions ─────────────────────────────────────
   function openProdoc(p: Project) {
-    const slug = (p.short_name ?? p.project_title).toLowerCase().replace(/\s+/g, "-");
+    const slug = projectSlug(p.short_name, p.project_title);
     router.push(`/admin/prodoc-editor/${slug}/general`);
   }
 

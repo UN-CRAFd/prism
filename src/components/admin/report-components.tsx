@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowRight,
+  CalendarDays,
   CheckCircle2,
   CircleDot,
   Clock,
@@ -41,6 +44,80 @@ import { Field, FormShell } from "@/components/admin/shared";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 
 const YEARS = [2023, 2024, 2025, 2026];
+
+function ChangeDateDialogUI({
+  currentDate,
+  onCancel,
+  onSave,
+}: {
+  currentDate: string | null;
+  onCancel: () => void;
+  onSave: (date: string) => Promise<string | null>;
+}) {
+  const [value, setValue] = useState(currentDate ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    const err = await onSave(value);
+    setSaving(false);
+    if (err) setError(err);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      <div
+        className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <CalendarDays className="size-4" />
+            </span>
+            <p className="mt-1.5 text-sm font-semibold text-foreground">Change submission date</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-foreground">Submission date</label>
+            <Input
+              type="date"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onCancel(); }}
+            />
+            <p className="text-xs text-muted-foreground">Leave empty to clear the date.</p>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 px-6 pb-5">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChangeDateDialog({
+  open,
+  currentDate,
+  onCancel,
+  onSave,
+}: {
+  open: boolean;
+  currentDate: string | null;
+  onCancel: () => void;
+  onSave: (date: string) => Promise<string | null>;
+}) {
+  if (!open || typeof window === "undefined") return null;
+  return createPortal(
+    <ChangeDateDialogUI currentDate={currentDate} onCancel={onCancel} onSave={onSave} />,
+    document.body
+  );
+}
 
 export interface Project {
   id: number;
@@ -86,6 +163,8 @@ export function ReportCard({
   const [status, setStatus] = useState<ReportRow["status"]>(report.status);
   const [pendingStatus, setPendingStatus] = useState<ReportRow["status"] | null>(null);
   const [shareDialog, setShareDialog] = useState<{ link: string; error: string | null } | null>(null);
+  const [submissionDate, setSubmissionDate] = useState<string | null>(report.report_submission_date ?? null);
+  const [dateDialogOpen, setDateDialogOpen] = useState(false);
 
   async function handleShare() {
     try {
@@ -105,6 +184,21 @@ export function ReportCard({
     } catch (e) {
       setShareDialog({ link: "", error: e instanceof Error ? e.message : "Failed to create share link" });
     }
+  }
+
+  async function handleSaveDate(date: string): Promise<string | null> {
+    const res = await fetch(`/api/reports/${report.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_submission_date: date || null }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.error || "Failed to update submission date";
+    }
+    setSubmissionDate(date || null);
+    setDateDialogOpen(false);
+    return null;
   }
 
   function handleStatusChange(newStatus: ReportRow["status"]) {
@@ -156,6 +250,10 @@ export function ReportCard({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setDateDialogOpen(true)}>
+              <CalendarDays />
+              Change submission date
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={handleShare}>
               <Share2 />
               Share
@@ -176,9 +274,9 @@ export function ReportCard({
         <Badge variant="secondary" className="text-[11px] font-semibold capitalize">
           {report.report_type ?? "annual"}
         </Badge>
-        {report.report_submission_date && (
+        {submissionDate && (
           <span className="text-[11px] text-muted-foreground ml-auto">
-            due {formatDate(report.report_submission_date)}
+            due {formatDate(submissionDate)}
           </span>
         )}
       </div>
@@ -219,6 +317,13 @@ export function ReportCard({
         onClose={() => setShareDialog(null)}
       />
     )}
+
+    <ChangeDateDialog
+      open={dateDialogOpen}
+      currentDate={submissionDate}
+      onCancel={() => setDateDialogOpen(false)}
+      onSave={handleSaveDate}
+    />
 
     <StatusChangeDialog
       open={pendingStatus !== null}

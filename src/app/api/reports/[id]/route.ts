@@ -61,6 +61,11 @@ export async function PUT(
       return forbidden();
     }
 
+    // Partners cannot move their own deadline.
+    if (body.report_submission_date !== undefined && session.role !== "admin") {
+      return forbidden();
+    }
+
     await loadOptionOverrides(); // editable report statuses reflect admin overrides
     const validStatuses = new Set(optionValues("reportStatus"));
 

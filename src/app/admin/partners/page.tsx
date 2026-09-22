@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Building2, ExternalLink, Check, X, Eye, EyeOff } from "lucide-react";
+import { Plus, Building2, ExternalLink, Check, X } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
@@ -122,8 +122,6 @@ export default function PartnersPage() {
   const [longName, setLongName] = useState("");
   const [website, setWebsite] = useState("");
   const [mail, setMail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -164,7 +162,7 @@ export default function PartnersPage() {
   );
 
   function resetForm() {
-    setShortName(""); setLongName(""); setWebsite(""); setMail(""); setPassword(""); setShowPassword(false);
+    setShortName(""); setLongName(""); setWebsite(""); setMail("");
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -178,7 +176,6 @@ export default function PartnersPage() {
     setLongName(p.long_name || "");
     setWebsite(p.organization_website || "");
     setMail(p.mail_account || "");
-    setPassword(""); setShowPassword(false);
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
@@ -186,17 +183,14 @@ export default function PartnersPage() {
     if (!shortName.trim() || !longName.trim()) { setFormError("Short name and long name are required"); return; }
     if (mail.trim() && !isValidEmail(mail)) { setFormError("Please enter a valid email address"); return; }
     if (website.trim() && !isValidWebsite(website)) { setFormError("Please enter a valid website URL"); return; }
-    if (!editId && !password.trim()) { setFormError("Password is required for new partners"); return; }
     setSaving(true); setFormError(null);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body: Record<string, any> = {
+      const body = {
         short_name: shortName.trim(),
         long_name: longName.trim(),
         organization_website: website.trim() || null,
         mail_account: mail.trim() || null,
       };
-      if (password) body.password = password;
       const res = await fetch(
         editId ? `/api/partners/${editId}` : "/api/partners",
         { method: editId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
@@ -214,6 +208,32 @@ export default function PartnersPage() {
     const res = await fetch(`/api/partners/${id}`, { method: "DELETE" });
     if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
     load();
+  }
+
+  async function handleResetPassword(id: number) {
+    if (!await confirm({
+      title: "Reset this partner's password?",
+      message: "The partner will set a new password the next time they open a share link. Anyone already signed in stays signed in until their session ends.",
+      variant: "destructive",
+      confirmLabel: "Reset",
+    })) return;
+    const res = await fetch(`/api/partners/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reset_password: true }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      setFormError(err.error || "Failed to reset password");
+      return;
+    }
+    resetForm();
+    load();
+    await confirm({
+      title: "Password reset",
+      message: "Let the partner know their password has been reset, and send them a share link so they can set a new one. Anyone already signed in stays signed in until their session ends.",
+      acknowledgement: true,
+    });
   }
 
   return (
@@ -274,26 +294,19 @@ export default function PartnersPage() {
                   <Input value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@example.org" type="email" autoComplete="off" className="pr-9" />
                 </ValidatedField>
               </Field>
-              <Field label={editId ? "Password (blank = keep current)" : "Password"} required={!editId}>
-                <div className="relative">
-                  <Input
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    type={showPassword ? "text" : "password"}
-                    placeholder={editId ? "Unchanged" : ""}
-                    autoComplete="new-password"
-                    className="pr-9"
-                  />
-                  <button
+              {editId && (
+                <Field label="Password">
+                  <Button
                     type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleResetPassword(editId)}
                   >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-              </Field>
+                    Reset password
+                  </Button>
+                </Field>
+              )}
             </div>
           </FormShell>
         )}

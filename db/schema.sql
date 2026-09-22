@@ -71,7 +71,9 @@ CREATE TABLE IF NOT EXISTS partners (
     short_name           VARCHAR(50)  NOT NULL,
     long_name            VARCHAR(500),
     organization_website TEXT,
-    password_hash        TEXT         NOT NULL,          -- scrypt:<salt>:<hash>
+    -- NULL until the partner sets a password on first use of a share link;
+    -- password_set_at tracks whether setup has happened.
+    password_hash        TEXT,                            -- scrypt:<salt>:<hash>
     mail_account         TEXT         UNIQUE,             -- optional; login also works by short_name (NULLs allowed, not unique-constrained)
     password_set_at      TIMESTAMPTZ,                     -- when the partner set their own password via a share link (NULL = not yet)
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { hashPassword } from "@/lib/password";
 import { requireSession, requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
@@ -38,23 +37,22 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { short_name, long_name, organization_website, password, mail_account } = body;
+    const { short_name, long_name, organization_website, mail_account } = body;
 
-    // Email is optional — partners log in by short name (or email if set) and set
-    // their own password via a share link. Long name is the required identifier.
-    if (!short_name || !long_name || !password) {
+    // Partners set their own password the first time they open a share link.
+    if (!short_name || !long_name) {
       return NextResponse.json(
-        { error: "short_name, long_name, and password are required" },
+        { error: "short_name and long_name are required" },
         { status: 400 }
       );
     }
 
     const rows = await query(
       `INSERT INTO reporting_platform.partners
-         (short_name, long_name, organization_website, password_hash, mail_account)
-       VALUES ($1, $2, $3, $4, $5)
+         (short_name, long_name, organization_website, mail_account)
+       VALUES ($1, $2, $3, $4)
        RETURNING id, short_name, long_name, organization_website, mail_account, created_at, updated_at`,
-      [short_name, long_name, organization_website || null, hashPassword(password), mail_account || null]
+      [short_name, long_name, organization_website || null, mail_account || null]
     );
 
     return NextResponse.json(rows[0], { status: 201 });

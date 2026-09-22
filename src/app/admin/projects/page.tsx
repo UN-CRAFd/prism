@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
+import { ShareLinkDialog } from "@/components/ui/share-link-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ import {
   DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, X } from "lucide-react";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal, Share2 } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
   FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
@@ -440,6 +441,29 @@ export default function ProjectsPage() {
     load();
   }
 
+  // ── Share link ────────────────────────────────────────────────────────────
+  const [shareDialog, setShareDialog] = useState<{ link: string; error: string | null } | null>(null);
+
+  async function handleShareProdoc(prodocId: number) {
+    try {
+      const res = await fetch("/api/auth/magic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: prodocId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create link");
+      }
+      const { token } = await res.json();
+      const link = `${window.location.origin}/m/${token}`;
+      await navigator.clipboard.writeText(link);
+      setShareDialog({ link, error: null });
+    } catch (e) {
+      setShareDialog({ link: "", error: e instanceof Error ? e.message : "Failed to create share link" });
+    }
+  }
+
   // ── Project document (prodoc) actions ─────────────────────────────────────
   function openProdoc(p: Project) {
     const slug = projectSlug(p.short_name, p.project_title);
@@ -588,6 +612,10 @@ export default function ProjectsPage() {
             <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
               {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
               Print project document
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!pd} onSelect={() => pd && handleShareProdoc(pd.id)}>
+              <Share2 />
+              Share project document
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => startEdit(p)}>
@@ -1098,6 +1126,13 @@ export default function ProjectsPage() {
       onCancel={() => setPendingStatusChange(null)}
       onConfirm={applyProdocStatusChange}
     />
+    {shareDialog && (
+      <ShareLinkDialog
+        link={shareDialog.link}
+        error={shareDialog.error}
+        onClose={() => setShareDialog(null)}
+      />
+    )}
     </div>
   );
 }

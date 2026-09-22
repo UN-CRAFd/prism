@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { hashPassword } from "@/lib/password";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
@@ -9,7 +8,6 @@ const ALLOWED_FIELDS: Record<string, string> = {
   long_name: "long_name",
   organization_website: "organization_website",
   mail_account: "mail_account",
-  password: "password_hash",
 };
 
 export async function PUT(
@@ -23,6 +21,20 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    // Password reset clears both hash and set-at so the next share link treats
+    // the partner as a first-time visitor and lets them choose a new password.
+    if (body.reset_password === true) {
+      const rows = await query(
+        `UPDATE reporting_platform.partners
+            SET password_hash = NULL, password_set_at = NULL
+          WHERE id = $1
+          RETURNING id`,
+        [id]
+      );
+      if (rows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 });
+      return NextResponse.json({ ok: true });
+    }
+
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
@@ -30,9 +42,8 @@ export async function PUT(
     for (const [bodyKey, dbCol] of Object.entries(ALLOWED_FIELDS)) {
       const val = body[bodyKey];
       if (val === undefined) continue;
-      if (bodyKey === "password" && val === "") continue;
       setClauses.push(`${dbCol} = $${idx++}`);
-      values.push(bodyKey === "password" ? hashPassword(val) : val);
+      values.push(val);
     }
 
     if (setClauses.length === 0) {

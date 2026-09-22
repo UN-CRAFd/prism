@@ -4,11 +4,14 @@ import { jsPDF } from "jspdf";
 import type { Report } from "@/lib/types";
 import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { loadOptionOverrides } from "@/lib/option-settings";
+import { optionItems, optionLabel } from "@/lib/options";
 
 interface SurveyRow {
   question: string;
   assessment: number | null;
   context: string | null;
+  category: string | null;
 }
 
 interface RiskRow {
@@ -56,7 +59,7 @@ interface CoverageRow {
 async function fetchReportData(reportId: string) {
   const [reportRes, surveysRes, risksRes, achievementsRes, partnershipsRes, resultsRes, lessonsRes, coverageRes] = await Promise.all([
     query("SELECT r.*, p.project_title, p.short_name AS project_short_name, pt.short_name AS partner_short_name, pt.long_name AS partner_long_name FROM reporting_platform.reports r JOIN reporting_platform.projects p ON p.id = r.project_id JOIN reporting_platform.partners pt ON pt.id = p.partner_id WHERE r.id = $1", [reportId]),
-    query("SELECT question, assessment, context FROM reporting_platform.surveys WHERE report_id = $1 ORDER BY id", [reportId]),
+    query("SELECT question, assessment, context, category FROM reporting_platform.surveys WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT risk_name, likelihood, impact, updated_likelihood, updated_impact, approved_mitigation, updated_mitigation FROM reporting_platform.risk_management WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT achievement, significance, links FROM reporting_platform.key_achievements WHERE report_id = $1 ORDER BY id", [reportId]),
     query("SELECT partner_organization, result, links FROM reporting_platform.partnerships WHERE report_id = $1 ORDER BY id", [reportId]),
@@ -200,13 +203,46 @@ export async function GET(
       yPos += 5;
     };
 
-    // Surveys
+    // Heading-only helper — mirrors addTable's title block so a heading never
+    // strands itself at the foot of a page without any table following it.
+    const addHeading = (title: string) => {
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = margin;
+      }
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, margin, yPos);
+      yPos += 7;
+    };
+
+    // Surveys — grouped by surveyCategory when any row carries a category.
+    // API routes bypass the root layout, so overrides must be loaded explicitly.
     if (data.surveys.length > 0) {
-      addTable(
-        "Survey",
-        ["Question", "Rating", "Context"],
-        data.surveys.map((s) => [s.question, s.assessment ?? "—", (s.context ?? "").substring(0, 50)])
-      );
+      await loadOptionOverrides();
+      const surveyHeaders = ["Question", "Rating", "Context"] as const;
+      const surveyRow = (s: SurveyRow): (string | number)[] => [
+        s.question, s.assessment ?? "—", (s.context ?? "").substring(0, 50),
+      ];
+      const allUncategorised = data.surveys.every((s) => s.category == null);
+
+      if (allUncategorised) {
+        // All rows are uncategorised — output looks exactly as it did before.
+        addTable("Survey", [...surveyHeaders], data.surveys.map(surveyRow));
+      } else {
+        addHeading("Survey");
+        // Emit one table per category in the canonical option order.
+        for (const cat of optionItems("surveyCategory")) {
+          const catRows = data.surveys.filter((s) => s.category === cat.value);
+          if (catRows.length === 0) continue;
+          addTable(optionLabel("surveyCategory", cat.value), [...surveyHeaders], catRows.map(surveyRow));
+        }
+        // Uncategorised rows go last, with no category heading of their own.
+        const uncategorised = data.surveys.filter((s) => s.category == null);
+        if (uncategorised.length > 0) {
+          addTable("", [...surveyHeaders], uncategorised.map(surveyRow));
+        }
+      }
     }
 
     // Achievements

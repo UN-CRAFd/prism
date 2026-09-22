@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
          s.question,
          s.assessment,
          s.context,
+         s.category,
          r.year,
          r.report_type,
          p.project_title,

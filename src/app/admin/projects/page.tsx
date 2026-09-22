@@ -16,12 +16,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
+  DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, X } from "lucide-react";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal } from "lucide-react";
 import {
-  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
+  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
   FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
@@ -525,9 +527,8 @@ export default function ProjectsPage() {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name?.toUpperCase() || "—"}</p>
-          {/* Title is clamped to 2 lines; keep the MPTFO link OUTSIDE the clamp so
-              a long title can't clip it away. */}
-          <p className="text-lg font-semibold leading-snug line-clamp-2">{p.project_title}</p>
+          {/* Keep the MPTFO link OUTSIDE the title element so a long title can't clip it away. */}
+          <p className="text-lg font-semibold leading-snug">{p.project_title}</p>
           {p.mptfo_project_number && (
             <a
               href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
@@ -542,46 +543,69 @@ export default function ProjectsPage() {
             </a>
           )}
         </div>
-        <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onClick={(e) => e.stopPropagation()}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Project status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuRadioGroup value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+                  {optionValues("projectStatus").map((s) => (
+                    <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {pd && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Document status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuRadioGroup value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
+                    {optionValues("reportStatus").map((s) => (
+                      <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            <DropdownMenuSeparator />
+            {p.project_start_date && p.project_duration_months != null && (
+              <DropdownMenuItem onSelect={() => openNce(p)}>
+                <CalendarPlus />
+                No-cost extension
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => openRevision(p)}>
+              <FilePenLine />
+              Project revision
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
+              {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
+              Print project document
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => startEdit(p)}>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onSelect={() => handleDelete(p.id)}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Project status — straight below the title, with the no-cost extension beside it */}
-      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-          <SelectTrigger className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
-            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-              {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
-              <SelectValue />
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {optionValues("projectStatus").map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* No-cost extension — only when the project has a defined period to extend */}
-        {p.project_start_date && p.project_duration_months != null && (
-          <button
-            onClick={(e) => { e.stopPropagation(); openNce(p); }}
-            className="h-7 flex shrink-0 items-center gap-1 rounded border border-border bg-muted px-2 text-[11px] font-medium text-foreground hover:bg-muted/70 transition-colors"
-            title="Grant a no-cost extension — extends the project timeline without changing the budget"
-          >
-            <CalendarPlus className="size-3" />
-            No-cost extension
-          </button>
-        )}
-
-        {/* Project revision — log a revision event (date + comment); no derived changes */}
-        <button
-          onClick={(e) => { e.stopPropagation(); openRevision(p); }}
-          className="h-7 flex shrink-0 items-center gap-1 rounded border border-border bg-muted px-2 text-[11px] font-medium text-foreground hover:bg-muted/70 transition-colors"
-          title="Log a project revision — records the date and a comment"
-        >
-          <FilePenLine className="size-3" />
-          Project revision
-        </button>
+      {/* Project status badge — read-only; change via the ⋯ menu */}
+      <div>
+        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+          {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
+          {p.status}
+        </span>
       </div>
 
       <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
@@ -608,7 +632,7 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* ── Project Document ── status + open + print */}
+      {/* ── Project Document ── status badge + open */}
       <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1.5 flex items-baseline justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
@@ -618,19 +642,15 @@ export default function ProjectsPage() {
             </span>
           )}
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex items-center gap-1.5">
           {pd && (
-            <Select value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
-              <SelectTrigger title="Project document status" className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}>
-                <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                  {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
-                  <SelectValue />
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <span
+              title="Project document status"
+              className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${reportStatusStyle(pd.status)}`}
+            >
+              {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
+              {pd.status}
+            </span>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
@@ -639,15 +659,6 @@ export default function ProjectsPage() {
           >
             Open
             <ArrowRight className="size-3" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
-            disabled={printingId === p.id || !pd}
-            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-            title="Print the project document to PDF"
-          >
-            {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
-            Print
           </button>
         </div>
       </div>

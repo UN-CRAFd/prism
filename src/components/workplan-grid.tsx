@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { useReadOnly } from "@/components/ui/read-only-context";
 import {
   workplanStatuses,
   workplanStatusColor,
@@ -561,6 +562,7 @@ interface ProgressState {
 
 export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveStateChange, fillHeight, pushCommand }: { projectId: number; defaultAgent?: string | null; reportId?: number; onSaveStateChange?: (s: SaveState) => void; fillHeight?: boolean; pushCommand: (cmd: { undo: () => void; redo: () => void }) => void }) {
   const partnerMode = reportId != null;
+  const readOnly = useReadOnly();
   const confirm = useConfirm();
 
   const [rows, setRows] = useState<AdminRow[]>([]);
@@ -1158,10 +1160,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     <button
       type="button"
       onClick={addOutcome}
-      className="group flex w-full items-center gap-2 bg-neutral-800/85 px-3 py-2.5 text-left text-white transition-colors hover:bg-neutral-800"
+      disabled={readOnly}
+      className={cn(
+        "group flex w-full items-center gap-2 bg-neutral-800/85 px-3 py-2.5 text-left text-white transition-colors",
+        "disabled:opacity-30 disabled:cursor-not-allowed",
+        !readOnly && "hover:bg-neutral-800",
+      )}
     >
-      <Plus className="size-4 shrink-0 text-white/70 transition-colors group-hover:text-white" />
-      <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider transition-colors group-hover:bg-white/25">
+      <Plus className={cn("size-4 shrink-0 text-white/70 transition-colors", !readOnly && "group-hover:text-white")} />
+      <span className={cn("rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider transition-colors", !readOnly && "group-hover:bg-white/25")}>
         Add outcome {clusters.length + 1}
       </span>
     </button>

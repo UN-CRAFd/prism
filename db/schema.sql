@@ -456,7 +456,12 @@ CREATE TABLE IF NOT EXISTS indicators (
     means_of_verification TEXT,
     category              TEXT,
     cycle                 TEXT,
-    is_standard           BOOLEAN                 NOT NULL DEFAULT TRUE,
+    -- Defaults to custom: an indicator only joins the CRAF'd standard library
+    -- when a caller says so outright (the seed below, and the admin library
+    -- page). Partner-created indicators come in through the report and
+    -- project-document editors, so a TRUE default filed them under "CRAF'd
+    -- standard indicators" whenever the flag was left off.
+    is_standard           BOOLEAN                 NOT NULL DEFAULT FALSE,
     archived_at           TIMESTAMPTZ,
     created_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMPTZ             NOT NULL DEFAULT NOW()
@@ -1159,7 +1164,7 @@ $WIKI$),
 <p>The <strong>Report Editor</strong> is where you submit your project's progress, usually on an annual basis. Access it via <strong>Report Editor</strong> in the sidebar — all reports available to you appear there, organized by project and year. CRAF'd may also send you a direct secure link when a new report is opened. Each report has <strong>14 sections</strong> split into Qualitative and Quantitative groups.</p>
 <table><thead><tr><th>Section</th><th>Group</th><th>What to fill in</th></tr></thead><tbody>
 <tr><td>Overview</td><td>Qualitative</td><td>High-level narrative summary of the project's progress and context during the reporting period.</td></tr>
-<tr><td>Surveys</td><td>Qualitative</td><td>Data and findings from surveys or assessments conducted as part of the project.</td></tr>
+<tr><td>Survey</td><td>Qualitative</td><td>Data and findings from the survey conducted as part of the project.</td></tr>
 <tr><td>Key Achievements</td><td>Qualitative</td><td>Narrative description of the project's most significant outputs and outcomes.</td></tr>
 <tr><td>Partnerships</td><td>Qualitative</td><td>Description of partnerships formed and their contribution to the project's results.</td></tr>
 <tr><td>Results</td><td>Qualitative</td><td>Progress against the project's stated results and objectives for the period.</td></tr>
@@ -1177,7 +1182,7 @@ $WIKI$),
 <ol>
 <li><strong>Open your report.</strong> Click <strong>Report Editor</strong> in the sidebar. Every report available to you is listed there, grouped by project and year — click the one you want to open. If CRAF'd sent you a direct link for a newly opened report, that will take you there too.</li>
 <li><strong>Navigate sections from the sidebar.</strong> Once inside a report, the sidebar shows each of its 14 sections. Sections with a <strong>green checkmark</strong> are considered complete by PRISM. The Report Editor landing page shows an overall completion progress bar.</li>
-<li><strong>Complete the Qualitative sections.</strong> Work through Overview, Surveys, Key Achievements, Partnerships, Results, Lessons Learned, External Coverage, and Testimonials. Each is a rich text area — write narrative content describing your project's progress for the period. PRISM auto-saves as you type or leave a field.</li>
+<li><strong>Complete the Qualitative sections.</strong> Work through Overview, Survey, Key Achievements, Partnerships, Results, Lessons Learned, External Coverage, and Testimonials. Each is a rich text area — write narrative content describing your project's progress for the period. PRISM auto-saves as you type or leave a field.</li>
 <li><strong>Complete the Quantitative sections.</strong> Fill in Risk Management (updated register), Indicators (actual values vs. targets), Workplan (quarter-grid ticks), Expenditure (actual vs. budget), Transfers, and Complementary Funding. These sections contain structured tables — enter figures in each row.</li>
 <li><strong>Check all sections show a green checkmark.</strong> Review the sidebar to confirm every section has a green checkmark. If any are missing, open that section and complete or save the remaining required fields before returning.</li>
 <li><strong>Authorize and submit.</strong> Click <strong>Authorize</strong> on the Report Editor landing page. Read and accept the authorization statement — this formally submits your report and grants CRAF'd permission to use submitted materials for outreach purposes. The report locks and enters CRAF'd's review queue.</li>

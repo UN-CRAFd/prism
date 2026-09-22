@@ -22,7 +22,7 @@
   "sections": {
     "general": "General Information",
     "overview": "Overview",
-    "surveys": "Surveys",
+    "surveys": "Survey",
     "risk": "Risk Management",
     "keyAchievements": "Key Achievements",
     "partnerships": "Partnerships",
@@ -319,6 +319,7 @@
     "photo": {
       "linkTab": "Link",
       "uploadTab": "Upload",
+      "download": "Download",
       "remove": "Remove",
       "hint": "PNG, JPG or WEBP · max {mb} MB",
       "errorType": "That image type is not allowed (PNG, JPG or WEBP).",
@@ -482,7 +483,7 @@
   },
   "partnerEditor": {
     "title": "Report Editor",
-    "assessmentLabel": "Assessment",
+    "assessmentLabel": "Rating",
     "contextLabel": "Context",
     "selectReport": "Select a report",
     "saveChanges": "Save changes",

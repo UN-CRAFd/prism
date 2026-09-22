@@ -150,8 +150,8 @@ const EXPORTS: Record<string, SectionExport> = {
   },
 
   surveys: {
-    headers: ["year", "project_name", "partner", "question", "assessment", "context"],
-    sql: reportScoped("surveys", "s", "report_id", "s.question, s.assessment, s.context", "s.id"),
+    headers: ["year", "project_name", "partner", "category", "question", "assessment", "context"],
+    sql: reportScoped("surveys", "s", "report_id", "s.category, s.question, s.assessment, s.context", "s.id"),
   },
 
   achievements: {

@@ -14,7 +14,7 @@ import { optionValues } from "@/lib/options";
 
 // Report types are admin-editable (Settings → Dropdown options). Callers must
 // `await loadOptionOverrides()` first so this reflects the stored overrides.
-function isReportType(v: unknown): v is string {
+export function isReportType(v: unknown): v is string {
   return typeof v === "string" && optionValues("reportType").includes(v);
 }
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, report_type, question, sort_order
+      `SELECT id, report_type, question, sort_order, category
          FROM reporting_platform.standard_survey_questions
          ${where}
         ORDER BY report_type, sort_order, id`,
@@ -68,10 +68,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const rows = await query(
-      `INSERT INTO reporting_platform.standard_survey_questions (report_type, question)
-       VALUES ($1, $2)
+      `INSERT INTO reporting_platform.standard_survey_questions (report_type, question, sort_order)
+       SELECT $1, $2, COALESCE(MAX(sort_order), 0) + 1
+         FROM reporting_platform.standard_survey_questions
+        WHERE report_type = $1
        ON CONFLICT (report_type, question) DO NOTHING
-       RETURNING id, report_type, question, sort_order`,
+       RETURNING id, report_type, question, sort_order, category`,
       [body.report_type, question]
     );
     if (rows.length === 0) {
@@ -81,6 +83,50 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logger.error("POST /api/standard-surveys error:", err);
     return NextResponse.json({ error: "Failed to add standard survey question" }, { status: 500 });
+  }
+}
+
+// PATCH /api/standard-surveys — { id, question } (reword the question)
+//
+// Editing only changes the library entry. Reports that already snapshotted the
+// question keep their own copy, so past answers stay attached to the wording
+// they were given — same contract as DELETE below.
+export async function PATCH(req: NextRequest) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const id = Number(body.id);
+  const question = typeof body.question === "string" ? body.question.trim() : "";
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+  if (!question) {
+    return NextResponse.json({ error: "question is required" }, { status: 400 });
+  }
+
+  try {
+    const rows = await query(
+      `UPDATE reporting_platform.standard_survey_questions
+          SET question = $2
+        WHERE id = $1
+        RETURNING id, report_type, question, sort_order, category`,
+      [id, question]
+    );
+    if (rows.length === 0) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    // (report_type, question) is unique — reword onto an existing question and
+    // the insert-side 409 message applies just as well.
+    if (typeof err === "object" && err !== null && (err as { code?: string }).code === "23505") {
+      return NextResponse.json({ error: "That question already exists for this report type" }, { status: 409 });
+    }
+    logger.error("PATCH /api/standard-surveys error:", err);
+    return NextResponse.json({ error: "Failed to update standard survey question" }, { status: 500 });
   }
 }
 

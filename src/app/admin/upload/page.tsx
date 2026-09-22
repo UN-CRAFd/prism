@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const UPLOAD_SECTIONS = [
-  { value: "surveys", label: "Surveys" },
+  { value: "surveys", label: "Survey" },
   { value: "risk",    label: "Risk Management" },
 ];
 
@@ -30,7 +30,7 @@ const UPLOAD_SECTIONS = [
 // export includes reports.
 const REPORT_DOWNLOAD_SECTIONS = [
   { value: "overview",          label: "Overview" },
-  { value: "surveys",           label: "Surveys" },
+  { value: "surveys",           label: "Survey" },
   { value: "achievements",      label: "Key Achievements" },
   { value: "partnerships",      label: "Partnerships" },
   { value: "results",           label: "Results" },

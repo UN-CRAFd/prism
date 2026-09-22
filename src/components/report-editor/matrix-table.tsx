@@ -61,6 +61,7 @@ export function MatrixTableShell({
   trailingCols = [],
   fillHeight = false,
   hugContent = false,
+  footer,
   children,
 }: {
   minWidth: number;
@@ -83,14 +84,27 @@ export function MatrixTableShell({
   // this only decides whether a short table draws its border around the rows and
   // leaves the rest blank, or around the whole (mostly empty) slot.
   hugContent?: boolean;
+  // Rendered inside the layout slot, directly under the card, so it tracks the
+  // card's real bottom edge. A control left as a sibling of the slot gets pinned to
+  // the bottom of the tab instead, stranded far below a short table. Turning the
+  // slot into a flex column also means the card has to stop claiming the full slot
+  // height, or it would overflow past the footer — hence the class swaps below.
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
     // Outer = invisible layout slot that claims the height; inner = the visible card.
     // Splitting them is what makes `hugContent` possible: the slot keeps its size
     // while the card is free to be shorter.
-    <div className={cn(fillHeight && "flex-1 min-h-0")}>
-    <div className={cn("rounded-xl border bg-card", fillHeight ? (hugContent ? "max-h-full overflow-auto" : "h-full overflow-auto") : "overflow-x-auto")}>
+    <div className={cn(fillHeight && "flex-1 min-h-0", footer && "flex flex-col gap-2")}>
+    <div className={cn(
+      "rounded-xl border bg-card",
+      fillHeight
+        ? (hugContent
+            ? cn("overflow-auto", footer ? "min-h-0" : "max-h-full")
+            : cn("overflow-auto", footer ? "min-h-0 flex-1" : "h-full"))
+        : "overflow-x-auto"
+    )}>
       <table className={MATRIX_TABLE} style={{ minWidth }}>
         <thead>
           {/* Year-group header */}
@@ -152,6 +166,7 @@ export function MatrixTableShell({
         {children}
       </table>
     </div>
+    {footer}
     </div>
   );
 }

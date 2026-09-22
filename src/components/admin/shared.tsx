@@ -329,9 +329,11 @@ export function FormShell({
 export function RowActions({
   onEdit,
   onDelete,
+  deleteTitle = "Delete",
 }: {
   onEdit: () => void;
   onDelete: () => void;
+  deleteTitle?: string;
 }) {
   return (
     <div className="flex gap-1">
@@ -345,6 +347,7 @@ export function RowActions({
         variant="ghost"
         size="icon"
         className="size-7 text-muted-foreground hover:text-destructive"
+        title={deleteTitle}
         onClick={onDelete}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -362,9 +365,11 @@ export function RowActions({
 export function HoverActions({
   onEdit,
   onDelete,
+  deleteTitle = "Delete",
 }: {
   onEdit: () => void;
   onDelete: () => void;
+  deleteTitle?: string;
 }) {
   return (
     <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -378,7 +383,7 @@ export function HoverActions({
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
         className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
-        title="Delete"
+        title={deleteTitle}
       >
         <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
       </button>

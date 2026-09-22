@@ -4,23 +4,26 @@ import { requireSession, requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // GET /api/indicators
-//   Returns the whole shared indicator vocabulary — standard + every custom one —
-//   to any authenticated caller. Indicators are no longer project-scoped: a custom
-//   indicator created in one project is searchable/reusable from all of them, so
-//   both the report-editor and prodoc-editor typeaheads use this same list.
+//   Returns the shared indicator vocabulary to any authenticated caller.
 //   Each row carries `usage_project_count` (distinct projects that reference it via
 //   indicator_data) so the editors can surface recurring customs as suggestions.
 //   ?project_id=X       → accepted for backwards-compat but no longer filters.
 //   &include_archived=1 → also include soft-deleted (archived) rows.
+//   &kind=standard      → only the CRAF'd standard library.
+//   &kind=custom        → only partner-defined custom indicators.
+//   (omitted)           → both standard and custom.
 export async function GET(req: NextRequest) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
 
   const includeArchived = req.nextUrl.searchParams.get("include_archived") === "1";
+  const kind = req.nextUrl.searchParams.get("kind"); // "standard" | "custom" | null (all)
 
   try {
     const where: string[] = [];
     if (!includeArchived) where.push("i.archived_at IS NULL");
+    if (kind === "standard") where.push("i.is_standard = TRUE");
+    if (kind === "custom") where.push("i.is_standard = FALSE");
 
     const rows = await query(
       `SELECT i.id, i.name, i.description, i.means_of_verification, i.category, i.cycle,
@@ -31,6 +34,8 @@ export async function GET(req: NextRequest) {
          LEFT JOIN LATERAL (
            SELECT COUNT(DISTINCT p.id) AS project_count,
                   json_agg(DISTINCT jsonb_build_object(
+                    'report_id', r.id,
+                    'year', r.year,
                     'project_short_name', p.short_name,
                     'project_title', p.project_title
                   )) AS usage
@@ -63,7 +68,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const isStandard = body.is_standard === undefined ? true : Boolean(body.is_standard);
+  // Default to a CUSTOM indicator. "Standard" is the controlled CRAF'd
+  // vocabulary and has to be asked for explicitly — the admin library page is the
+  // only caller that does. Every other surface (the partner report editor and both
+  // project-document editors) creates partner-defined indicators, and defaulting
+  // the other way meant a single caller forgetting the flag would file them under
+  // "CRAF'd standard indicators" on every project that reused them.
+  const isStandard = Boolean(body.is_standard);
 
   // For custom (partner-defined) indicators, description and means of verification
   // are mandatory alongside the name.

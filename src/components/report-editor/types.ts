@@ -8,6 +8,7 @@ export interface Survey {
   question: string;
   assessment: number | null;
   context: string | null;
+  category: string | null;
 }
 
 export interface RowState {

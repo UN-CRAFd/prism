@@ -49,8 +49,8 @@ function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       <span className="text-[11px] text-muted-foreground">Still used in:</span>
-      {usage.map((u) => (
-        <Badge key={u.report_id} variant="outline" className="text-[10px] font-normal">
+      {usage.map((u, i) => (
+        <Badge key={`${u.report_id ?? i}-${u.project_short_name ?? u.project_title}`} variant="outline" className="text-[10px] font-normal">
           {(u.project_short_name || u.project_title)} · {u.year}
         </Badge>
       ))}
@@ -66,6 +66,7 @@ export default function IndicatorsPage() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("list");
   const [showArchived, setShowArchived] = useState(false);
+  const [kindFilter, setKindFilter] = useState<"standard" | "custom" | "all">("standard");
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -77,12 +78,16 @@ export default function IndicatorsPage() {
   const [cycle, setCycle] = useState<string>(NONE);
   const [description, setDescription] = useState("");
   const [mov, setMov] = useState("");
+  const [isStandard, setIsStandard] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/indicators${showArchived ? "?include_archived=1" : ""}`);
+      const params = new URLSearchParams();
+      if (kindFilter !== "all") params.set("kind", kindFilter);
+      if (showArchived) params.set("include_archived", "1");
+      const res = await fetch(`/api/indicators?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch indicators");
       setIndicators(await res.json());
     } catch (e) {
@@ -90,7 +95,7 @@ export default function IndicatorsPage() {
     } finally {
       setLoading(false);
     }
-  }, [showArchived]);
+  }, [showArchived, kindFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -107,6 +112,7 @@ export default function IndicatorsPage() {
 
   function resetForm() {
     setName(""); setCategory(""); setCycle(NONE); setDescription(""); setMov("");
+    setIsStandard(true);
     setEditId(null); setShowForm(false); setFormError(null);
   }
 
@@ -116,6 +122,7 @@ export default function IndicatorsPage() {
     setCycle(ind.cycle || NONE);
     setDescription(ind.description || "");
     setMov(ind.means_of_verification || "");
+    setIsStandard(ind.is_standard);
     setEditId(ind.id); setShowForm(true); setFormError(null);
   }
 
@@ -129,6 +136,9 @@ export default function IndicatorsPage() {
         cycle: cycle === NONE ? null : cycle,
         description: description.trim() || null,
         means_of_verification: mov.trim() || null,
+        // For new indicators, always standard (this page is the CRAF'd library).
+        // For edits, use the current checkbox value so admins can reclassify.
+        is_standard: editId ? isStandard : true,
       };
       const res = await fetch(
         editId ? `/api/indicators/${editId}` : "/api/indicators",
@@ -161,11 +171,22 @@ export default function IndicatorsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Indicators" description="Manage the shared indicator library — standard and partner-created custom indicators">
+      <PageHeader title="Indicators" description="Manage the CRAF'd standard indicator library and custom indicators">
         <label className="flex items-center gap-2 text-xs text-muted-foreground mr-2 cursor-pointer">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="size-3.5 rounded" />
           Show archived
         </label>
+        <div className="inline-flex rounded-md border text-xs divide-x overflow-hidden mr-1">
+          {(["standard", "custom", "all"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setKindFilter(k)}
+              className={`px-2.5 py-1 transition-colors ${kindFilter === k ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+            >
+              {k === "standard" ? "Standard" : k === "custom" ? "Custom" : "All"}
+            </button>
+          ))}
+        </div>
         <ViewToggle view={view} onChange={setView} />
         {!showForm && (
           <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
@@ -225,6 +246,14 @@ export default function IndicatorsPage() {
                   <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="min-h-[80px] resize-y" />
                 </Field>
               </div>
+              {editId && (
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={isStandard} onChange={(e) => setIsStandard(e.target.checked)} className="size-3.5 rounded" />
+                    CRAF&apos;d standard
+                  </label>
+                </div>
+              )}
             </div>
           </FormShell>
         )}
@@ -240,7 +269,9 @@ export default function IndicatorsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{labels.indicators.columns.indicator}</TableHead>
+                <TableHead>
+                  {kindFilter === "standard" ? labels.indicators.columns.indicator : kindFilter === "custom" ? "Custom Indicators" : "Indicators"}
+                </TableHead>
                 <TableHead className="w-28">{labels.indicators.columns.cycle}</TableHead>
                 {/* Wide enough for the means of verification to wrap into a
                     readable block now that it is no longer clipped at 150px. */}
@@ -263,13 +294,15 @@ export default function IndicatorsPage() {
                   <TableRow key={ind.id} className={ind.archived_at ? "opacity-50" : ""}>
                     <TableCell className="font-medium align-top">
                       {ind.name}
-                      {ind.is_standard ? (
-                        <Badge variant="secondary" className="ml-2 text-[10px]">Standard</Badge>
-                      ) : (
-                        <Badge variant="outline" className="ml-2 text-[10px]">
-                          Custom{ind.usage_project_count ? ` · ${ind.usage_project_count} project${ind.usage_project_count === 1 ? "" : "s"}` : ""}
+                      {kindFilter === "all" && (
+                        <Badge variant={ind.is_standard ? "secondary" : "outline"} className="ml-2 text-[10px]">
+                          {ind.is_standard ? "Standard" : "Custom"}
                         </Badge>
                       )}
+                      {!ind.is_standard && (ind.usage_project_count ?? 0) > 0 && (() => {
+                        const n = ind.usage_project_count ?? 0;
+                        return <span className="ml-1 text-[10px] text-muted-foreground">· {n} project{n === 1 ? "" : "s"}</span>;
+                      })()}
                       {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
                       {/* TableCell defaults to whitespace-nowrap, so the description
                           needs whitespace-normal to wrap onto further lines at all. */}
@@ -284,7 +317,11 @@ export default function IndicatorsPage() {
                           <ArchiveRestore className="size-3.5" />
                         </Button>
                       ) : (
-                        <RowActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
+                        <RowActions
+                          onEdit={() => startEdit(ind)}
+                          onDelete={() => handleArchive(ind)}
+                          deleteTitle={ind.usage.length > 0 ? `Archive (used in ${ind.usage.length} report${ind.usage.length === 1 ? "" : "s"})` : "Delete permanently (not used in any report)"}
+                        />
                       )}
                     </TableCell>
                   </TableRow>
@@ -303,7 +340,11 @@ export default function IndicatorsPage() {
                       <ArchiveRestore className="size-3.5" />
                     </Button>
                   ) : (
-                    <HoverActions onEdit={() => startEdit(ind)} onDelete={() => handleArchive(ind)} />
+                    <HoverActions
+                      onEdit={() => startEdit(ind)}
+                      onDelete={() => handleArchive(ind)}
+                      deleteTitle={ind.usage.length > 0 ? `Archive (used in ${ind.usage.length} report${ind.usage.length === 1 ? "" : "s"})` : "Delete permanently (not used in any report)"}
+                    />
                   )}
                 </div>
                 {/* Cards stretch to the tallest in their grid row, so letting the
@@ -311,15 +352,17 @@ export default function IndicatorsPage() {
                 {ind.description && <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{ind.description}</p>}
                 {ind.archived_at && <UsageBadges usage={ind.usage} />}
                 <div className="flex flex-wrap gap-1 mt-auto pt-1">
-                  {ind.is_standard ? (
-                    <Badge variant="secondary" className="text-xs font-normal">Standard</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      Custom{ind.usage_project_count ? ` · ${ind.usage_project_count} project${ind.usage_project_count === 1 ? "" : "s"}` : ""}
-                    </Badge>
-                  )}
                   {ind.category && <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge>}
                   {ind.cycle && <Badge variant="outline" className="text-xs font-normal">{cycleLabel(ind.cycle)}</Badge>}
+                  {kindFilter === "all" && (
+                    <Badge variant={ind.is_standard ? "secondary" : "outline"} className="text-xs font-normal">
+                      {ind.is_standard ? "Standard" : "Custom"}
+                    </Badge>
+                  )}
+                  {!ind.is_standard && (ind.usage_project_count ?? 0) > 0 && (() => {
+                    const n = ind.usage_project_count ?? 0;
+                    return <Badge variant="outline" className="text-xs font-normal">{n} project{n === 1 ? "" : "s"}</Badge>;
+                  })()}
                 </div>
               </div>
             ))}

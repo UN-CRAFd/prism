@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       const gate = await guardReport(session, reportId);
       if (gate) return gate;
       const rows = await query(
-        `SELECT id, report_id, question, assessment, context
+        `SELECT id, report_id, question, assessment, context, category
          FROM reporting_platform.surveys
          WHERE report_id = $1
          ORDER BY id ASC`,
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
          s.question,
          s.assessment,
          s.context,
+         s.category,
          r.year,
          r.report_type,
          p.project_title,

@@ -204,8 +204,8 @@ async function seedReportSurveys(client: PoolClient, reportIds: number[]) {
   // Annual reports that already have a prior annual report: copy that report's
   // questions (the most recent earlier year), so template changes propagate forward.
   await client.query(
-    `INSERT INTO reporting_platform.surveys (report_id, question)
-     SELECT nr.id, s.question
+    `INSERT INTO reporting_platform.surveys (report_id, question, category)
+     SELECT nr.id, s.question, s.category
        FROM reporting_platform.reports nr
        JOIN LATERAL (
          SELECT pr.id
@@ -231,8 +231,8 @@ async function seedReportSurveys(client: PoolClient, reportIds: number[]) {
   // .report_type is the report_type_enum — a bare `=` would raise "operator does
   // not exist: report_type_enum = text".
   await client.query(
-    `INSERT INTO reporting_platform.surveys (report_id, question)
-     SELECT nr.id, sq.question
+    `INSERT INTO reporting_platform.surveys (report_id, question, category)
+     SELECT nr.id, sq.question, sq.category
        FROM reporting_platform.reports nr
        JOIN reporting_platform.standard_survey_questions sq
          ON sq.report_type::text = nr.report_type::text

@@ -274,7 +274,7 @@ export function ReportCard({
           className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Open report"
         >
-          Open
+          Open report
           <ArrowRight className="size-3" />
         </button>
       </div>

@@ -200,6 +200,18 @@
       { "value": "UNHCR", "label": "UNHCR" }
     ]
   },
+  "surveyCategory": {
+    "label": "Survey category",
+    "description": "Grouping category for standard survey questions in the admin library.",
+    "kind": "keyed",
+    "hasDescription": true,
+    "items": [
+      { "value": "data-quality", "label": "Data quality", "description": "" },
+      { "value": "ecosystem", "label": "Ecosystem and collaboration", "description": "" },
+      { "value": "data-uptake", "label": "Data uptake and use", "description": "" },
+      { "value": "crafd-funding", "label": "Contribution of CRAF'd funding", "description": "" }
+    ]
+  },
   "implementingOrganizations": {
     "label": "Implementing organizations",
     "description": "Organizations selectable as implementing organizations (in General Info).",

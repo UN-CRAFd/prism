@@ -14,7 +14,7 @@ import { optionValues } from "@/lib/options";
 
 // Report types are admin-editable (Settings → Dropdown options). Callers must
 // `await loadOptionOverrides()` first so this reflects the stored overrides.
-function isReportType(v: unknown): v is string {
+export function isReportType(v: unknown): v is string {
   return typeof v === "string" && optionValues("reportType").includes(v);
 }
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, report_type, question, sort_order
+      `SELECT id, report_type, question, sort_order, category
          FROM reporting_platform.standard_survey_questions
          ${where}
         ORDER BY report_type, sort_order, id`,
@@ -68,10 +68,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const rows = await query(
-      `INSERT INTO reporting_platform.standard_survey_questions (report_type, question)
-       VALUES ($1, $2)
+      `INSERT INTO reporting_platform.standard_survey_questions (report_type, question, sort_order)
+       SELECT $1, $2, COALESCE(MAX(sort_order), 0) + 1
+         FROM reporting_platform.standard_survey_questions
+        WHERE report_type = $1
        ON CONFLICT (report_type, question) DO NOTHING
-       RETURNING id, report_type, question, sort_order`,
+       RETURNING id, report_type, question, sort_order, category`,
       [body.report_type, question]
     );
     if (rows.length === 0) {
@@ -112,7 +114,7 @@ export async function PATCH(req: NextRequest) {
       `UPDATE reporting_platform.standard_survey_questions
           SET question = $2
         WHERE id = $1
-        RETURNING id, report_type, question, sort_order`,
+        RETURNING id, report_type, question, sort_order, category`,
       [id, question]
     );
     if (rows.length === 0) return NextResponse.json({ error: "Question not found" }, { status: 404 });

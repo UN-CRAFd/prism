@@ -26,8 +26,8 @@ export async function PUT(
     // Custom indicators (is_standard = false) may be edited by any authenticated
     // session. Standard indicators are the controlled vocabulary and are admin-only.
     // Check the DB value — never trust the request body.
-    const indicator = await query<{ is_standard: boolean }>(
-      `SELECT is_standard FROM reporting_platform.indicators WHERE id = $1`,
+    const indicator = await query<{ is_standard: boolean; description: string | null; means_of_verification: string | null }>(
+      `SELECT is_standard, description, means_of_verification FROM reporting_platform.indicators WHERE id = $1`,
       [id]
     );
     if (indicator.length === 0) {
@@ -48,6 +48,33 @@ export async function PUT(
       const val = body[field];
       setClauses.push(`${field} = $${idx++}`);
       values.push(field === "name" ? String(val).trim() : val || null);
+    }
+
+    // is_standard: admin-only reclassification. Kept out of ALLOWED_FIELDS because
+    // the val || null coercion there would turn false into null.
+    if ("is_standard" in body) {
+      if (session.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const newIsStandard = Boolean(body.is_standard);
+      // Demoting to custom requires both description and means_of_verification.
+      // Use the incoming value if present, otherwise fall back to the stored value.
+      if (!newIsStandard) {
+        const effectiveDesc = "description" in body
+          ? (typeof body.description === "string" ? body.description.trim() : "")
+          : (indicator[0].description ?? "");
+        const effectiveMov = "means_of_verification" in body
+          ? (typeof body.means_of_verification === "string" ? body.means_of_verification.trim() : "")
+          : (indicator[0].means_of_verification ?? "");
+        if (!effectiveDesc) {
+          return NextResponse.json({ error: "description is required when demoting to custom" }, { status: 400 });
+        }
+        if (!effectiveMov) {
+          return NextResponse.json({ error: "means_of_verification is required when demoting to custom" }, { status: 400 });
+        }
+      }
+      setClauses.push(`is_standard = $${idx++}`);
+      values.push(newIsStandard);
     }
 
     if (setClauses.length === 0) {

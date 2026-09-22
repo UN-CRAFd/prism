@@ -214,12 +214,12 @@ export function ProdocIndicatorsSection({
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.targetYear}</th>
               <th className={headCell + " w-48"} style={headShadow}>Linked activity</th>
-              <th className={headCell + " w-24 text-right"} style={headShadow} />
+              {type === "custom" && <th className={headCell + " w-24 text-right"} style={headShadow} />}
             </tr>
           </thead>
           <tbody className="divide-y">
             {tableLines.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
+              <tr><td colSpan={type === "custom" ? 8 : 7} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
             ) : tableLines.map((line, idx) => {
               const isEditing = editingId === line.id && draft;
               const values = valuesFor(line);
@@ -278,19 +278,21 @@ export function ProdocIndicatorsSection({
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    {isEditing ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => save(line)} disabled={savingId === line.id || !draft.name.trim()}>{savingId === line.id ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}</Button>
-                        <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setDraft(null); }} disabled={savingId === line.id}>{labels.common.cancel}</Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-end gap-3">
-                        {(isAdmin || !line.is_standard) && <button disabled={readOnly} onClick={() => startEdit(line)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" title="Edit indicator" aria-label={`Edit indicator ${line.indicator_name}`}><Pencil className="size-3.5" /></button>}
-                        {!line.is_standard && <button disabled={readOnly || deletingId === line.id} onClick={async () => { setDeletingId(line.id); try { await onDelete(line.id); } finally { setDeletingId(null); } }} className="text-muted-foreground hover:text-destructive disabled:opacity-40" title="Remove indicator" aria-label={`Remove indicator ${line.indicator_name}`}>{deletingId === line.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}</button>}
-                      </div>
-                    )}
-                  </td>
+                  {type === "custom" && (
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={() => save(line)} disabled={savingId === line.id || !draft.name.trim()}>{savingId === line.id ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setDraft(null); }} disabled={savingId === line.id}>{labels.common.cancel}</Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-3">
+                          <button disabled={readOnly} onClick={() => startEdit(line)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" title="Edit indicator" aria-label={`Edit indicator ${line.indicator_name}`}><Pencil className="size-3.5" /></button>
+                          <button disabled={readOnly || deletingId === line.id} onClick={async () => { setDeletingId(line.id); try { await onDelete(line.id); } finally { setDeletingId(null); } }} className="text-muted-foreground hover:text-destructive disabled:opacity-40" title="Remove indicator" aria-label={`Remove indicator ${line.indicator_name}`}>{deletingId === line.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}</button>
+                        </div>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

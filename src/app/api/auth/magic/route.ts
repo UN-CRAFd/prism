@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSessionToken, setSessionCookie } from "@/lib/session";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { projectSlug } from "@/lib/utils";
 
 // Share links for a report:
 //   POST { reportId }            → { token }                — admin copies this into a URL
@@ -20,6 +21,7 @@ const MIN_PASSWORD = 6;
 
 interface ReportContext extends Record<string, unknown> {
   year: number;
+  data_type: string;
   project_title: string;
   project_short_name: string | null;
   partner_id: number;
@@ -32,6 +34,7 @@ interface ReportContext extends Record<string, unknown> {
 async function resolveReport(rid: number): Promise<ReportContext | null> {
   const rows = await query<ReportContext>(
     `SELECT r.year,
+            r.data_type,
             p.project_title,
             p.short_name   AS project_short_name,
             pt.id          AS partner_id,
@@ -50,7 +53,10 @@ async function resolveReport(rid: number): Promise<ReportContext | null> {
 }
 
 function sessionFor(ctx: ReportContext) {
-  const slug = (ctx.project_short_name ?? ctx.project_title).toLowerCase();
+  const slug = encodeURIComponent(projectSlug(ctx.project_short_name, ctx.project_title));
+  const redirect = ctx.data_type === "prodoc"
+    ? `/partner/prodoc-editor/${slug}/general`
+    : `/partner/report-editor/${slug}/${ctx.year}/overview`;
   return {
     user: {
       id: ctx.partner_short_name,
@@ -59,7 +65,7 @@ function sessionFor(ctx: ReportContext) {
       organization: ctx.partner_short_name,
       partner_id: ctx.partner_id,
     },
-    redirect: `/partner/report-editor/${encodeURIComponent(slug)}/${ctx.year}/overview`,
+    redirect,
   };
 }
 

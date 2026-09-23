@@ -27,12 +27,12 @@ export async function GET(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    const meta = await query<{ project_id: number }>(
-      `SELECT project_id FROM reporting_platform.reports WHERE id = $1`,
+    const meta = await query<{ project_id: number; data_type: string }>(
+      `SELECT project_id, data_type FROM reporting_platform.reports WHERE id = $1`,
       [reportId]
     );
     if (meta.length === 0) return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    const projectId = meta[0].project_id;
+    const { project_id: projectId, data_type: dataType } = meta[0];
 
     // A row-list section: complete when it has >= min filled rows and no empty ones.
     const listSection = (table: string, field: string, min: number) =>
@@ -70,11 +70,27 @@ export async function GET(req: NextRequest) {
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
       // Indicators — every line has an achieved value + status.
+      // Mirrors the reportFilter in GET /api/indicator-data: for annual reports
+      // only count rows whose indicator is on the project document, because
+      // orphaned rows (from indicators removed from the prodoc) are never shown
+      // on the Indicators tab and the partner has no way to fill them in.
       query<Row>(
-        `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE achieved_value IS NOT NULL AND achieved_value <> '' AND status IS NOT NULL)::int AS ok
-           FROM reporting_platform.indicator_data WHERE report_id = $1`,
-        [reportId]
+        dataType === "report"
+          ? `SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE achieved_value IS NOT NULL AND achieved_value <> '' AND status IS NOT NULL)::int AS ok
+               FROM reporting_platform.indicator_data
+              WHERE report_id = $1
+                AND indicator_id IN (
+                      SELECT pd.indicator_id
+                        FROM reporting_platform.indicator_data pd
+                        JOIN reporting_platform.reports prodoc ON prodoc.id = pd.report_id
+                       WHERE prodoc.project_id = $2
+                         AND prodoc.data_type = 'prodoc'
+                    )`
+          : `SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE achieved_value IS NOT NULL AND achieved_value <> '' AND status IS NOT NULL)::int AS ok
+               FROM reporting_platform.indicator_data WHERE report_id = $1`,
+        dataType === "report" ? [reportId, projectId] : [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
       // Transfers — zero rows is OK (not all projects use this); non-zero rows require

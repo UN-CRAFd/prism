@@ -1,11 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { ConfirmDialogUI } from "@/components/ui/confirm-dialog";
 
 // Session inactivity logout. Deliberately separate from LOCK_TIMEOUT_MS in
 // src/app/api/prodoc-lock/route.ts and src/components/admin/prodoc-editor-view.tsx
-// (the ProDoc edit lock), which is a different feature that happens to use the same duration.
+// (the ProDoc edit lock), which is a different feature with a different duration.
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const INACTIVITY_WARNING_MS = 14 * 60 * 1000; // warn 1 minute before logout
 
 export type UserRole = "admin" | "partner";
 
@@ -28,6 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [showWarning, setShowWarning] = useState(false);
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window === "undefined") return null;
     // A corrupted/tampered localStorage value must not throw during render — with
@@ -68,6 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const lastActivityRef = useRef<number>(Date.now());
+  // Mirrors showWarning state so activity listeners (registered once) can read
+  // the live value without a stale closure.
+  const showWarningRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastActivityRef.current = Date.now();
 
     const updateActivity = () => {
+      // While the warning is showing the user must respond explicitly — ignore
+      // all passive activity so the clock keeps running and the modal stays up.
+      if (showWarningRef.current) return;
       lastActivityRef.current = Date.now();
     };
 
@@ -86,8 +96,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const interval = setInterval(() => {
-      if (Date.now() - lastActivityRef.current >= INACTIVITY_TIMEOUT_MS) {
+      const idle = Date.now() - lastActivityRef.current;
+      if (idle >= INACTIVITY_TIMEOUT_MS) {
         logout();
+      } else if (idle >= INACTIVITY_WARNING_MS) {
+        showWarningRef.current = true;
+        setShowWarning(true);
       }
     }, 30_000);
 
@@ -99,11 +113,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, logout]);
 
+  function handleStaySignedIn() {
+    lastActivityRef.current = Date.now();
+    showWarningRef.current = false;
+    setShowWarning(false);
+  }
+
   return (
     <AuthContext.Provider
       value={{ user, login, logout, isAuthenticated: !!user }}
     >
       {children}
+      {showWarning && user && typeof window !== "undefined" &&
+        createPortal(
+          <ConfirmDialogUI
+            options={{
+              title: "Session expiring",
+              message: "Your session will expire in 1 minute due to inactivity.",
+              confirmLabel: "Stay signed in",
+              acknowledgement: true,
+              blockDismiss: true,
+            }}
+            onConfirm={handleStaySignedIn}
+            onCancel={handleStaySignedIn}
+          />,
+          document.body
+        )}
     </AuthContext.Provider>
   );
 }

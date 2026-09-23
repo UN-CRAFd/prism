@@ -16,6 +16,9 @@ export interface ConfirmOptions {
   variant?: "destructive" | "default" | "question";
   // Single-button acknowledgement mode: hides cancel, backdrop click confirms.
   acknowledgement?: boolean;
+  // Prevent all implicit dismissal (backdrop click). The confirm button is the
+  // only way to close. Use when the user must make a deliberate choice.
+  blockDismiss?: boolean;
 }
 
 type Resolver = (confirmed: boolean) => void;
@@ -78,7 +81,7 @@ export function useConfirm() {
 
 // ── Dialog UI ─────────────────────────────────────────────────────────────────
 
-function ConfirmDialogUI({
+export function ConfirmDialogUI({
   options,
   onConfirm,
   onCancel,
@@ -94,10 +97,11 @@ function ConfirmDialogUI({
     cancelLabel = "Cancel",
     variant = "destructive",
     acknowledgement = false,
+    blockDismiss = false,
   } = options;
 
   const resolvedConfirmLabel = confirmLabel ?? (acknowledgement ? "OK" : "Delete");
-  const handleBackdrop = acknowledgement ? onConfirm : onCancel;
+  const handleBackdrop = blockDismiss ? undefined : (acknowledgement ? onConfirm : onCancel);
 
   return (
     /* Backdrop */

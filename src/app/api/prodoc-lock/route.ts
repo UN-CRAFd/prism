@@ -76,7 +76,8 @@ export async function GET(req: NextRequest) {
 }
 
 // POST { project_id, session_id }
-// Acquire the lock, heartbeat it, or (admin only) take it over from another session.
+// Acquire or heartbeat the lock. A live lock held by another session always
+// returns 409 regardless of the caller's role.
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch {
@@ -135,42 +136,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Lock is live and held by a different session.
-    // Admins may explicitly request an override; without override: true they
-    // get the same 409 as anyone else, plus can_override: true so the client
-    // can offer a "take over" confirmation step.
-
-    if (session.role === "admin" && body.override === true) {
-      // Explicit admin takeover: force-update regardless of staleness or holder.
-      const taken = await query<LockRow>(
-        `UPDATE reporting_platform.prodoc_editor_locks
-            SET session_id   = $2,
-                holder_name  = $3,
-                holder_role  = $4,
-                acquired_at  = now(),
-                last_seen_at = now()
-          WHERE project_id = $1
-          RETURNING *`,
-        [project_id, session_id, session.name, session.role]
-      );
-      // If the lock was released in the window between our INSERT attempt and this
-      // UPDATE, the row is gone. Return acquired anyway — the lock is now free.
-      const row = taken[0];
-      if (!row) {
-        return NextResponse.json({ status: "acquired", takeover: true });
-      }
-      return NextResponse.json({
-        status: "acquired",
-        takeover: true,
-        holder_name: row.holder_name,
-        holder_role: row.holder_role,
-        acquired_at: row.acquired_at,
-        last_seen_at: row.last_seen_at,
-        expires_at: expiresAt(row.last_seen_at).toISOString(),
-      });
-    }
-
-    // Report who holds the lock. Admins learn they can retry with override: true.
+    // Lock is live and held by a different session. Report who holds it.
     const current = await query<Pick<LockRow, "holder_name" | "holder_role">>(
       `SELECT holder_name, holder_role
          FROM reporting_platform.prodoc_editor_locks
@@ -180,10 +146,9 @@ export async function POST(req: NextRequest) {
     const holder = current[0];
     return NextResponse.json(
       {
-        error: "Document is currently being edited",
+        error: "Document is currently open",
         holder_name: holder?.holder_name ?? null,
         holder_role: holder?.holder_role ?? null,
-        ...(session.role === "admin" && { can_override: true }),
       },
       { status: 409 }
     );
@@ -194,7 +159,8 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE { project_id, session_id }
-// Release the lock. session_id must match the holder, unless the caller is admin.
+// Release the lock. session_id must match the holder; a release only ever
+// removes the caller's own lock regardless of role.
 export async function DELETE(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch {
@@ -211,18 +177,11 @@ export async function DELETE(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    if (session.role === "admin") {
-      await query(
-        `DELETE FROM reporting_platform.prodoc_editor_locks WHERE project_id = $1`,
-        [project_id]
-      );
-    } else {
-      await query(
-        `DELETE FROM reporting_platform.prodoc_editor_locks
-          WHERE project_id = $1 AND session_id = $2`,
-        [project_id, session_id]
-      );
-    }
+    await query(
+      `DELETE FROM reporting_platform.prodoc_editor_locks
+        WHERE project_id = $1 AND session_id = $2`,
+      [project_id, session_id]
+    );
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("DELETE /api/prodoc-lock error:", err);

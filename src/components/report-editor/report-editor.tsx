@@ -444,7 +444,12 @@ export function ReportEditor({
     const saveOverview = overviewDirty;
     const overviewSnap = JSON.stringify(overview);
 
-    const ok = (r: Response) => { if (!r.ok) throw new Error(labels.common.saveFailed); };
+    const ok = async (r: Response) => {
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({}));
+        throw new Error(errData.error || labels.common.saveFailed);
+      }
+    };
     try {
       await Promise.all([
         ...dirtySurveys.map((s) => {

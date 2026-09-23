@@ -10,7 +10,7 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import labels from "@/lib/labels";
-import { numericYear } from "@/lib/numeric-input";
+import { numericYear, isValidYear } from "@/lib/numeric-input";
 import { cycleLabel } from "@/lib/indicators";
 import { type ContributorActivity, LinkedActivityPicker } from "@/components/report-editor/contributor-matrix";
 
@@ -79,6 +79,7 @@ export function ProdocIndicatorsSection({
   const [createMeansOfVerification, setCreateMeansOfVerification] = useState("");
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">>>({});
+  const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
 
   function startEdit(line: ProdocIndicatorLine) {
     setEditingId(line.id);
@@ -130,7 +131,20 @@ export function ProdocIndicatorsSection({
     setValueDrafts((current) => ({ ...current, [lineId]: { ...current[lineId], ...patch } }));
   }
 
+  function updateYear(lineId: number, side: "baseline" | "target", raw: string) {
+    const sanitized = numericYear(raw);
+    const num = sanitized ? Number(sanitized) : null;
+    if (side === "baseline") updateValues(lineId, { baseline_year: num });
+    else updateValues(lineId, { target_year: num });
+    setYearErrors((prev) => ({
+      ...prev,
+      [lineId]: { ...prev[lineId], [side]: num !== null && !isValidYear(num) },
+    }));
+  }
+
   async function saveValues(line: ProdocIndicatorLine) {
+    const errs = yearErrors[line.id];
+    if (errs?.baseline || errs?.target) return;
     const values = valuesFor(line);
     setSavingId(line.id);
     try {
@@ -254,13 +268,41 @@ export function ProdocIndicatorsSection({
                     <Input type="number" value={values.baseline_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { baseline_value: e.target.value })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="numeric" value={values.baseline_year ?? ""} disabled={readOnly} onChange={(e) => { const year = numericYear(e.target.value); updateValues(line.id, { baseline_year: year ? Number(year) : null }); }} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineYear} className="h-8" />
+                    <div>
+                      <Input
+                        inputMode="numeric"
+                        value={values.baseline_year ?? ""}
+                        disabled={readOnly}
+                        onChange={(e) => updateYear(line.id, "baseline", e.target.value)}
+                        onBlur={() => saveValues(line)}
+                        placeholder={labels.indicators.columns.baselineYear}
+                        className={"h-8" + (yearErrors[line.id]?.baseline ? " border-destructive" : "")}
+                        title={yearErrors[line.id]?.baseline ? "Year must be a whole number between 2000 and 2050" : undefined}
+                      />
+                      {yearErrors[line.id]?.baseline && (
+                        <p className="mt-0.5 text-xs text-destructive">Invalid number</p>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <Input type="number" value={values.target_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { target_value: e.target.value })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="numeric" value={values.target_year ?? ""} disabled={readOnly} onChange={(e) => { const year = numericYear(e.target.value); updateValues(line.id, { target_year: year ? Number(year) : null }); }} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetYear} className="h-8" />
+                    <div>
+                      <Input
+                        inputMode="numeric"
+                        value={values.target_year ?? ""}
+                        disabled={readOnly}
+                        onChange={(e) => updateYear(line.id, "target", e.target.value)}
+                        onBlur={() => saveValues(line)}
+                        placeholder={labels.indicators.columns.targetYear}
+                        className={"h-8" + (yearErrors[line.id]?.target ? " border-destructive" : "")}
+                        title={yearErrors[line.id]?.target ? "Year must be a whole number between 2000 and 2050" : undefined}
+                      />
+                      {yearErrors[line.id]?.target && (
+                        <p className="mt-0.5 text-xs text-destructive">Invalid number</p>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className={readOnly ? "pointer-events-none opacity-50" : ""}>

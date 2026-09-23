@@ -17,7 +17,7 @@ import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/repor
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
-import { numericYear } from "@/lib/numeric-input";
+import { numericYear, isValidYear } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
@@ -138,12 +138,6 @@ export function IndicatorsSection({
 }: IndicatorsSectionProps) {
   const readOnly = useReadOnly();
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear);
-  // Name, description and means of verification are all mandatory for a
-  // partner-defined custom indicator; baseline/target remain optional.
-  const canAddIndicator =
-    !!newIndicatorName.trim() &&
-    !!newIndicatorDescription.trim() &&
-    !!newIndicatorMeansOfVerification.trim();
 
   // The create panel is hidden until the user chooses "create a new one" from the
   // search box (Combobox onCreate). At that point we pre-fill the typed text as the
@@ -162,9 +156,22 @@ export function IndicatorsSection({
   const [editTargetValue, setEditTargetValue] = useState("");
   const [editTargetYear, setEditTargetYear] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [newBaselineYearErr, setNewBaselineYearErr] = useState(false);
+  const [newTargetYearErr, setNewTargetYearErr] = useState(false);
+  const [editBaselineYearErr, setEditBaselineYearErr] = useState(false);
+  const [editTargetYearErr, setEditTargetYearErr] = useState(false);
+
+  // Name, description and means of verification are all mandatory for a
+  // partner-defined custom indicator; baseline/target remain optional.
+  const canAddIndicator =
+    !!newIndicatorName.trim() &&
+    !!newIndicatorDescription.trim() &&
+    !!newIndicatorMeansOfVerification.trim() &&
+    !newBaselineYearErr &&
+    !newTargetYearErr;
 
   async function handleEditSave(indicatorId: number, lineId: number) {
-    if (!editName.trim() || !onEditIndicator) return;
+    if (!editName.trim() || !onEditIndicator || editBaselineYearErr || editTargetYearErr) return;
     setSavingEdit(true);
     try {
       await onEditIndicator(indicatorId, { name: editName, description: editDesc || null, means_of_verification: editMov || null });
@@ -175,6 +182,8 @@ export function IndicatorsSection({
         target_year: editTargetYear,
       });
       setEditingIndicatorId(null);
+      setEditBaselineYearErr(false);
+      setEditTargetYearErr(false);
     } finally {
       setSavingEdit(false);
     }
@@ -195,6 +204,8 @@ export function IndicatorsSection({
     setNewIndicatorBaselineYear("");
     setNewIndicatorTargetValue("");
     setNewIndicatorTargetYear("");
+    setNewBaselineYearErr(false);
+    setNewTargetYearErr(false);
   }
 
   async function submitCreate() {
@@ -318,7 +329,22 @@ export function IndicatorsSection({
                   {canManageIndicators && tableType === "project" && editingIndicatorId === row.indicator_id ? (
                     <div className="flex flex-col gap-1">
                       <Input type="number" value={editBaselineValue} onChange={(e) => setEditBaselineValue(e.target.value)} placeholder={labels.indicators.columns.baselineValue} className="h-8 text-sm" />
-                      <Input type="text" inputMode="numeric" value={editBaselineYear} onChange={(e) => setEditBaselineYear(numericYear(e.target.value))} placeholder={labels.indicators.columns.baselineYear} className="h-8 text-sm" />
+                      <div>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={editBaselineYear}
+                          onChange={(e) => {
+                            const y = numericYear(e.target.value);
+                            setEditBaselineYear(y);
+                            setEditBaselineYearErr(y !== "" && !isValidYear(Number(y)));
+                          }}
+                          placeholder={labels.indicators.columns.baselineYear}
+                          className={"h-8 text-sm" + (editBaselineYearErr ? " border-destructive" : "")}
+                          title={editBaselineYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
+                        />
+                        {editBaselineYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
+                      </div>
                     </div>
                   ) : <ValueYear value={tableType === "project" ? state.baseline_value : row.baseline_value} year={tableType === "project" ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />}
                 </td>
@@ -326,7 +352,22 @@ export function IndicatorsSection({
                   {canManageIndicators && tableType === "project" && editingIndicatorId === row.indicator_id ? (
                     <div className="flex flex-col gap-1">
                       <Input type="number" value={editTargetValue} onChange={(e) => setEditTargetValue(e.target.value)} placeholder={labels.indicators.columns.targetValue} className="h-8 text-sm" />
-                      <Input type="text" inputMode="numeric" value={editTargetYear} onChange={(e) => setEditTargetYear(numericYear(e.target.value))} placeholder={labels.indicators.columns.targetYear} className="h-8 text-sm" />
+                      <div>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={editTargetYear}
+                          onChange={(e) => {
+                            const y = numericYear(e.target.value);
+                            setEditTargetYear(y);
+                            setEditTargetYearErr(y !== "" && !isValidYear(Number(y)));
+                          }}
+                          placeholder={labels.indicators.columns.targetYear}
+                          className={"h-8 text-sm" + (editTargetYearErr ? " border-destructive" : "")}
+                          title={editTargetYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
+                        />
+                        {editTargetYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
+                      </div>
                     </div>
                   ) : <ValueYear value={tableType === "project" ? state.target_value : row.target_value} year={tableType === "project" ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />}
                 </td>
@@ -397,10 +438,10 @@ export function IndicatorsSection({
                 <td className="px-2 py-2 border-l border-t text-center">
                   {editingIndicatorId === row.indicator_id ? (
                     <div className="flex flex-row items-center justify-center gap-3">
-                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleEditSave(row.indicator_id, row.currentLineId)} disabled={savingEdit || !editName.trim()}>
+                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleEditSave(row.indicator_id, row.currentLineId)} disabled={savingEdit || !editName.trim() || editBaselineYearErr || editTargetYearErr}>
                         {savingEdit ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}
                       </Button>
-                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setEditingIndicatorId(null)} disabled={savingEdit}>
+                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { setEditingIndicatorId(null); setEditBaselineYearErr(false); setEditTargetYearErr(false); }} disabled={savingEdit}>
                         {labels.common.cancel}
                       </Button>
                     </div>
@@ -417,6 +458,8 @@ export function IndicatorsSection({
                             setEditBaselineYear(row.baseline_year != null ? String(row.baseline_year) : "");
                             setEditTargetValue(row.target_value ?? "");
                             setEditTargetYear(row.target_year != null ? String(row.target_year) : "");
+                            setEditBaselineYearErr(false);
+                            setEditTargetYearErr(false);
                           }}
                           className="text-muted-foreground hover:text-foreground transition-colors"
                           aria-label={`Edit indicator ${row.indicator_name}`}
@@ -491,9 +534,39 @@ export function IndicatorsSection({
           </div>
           <div className="flex gap-2">
             <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-            <Input placeholder={labels.indicators.columns.baselineYear} type="text" inputMode="numeric" value={newIndicatorBaselineYear} onChange={(e) => setNewIndicatorBaselineYear(numericYear(e.target.value))} className="flex-[1.0]" />
+            <div className="flex-[1.0]">
+              <Input
+                placeholder={labels.indicators.columns.baselineYear}
+                type="text"
+                inputMode="numeric"
+                value={newIndicatorBaselineYear}
+                onChange={(e) => {
+                  const y = numericYear(e.target.value);
+                  setNewIndicatorBaselineYear(y);
+                  setNewBaselineYearErr(y !== "" && !isValidYear(Number(y)));
+                }}
+                className={newBaselineYearErr ? "border-destructive" : ""}
+                title={newBaselineYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
+              />
+              {newBaselineYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
+            </div>
             <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-            <Input placeholder={labels.indicators.columns.targetYear} type="text" inputMode="numeric" value={newIndicatorTargetYear} onChange={(e) => setNewIndicatorTargetYear(numericYear(e.target.value))} className="flex-[1.0]" />
+            <div className="flex-[1.0]">
+              <Input
+                placeholder={labels.indicators.columns.targetYear}
+                type="text"
+                inputMode="numeric"
+                value={newIndicatorTargetYear}
+                onChange={(e) => {
+                  const y = numericYear(e.target.value);
+                  setNewIndicatorTargetYear(y);
+                  setNewTargetYearErr(y !== "" && !isValidYear(Number(y)));
+                }}
+                className={newTargetYearErr ? "border-destructive" : ""}
+                title={newTargetYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
+              />
+              {newTargetYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
+            </div>
             <Button onClick={submitCreate} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
               {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
             </Button>

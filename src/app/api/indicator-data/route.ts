@@ -24,11 +24,26 @@ const SELECT_WITH_INDICATOR = `
     FROM reporting_platform.indicator_data d
     JOIN reporting_platform.indicators i ON i.id = d.indicator_id`;
 
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2050;
+
 const toYear = (v: unknown) => {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
   return Number.isNaN(n) ? null : n;
 };
+
+// Returns a 400 response if v is not null and outside [MIN_YEAR, MAX_YEAR], otherwise null.
+function validateYear(v: unknown, fieldName: string): NextResponse | null {
+  const n = toYear(v);
+  if (n !== null && (n < MIN_YEAR || n > MAX_YEAR || !Number.isInteger(n))) {
+    return NextResponse.json(
+      { error: `${fieldName} must be a whole number between ${MIN_YEAR} and ${MAX_YEAR}` },
+      { status: 400 }
+    );
+  }
+  return null;
+}
 
 // Keep existing annual reports in sync when a project-document indicator is
 // added after those reports were created. The unique constraint makes this safe
@@ -269,6 +284,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const baselineYearErr = validateYear(body.baseline_year, "baseline_year");
+  if (baselineYearErr) return baselineYearErr;
+  const targetYearErr = validateYear(body.target_year, "target_year");
+  if (targetYearErr) return targetYearErr;
+
   // Indicators are a shared global vocabulary, so any (non-archived) indicator may
   // be attached to a report the caller owns. Just confirm the indicator exists.
   const exists = await query(
@@ -338,6 +358,13 @@ export async function POST(req: NextRequest) {
     if (String(err).includes("duplicate key")) {
       return NextResponse.json({ error: "This indicator is already on the report" }, { status: 409 });
     }
+    const pgCode = (err as Record<string, unknown>)?.code;
+    if (pgCode === "23514") {
+      return NextResponse.json(
+        { error: `A year value is outside the allowed range (${MIN_YEAR}–${MAX_YEAR})` },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
@@ -360,6 +387,15 @@ export async function PATCH(req: NextRequest) {
     "baseline_value", "baseline_year", "target_value", "target_year",
     "achieved_value", "status", "comment", "linked_activity_id",
   ] as const;
+
+  if ("baseline_year" in fields) {
+    const err = validateYear(fields.baseline_year, "baseline_year");
+    if (err) return err;
+  }
+  if ("target_year" in fields) {
+    const err = validateYear(fields.target_year, "target_year");
+    if (err) return err;
+  }
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -388,6 +424,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(rows[0]);
   } catch (err) {
     logger.error("PATCH /api/indicator-data error:", err);
+    const pgCode = (err as Record<string, unknown>)?.code;
+    if (pgCode === "23514") {
+      return NextResponse.json(
+        { error: `A year value is outside the allowed range (${MIN_YEAR}–${MAX_YEAR})` },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }

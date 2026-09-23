@@ -141,8 +141,8 @@ const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boo
 type LockPhase = "idle" | "acquiring" | "held" | "blocked" | "available" | "warning" | "timed-out" | "lock-error";
 
 // Keep these in sync with LOCK_TIMEOUT_MS in src/app/api/prodoc-lock/route.ts.
-const LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-const LOCK_WARNING_MS = 14 * 60 * 1000; // warn 1 minute before timeout
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const LOCK_WARNING_MS = 9 * 60 * 1000; // warn 1 minute before timeout
 
 function toSlug(d: Prodoc) {
   return projectSlug(d.project_short_name, d.project_title);
@@ -187,7 +187,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const selectedProdocIdRef = useRef(selectedProdocId);
   selectedProdocIdRef.current = selectedProdocId;
   const lastEditRef = useRef<number>(0);           // timestamp of last user-initiated write
-  const lastHeartbeatRef = useRef<number>(0);      // timestamp of last heartbeat POST
   const selectedProjectIdRef = useRef<number | null>(null); // projects.id for the selected prodoc
 
   // Risk
@@ -370,7 +369,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         if (res.ok) {
           setLockPhase("held"); lockPhaseRef.current = "held";
           lastEditRef.current = Date.now();
-          lastHeartbeatRef.current = Date.now();
         } else if (res.status === 409) {
           const data = await res.json();
           if (controller.signal.aborted) return;
@@ -400,14 +398,76 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     };
   }, [selectedProdocId, statusReadOnly]);
 
-  // Heartbeat (every 60 s if edited) + inactivity warning (9 min) + expiry (10 min).
-  // Runs only while we hold the lock; the 30 s tick keeps precision adequate.
+  // Tick every 10 s to evaluate inactivity warning/timeout with fine enough
+  // granularity that the warning cannot be skipped. Heartbeat POST sent at most
+  // once per 60 s (when tab visible) so the server sees the same rate as before.
   const isHolding = lockPhase === "held" || lockPhase === "warning";
   useEffect(() => {
     if (!isHolding || !selectedProdocId) return;
+
+    async function verifyOwnership() {
+      const phase = lockPhaseRef.current;
+      if (phase !== "held" && phase !== "warning") return;
+      const pid = selectedProjectIdRef.current;
+      if (pid == null) return;
+      try {
+        const sid = encodeURIComponent(getEditorSessionId());
+        const r = await fetch(`/api/prodoc-lock?project_id=${pid}&session_id=${sid}`);
+        if (!r.ok) {
+          setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
+          setError("The editing lock could not be checked. Please reload the page.");
+          return;
+        }
+        const data = await r.json();
+        if (data.held && !data.byMe) {
+          setLockPhase("blocked"); lockPhaseRef.current = "blocked";
+          setLockHolder({ name: data.holder_name ?? "?", role: data.holder_role ?? "?" });
+        } else if (!data.held) {
+          // Lock lapsed while we were away. Only re-acquire if the inactivity
+          // limit hasn't been reached — time on another tab counts against it.
+          if (Date.now() - lastEditRef.current >= LOCK_TIMEOUT_MS) {
+            setLockPhase("timed-out"); lockPhaseRef.current = "timed-out";
+            return;
+          }
+          try {
+            const reacquire = await fetch("/api/prodoc-lock", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ project_id: pid, session_id: getEditorSessionId() }),
+            });
+            if (reacquire.ok) {
+              setLockPhase("held"); lockPhaseRef.current = "held";
+              lastEditRef.current = Date.now();
+            } else if (reacquire.status === 409) {
+              const taken = await reacquire.json();
+              setLockPhase("blocked"); lockPhaseRef.current = "blocked";
+              setLockHolder({ name: taken.holder_name ?? "?", role: taken.holder_role ?? "?" });
+            } else {
+              setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
+              setError("The editing lock could not be checked. Please reload the page.");
+            }
+          } catch {
+            setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
+            setError("The editing lock could not be checked. Please reload the page.");
+          }
+        }
+      } catch {
+        setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
+        setError("The editing lock could not be checked. Please reload the page.");
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") verifyOwnership();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    let lastHeartbeat = Date.now();
+
     const interval = setInterval(async () => {
       const phase = lockPhaseRef.current;
       if (phase !== "held" && phase !== "warning") return;
+      if (document.visibilityState !== "visible") return;
 
       const now = Date.now();
       const timeSinceEdit = now - lastEditRef.current;
@@ -425,9 +485,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
       if (pid == null) return;
 
-      const heartbeatDue = now - lastHeartbeatRef.current >= 60_000 && lastEditRef.current > lastHeartbeatRef.current;
-      if (heartbeatDue) {
-        lastHeartbeatRef.current = now;
+      if (now - lastHeartbeat >= 60_000) {
+        lastHeartbeat = now;
         try {
           const r = await fetch("/api/prodoc-lock", {
             method: "POST",
@@ -447,28 +506,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
           setError("The editing lock could not be checked. Please reload the page.");
         }
-      } else {
-        // No heartbeat due — poll to detect loss of the lock by another session.
-        try {
-          const sid = encodeURIComponent(getEditorSessionId());
-          const r = await fetch(`/api/prodoc-lock?project_id=${pid}&session_id=${sid}`);
-          if (!r.ok) {
-            setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
-            setError("The editing lock could not be checked. Please reload the page.");
-            return;
-          }
-          const data = await r.json();
-          if (!data.byMe) {
-            setLockPhase("blocked"); lockPhaseRef.current = "blocked";
-            setLockHolder({ name: data.holder_name ?? "?", role: data.holder_role ?? "?" });
-          }
-        } catch {
-          setLockPhase("lock-error"); lockPhaseRef.current = "lock-error";
-          setError("The editing lock could not be checked. Please reload the page.");
-        }
       }
-    }, 30_000);
-    return () => clearInterval(interval);
+    }, 10_000);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [isHolding, selectedProdocId]);
 
   // Poll GET every 15 s while blocked; transition to "available" when the lock frees.
@@ -944,7 +988,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     });
     if (res.ok) {
       setLockPhase("held"); lockPhaseRef.current = "held";
-      lastEditRef.current = Date.now(); lastHeartbeatRef.current = Date.now();
+      lastEditRef.current = Date.now();
       setLockHolder(null);
     } else if (res.status === 409) {
       const data = await res.json();
@@ -1407,9 +1451,19 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         {/* Inactivity warning — lock will expire in ~1 minute */}
         {!statusReadOnly && selectedProdocId && lockPhase === "warning" && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            <span>Your editing session will expire in 1 minute due to inactivity. Make a change to keep it.</span>
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              <span>Your editing session will expire in 1 minute due to inactivity.</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-7 text-xs border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-900"
+              onClick={noteEdit}
+            >
+              Keep editing
+            </Button>
           </div>
         )}
 

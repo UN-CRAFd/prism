@@ -6,7 +6,7 @@ import { badRequest, invalidJson, serverError } from "@/lib/http";
 
 // A lock is considered stale — and may be claimed by another session —
 // once last_seen_at goes this many milliseconds without a heartbeat.
-const LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 type LockRow = {
   project_id: number;

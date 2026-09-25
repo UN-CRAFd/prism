@@ -17,7 +17,7 @@ import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/repor
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
-import { numericYear, isValidYear } from "@/lib/numeric-input";
+import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
@@ -379,9 +379,9 @@ export function IndicatorsSection({
                       <Fragment key={year}>
                         <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
                           <Input
-                            type="number"
+                            inputMode="decimal"
                             value={state.achieved_value}
-                            onChange={(e) => updateIndicator(row.currentLineId, { achieved_value: e.target.value })}
+                            onChange={(e) => updateIndicator(row.currentLineId, { achieved_value: numericAmount(e.target.value) })}
                             placeholder={labels.placeholders.achievedValue}
                             className="text-sm h-8"
                           />

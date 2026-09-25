@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { numericAmount } from "@/lib/numeric-input";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { SDG_GOALS, getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
 import { optionValues, optionItems } from "@/lib/options";
@@ -240,12 +241,9 @@ export function SdgTargetsEditor({
                       </Select>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step="any"
+                          inputMode="decimal"
                           value={s.percentage === 0 ? "" : s.percentage}
-                          onChange={(e) => setPercentage(s.target_code, e.target.value)}
+                          onChange={(e) => setPercentage(s.target_code, numericAmount(e.target.value))}
                           placeholder="0"
                           className="w-20 h-8 text-sm text-right tabular-nums"
                         />

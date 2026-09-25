@@ -30,7 +30,7 @@ import {
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo } from "@/lib/utils";
-import { clampDuration } from "@/lib/numeric-input";
+import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
 
 // Prodoc uses the same status set as reports (it IS a reports row). Values are
 // admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
@@ -791,9 +791,8 @@ export default function ProjectsPage() {
               <Field label="Grant size (USD)">
                 <Input
                   value={grantSize}
-                  onChange={(e) => setGrantSize(e.target.value)}
-                  type="number"
-                  step="0.01"
+                  onChange={(e) => setGrantSize(numericAmount(e.target.value))}
+                  inputMode="decimal"
                   placeholder="0.00"
                 />
               </Field>
@@ -1019,10 +1018,7 @@ export default function ProjectsPage() {
                 <label className="text-xs font-medium text-foreground">Months to add</label>
                 <Input
                   value={nceMonths}
-                  onChange={(e) => { setNceMonths(e.target.value.replace(/\D/g, "")); setNceError(null); }}
-                  type="number"
-                  min={1}
-                  step={1}
+                  onChange={(e) => { setNceMonths(numericInteger(e.target.value)); setNceError(null); }}
                   inputMode="numeric"
                   placeholder="e.g. 6"
                   autoFocus

@@ -683,9 +683,9 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                 <label className="text-sm font-medium text-muted-foreground">Indirect support cost rate</label>
                 <div className="flex items-center gap-2">
                   <Input
-                    type="number" min="0" max="100" step="0.01"
+                    inputMode="decimal"
                     value={rateInput}
-                    onChange={(e) => setRateInput(e.target.value)}
+                    onChange={(e) => setRateInput(numericAmount(e.target.value))}
                     onBlur={commitRate}
                     className="h-9 w-20 text-sm text-right tabular-nums"
                   />

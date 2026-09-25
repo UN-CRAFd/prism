@@ -10,7 +10,7 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import labels from "@/lib/labels";
-import { numericYear, isValidYear } from "@/lib/numeric-input";
+import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
 import { cycleLabel } from "@/lib/indicators";
 import { type ContributorActivity, LinkedActivityPicker } from "@/components/report-editor/contributor-matrix";
 
@@ -265,7 +265,7 @@ export function ProdocIndicatorsSection({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <Input type="number" value={values.baseline_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { baseline_value: e.target.value })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
@@ -285,7 +285,7 @@ export function ProdocIndicatorsSection({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Input type="number" value={values.target_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { target_value: e.target.value })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>

@@ -96,16 +96,12 @@ export function ReportEditor({
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
 
-  // Risk CRUD (admin-parity): add / edit core fields / delete, all report-scoped.
+  // Risks are report-scoped and can be added here; editing and deleting their
+  // core (admin-owned) fields is the ProDoc editor's job.
   const [newRiskName, setNewRiskName] = useState("");
   const [newRiskCategory, setNewRiskCategory] = useState<string[]>([]);
   const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
   const [addingRisk, setAddingRisk] = useState(false);
-  const [deletingRiskId, setDeletingRiskId] = useState<number | null>(null);
-  const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
-  const [editingRiskName, setEditingRiskName] = useState("");
-  const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
-  const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
 
   const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
   const [indicatorYears, setIndicatorYears] = useState<number[]>([]);
@@ -562,138 +558,6 @@ export function ReportEditor({
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setAddingRisk(false);
-    }
-  }
-
-  function startRiskEdit(risk: Risk) {
-    setEditingRiskId(risk.id);
-    setEditingRiskName(risk.risk_name);
-    setEditingRiskCategory(risk.risk_category ?? []);
-    setEditingRiskApprovedMitigation(risk.approved_mitigation ?? "");
-  }
-
-  function cancelRiskEdit() {
-    setEditingRiskId(null);
-    setEditingRiskName("");
-    setEditingRiskCategory([]);
-    setEditingRiskApprovedMitigation("");
-  }
-
-  async function handleRiskEditSave(id: number) {
-    if (!editingRiskName.trim()) return;
-    setError(null);
-    try {
-      const res = await fetch("/api/risk", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          risk_name: editingRiskName,
-          risk_category: editingRiskCategory,
-          approved_mitigation: editingRiskApprovedMitigation || null,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to update risk");
-      const updated: Risk = await res.json();
-      setRisks((prev) => prev.map((r) => (r.id === id ? updated : r)));
-      cancelRiskEdit();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    }
-  }
-
-  async function handleRiskDelete(id: number) {
-    const risk = risks.find((r) => r.id === id);
-    const state = riskStates[id];
-    if (!risk) return;
-    const hasContent = risk.risk_name?.trim() || state?.updated_likelihood != null || state?.updated_impact != null || state?.updated_mitigation?.trim();
-    if (hasContent && !await confirm({ message: `Delete risk "${risk.risk_name}"?`, confirmLabel: "Delete" })) return;
-    setDeletingRiskId(id);
-    setError(null);
-    try {
-      const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete risk");
-      setRisks((prev) => prev.filter((r) => r.id !== id));
-      setRiskStates((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-
-      // Undoable: recreate the risk (with a fresh id) on undo, delete again on redo.
-      let currentId = id;
-      pushCommand({
-        undo: async () => {
-          try {
-            const cRes = await fetch("/api/risk", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId,
-                risk_name: risk.risk_name,
-                risk_category: (risk.risk_category ?? []).join(", "),
-                approved_mitigation: risk.approved_mitigation ?? null,
-              }),
-            });
-            if (!cRes.ok) throw new Error("Failed to restore risk");
-            const created: Risk = await cRes.json();
-            currentId = created.id;
-            await fetch("/api/risk", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: created.id,
-                likelihood: state?.likelihood ?? null,
-                impact: state?.impact ?? null,
-                updated_mitigation: state?.updated_mitigation || null,
-                project_revision: state?.project_revision ?? false,
-              }),
-            });
-            setRisks((prev) => [...prev, {
-              ...risk,
-              id: created.id,
-              likelihood: state?.likelihood ?? null,
-              impact: state?.impact ?? null,
-              updated_mitigation: state?.updated_mitigation ?? null,
-              project_revision: state?.project_revision ?? false,
-            }]);
-            setRiskStates((prev) => ({
-              ...prev,
-              [created.id]: {
-                likelihood: state?.likelihood ?? null,
-                impact: state?.impact ?? null,
-                updated_likelihood: state?.updated_likelihood ?? null,
-                updated_impact: state?.updated_impact ?? null,
-                approved_mitigation: risk.approved_mitigation ?? "",
-                updated_mitigation: state?.updated_mitigation ?? "",
-                project_revision: state?.project_revision ?? false,
-                dirty: false,
-              },
-            }));
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to restore risk");
-          }
-        },
-        redo: async () => {
-          const delId = currentId;
-          try {
-            const r = await fetch(`/api/risk?id=${delId}`, { method: "DELETE" });
-            if (!r.ok) throw new Error("Failed to delete risk");
-            setRisks((prev) => prev.filter((x) => x.id !== delId));
-            setRiskStates((prev) => {
-              const next = { ...prev };
-              delete next[delId];
-              return next;
-            });
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to delete risk");
-          }
-        },
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setDeletingRiskId(null);
     }
   }
 
@@ -1239,18 +1103,6 @@ export function ReportEditor({
             setNewRiskApprovedMitigation={setNewRiskApprovedMitigation}
             addingRisk={addingRisk}
             handleRiskAdd={handleRiskAdd}
-            editingRiskId={editingRiskId}
-            editingRiskName={editingRiskName}
-            setEditingRiskName={setEditingRiskName}
-            editingRiskCategory={editingRiskCategory}
-            setEditingRiskCategory={setEditingRiskCategory}
-            editingRiskApprovedMitigation={editingRiskApprovedMitigation}
-            setEditingRiskApprovedMitigation={setEditingRiskApprovedMitigation}
-            startRiskEdit={startRiskEdit}
-            cancelRiskEdit={cancelRiskEdit}
-            handleRiskEditSave={handleRiskEditSave}
-            deletingRiskId={deletingRiskId}
-            handleRiskDelete={handleRiskDelete}
             updateRisk={updateRisk}
           />
 

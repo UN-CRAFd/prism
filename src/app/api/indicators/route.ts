@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { DEFAULT_CYCLE, isValidCycle } from "@/lib/indicators";
 
 // GET /api/indicators
 //   Returns the shared indicator vocabulary to any authenticated caller.
@@ -98,6 +99,15 @@ export async function POST(req: NextRequest) {
     if (gate instanceof NextResponse) return gate;
   }
 
+  let cycleValue: string;
+  if (!body.cycle) {
+    cycleValue = DEFAULT_CYCLE;
+  } else if (!isValidCycle(body.cycle)) {
+    return NextResponse.json({ error: "Invalid cycle" }, { status: 400 });
+  } else {
+    cycleValue = body.cycle;
+  }
+
   try {
     const rows = await query(
       `INSERT INTO reporting_platform.indicators
@@ -110,7 +120,7 @@ export async function POST(req: NextRequest) {
         description || null,
         meansOfVerification || null,
         body.category || null,
-        body.cycle || null,
+        cycleValue,
         isStandard,
       ]
     );

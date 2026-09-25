@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ComboboxItem } from "@/components/ui/combobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import labels from "@/lib/labels";
 import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
-import { cycleLabel } from "@/lib/indicators";
+import { cycleLabel, CYCLE_KEYS, DEFAULT_CYCLE } from "@/lib/indicators";
 import { type ContributorActivity, LinkedActivityPicker } from "@/components/report-editor/contributor-matrix";
 
 export interface ProdocIndicatorLine {
@@ -34,6 +35,7 @@ export interface ProdocIndicatorEdit {
   name: string;
   description: string | null;
   means_of_verification: string | null;
+  cycle: string | null;
   baseline_value: string | null;
   baseline_year: number | null;
   target_value: string | null;
@@ -58,7 +60,7 @@ export function ProdocIndicatorsSection({
   lines: ProdocIndicatorLine[];
   indicatorItems: ComboboxItem[];
   onAdd: (item: ComboboxItem) => Promise<void>;
-  onCreate: (name: string, description: string, meansOfVerification: string) => Promise<void>;
+  onCreate: (name: string, description: string, meansOfVerification: string, cycle: string) => Promise<void>;
   onEdit: (indicatorId: number, lineId: number, patch: ProdocIndicatorEdit) => Promise<void>;
   onUpdateValues: (lineId: number, values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">) => Promise<void>;
   onDelete: (lineId: number) => Promise<void>;
@@ -77,6 +79,7 @@ export function ProdocIndicatorsSection({
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createMeansOfVerification, setCreateMeansOfVerification] = useState("");
+  const [createCycle, setCreateCycle] = useState<string>(DEFAULT_CYCLE);
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">>>({});
   const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
@@ -87,6 +90,7 @@ export function ProdocIndicatorsSection({
       name: line.indicator_name,
       description: line.indicator_description,
       means_of_verification: line.means_of_verification,
+      cycle: line.cycle ?? DEFAULT_CYCLE,
       baseline_value: line.baseline_value,
       baseline_year: line.baseline_year,
       target_value: line.target_value,
@@ -169,13 +173,14 @@ export function ProdocIndicatorsSection({
     setCreateName("");
     setCreateDescription("");
     setCreateMeansOfVerification("");
+    setCreateCycle(DEFAULT_CYCLE);
   }
 
   async function submitCreate() {
     if (!createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()) return;
     setCreatingBusy(true);
     try {
-      await onCreate(createName.trim(), createDescription.trim(), createMeansOfVerification.trim());
+      await onCreate(createName.trim(), createDescription.trim(), createMeansOfVerification.trim(), createCycle);
       cancelCreate();
     } finally {
       setCreatingBusy(false);
@@ -246,6 +251,16 @@ export function ProdocIndicatorsSection({
                         <Input value={draft.name} onChange={(e) => updateDraft({ name: e.target.value })} placeholder={labels.placeholders.indicatorName} autoFocus />
                         <Textarea value={draft.description ?? ""} onChange={(e) => updateDraft({ description: e.target.value })} placeholder={labels.placeholders.indicatorDescription} className="min-h-[64px] resize-y" />
                         <Textarea value={draft.means_of_verification ?? ""} onChange={(e) => updateDraft({ means_of_verification: e.target.value })} placeholder={labels.placeholders.meansOfVerification} className="min-h-[64px] resize-y" />
+                        <Select value={draft.cycle ?? DEFAULT_CYCLE} onValueChange={(v) => updateDraft({ cycle: v })}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CYCLE_KEYS.map((k) => (
+                              <SelectItem key={k} value={k}>{cycleLabel(k)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     ) : (
                       <div className="flex items-start gap-2">
@@ -378,6 +393,16 @@ export function ProdocIndicatorsSection({
             <Input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="flex-[2]" autoFocus />
             <Textarea value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="min-h-9 flex-[2] resize-y text-sm" />
             <Textarea value={createMeansOfVerification} onChange={(e) => setCreateMeansOfVerification(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="min-h-9 flex-[2] resize-y text-sm" />
+            <Select value={createCycle} onValueChange={setCreateCycle}>
+              <SelectTrigger className="h-9 w-36 shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CYCLE_KEYS.map((k) => (
+                  <SelectItem key={k} value={k}>{cycleLabel(k)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button onClick={submitCreate} disabled={creatingBusy || !createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()} size="sm" className="shrink-0">
               {creatingBusy ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="mr-1 size-4" />{labels.adminEditor.add}</>}
             </Button>

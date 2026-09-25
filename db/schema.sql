@@ -457,7 +457,7 @@ CREATE TABLE IF NOT EXISTS indicators (
     description           TEXT,
     means_of_verification TEXT,
     category              TEXT,
-    cycle                 TEXT,
+    cycle                 TEXT                    DEFAULT 'at_closure' CHECK (cycle IN ('yearly', 'at_closure')),
     -- Defaults to custom: an indicator only joins the CRAF'd standard library
     -- when a caller says so outright (the seed below, and the admin library
     -- page). Partner-created indicators come in through the report and
@@ -1086,23 +1086,23 @@ SELECT v.name, v.description, v.means_of_verification, v.category, v.cycle, TRUE
     ('Funding allocated for crisis action with the support of project outputs',
      'This indicator aims to measure the extent to which the project outputs are used to facilitate funding decisions related to crisis action.',
      'Surveys, interviews, analysis of public policy documents / emergency response plans / reports, other documents.',
-     'Investment', 'yearly'),
+     'Investment', 'at_closure'),
     ('Funding allocated for crisis action specifically in fragile settings',
      'This sub-indicator aims to measure the extent to which the project outputs are used to facilitate funding decisions related to crisis action specifically in fragile contexts.',
      'Surveys, interviews, analysis of public policy documents / emergency response plans / reports, other documents.',
-     'Investment', 'yearly'),
+     'Investment', 'at_closure'),
     ('Project partners involved in the implementation of the project',
      'This indicator aims to measure the number of project partners involved in the implementation of the project.',
      'Internal tracking.',
-     'Capacity', 'yearly'),
+     'Capacity', 'at_closure'),
     ('Project partners from fragile and/or crisis-affected settings',
      'This sub-indicator aims to measure the number of project partners specifically from fragile and/or crisis affected settings.',
      'Internal tracking.',
-     'Capacity', 'yearly'),
+     'Capacity', 'at_closure'),
     ('Datasets provided by the project',
      'This indicator aims to measure the provision and dissemination of datasets by the project to stakeholders.',
      'Internal tracking.',
-     'Capacity', 'yearly')
+     'Capacity', 'at_closure')
   ) AS v(name, description, means_of_verification, category, cycle)
  WHERE NOT EXISTS (SELECT 1 FROM indicators WHERE is_standard);
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireAdmin, requireSession } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { isValidCycle } from "@/lib/indicators";
 
 const ALLOWED_FIELDS = [
   "name",
@@ -38,6 +39,10 @@ export async function PUT(
     }
 
     const body = await request.json();
+
+    if ("cycle" in body && !isValidCycle(body.cycle)) {
+      return NextResponse.json({ error: "Invalid cycle" }, { status: 400 });
+    }
 
     const setClauses: string[] = [];
     const values: unknown[] = [];

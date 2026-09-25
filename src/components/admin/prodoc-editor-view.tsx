@@ -704,6 +704,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           name: patch.name,
           description: patch.description,
           means_of_verification: patch.means_of_verification,
+          cycle: patch.cycle,
         }),
       });
       if (!indicatorRes.ok) throw new Error("Failed to update indicator");
@@ -729,6 +730,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             indicator_name: updated.name,
             indicator_description: updated.description,
             means_of_verification: updated.means_of_verification,
+            cycle: updated.cycle,
             baseline_value: patch.baseline_value,
             baseline_year: patch.baseline_year,
             target_value: patch.target_value,
@@ -1058,14 +1060,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setAddingIndicator(false); }
   }
 
-  async function handleProdocIndicatorCreate(name: string, description: string, meansOfVerification: string) {
+  async function handleProdocIndicatorCreate(name: string, description: string, meansOfVerification: string, cycle: string) {
     setAddingIndicator(true);
     setError(null);
     try {
       const res = await fetch("/api/indicators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, means_of_verification: meansOfVerification, is_standard: false }),
+        body: JSON.stringify({ name, description, means_of_verification: meansOfVerification, cycle, is_standard: false }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

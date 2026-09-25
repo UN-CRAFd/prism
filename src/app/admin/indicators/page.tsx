@@ -18,7 +18,7 @@ import { Plus, Target, ArchiveRestore, Layers } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
 } from "@/components/admin/shared";
-import { CYCLE_KEYS, cycleLabel } from "@/lib/indicators";
+import { CYCLE_KEYS, cycleLabel, DEFAULT_CYCLE } from "@/lib/indicators";
 import { optionValues } from "@/lib/options";
 import labels from "@/lib/labels";
 
@@ -75,7 +75,7 @@ export default function IndicatorsPage() {
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  const [cycle, setCycle] = useState<string>(NONE);
+  const [cycle, setCycle] = useState<string>(DEFAULT_CYCLE);
   const [description, setDescription] = useState("");
   const [mov, setMov] = useState("");
   const [isStandard, setIsStandard] = useState(true);
@@ -111,7 +111,7 @@ export default function IndicatorsPage() {
   }, [indicators]);
 
   function resetForm() {
-    setName(""); setCategory(""); setCycle(NONE); setDescription(""); setMov("");
+    setName(""); setCategory(""); setCycle(DEFAULT_CYCLE); setDescription(""); setMov("");
     setIsStandard(true);
     setEditId(null); setShowForm(false); setFormError(null);
   }
@@ -119,7 +119,7 @@ export default function IndicatorsPage() {
   function startEdit(ind: Indicator) {
     setName(ind.name);
     setCategory(ind.category || "");
-    setCycle(ind.cycle || NONE);
+    setCycle(ind.cycle || DEFAULT_CYCLE);
     setDescription(ind.description || "");
     setMov(ind.means_of_verification || "");
     setIsStandard(ind.is_standard);
@@ -133,7 +133,7 @@ export default function IndicatorsPage() {
       const body = {
         name: name.trim(),
         category: category === NONE ? null : category,
-        cycle: cycle === NONE ? null : cycle,
+        cycle: cycle,
         description: description.trim() || null,
         means_of_verification: mov.trim() || null,
         // For new indicators, always standard (this page is the CRAF'd library).
@@ -231,7 +231,6 @@ export default function IndicatorsPage() {
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}><span className="text-muted-foreground">—</span></SelectItem>
                     {CYCLE_KEYS.map((k) => (
                       <SelectItem key={k} value={k}>{cycleLabel(k)}</SelectItem>
                     ))}

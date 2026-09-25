@@ -8,6 +8,8 @@ export type IndicatorCycle = "yearly" | "at_closure";
 
 export const STATUS_KEYS: IndicatorStatus[] = ["on_track", "off_track", "ahead_of_schedule"];
 export const CYCLE_KEYS: IndicatorCycle[] = ["yearly", "at_closure"];
+export const DEFAULT_CYCLE: IndicatorCycle = "at_closure";
+export function isValidCycle(v: unknown): v is IndicatorCycle { return typeof v === "string" && (CYCLE_KEYS as string[]).includes(v); }
 
 export function statusLabel(key: string | null | undefined): string {
   if (!key) return "";

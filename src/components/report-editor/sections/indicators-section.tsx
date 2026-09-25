@@ -1,13 +1,10 @@
 "use client";
 
 import { Fragment, useState, type CSSProperties } from "react";
-import { Loader2, Plus, Trash2, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
-import { useReadOnly } from "@/components/ui/read-only-context";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
@@ -17,9 +14,8 @@ import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/repor
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
-import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
+import { numericAmount } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
-import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import { activityLabel } from "@/lib/transfers";
 
@@ -58,45 +54,8 @@ export interface IndicatorsSectionProps {
   indicatorYears: number[];
   indicatorCurrentYear: number | null;
   indicatorStates: Record<number, IndicatorState>;
-
-  // Add-a-custom-indicator form
-  newIndicatorName: string;
-  setNewIndicatorName: (v: string) => void;
-  newIndicatorDescription: string;
-  setNewIndicatorDescription: (v: string) => void;
-  newIndicatorMeansOfVerification: string;
-  setNewIndicatorMeansOfVerification: (v: string) => void;
-  newIndicatorBaselineValue: string;
-  setNewIndicatorBaselineValue: (v: string) => void;
-  newIndicatorBaselineYear: string;
-  setNewIndicatorBaselineYear: (v: string) => void;
-  newIndicatorTargetValue: string;
-  setNewIndicatorTargetValue: (v: string) => void;
-  newIndicatorTargetYear: string;
-  setNewIndicatorTargetYear: (v: string) => void;
-  addingIndicator: boolean;
-  handleIndicatorAdd: () => void;
-
-  // Reuse an existing indicator from the shared vocabulary (standard + other
-  // projects' customs, ranked by recurrence) instead of re-creating one.
-  indicatorComboItems: ComboboxItem[];
-  handleIndicatorSelectExisting: (indicatorId: number) => void;
-
   updateIndicator: (id: number, patch: Partial<IndicatorState>) => void;
-
-  // Row removal. Admins may remove any indicator; partners only their own custom
-  // (non-standard) ones — the button is hidden on standard rows for partners.
   isAdmin: boolean;
-  deletingIndicatorLineId: number | null;
-  handleIndicatorDelete: (row: IndicatorMatrixRow) => void;
-
-  // Optional inline edit for custom indicators. When omitted, the Pencil button
-  // is not rendered.
-  onEditIndicator?: (indicatorId: number, patch: { name: string; description: string | null; means_of_verification: string | null }) => Promise<void>;
-  // Annual reports only enter the current year's achieved value, status, and
-  // comment. Indicator structure is managed from the project document.
-  canManageIndicators?: boolean;
-
   // Freeze the column headers to the top while the matrix body scrolls.
   fillHeight?: boolean;
   activities: ContributorActivity[];
@@ -108,125 +67,22 @@ export function IndicatorsSection({
   indicatorYears,
   indicatorCurrentYear,
   indicatorStates,
-  newIndicatorName,
-  setNewIndicatorName,
-  newIndicatorDescription,
-  setNewIndicatorDescription,
-  newIndicatorMeansOfVerification,
-  setNewIndicatorMeansOfVerification,
-  newIndicatorBaselineValue,
-  setNewIndicatorBaselineValue,
-  newIndicatorBaselineYear,
-  setNewIndicatorBaselineYear,
-  newIndicatorTargetValue,
-  setNewIndicatorTargetValue,
-  newIndicatorTargetYear,
-  setNewIndicatorTargetYear,
-  addingIndicator,
-  handleIndicatorAdd,
-  indicatorComboItems,
-  handleIndicatorSelectExisting,
   updateIndicator,
   isAdmin,
-  deletingIndicatorLineId,
-  handleIndicatorDelete,
-  onEditIndicator,
-  canManageIndicators = true,
   fillHeight = false,
   activities,
   activityById,
 }: IndicatorsSectionProps) {
-  const readOnly = useReadOnly();
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear);
-
-  // The create panel is hidden until the user chooses "create a new one" from the
-  // search box (Combobox onCreate). At that point we pre-fill the typed text as the
-  // name and reveal the description / means-of-verification / baseline / target
-  // fields, which are required before the indicator can join the shared vocabulary.
-  const [creating, setCreating] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
   const [table, setTable] = useState<IndicatorTableKey>("standard");
-
-  const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editMov, setEditMov] = useState("");
-  const [editBaselineValue, setEditBaselineValue] = useState("");
-  const [editBaselineYear, setEditBaselineYear] = useState("");
-  const [editTargetValue, setEditTargetValue] = useState("");
-  const [editTargetYear, setEditTargetYear] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [newBaselineYearErr, setNewBaselineYearErr] = useState(false);
-  const [newTargetYearErr, setNewTargetYearErr] = useState(false);
-  const [editBaselineYearErr, setEditBaselineYearErr] = useState(false);
-  const [editTargetYearErr, setEditTargetYearErr] = useState(false);
-
-  // Name, description and means of verification are all mandatory for a
-  // partner-defined custom indicator; baseline/target remain optional.
-  const canAddIndicator =
-    !!newIndicatorName.trim() &&
-    !!newIndicatorDescription.trim() &&
-    !!newIndicatorMeansOfVerification.trim() &&
-    !newBaselineYearErr &&
-    !newTargetYearErr;
-
-  async function handleEditSave(indicatorId: number, lineId: number) {
-    if (!editName.trim() || !onEditIndicator || editBaselineYearErr || editTargetYearErr) return;
-    setSavingEdit(true);
-    try {
-      await onEditIndicator(indicatorId, { name: editName, description: editDesc || null, means_of_verification: editMov || null });
-      updateIndicator(lineId, {
-        baseline_value: editBaselineValue,
-        baseline_year: editBaselineYear,
-        target_value: editTargetValue,
-        target_year: editTargetYear,
-      });
-      setEditingIndicatorId(null);
-      setEditBaselineYearErr(false);
-      setEditTargetYearErr(false);
-    } finally {
-      setSavingEdit(false);
-    }
-  }
-
-  function openCreate(name: string) {
-    setNewIndicatorName(name);
-    setCreating(true);
-  }
-
-  function cancelCreate() {
-    setCreating(false);
-    setShowPicker(false);
-    setNewIndicatorName("");
-    setNewIndicatorDescription("");
-    setNewIndicatorMeansOfVerification("");
-    setNewIndicatorBaselineValue("");
-    setNewIndicatorBaselineYear("");
-    setNewIndicatorTargetValue("");
-    setNewIndicatorTargetYear("");
-    setNewBaselineYearErr(false);
-    setNewTargetYearErr(false);
-  }
-
-  async function submitCreate() {
-    await handleIndicatorAdd();
-    setCreating(false);
-    setShowPicker(false);
-  }
 
   const standardRows = indicatorRows.filter((row) => row.is_standard);
   const projectRows = indicatorRows.filter((row) => !row.is_standard);
 
-  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: "standard" | "project", footer?: React.ReactNode) => {
+  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: "standard" | "project") => {
     const tableDescription = tableType === "standard"
       ? "These are standard indicators which are used across all CRAF'd-supported projects."
       : "These are custom indicators added for this project specifically.";
-
-    // The trailing column only ever holds the edit/delete controls, which are for
-    // custom indicators on a surface that manages them. Anywhere else (the whole
-    // annual report, where canManageIndicators is false, and the standard table) it
-    // would be a permanently empty column, so it is dropped rather than rendered blank.
-    const showActions = canManageIndicators && tableType === "project";
 
     // An empty table keeps its box, border and frozen header and says so on a row
     // inside — same as the project document's indicator tables. A separate dashed
@@ -234,8 +90,7 @@ export function IndicatorsSection({
     // of them is empty. 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
     const emptyColSpan = 3
       + visibleYears.reduce((acc, y) => acc + (y === indicatorCurrentYear ? 3 : 2), 0)
-      + 1
-      + (showActions ? 1 : 0);
+      + 1;
 
     const pastSubCols = [
       { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[90px]" },
@@ -246,7 +101,6 @@ export function IndicatorsSection({
       <MatrixTableShell
         fillHeight={fillHeight}
         hugContent
-        footer={footer}
         minWidth={IND_FROZEN_WIDTH}
         leadingCols={[
           {
@@ -271,7 +125,6 @@ export function IndicatorsSection({
         pastSubCols={pastSubCols}
         trailingCols={[
           { label: "Linked activity", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
-          ...(showActions ? [{ className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" }] : []),
         ]}
       >
         <tbody>
@@ -293,83 +146,35 @@ export function IndicatorsSection({
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 mt-0.5 w-6 text-xs tabular-nums text-muted-foreground text-right">{idx + 1}.</span>
                     <div className="flex-1 min-w-0">
-                      {editingIndicatorId === row.indicator_id ? (
-                        <div className="flex flex-col gap-1.5">
-                          <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
-                          <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
-                          <Textarea value={editMov} onChange={(e) => setEditMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
+                      <>
+                        <div className="flex items-start gap-2">
+                          {/* The info icon sits inside the <p>, so it trails the name
+                              directly and wraps with it. As a sibling it would be a
+                              flex item and the flex-1 name would push it to the far
+                              edge of the column. Only the comments button, which is a
+                              row-level action rather than part of the label, stays
+                              pinned right. Matches the project document's rows. */}
+                          <p className="font-medium leading-snug flex-1">
+                            {row.indicator_name}
+                            <span className="ml-1.5 inline-block align-middle">
+                              <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
+                            </span>
+                          </p>
+                          <ItemComments section="indicators" itemId={row.currentLineId} />
                         </div>
-                      ) : (
-                        <>
-                          <div className="flex items-start gap-2">
-                            {/* The info icon sits inside the <p>, so it trails the name
-                                directly and wraps with it. As a sibling it would be a
-                                flex item and the flex-1 name would push it to the far
-                                edge of the column. Only the comments button, which is a
-                                row-level action rather than part of the label, stays
-                                pinned right. Matches the project document's rows. */}
-                            <p className="font-medium leading-snug flex-1">
-                              {row.indicator_name}
-                              <span className="ml-1.5 inline-block align-middle">
-                                <InfoPopover description={row.indicator_description} meansOfVerification={row.means_of_verification} />
-                              </span>
-                            </p>
-                            <ItemComments section="indicators" itemId={row.currentLineId} />
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
-                            {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
-                          </div>
-                        </>
-                      )}
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
+                          {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
+                        </div>
+                      </>
                     </div>
                   </div>
                 </td>
                 <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
-                  {canManageIndicators && tableType === "project" && editingIndicatorId === row.indicator_id ? (
-                    <div className="flex flex-col gap-1">
-                      <Input type="number" value={editBaselineValue} onChange={(e) => setEditBaselineValue(e.target.value)} placeholder={labels.indicators.columns.baselineValue} className="h-8 text-sm" />
-                      <div>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={editBaselineYear}
-                          onChange={(e) => {
-                            const y = numericYear(e.target.value);
-                            setEditBaselineYear(y);
-                            setEditBaselineYearErr(y !== "" && !isValidYear(Number(y)));
-                          }}
-                          placeholder={labels.indicators.columns.baselineYear}
-                          className={"h-8 text-sm" + (editBaselineYearErr ? " border-destructive" : "")}
-                          title={editBaselineYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
-                        />
-                        {editBaselineYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
-                      </div>
-                    </div>
-                  ) : <ValueYear value={tableType === "project" ? state.baseline_value : row.baseline_value} year={tableType === "project" ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />}
+                  <ValueYear value={tableType === "project" ? state.baseline_value : row.baseline_value} year={tableType === "project" ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />
                 </td>
                 <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
-                  {canManageIndicators && tableType === "project" && editingIndicatorId === row.indicator_id ? (
-                    <div className="flex flex-col gap-1">
-                      <Input type="number" value={editTargetValue} onChange={(e) => setEditTargetValue(e.target.value)} placeholder={labels.indicators.columns.targetValue} className="h-8 text-sm" />
-                      <div>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={editTargetYear}
-                          onChange={(e) => {
-                            const y = numericYear(e.target.value);
-                            setEditTargetYear(y);
-                            setEditTargetYearErr(y !== "" && !isValidYear(Number(y)));
-                          }}
-                          placeholder={labels.indicators.columns.targetYear}
-                          className={"h-8 text-sm" + (editTargetYearErr ? " border-destructive" : "")}
-                          title={editTargetYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
-                        />
-                        {editTargetYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
-                      </div>
-                    </div>
-                  ) : <ValueYear value={tableType === "project" ? state.target_value : row.target_value} year={tableType === "project" ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />}
+                  <ValueYear value={tableType === "project" ? state.target_value : row.target_value} year={tableType === "project" ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
                 </td>
 
                 {visibleYears.map((year) => {
@@ -433,57 +238,6 @@ export function IndicatorsSection({
                     ? activityLabel(activityById.get(row.linked_activity_id)) || "—"
                     : "—"}
                 </td>
-
-                {showActions && (
-                <td className="px-2 py-2 border-l border-t text-center">
-                  {editingIndicatorId === row.indicator_id ? (
-                    <div className="flex flex-row items-center justify-center gap-3">
-                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleEditSave(row.indicator_id, row.currentLineId)} disabled={savingEdit || !editName.trim() || editBaselineYearErr || editTargetYearErr}>
-                        {savingEdit ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { setEditingIndicatorId(null); setEditBaselineYearErr(false); setEditTargetYearErr(false); }} disabled={savingEdit}>
-                        {labels.common.cancel}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-row items-center justify-center gap-3">
-                      {!readOnly && !!onEditIndicator && (
-                        <button
-                          onClick={() => {
-                            setEditingIndicatorId(row.indicator_id);
-                            setEditName(row.indicator_name);
-                            setEditDesc(row.indicator_description ?? "");
-                            setEditMov(row.means_of_verification ?? "");
-                            setEditBaselineValue(row.baseline_value ?? "");
-                            setEditBaselineYear(row.baseline_year != null ? String(row.baseline_year) : "");
-                            setEditTargetValue(row.target_value ?? "");
-                            setEditTargetYear(row.target_year != null ? String(row.target_year) : "");
-                            setEditBaselineYearErr(false);
-                            setEditTargetYearErr(false);
-                          }}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label={`Edit indicator ${row.indicator_name}`}
-                          title="Edit indicator"
-                        >
-                          <Pencil className="size-3.5" />
-                        </button>
-                      )}
-                      {(isAdmin || !row.is_standard) && (
-                        <button
-                          onClick={() => handleIndicatorDelete(row)}
-                          disabled={deletingIndicatorLineId === row.currentLineId}
-                          className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-                          aria-label={`Remove indicator ${row.indicator_name}`}
-                        >
-                          {deletingIndicatorLineId === row.currentLineId
-                            ? <Loader2 className="size-3.5 animate-spin" />
-                            : <Trash2 className="size-3.5" />}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </td>
-                )}
               </tr>
             );
           })}
@@ -491,90 +245,6 @@ export function IndicatorsSection({
       </MatrixTableShell>
     );
   };
-
-  // Adding belongs with the customised project table: creating one always makes a
-  // custom indicator, and the CRAF'd standard set is the controlled vocabulary that
-  // partners cannot modify. Handed to MatrixTableShell as its `footer` so it sits
-  // just under the table's bottom-right corner rather than at the foot of the tab,
-  // with the picker / create form opening downwards from there.
-  const addIndicatorFooter = !canManageIndicators ? undefined : (
-    <div className="flex shrink-0 flex-col items-end gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : setShowPicker((visible) => !visible)} className="gap-1">
-        {showPicker ? <X className="size-4" /> : <Plus className="size-4" />} {showPicker ? "Cancel" : "Add indicator"}
-      </Button>
-      {showPicker && (
-        <div className="w-full max-w-xl">
-          <Combobox
-            items={indicatorComboItems}
-            placeholder={labels.placeholders.indicatorSearch}
-            onSelect={(item) => {
-              // Reuse can also pull in a CRAF'd standard indicator, which lands
-              // in the other table — follow it, or the row is added out of sight.
-              if (item.is_standard) setTable("standard");
-              handleIndicatorSelectExisting(item.id);
-            }}
-            onCreate={openCreate}
-            createLabel={labels.adminEditor.createIndicator}
-            busy={addingIndicator}
-          />
-        </div>
-      )}
-      {creating && (
-        <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 w-full">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
-            <Button variant="ghost" size="sm" onClick={cancelCreate} className="h-7 px-2 text-muted-foreground">
-              <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
-            </Button>
-          </div>
-          <div className="flex items-start gap-2">
-            <Input required placeholder={labels.placeholders.indicatorName} value={newIndicatorName} onChange={(e) => setNewIndicatorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && canAddIndicator) submitCreate(); }} className="flex-[2]" autoFocus />
-            <Textarea required placeholder={labels.placeholders.indicatorDescription} value={newIndicatorDescription} onChange={(e) => setNewIndicatorDescription(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
-            <Textarea required placeholder={labels.placeholders.meansOfVerification} value={newIndicatorMeansOfVerification} onChange={(e) => setNewIndicatorMeansOfVerification(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
-          </div>
-          <div className="flex gap-2">
-            <Input type="number" placeholder={labels.indicators.columns.baselineValue} value={newIndicatorBaselineValue} onChange={(e) => setNewIndicatorBaselineValue(e.target.value)} className="flex-[1.5]" />
-            <div className="flex-[1.0]">
-              <Input
-                placeholder={labels.indicators.columns.baselineYear}
-                type="text"
-                inputMode="numeric"
-                value={newIndicatorBaselineYear}
-                onChange={(e) => {
-                  const y = numericYear(e.target.value);
-                  setNewIndicatorBaselineYear(y);
-                  setNewBaselineYearErr(y !== "" && !isValidYear(Number(y)));
-                }}
-                className={newBaselineYearErr ? "border-destructive" : ""}
-                title={newBaselineYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
-              />
-              {newBaselineYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
-            </div>
-            <Input type="number" placeholder={labels.indicators.columns.targetValue} value={newIndicatorTargetValue} onChange={(e) => setNewIndicatorTargetValue(e.target.value)} className="flex-[1.5]" />
-            <div className="flex-[1.0]">
-              <Input
-                placeholder={labels.indicators.columns.targetYear}
-                type="text"
-                inputMode="numeric"
-                value={newIndicatorTargetYear}
-                onChange={(e) => {
-                  const y = numericYear(e.target.value);
-                  setNewIndicatorTargetYear(y);
-                  setNewTargetYearErr(y !== "" && !isValidYear(Number(y)));
-                }}
-                className={newTargetYearErr ? "border-destructive" : ""}
-                title={newTargetYearErr ? "Year must be a whole number between 2000 and 2050" : undefined}
-              />
-              {newTargetYearErr && <p className="mt-0.5 text-xs text-destructive">Invalid number</p>}
-            </div>
-            <Button onClick={submitCreate} disabled={addingIndicator || !canAddIndicator} size="sm" className="shrink-0 ml-auto">
-              {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     // Same shape as the project document's indicators tab. fillHeight: the section
@@ -599,7 +269,7 @@ export function IndicatorsSection({
         </div>
       </div>
       {table === "standard" && renderIndicatorTable(standardRows, "standard")}
-      {table === "custom" && renderIndicatorTable(projectRows, "project", addIndicatorFooter)}
+      {table === "custom" && renderIndicatorTable(projectRows, "project")}
     </div>
   );
 }

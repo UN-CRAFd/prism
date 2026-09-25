@@ -15,7 +15,6 @@ import {
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
-import { type ComboboxItem } from "@/components/ui/combobox";
 import { Loader2, FileQuestion, Lock, ChevronRight } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -38,7 +37,6 @@ import {
   type Risk,
   type RiskState,
   type IndicatorMatrixRow,
-  type LibraryIndicator,
   type IndicatorState,
 } from "@/components/report-editor/types";
 import { OverviewSection } from "@/components/report-editor/sections/overview-section";
@@ -128,20 +126,6 @@ export function ReportEditor({
       setActivities(Array.isArray(data.activities) ? data.activities : []);
     } catch { /* quiet — empty list is fine */ }
   }, []);
-
-  // Custom indicators: partners may define their own (project-scoped) indicators.
-  const [newIndicatorName, setNewIndicatorName] = useState("");
-  const [newIndicatorDescription, setNewIndicatorDescription] = useState("");
-  const [newIndicatorMeansOfVerification, setNewIndicatorMeansOfVerification] = useState("");
-  const [newIndicatorBaselineValue, setNewIndicatorBaselineValue] = useState("");
-  const [newIndicatorBaselineYear, setNewIndicatorBaselineYear] = useState("");
-  const [newIndicatorTargetValue, setNewIndicatorTargetValue] = useState("");
-  const [newIndicatorTargetYear, setNewIndicatorTargetYear] = useState("");
-  const [addingIndicator, setAddingIndicator] = useState(false);
-  const [deletingIndicatorLineId, setDeletingIndicatorLineId] = useState<number | null>(null);
-  // The shared indicator vocabulary (standard + every custom one), used to let the
-  // partner search for and reuse an existing indicator instead of re-creating it.
-  const [indicatorLibrary, setIndicatorLibrary] = useState<LibraryIndicator[]>([]);
 
   // Undo / redo over the parent-managed section edits. History is per section
   // visit (reset when the section or report changes, inside the hook).
@@ -247,13 +231,9 @@ export function ReportEditor({
     setLoadingIndicators(true);
     setError(null);
     try {
-      const [res, libRes] = await Promise.all([
-        fetch(`/api/indicator-data?reportId=${id}&matrix=1`),
-        fetch(`/api/indicators`),
-      ]);
+      const res = await fetch(`/api/indicator-data?reportId=${id}&matrix=1`);
       if (!res.ok) throw new Error("Failed to load indicators");
       const data: { years: number[]; currentYear: number | null; rows: IndicatorMatrixRow[] } = await res.json();
-      if (libRes.ok) setIndicatorLibrary(await libRes.json());
       setIndicatorRows(data.rows);
       setIndicatorYears(data.years);
       setIndicatorCurrentYear(data.currentYear);
@@ -701,206 +681,6 @@ export function ReportEditor({
     pushMapEdit(setIndicatorStates, indicatorStates, id, patch, { dirty: true });
   }
 
-  // Create a partner-defined custom indicator and attach it to this report. The
-  // indicator joins the shared vocabulary (no longer project-scoped), so it becomes
-  // searchable/reusable from other projects too.
-  async function handleIndicatorAdd() {
-    // Name, description and means of verification are all mandatory.
-    if (!newIndicatorName.trim() || !newIndicatorDescription.trim() || !newIndicatorMeansOfVerification.trim() || !reportId) return;
-    setAddingIndicator(true);
-    setError(null);
-    try {
-      // 1. Create the custom indicator in the shared library.
-      const indRes = await fetch("/api/indicators", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newIndicatorName.trim(),
-          description: newIndicatorDescription.trim(),
-          means_of_verification: newIndicatorMeansOfVerification.trim(),
-          is_standard: false,
-        }),
-      });
-      if (!indRes.ok) throw new Error("Failed to create indicator");
-      const indicator = await indRes.json();
-
-      // 2. Add it as a line on this report (partner supplies baseline/target).
-      const lineRes = await fetch("/api/indicator-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId,
-          indicator_id: indicator.id,
-          baseline_value: newIndicatorBaselineValue || null,
-          baseline_year: newIndicatorBaselineYear || null,
-          target_value: newIndicatorTargetValue || null,
-          target_year: newIndicatorTargetYear || null,
-        }),
-      });
-      if (!lineRes.ok) throw new Error("Failed to add indicator to report");
-
-      setNewIndicatorName("");
-      setNewIndicatorDescription("");
-      setNewIndicatorMeansOfVerification("");
-      setNewIndicatorBaselineValue("");
-      setNewIndicatorBaselineYear("");
-      setNewIndicatorTargetValue("");
-      setNewIndicatorTargetYear("");
-      await loadIndicators(reportId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setAddingIndicator(false);
-    }
-  }
-
-  // Attach an EXISTING indicator (standard or another project's custom) from the
-  // shared vocabulary to this report — the reuse path that standardizes indicators
-  // across projects. No new indicator row is created; only an indicator_data line.
-  async function handleIndicatorSelectExisting(indicatorId: number) {
-    if (!reportId) return;
-    setAddingIndicator(true);
-    setError(null);
-    try {
-      const lineRes = await fetch("/api/indicator-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId, indicator_id: indicatorId }),
-      });
-      if (!lineRes.ok) {
-        const err = await lineRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to add indicator to report");
-      }
-      await loadIndicators(reportId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setAddingIndicator(false);
-    }
-  }
-
-  // Combobox items for the reuse typeahead: the shared vocabulary minus indicators
-  // already on this report. Ordering (standard first, then recurring customs) comes
-  // from the API; the hint surfaces the recurrence signal.
-  const indicatorComboItems: ComboboxItem[] = indicatorLibrary
-    .filter((lib) => !indicatorRows.some((r) => r.indicator_id === lib.id))
-    .map((lib) => ({
-      id: lib.id,
-      label: lib.name,
-      is_standard: lib.is_standard,
-      hint: lib.is_standard
-        ? "Standard"
-        : (lib.usage_project_count ?? 0) > 0
-        ? `Used by ${lib.usage_project_count} project${lib.usage_project_count === 1 ? "" : "s"}`
-        : "Custom",
-    }));
-
-  // Remove an indicator from this report. Admins may remove any row; partners only
-  // their own custom (non-standard) indicators — the button is hidden otherwise, and
-  // this re-checks the rule as a guard. Deletes only the current report's line
-  // (historical years for the same indicator are untouched). Undoable, mirroring risk.
-  async function handleIndicatorDelete(row: IndicatorMatrixRow) {
-    if (mode !== "admin" && row.is_standard) return;
-    if (!reportId) return;
-    if (!await confirm({
-      message: `Remove indicator "${row.indicator_name}" from this report?`,
-      confirmLabel: "Remove",
-      variant: "default",
-    })) return;
-
-    const lineId = row.currentLineId;
-    const state = indicatorStates[lineId];
-    setDeletingIndicatorLineId(lineId);
-    setError(null);
-    try {
-      const res = await fetch(`/api/indicator-data?id=${lineId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to remove indicator");
-      setIndicatorRows((prev) => prev.filter((r) => r.currentLineId !== lineId));
-      setIndicatorStates((prev) => {
-        const next = { ...prev };
-        delete next[lineId];
-        return next;
-      });
-
-      // Undoable: recreate the report line (new id) on undo, delete again on redo.
-      const savedRid = reportId;
-      pushCommand({
-        undo: async () => {
-          try {
-            const cRes = await fetch("/api/indicator-data", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportId: savedRid,
-                indicator_id: row.indicator_id,
-                baseline_value: row.baseline_value,
-                baseline_year: row.baseline_year,
-                target_value: row.target_value,
-                target_year: row.target_year,
-              }),
-            });
-            if (!cRes.ok) throw new Error("Failed to restore indicator");
-            const created: { id: number } = await cRes.json();
-            if (state && (state.achieved_value || state.status || state.comment)) {
-              await fetch("/api/indicator-data", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  id: created.id,
-                  achieved_value: state.achieved_value || null,
-                  status: state.status,
-                  comment: state.comment || null,
-                }),
-              });
-            }
-            await loadIndicators(savedRid);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to restore indicator");
-          }
-        },
-        redo: async () => {
-          // Undo recreated the line with a fresh id; look it up by indicator, delete, reload.
-          try {
-            const list: { rows: IndicatorMatrixRow[] } =
-              await (await fetch(`/api/indicator-data?reportId=${savedRid}&matrix=1`)).json();
-            const match = list.rows.find((r) => r.indicator_id === row.indicator_id);
-            if (match) {
-              await fetch(`/api/indicator-data?id=${match.currentLineId}`, { method: "DELETE" });
-            }
-            await loadIndicators(savedRid);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to remove indicator");
-          }
-        },
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setDeletingIndicatorLineId(null);
-    }
-  }
-
-
-  async function handleIndicatorEdit(
-    indicatorId: number,
-    patch: { name: string; description: string | null; means_of_verification: string | null },
-  ) {
-    const res = await fetch(`/api/indicators/${indicatorId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (!res.ok) throw new Error("Failed to update indicator");
-    const updated = await res.json();
-    setIndicatorRows((prev) =>
-      prev.map((r) =>
-        r.indicator_id === indicatorId
-          ? { ...r, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
-          : r
-      )
-    );
-  }
-
   // A single-field edit on a keyed-state map. Captures the before/after values so
   // undo restores the previous value (re-flagged dirty so autosave persists it)
   // and redo re-applies. `dirty` is the section's dirty flag(s).
@@ -1260,29 +1040,8 @@ export function ReportEditor({
             indicatorYears={indicatorYears}
             indicatorCurrentYear={indicatorCurrentYear}
             indicatorStates={indicatorStates}
-            newIndicatorName={newIndicatorName}
-            setNewIndicatorName={setNewIndicatorName}
-            newIndicatorDescription={newIndicatorDescription}
-            setNewIndicatorDescription={setNewIndicatorDescription}
-            newIndicatorMeansOfVerification={newIndicatorMeansOfVerification}
-            setNewIndicatorMeansOfVerification={setNewIndicatorMeansOfVerification}
-            newIndicatorBaselineValue={newIndicatorBaselineValue}
-            setNewIndicatorBaselineValue={setNewIndicatorBaselineValue}
-            newIndicatorBaselineYear={newIndicatorBaselineYear}
-            setNewIndicatorBaselineYear={setNewIndicatorBaselineYear}
-            newIndicatorTargetValue={newIndicatorTargetValue}
-            setNewIndicatorTargetValue={setNewIndicatorTargetValue}
-            newIndicatorTargetYear={newIndicatorTargetYear}
-            setNewIndicatorTargetYear={setNewIndicatorTargetYear}
-            addingIndicator={addingIndicator}
-            handleIndicatorAdd={handleIndicatorAdd}
-            indicatorComboItems={indicatorComboItems}
-            handleIndicatorSelectExisting={handleIndicatorSelectExisting}
             updateIndicator={updateIndicator}
             isAdmin={mode === "admin"}
-            deletingIndicatorLineId={deletingIndicatorLineId}
-            handleIndicatorDelete={handleIndicatorDelete}
-            canManageIndicators={false}
             fillHeight={fillHeight}
             activities={activities}
             activityById={activityById}

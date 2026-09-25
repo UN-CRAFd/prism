@@ -181,9 +181,11 @@ interface UpdateWindow {
   hidden: boolean;
 }
 
-// Stable keys for the per-activity lines the row chips switch on and off: the
-// admin-owned baseline, plus one per update window.
-const BASELINE_LINE = "baseline";
+// Keys for the row-filter stored set. An empty set gives the right defaults:
+// baseline shown (BASELINE_HIDDEN_KEY absent), every non-active update hidden
+// (update key absent). Presence means shown for update keys, hidden for
+// BASELINE_HIDDEN_KEY. The active update window is always visible with no chip.
+const BASELINE_HIDDEN_KEY = "baseline-hidden";
 function updateLineKey(u: { id: number }): string {
   return `update:${u.id}`;
 }
@@ -338,33 +340,21 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
 
   const quarters = useMemo(() => quarterRange(data?.range.start ?? null, data?.range.end ?? null), [data]);
 
-  // Row filters. Every activity carries a read-only baseline line plus one line
-  // per update window, so a project with several windows repeats that block down
-  // the whole grid. The chips drop a line from every activity at once; each is
-  // named after the row it controls ("Baseline", "2027 · AR", …). Unlike the
-  // indicator and expenditure year chips — which reveal past years that start
-  // hidden — these start on, because the workplan has always shown every line.
-  // Keyed per report, since the line keys carry this report's update-window ids.
-  const [hiddenLines, updateHiddenLines] = useStickySet<string>(`workplan-rows:${reportId}`);
-
-  const lineKeys = useMemo(
-    () => [BASELINE_LINE, ...(data?.updates ?? []).map(updateLineKey)],
-    [data]
-  );
+  // Row filters: chips that show/hide per-activity lines. Baseline has a chip
+  // and is shown by default; BASELINE_HIDDEN_KEY present in the set hides it.
+  // Every non-active update window has a chip and is hidden by default; its key
+  // present in the set shows it. The active window is always visible, no chip.
+  // Keyed per report so each report's window ids stay isolated.
+  const [shownLines, updateShownLines] = useStickySet<string>(`workplan-rows:${reportId}`);
 
   const toggleLine = useCallback((key: string) => {
-    updateHiddenLines((prev) => {
+    updateShownLines((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-        return next;
-      }
-      // Refuse to hide the last visible line — every activity would vanish.
-      if (lineKeys.filter((k) => !next.has(k)).length <= 1) return prev;
-      next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
-  }, [lineKeys, updateHiddenLines]);
+  }, [updateShownLines]);
 
   if (loading) {
     return (
@@ -396,10 +386,11 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     );
   }
 
-  const { activities, updates, activeUpdateId } = data;
+  const { activities, activeUpdateId } = data;
+  const updates = [...data.updates].sort((a, b) => a.year - b.year || a.sort_order - b.sort_order || a.id - b.id);
 
-  const baselineShown = !hiddenLines.has(BASELINE_LINE);
-  const visibleUpdates = updates.filter((u) => !hiddenLines.has(updateLineKey(u)));
+  const baselineShown = !shownLines.has(BASELINE_HIDDEN_KEY);
+  const visibleUpdates = updates.filter((u) => u.id === activeUpdateId || shownLines.has(updateLineKey(u)));
 
   const totalCols = 2 + quarters.length + 3;
   let lastOutcome: string | null = null;
@@ -419,35 +410,32 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
         </div>
         {!onSaveStateChange && <AutosaveIndicator state={saveState} />}
       </div>
-      {/* Row filters, styled as the indicator grid's chips. Each is named after
-          the line it controls, so the chip and the row's own label match. Only
-          worth a bar once an activity has more than one line to choose from. */}
-      {lineKeys.length > 1 && (
-        <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">{labels.common.rows}</span>
-          <FilterChip
-            on={baselineShown}
-            onClick={() => toggleLine(BASELINE_LINE)}
-            title={`${baselineShown ? "Hide" : "Show"} the baseline line under each activity`}
-          >
-            {labels.common.baseline}
-          </FilterChip>
-          {updates.map((u) => {
-            const label = workplanUpdateWindowLabel(u);
-            const on = !hiddenLines.has(updateLineKey(u));
-            return (
-              <FilterChip
-                key={u.id}
-                on={on}
-                onClick={() => toggleLine(updateLineKey(u))}
-                title={`${on ? "Hide" : "Show"} the ${label} line under each activity`}
-              >
-                {label}
-              </FilterChip>
-            );
-          })}
-        </div>
-      )}
+      {/* Row filters: the baseline chip (shown by default) plus one chip per
+          non-active update window (hidden by default). Active window has no chip. */}
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">{labels.common.rows}</span>
+        <FilterChip
+          on={baselineShown}
+          onClick={() => toggleLine(BASELINE_HIDDEN_KEY)}
+          title={`${baselineShown ? "Hide" : "Show"} the baseline line under each activity`}
+        >
+          {labels.common.baseline}
+        </FilterChip>
+        {updates.filter((u) => u.id !== activeUpdateId).map((u) => {
+          const label = workplanUpdateWindowLabel(u);
+          const on = shownLines.has(updateLineKey(u));
+          return (
+            <FilterChip
+              key={u.id}
+              on={on}
+              onClick={() => toggleLine(updateLineKey(u))}
+              title={`${on ? "Hide" : "Show"} the ${label} line under each activity`}
+            >
+              {label}
+            </FilterChip>
+          );
+        })}
+      </div>
       {activeUpdateId == null && (
         <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           No active update window has been set for this project. Ask your administrator to add and activate one before entering progress.

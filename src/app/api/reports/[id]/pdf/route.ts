@@ -277,7 +277,9 @@ export async function GET(
       addTable(
         "Lessons Learned",
         ["Category", "Lesson", "Adjustment"],
-        data.lessons.map((l) => [(l.category ?? "—").substring(0, 20), (l.lesson_learned ?? "").substring(0, 30), (l.adjustment_informed ?? "").substring(0, 30)])
+        // Category holds a comma-joined list now, so it needs more room than the
+        // single-value columns elsewhere in this preview.
+        data.lessons.map((l) => [(l.category ?? "—").substring(0, 40), (l.lesson_learned ?? "").substring(0, 30), (l.adjustment_informed ?? "").substring(0, 30)])
       );
     }
 

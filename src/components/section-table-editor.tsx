@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Download, Info, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -29,7 +30,18 @@ import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } 
 // onSaveStateChange so the parent can render a single shared indicator.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SectionFieldType = "input" | "textarea" | "select" | "links" | "photo";
+export type SectionFieldType = "input" | "textarea" | "select" | "multiselect" | "links" | "photo";
+
+// A multiselect cell keeps its picks in the same plain TEXT column a single
+// select used, comma-joined — the convention `links` already follows here. That
+// keeps the API, the CSV/ZIP export, the PDF and the comment labels working on
+// the stored value unchanged, with no migration.
+function splitMulti(raw: string | undefined): string[] {
+  return (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+function joinMulti(values: string[]): string {
+  return values.join(", ");
+}
 
 // Section-table textareas: the base Textarea already grows vertically, wraps
 // long lines and keeps a fixed width. Here we only add the table-specific size
@@ -417,7 +429,9 @@ export function SectionTableEditor({
 
   function updateField(i: number, key: string, value: string) {
     const field = fields.find((f) => f.key === key);
-    if (field?.type === "select") {
+    // Dropdown picks are discrete choices, so each one gets its own undo step
+    // (a multiselect toggle is one step, the same as changing a select).
+    if (field?.type === "select" || field?.type === "multiselect") {
       const row = rowsRef.current[i];
       const before = row.values[key];
       setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, values: { ...r.values, [key]: value }, dirty: true } : r)));
@@ -610,6 +624,13 @@ export function SectionTableEditor({
                       onUploaded={(fileName) => patchRowValues(row.key, { photo_file_name: fileName, [f.key]: "" })}
                       onRemoved={() => patchRowValues(row.key, { photo_file_name: "" })}
                     />
+                  ) : f.type === "multiselect" ? (
+                    <MultiSelect
+                      staticItems={f.options ?? []}
+                      value={splitMulti(row.values[f.key])}
+                      onChange={(next) => updateField(i, f.key, joinMulti(next))}
+                      placeholder="Select…"
+                    />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
                       <SelectTrigger className="w-full h-9 text-sm">
@@ -714,7 +735,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyLessons,
     max: 5,
     fields: [
-      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "select", options: optionValues("lessonsCategory"), headClass: "w-44" },
+      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), headClass: "w-52" },
       { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned…", headClass: "w-[38%]" },
       { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result…" },
     ],

@@ -137,7 +137,7 @@ export function IndicatorsSection({
   activityById,
 }: IndicatorsSectionProps) {
   const readOnly = useReadOnly();
-  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear);
+  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear, "indicators");
 
   // The create panel is hidden until the user chooses "create a new one" from the
   // search box (Combobox onCreate). At that point we pre-fill the typed text as the

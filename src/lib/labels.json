@@ -9,6 +9,8 @@
     "saveFailed": "Save failed",
     "cancel": "Cancel",
     "formerReports": "Former reports:",
+    "rows": "Rows:",
+    "baseline": "Baseline",
     "columns": {
       "links": "Links / Materials"
     },

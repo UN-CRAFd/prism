@@ -513,7 +513,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   const { config } = props;
   const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
   const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
-  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(years, currentYear);
+  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(years, currentYear, config.section);
 
   if (loading) {
     return (

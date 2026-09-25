@@ -73,7 +73,7 @@ export function IndicatorsSection({
   activities,
   activityById,
 }: IndicatorsSectionProps) {
-  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear);
+  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear, "indicators");
   const [table, setTable] = useState<IndicatorTableKey>("standard");
 
   const standardRows = indicatorRows.filter((row) => row.is_standard);

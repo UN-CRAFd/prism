@@ -184,7 +184,7 @@ export function ExpenditurePartnerEditor({
     const reportYearSet = new Set(data.reportYears);
     return data.years.filter((y) => y === data.currentYear || reportYearSet.has(y));
   }, [data]);
-  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(pastYearsInput, data?.currentYear ?? null);
+  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(pastYearsInput, data?.currentYear ?? null, "expenditure");
 
   function update(catId: number, patch: Partial<EditState>) {
     setEdits((prev) => ({ ...prev, [catId]: { ...prev[catId], ...patch, dirty: true } }));

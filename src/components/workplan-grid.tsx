@@ -26,6 +26,8 @@ import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown, 
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
+import { FilterChip } from "@/components/report-editor/past-year-chips";
+import { useStickySet } from "@/components/report-editor/sticky-filter";
 import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import {
@@ -179,6 +181,13 @@ interface UpdateWindow {
   hidden: boolean;
 }
 
+// Stable keys for the per-activity lines the row chips switch on and off: the
+// admin-owned baseline, plus one per update window.
+const BASELINE_LINE = "baseline";
+function updateLineKey(u: { id: number }): string {
+  return `update:${u.id}`;
+}
+
 interface WindowEntry {
   updated_quarters: string[];
   status: string | null;
@@ -329,6 +338,34 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
 
   const quarters = useMemo(() => quarterRange(data?.range.start ?? null, data?.range.end ?? null), [data]);
 
+  // Row filters. Every activity carries a read-only baseline line plus one line
+  // per update window, so a project with several windows repeats that block down
+  // the whole grid. The chips drop a line from every activity at once; each is
+  // named after the row it controls ("Baseline", "2027 · AR", …). Unlike the
+  // indicator and expenditure year chips — which reveal past years that start
+  // hidden — these start on, because the workplan has always shown every line.
+  // Keyed per report, since the line keys carry this report's update-window ids.
+  const [hiddenLines, updateHiddenLines] = useStickySet<string>(`workplan-rows:${reportId}`);
+
+  const lineKeys = useMemo(
+    () => [BASELINE_LINE, ...(data?.updates ?? []).map(updateLineKey)],
+    [data]
+  );
+
+  const toggleLine = useCallback((key: string) => {
+    updateHiddenLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+        return next;
+      }
+      // Refuse to hide the last visible line — every activity would vanish.
+      if (lineKeys.filter((k) => !next.has(k)).length <= 1) return prev;
+      next.add(key);
+      return next;
+    });
+  }, [lineKeys, updateHiddenLines]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
@@ -360,6 +397,10 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   }
 
   const { activities, updates, activeUpdateId } = data;
+
+  const baselineShown = !hiddenLines.has(BASELINE_LINE);
+  const visibleUpdates = updates.filter((u) => !hiddenLines.has(updateLineKey(u)));
+
   const totalCols = 2 + quarters.length + 3;
   let lastOutcome: string | null = null;
   let lastObjective: string | null = null;
@@ -378,6 +419,35 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
         </div>
         {!onSaveStateChange && <AutosaveIndicator state={saveState} />}
       </div>
+      {/* Row filters, styled as the indicator grid's chips. Each is named after
+          the line it controls, so the chip and the row's own label match. Only
+          worth a bar once an activity has more than one line to choose from. */}
+      {lineKeys.length > 1 && (
+        <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">{labels.common.rows}</span>
+          <FilterChip
+            on={baselineShown}
+            onClick={() => toggleLine(BASELINE_LINE)}
+            title={`${baselineShown ? "Hide" : "Show"} the baseline line under each activity`}
+          >
+            {labels.common.baseline}
+          </FilterChip>
+          {updates.map((u) => {
+            const label = workplanUpdateWindowLabel(u);
+            const on = !hiddenLines.has(updateLineKey(u));
+            return (
+              <FilterChip
+                key={u.id}
+                on={on}
+                onClick={() => toggleLine(updateLineKey(u))}
+                title={`${on ? "Hide" : "Show"} the ${label} line under each activity`}
+              >
+                {label}
+              </FilterChip>
+            );
+          })}
+        </div>
+      )}
       {activeUpdateId == null && (
         <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           No active update window has been set for this project. Ask your administrator to add and activate one before entering progress.
@@ -411,7 +481,32 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               if (objKey.trim() !== "|") lastObjective = objKey;
 
               const ps = progress[a.id];
-              const rowSpan = 1 + updates.length; // baseline + one line per update window
+              // The baseline line (when shown) plus one line per update window.
+              // Whichever comes first carries the cells that span the activity's
+              // whole block, so hiding the baseline hands them to the first
+              // update line rather than leaving the block without them.
+              const lines: ({ kind: "baseline" } | { kind: "update"; u: UpdateWindow })[] = [
+                ...(baselineShown ? [{ kind: "baseline" as const }] : []),
+                ...visibleUpdates.map((u) => ({ kind: "update" as const, u })),
+              ];
+              const rowSpan = lines.length;
+
+              const activityCell = (
+                <td rowSpan={rowSpan} className="px-3 py-2 align-top border-r">
+                  <div className="flex items-start gap-2">
+                    <p className="text-sm font-medium leading-snug flex-1">
+                      {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
+                      {a.activity_text}
+                    </p>
+                    {/* Per-activity comment thread (admin↔partner), keyed on this
+                        report + the activity row — same infra as risk/indicators. */}
+                    <ItemComments section="workplan" itemId={a.id} />
+                  </div>
+                </td>
+              );
+              const agentCell = (
+                <td rowSpan={rowSpan} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
+              );
 
               return (
                 <Fragment key={a.id}>
@@ -428,32 +523,29 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     </tr>
                   )}
 
-                  {/* Baseline row (admin-owned, read-only) */}
-                  <tr className="border-t">
-                    <td rowSpan={rowSpan} className="px-3 py-2 align-top border-r">
-                      <div className="flex items-start gap-2">
-                        <p className="text-sm font-medium leading-snug flex-1">
-                          {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
-                          {a.activity_text}
-                        </p>
-                        {/* Per-activity comment thread (admin↔partner), keyed on this
-                            report + the activity row — same infra as risk/indicators. */}
-                        <ItemComments section="workplan" itemId={a.id} />
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">Baseline</td>
-                    {quarters.map((q, i) => (
-                      <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
-                        <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
-                      </td>
-                    ))}
-                    <td rowSpan={rowSpan} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
-                    <td className="px-2 py-2 border-l text-center text-muted-foreground/40 text-xs">—</td>
-                    <td className="px-2 py-2 border-l text-muted-foreground/40 text-xs">—</td>
-                  </tr>
+                  {/* The read-only baseline line (admin-owned) followed by one
+                      progress line per update window; only the active one edits. */}
+                  {lines.map((line, idx) => {
+                    const first = idx === 0;
 
-                  {/* One progress line per update window; only the active one edits */}
-                  {updates.map((u) => {
+                    if (line.kind === "baseline") {
+                      return (
+                        <tr key="baseline" className="border-t">
+                          {first && activityCell}
+                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">{labels.common.baseline}</td>
+                          {quarters.map((q, i) => (
+                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                              <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
+                            </td>
+                          ))}
+                          {first && agentCell}
+                          <td className="px-2 py-2 border-l text-center text-muted-foreground/40 text-xs">—</td>
+                          <td className="px-2 py-2 border-l text-muted-foreground/40 text-xs">—</td>
+                        </tr>
+                      );
+                    }
+
+                    const u = line.u;
                     const isActive = u.id === activeUpdateId;
                     // The active window is the only editable line — and only when
                     // the report itself is editable. When read-only it renders
@@ -467,6 +559,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     const comment = isActive ? (ps?.comment ?? "") : (cell?.comment ?? "");
                     return (
                       <tr key={u.id} className={cn("border-t", isActive ? "bg-crafd-yellow/5" : "opacity-60")}>
+                        {first && activityCell}
                         <td className="px-2 py-2 text-[11px] font-medium whitespace-nowrap">
                           <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
                         </td>
@@ -479,6 +572,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                             />
                           </td>
                         ))}
+                        {first && agentCell}
                         <td className="px-2 py-2 align-middle border-l">
                           {/* The active window's status always renders the dropdown;
                               when the report is read-only the surrounding

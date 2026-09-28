@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Plus, Trash2, Pencil } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
@@ -40,29 +40,15 @@ export interface RiskSectionProps {
   addingRisk: boolean;
   handleRiskAdd: () => void;
 
-  // Inline edit of core (admin-owned) fields
-  editingRiskId: number | null;
-  editingRiskName: string;
-  setEditingRiskName: (v: string) => void;
-  editingRiskCategory: string[];
-  setEditingRiskCategory: (v: string[]) => void;
-  editingRiskApprovedMitigation: string;
-  setEditingRiskApprovedMitigation: (v: string) => void;
-  startRiskEdit: (risk: Risk) => void;
-  cancelRiskEdit: () => void;
-  handleRiskEditSave: (id: number) => void;
-
-  deletingRiskId: number | null;
-  handleRiskDelete: (id: number) => void;
-
   updateRisk: (id: number, patch: Partial<RiskState>) => void;
 }
 
-// Column layout (12 columns, ~2000px total):
+// Column layout (11 columns, ~1900px total):
 //   1:#(60) | 2:Risk(380) | 3:Appr.L(115) | 4:Appr.I(115) | 5:Appr.RL(115)
 //   6:Upd.L(115) | 7:Upd.I(115) | 8:Upd.RL(115)
-//   9:Appr.Mit.(310) | 10:Upd.Mit.(310) | 11:Revision(120) | 12:Actions(100)
-// Edit row: col 1 = #, cols 2–10 colSpan=9 (form), cols 11–12 colSpan=2 (buttons).
+//   9:Appr.Mit.(310) | 10:Upd.Mit.(310) | 11:Revision(120)
+// Editing and deleting a risk's core (admin-owned) fields lives in the ProDoc
+// editor only — the report editor renders them read-only.
 
 export function RiskSection({
   risks,
@@ -75,18 +61,6 @@ export function RiskSection({
   setNewRiskApprovedMitigation,
   addingRisk,
   handleRiskAdd,
-  editingRiskId,
-  editingRiskName,
-  setEditingRiskName,
-  editingRiskCategory,
-  setEditingRiskCategory,
-  editingRiskApprovedMitigation,
-  setEditingRiskApprovedMitigation,
-  startRiskEdit,
-  cancelRiskEdit,
-  handleRiskEditSave,
-  deletingRiskId,
-  handleRiskDelete,
   updateRisk,
 }: RiskSectionProps) {
   return (
@@ -109,7 +83,7 @@ export function RiskSection({
         </div>
       ) : (
       <div className="overflow-x-auto rounded-xl border">
-        <table className="text-sm" style={{ minWidth: "2000px", width: "100%" }}>
+        <table className="text-sm" style={{ minWidth: "1900px", width: "100%" }}>
           <thead>
             <tr className={cn("border-b bg-muted/30", HEAD_TEXT)}>
               <th className="text-left px-4 py-3 text-muted-foreground" style={{ width: "60px", minWidth: "60px" }}>{labels.risk.columns.number}</th>
@@ -135,35 +109,12 @@ export function RiskSection({
                   />
                 </span>
               </th>
-              <th className="text-right px-4 py-3 text-muted-foreground" style={{ width: "100px", minWidth: "100px" }}>{labels.risk.columns.actions}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {risks.map((risk, i) => {
               const state = riskStates[risk.id];
               if (!state) return null;
-              if (editingRiskId === risk.id) {
-                return (
-                  <tr key={risk.id} className="bg-amber-50/40">
-                    <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
-                    {/* Edit form spans cols 2–10: Risk, 6 assessment cols, both mitigation cols (9 cols) */}
-                    <td colSpan={9} className="px-4 py-3 align-top">
-                      <div className="flex flex-col gap-2">
-                        <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
-                        <MultiSelect optionKey="riskCategory" value={editingRiskCategory} onChange={setEditingRiskCategory} placeholder={labels.placeholders.riskCategories} />
-                        <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
-                      </div>
-                    </td>
-                    {/* Cols 11–12: Revision + Actions */}
-                    <td colSpan={2} className="px-4 py-3 align-top">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                        <Button size="sm" variant="outline" onClick={cancelRiskEdit}>{labels.common.cancel}</Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }
               return (
                 <tr key={risk.id} className={cn("transition-colors", state.dirty && "bg-amber-50/40")}>
                   {/* Col 1: # */}
@@ -255,16 +206,6 @@ export function RiskSection({
                       onChange={(e) => updateRisk(risk.id, { project_revision: e.target.checked })}
                       className="size-4 rounded mt-1"
                     />
-                  </td>
-
-                  {/* Col 12: Actions */}
-                  <td className="px-4 py-3 align-top">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => startRiskEdit(risk)} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Edit risk"><Pencil className="size-3.5" /></button>
-                      <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label="Delete risk">
-                        {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                      </button>
-                    </div>
                   </td>
                 </tr>
               );

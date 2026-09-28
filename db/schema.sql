@@ -513,6 +513,7 @@ CREATE TABLE IF NOT EXISTS risk_management (
     approved_mitigation TEXT,
     updated_mitigation  TEXT,
     project_revision    BOOLEAN      NOT NULL DEFAULT FALSE,
+    source_risk_id      INTEGER      REFERENCES risk_management(id) ON DELETE SET NULL,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

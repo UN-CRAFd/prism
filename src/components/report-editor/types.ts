@@ -59,14 +59,14 @@ export interface Risk {
   approved_mitigation: string | null;
   updated_mitigation: string | null;
   project_revision: boolean;
+  source_risk_id: number | null;
 }
 
 export interface RiskState {
-  likelihood: number | null;
-  impact: number | null;
+  risk_name: string;
+  risk_category: string[];
   updated_likelihood: number | null;
   updated_impact: number | null;
-  approved_mitigation: string;
   updated_mitigation: string;
   project_revision: boolean;
   dirty: boolean;

@@ -98,7 +98,6 @@ export function ReportEditor({
   // core (admin-owned) fields is the ProDoc editor's job.
   const [newRiskName, setNewRiskName] = useState("");
   const [newRiskCategory, setNewRiskCategory] = useState<string[]>([]);
-  const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
   const [addingRisk, setAddingRisk] = useState(false);
 
   const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
@@ -205,11 +204,10 @@ export function ReportEditor({
       const states: Record<number, RiskState> = {};
       for (const r of data) {
         states[r.id] = {
-          likelihood: r.likelihood,
-          impact: r.impact,
+          risk_name: r.risk_name,
+          risk_category: r.risk_category ?? [],
           updated_likelihood: r.updated_likelihood,
           updated_impact: r.updated_impact,
-          approved_mitigation: r.approved_mitigation ?? "",
           updated_mitigation: r.updated_mitigation ?? "",
           project_revision: r.project_revision,
           dirty: false,
@@ -414,7 +412,7 @@ export function ReportEditor({
     const dirtySurveys = surveys.filter((s) => rowStates[s.id]?.dirty);
     const surveySnap = new Map(dirtySurveys.map((s) => [s.id, JSON.stringify({ a: rowStates[s.id].assessment, c: rowStates[s.id].context })]));
     const dirtyRisks = risks.filter((r) => riskStates[r.id]?.dirty);
-    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
+    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ n: riskStates[r.id].risk_name, c: riskStates[r.id].risk_category, ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
     const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
     const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify(indicatorStates[r.currentLineId])]));
     const saveOverview = overviewDirty;
@@ -434,7 +432,9 @@ export function ReportEditor({
         }),
         ...dirtyRisks.map((r) => {
           const st = riskStates[r.id];
-          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id, updated_likelihood: st.updated_likelihood, updated_impact: st.updated_impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision }) }).then(ok);
+          const patch: Record<string, unknown> = { id: r.id, updated_likelihood: st.updated_likelihood, updated_impact: st.updated_impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision };
+          if (r.source_risk_id === null) { patch.risk_name = st.risk_name; patch.risk_category = st.risk_category; }
+          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then(ok);
         }),
         ...dirtyInd.map((r) => {
           const st = indicatorStates[r.currentLineId];
@@ -463,7 +463,7 @@ export function ReportEditor({
     });
     if (dirtyRisks.length) setRiskStates((prev) => {
       const n = { ...prev };
-      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
+      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ n: cur.risk_name, c: cur.risk_category, ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
       return n;
     });
     if (dirtyInd.length) setIndicatorStates((prev) => {
@@ -512,7 +512,6 @@ export function ReportEditor({
           reportId,
           risk_name: newRiskName,
           risk_category: newRiskCategory,
-          approved_mitigation: newRiskApprovedMitigation || null,
         }),
       });
       if (!res.ok) throw new Error("Failed to add risk");
@@ -521,11 +520,10 @@ export function ReportEditor({
       setRiskStates((prev) => ({
         ...prev,
         [created.id]: {
-          likelihood: created.likelihood,
-          impact: created.impact,
+          risk_name: created.risk_name,
+          risk_category: created.risk_category ?? [],
           updated_likelihood: created.updated_likelihood,
           updated_impact: created.updated_impact,
-          approved_mitigation: created.approved_mitigation ?? "",
           updated_mitigation: created.updated_mitigation ?? "",
           project_revision: created.project_revision,
           dirty: false,
@@ -533,11 +531,27 @@ export function ReportEditor({
       }));
       setNewRiskName("");
       setNewRiskCategory([]);
-      setNewRiskApprovedMitigation("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setAddingRisk(false);
+    }
+  }
+
+  async function handleRiskDelete(id: number) {
+    const ok = await confirm({
+      title: "Remove risk",
+      message: "This risk was added during reporting and will be permanently deleted.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/risk?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete risk");
+      setRisks((prev) => prev.filter((r) => r.id !== id));
+      setRiskStates((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
     }
   }
 
@@ -875,15 +889,15 @@ export function ReportEditor({
           <RiskSection
             risks={risks}
             riskStates={riskStates}
+            reportYear={selectedReport?.year ?? 0}
             newRiskName={newRiskName}
             setNewRiskName={setNewRiskName}
             newRiskCategory={newRiskCategory}
             setNewRiskCategory={setNewRiskCategory}
-            newRiskApprovedMitigation={newRiskApprovedMitigation}
-            setNewRiskApprovedMitigation={setNewRiskApprovedMitigation}
             addingRisk={addingRisk}
             handleRiskAdd={handleRiskAdd}
             updateRisk={updateRisk}
+            handleRiskDelete={handleRiskDelete}
           />
 
         ) : params.section === "indicators" ? (

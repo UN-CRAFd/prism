@@ -161,13 +161,26 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
 
   await client.query(
     `INSERT INTO reporting_platform.risk_management
-       (report_id, risk_name, likelihood, impact, approved_mitigation)
-     SELECT nr.id, rm.risk_name, rm.likelihood, rm.impact, rm.approved_mitigation
+       (report_id, risk_name, likelihood, impact, approved_mitigation, source_risk_id)
+     SELECT nr.id, rm.risk_name, rm.likelihood, rm.impact, rm.approved_mitigation, rm.id
        FROM reporting_platform.reports nr
        JOIN reporting_platform.reports pd
          ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
        JOIN reporting_platform.risk_management rm ON rm.report_id = pd.id
       WHERE nr.id = ANY($1::int[])`,
+    [reportIds]
+  );
+
+  await client.query(
+    `INSERT INTO reporting_platform.risk_categories (risk_id, category)
+     SELECT rr.id, rc.category
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.reports pd
+         ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'
+       JOIN reporting_platform.risk_management rr ON rr.report_id = nr.id AND rr.source_risk_id IS NOT NULL
+       JOIN reporting_platform.risk_categories rc ON rc.risk_id = rr.source_risk_id
+      WHERE nr.id = ANY($1::int[])
+     ON CONFLICT (risk_id, category) DO NOTHING`,
     [reportIds]
   );
 

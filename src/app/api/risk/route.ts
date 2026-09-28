@@ -138,15 +138,30 @@ export async function PATCH(req: NextRequest) {
   const gate = await guardRow(session, "risk_management", id as string | number, { requireOpen: true });
   if (gate) return gate;
 
-  // Partners may update only the per-report "updated_*" assessment fields.
-  // Any attempt to modify the ProDoc-approved likelihood or impact from a
-  // partner session is rejected here, before the SQL runs.
   const isAdmin = session.role === "admin";
-  if (!isAdmin && ("likelihood" in fields || "impact" in fields)) {
-    return NextResponse.json(
-      { error: "Partners may not modify the approved likelihood or impact." },
-      { status: 403 }
+  if (!isAdmin) {
+    // Enforce per-report field restrictions based on whether the risk originated
+    // from the ProDoc (source_risk_id NOT NULL = "old") or was added during
+    // reporting (source_risk_id NULL = "new"). ProDoc risks are unrestricted.
+    const meta = await query<{ data_type: string; source_risk_id: number | null }>(
+      `SELECT r.data_type, rm.source_risk_id
+         FROM reporting_platform.risk_management rm
+         JOIN reporting_platform.reports r ON r.id = rm.report_id
+        WHERE rm.id = $1`,
+      [id]
     );
+    if (meta.length && meta[0].data_type === "report") {
+      const isOld = meta[0].source_risk_id !== null;
+      const locked = isOld
+        ? ["risk_name", "risk_category", "approved_mitigation", "likelihood", "impact"]
+        : ["approved_mitigation", "likelihood", "impact"];
+      if (locked.some((f) => f in fields)) {
+        return NextResponse.json(
+          { error: "This risk comes from the project document and can't be changed here." },
+          { status: 403 }
+        );
+      }
+    }
   }
 
   // risk_category lives in the junction table, not on risk_management.
@@ -201,6 +216,22 @@ export async function DELETE(req: NextRequest) {
   if (!id) return badRequest("id required");
   const gate = await guardRow(session, "risk_management", id, { requireOpen: true });
   if (gate) return gate;
+
+  if (session.role !== "admin") {
+    const meta = await query<{ data_type: string; source_risk_id: number | null }>(
+      `SELECT r.data_type, rm.source_risk_id
+         FROM reporting_platform.risk_management rm
+         JOIN reporting_platform.reports r ON r.id = rm.report_id
+        WHERE rm.id = $1`,
+      [id]
+    );
+    if (meta.length && meta[0].data_type === "report" && meta[0].source_risk_id !== null) {
+      return NextResponse.json(
+        { error: "This risk comes from the project document and can't be changed here." },
+        { status: 403 }
+      );
+    }
+  }
 
   try {
     // risk_categories cascade-delete via FK.

@@ -5,101 +5,82 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSessionToken, setSessionCookie } from "@/lib/session";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
-import { projectSlug } from "@/lib/utils";
 
-// Share links for a report:
-//   POST { reportId }            → { token }                — admin copies this into a URL
-//   GET  ?token=<token>          → { name, needsSetup }     — what the landing page should ask for
-//   PUT  { token, password }     → { user, redirect }       — set (first use) or verify the password, then log in
+// Partner setup links — one link per partner organization (not per report).
+// The link lets the partner set their PRISM password on first use; subsequent
+// visits require re-entry of that password.
 //
-// A link never logs anyone in automatically: the first visitor sets a password
-// (overwriting the partner's password_hash); every visit after that must re-enter
-// it. `partners.password_set_at` distinguishes the two.
+//   POST { partnerId }           → { token }             — admin mints the link
+//   GET  ?token=<token>          → { name, needsSetup }  — landing page probe
+//   PUT  { token, password }     → { user, redirect }    — set or verify password, then log in
+//
+// `partners.password_set_at` distinguishes first-use (setup) from subsequent
+// visits (verify). Links are valid for 90 days.
 
 const TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 const MIN_PASSWORD = 6;
 
-interface ReportContext extends Record<string, unknown> {
-  year: number;
-  data_type: string;
-  project_title: string;
-  project_short_name: string | null;
-  partner_id: number;
-  partner_short_name: string | null;
-  partner_long_name: string | null;
+interface PartnerContext extends Record<string, unknown> {
+  id: number;
+  short_name: string | null;
+  long_name: string | null;
   password_hash: string | null;
   password_set_at: string | null;
 }
 
-async function resolveReport(rid: number): Promise<ReportContext | null> {
-  const rows = await query<ReportContext>(
-    `SELECT r.year,
-            r.data_type,
-            p.project_title,
-            p.short_name   AS project_short_name,
-            pt.id          AS partner_id,
-            pt.short_name  AS partner_short_name,
-            pt.long_name   AS partner_long_name,
-            pt.password_hash,
-            pt.password_set_at
-       FROM reporting_platform.reports  r
-       JOIN reporting_platform.projects p  ON p.id  = r.project_id
-       JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-      WHERE r.id = $1
-      LIMIT 1`,
-    [rid]
+async function resolvePartner(pid: number): Promise<PartnerContext | null> {
+  const rows = await query<PartnerContext>(
+    `SELECT id, short_name, long_name, password_hash, password_set_at
+       FROM reporting_platform.partners WHERE id = $1`,
+    [pid]
   );
   return rows[0] ?? null;
 }
 
-function sessionFor(ctx: ReportContext) {
-  const slug = encodeURIComponent(projectSlug(ctx.project_short_name, ctx.project_title));
-  const redirect = ctx.data_type === "prodoc"
-    ? `/partner/prodoc-editor/${slug}/general`
-    : `/partner/report-editor/${slug}/${ctx.year}/overview`;
+function sessionFor(ctx: PartnerContext) {
   return {
     user: {
-      id: ctx.partner_short_name,
-      name: ctx.partner_long_name || ctx.partner_short_name,
+      id: ctx.short_name,
+      name: ctx.long_name || ctx.short_name,
       role: "partner" as const,
-      organization: ctx.partner_short_name,
-      partner_id: ctx.partner_id,
+      organization: ctx.short_name,
+      partner_id: ctx.id,
     },
-    redirect,
+    redirect: "/partner",
   };
 }
 
 export async function POST(req: NextRequest) {
-  // Only the admin mints share links; recipients use GET/PUT without a session.
+  // Only the admin mints setup links; recipients use GET/PUT without a session.
   const gate = await requireAdmin();
   if (gate instanceof NextResponse) return gate;
 
   if (!magicLinkEnabled()) {
     return NextResponse.json(
-      { error: "Share links are not configured (set MAGIC_LINK_SECRET or ADMIN_PASSWORD)." },
+      { error: "Setup links are not configured (set MAGIC_LINK_SECRET or ADMIN_PASSWORD)." },
       { status: 503 }
     );
   }
 
-  let body: { reportId?: number };
+  let body: { partnerId?: number };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const reportId = Number(body.reportId);
-  if (!reportId) return NextResponse.json({ error: "reportId is required" }, { status: 400 });
+  const partnerId = Number(body.partnerId);
+  if (!partnerId) return NextResponse.json({ error: "partnerId is required" }, { status: 400 });
 
   try {
-    const rows = await query(`SELECT id FROM reporting_platform.reports WHERE id = $1`, [reportId]);
-    if (!rows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    const rows = await query(`SELECT id FROM reporting_platform.partners WHERE id = $1`, [partnerId]);
+    if (!rows.length) return NextResponse.json({ error: "Partner not found" }, { status: 404 });
 
-    const token = createMagicToken({ rid: reportId, exp: Date.now() + TTL_MS });
+    const token = createMagicToken({ pid: partnerId, exp: Date.now() + TTL_MS });
     return NextResponse.json({ token });
   } catch (err) {
     logger.error("POST /api/auth/magic error:", err);
-    return NextResponse.json({ error: "Could not create share link" }, { status: 500 });
+    return NextResponse.json({ error: "Could not create setup link" }, { status: 500 });
   }
 }
 
@@ -110,17 +91,17 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const ctx = await resolveReport(payload.rid);
-    if (!ctx || !ctx.partner_short_name) {
-      return NextResponse.json({ error: "This report is no longer available." }, { status: 404 });
+    const ctx = await resolvePartner(payload.pid);
+    if (!ctx) {
+      return NextResponse.json({ error: "This partner account is no longer available." }, { status: 404 });
     }
     return NextResponse.json({
-      name: ctx.partner_long_name || ctx.partner_short_name,
+      name: ctx.long_name || ctx.short_name,
       needsSetup: ctx.password_set_at === null,
     });
   } catch (err) {
     logger.error("GET /api/auth/magic error:", err);
-    return NextResponse.json({ error: "Could not open share link" }, { status: 500 });
+    return NextResponse.json({ error: "Could not open setup link" }, { status: 500 });
   }
 }
 
@@ -142,9 +123,9 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const ctx = await resolveReport(payload.rid);
-    if (!ctx || !ctx.partner_short_name) {
-      return NextResponse.json({ error: "This report is no longer available." }, { status: 404 });
+    const ctx = await resolvePartner(payload.pid);
+    if (!ctx) {
+      return NextResponse.json({ error: "This partner account is no longer available." }, { status: 404 });
     }
 
     if (ctx.password_set_at === null) {
@@ -159,7 +140,7 @@ export async function PUT(req: NextRequest) {
         `UPDATE reporting_platform.partners
             SET password_hash = $1, password_set_at = NOW()
           WHERE id = $2`,
-        [hashPassword(password), ctx.partner_id]
+        [hashPassword(password), ctx.id]
       );
     } else {
       // Subsequent use: verify the password they set.
@@ -171,9 +152,9 @@ export async function PUT(req: NextRequest) {
     const session = sessionFor(ctx);
     const token = await createSessionToken({
       role: "partner",
-      org: ctx.partner_short_name,
-      partner_id: ctx.partner_id,
-      name: session.user.name || ctx.partner_short_name,
+      org: ctx.short_name,
+      partner_id: ctx.id,
+      name: session.user.name || ctx.short_name || "",
     });
     return setSessionCookie(NextResponse.json(session), token);
   } catch (err) {

@@ -33,9 +33,7 @@ import {
   CircleDot,
   Clock,
   MoreHorizontal,
-  Share2,
 } from "lucide-react";
-import { ShareLinkDialog } from "@/components/ui/share-link-dialog";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
@@ -162,29 +160,8 @@ export function ReportCard({
   // yet, so the Print control was pulled rather than the feature deleted.
   const [status, setStatus] = useState<ReportRow["status"]>(report.status);
   const [pendingStatus, setPendingStatus] = useState<ReportRow["status"] | null>(null);
-  const [shareDialog, setShareDialog] = useState<{ link: string; error: string | null } | null>(null);
   const [submissionDate, setSubmissionDate] = useState<string | null>(report.report_submission_date ?? null);
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
-
-  async function handleShare() {
-    try {
-      const res = await fetch("/api/auth/magic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId: report.id }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to create link");
-      }
-      const { token } = await res.json();
-      const link = `${window.location.origin}/m/${token}`;
-      await navigator.clipboard.writeText(link);
-      setShareDialog({ link, error: null });
-    } catch (e) {
-      setShareDialog({ link: "", error: e instanceof Error ? e.message : "Failed to create share link" });
-    }
-  }
 
   async function handleSaveDate(date: string): Promise<string | null> {
     const res = await fetch(`/api/reports/${report.id}`, {
@@ -254,10 +231,6 @@ export function ReportCard({
               <CalendarDays />
               Change submission date
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleShare}>
-              <Share2 />
-              Share
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={onDelete}>
               Delete
@@ -309,14 +282,6 @@ export function ReportCard({
         </button>
       </div>
     </Card>
-
-    {shareDialog && (
-      <ShareLinkDialog
-        link={shareDialog.link}
-        error={shareDialog.error}
-        onClose={() => setShareDialog(null)}
-      />
-    )}
 
     <ChangeDateDialog
       open={dateDialogOpen}

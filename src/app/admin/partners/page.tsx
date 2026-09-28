@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Building2, ExternalLink, Check, X } from "lucide-react";
+import { Plus, Building2, ExternalLink, Check, X, Copy, Link2 } from "lucide-react";
+import { ShareLinkDialog } from "@/components/ui/share-link-dialog";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader, HoverActions,
   FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
@@ -123,6 +124,9 @@ export default function PartnersPage() {
   const [website, setWebsite] = useState("");
   const [mail, setMail] = useState("");
 
+  const [shareDialog, setShareDialog] = useState<{ link: string; error: string | null } | null>(null);
+  const [setupLink, setSetupLink] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -179,11 +183,32 @@ export default function PartnersPage() {
     setEditId(p.id); setShowForm(true); setFormError(null);
   }
 
+  async function handleCopySetupLink(partnerId: number) {
+    try {
+      const res = await fetch("/api/auth/magic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partnerId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create link");
+      }
+      const { token } = await res.json();
+      const link = `${window.location.origin}/m/${token}`;
+      await navigator.clipboard.writeText(link);
+      setShareDialog({ link, error: null });
+    } catch (e) {
+      setShareDialog({ link: "", error: e instanceof Error ? e.message : "Failed to create setup link" });
+    }
+  }
+
   async function handleSubmit() {
     if (!shortName.trim() || !longName.trim()) { setFormError("Short name and long name are required"); return; }
     if (mail.trim() && !isValidEmail(mail)) { setFormError("Please enter a valid email address"); return; }
     if (website.trim() && !isValidWebsite(website)) { setFormError("Please enter a valid website URL"); return; }
     setSaving(true); setFormError(null);
+    const isNew = !editId;
     try {
       const body = {
         short_name: shortName.trim(),
@@ -196,7 +221,21 @@ export default function PartnersPage() {
         { method: editId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
       );
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to save"); }
+      const created = await res.json();
       resetForm(); load();
+      if (isNew && created?.id) {
+        try {
+          const mlRes = await fetch("/api/auth/magic", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ partnerId: created.id }),
+          });
+          if (mlRes.ok) {
+            const { token } = await mlRes.json();
+            setSetupLink(`${window.location.origin}/m/${token}`);
+          }
+        } catch { /* setup link is optional; don't block */ }
+      }
     } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setSaving(false); }
   }
@@ -213,7 +252,7 @@ export default function PartnersPage() {
   async function handleResetPassword(id: number) {
     if (!await confirm({
       title: "Reset this partner's password?",
-      message: "The partner will set a new password the next time they open a share link. Anyone already signed in stays signed in until their session ends.",
+      message: "The partner will set a new password using a new setup link. You can copy the setup link from this page. Anyone already signed in stays signed in until their session ends.",
       variant: "destructive",
       confirmLabel: "Reset",
     })) return;
@@ -231,7 +270,7 @@ export default function PartnersPage() {
     load();
     await confirm({
       title: "Password reset",
-      message: "Let the partner know their password has been reset, and send them a share link so they can set a new one. Anyone already signed in stays signed in until their session ends.",
+      message: "Copy the setup link from this page and send it to the partner so they can set a new password. Anyone already signed in stays signed in until their session ends.",
       acknowledgement: true,
     });
   }
@@ -365,7 +404,17 @@ export default function PartnersPage() {
                       : <Dash />}
                   </TableCell>
                   <TableCell>
-                    <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleCopySetupLink(p.id)}
+                        title="Copy setup link"
+                        className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Link2 className="size-4" />
+                      </button>
+                      <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -383,7 +432,17 @@ export default function PartnersPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold leading-snug line-clamp-2">{p.long_name || "—"}</p>
                     </div>
-                    <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleCopySetupLink(p.id); }}
+                        title="Copy setup link"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-muted-foreground hover:text-foreground"
+                      >
+                        <Link2 className="size-4" />
+                      </button>
+                      <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
                     {p.organization_website && (
@@ -409,6 +468,55 @@ export default function PartnersPage() {
           </div>
         )}
       </div>
+
+    {shareDialog && (
+      <ShareLinkDialog
+        link={shareDialog.link}
+        error={shareDialog.error}
+        onClose={() => setShareDialog(null)}
+      />
+    )}
+
+    {setupLink && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setSetupLink(null)}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+        <div
+          className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl p-6 space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-sm font-semibold">Setup link ready</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Send this link to the partner so they can set their password. It expires in 90 days.
+          </p>
+          <input
+            readOnly
+            value={setupLink}
+            className="w-full rounded border border-border bg-muted px-3 py-1.5 text-xs font-mono text-muted-foreground select-all"
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
+          <SetupLinkCopyButton link={setupLink} onClose={() => setSetupLink(null)} />
+        </div>
+      </div>
+    )}
+    </div>
+  );
+}
+
+function SetupLinkCopyButton({ link, onClose }: { link: string; onClose: () => void }) {
+  const [justCopied, setJustCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(link).then(() => {
+      setJustCopied(true);
+      setTimeout(() => setJustCopied(false), 2000);
+    });
+  }
+  return (
+    <div className="flex justify-end gap-2 pt-1">
+      <Button variant="outline" size="sm" onClick={copy} className="gap-1.5">
+        {justCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        {justCopied ? "Copied" : "Copy"}
+      </Button>
+      <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
     </div>
   );
 }

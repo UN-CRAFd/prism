@@ -1,10 +1,10 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Magic-link tokens. A short, URL-safe, HMAC-signed token that encodes a report
+// Magic-link tokens. A short, URL-safe, HMAC-signed token that encodes a partner
 // id + expiry. Only the server (which holds the secret) can mint or verify one,
 // so a link cannot be forged by editing the URL. Exchanged for a partner session
-// by GET /api/auth/magic.
+// by GET /api/auth/magic (partner setup / password-set flow).
 //
 // Secret resolution mirrors admin login: MAGIC_LINK_SECRET, else ADMIN_PASSWORD.
 // If neither is configured, magic links are disabled rather than falling back to
@@ -14,7 +14,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 const SECRET = process.env.MAGIC_LINK_SECRET || process.env.ADMIN_PASSWORD || "";
 
 export interface MagicPayload {
-  rid: number; // report id
+  pid: number; // partner id
   exp: number; // epoch ms expiry
 }
 
@@ -54,7 +54,7 @@ export function verifyMagicToken(token: string): MagicPayload | null {
   } catch {
     return null;
   }
-  if (typeof payload.rid !== "number" || typeof payload.exp !== "number") return null;
+  if (typeof payload.pid !== "number" || typeof payload.exp !== "number") return null;
   if (Date.now() > payload.exp) return null;
   return payload;
 }

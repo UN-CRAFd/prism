@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-// Magic-link landing. The link never logs anyone in on its own: on first use the
-// visitor sets a password (which becomes the partner's password); afterwards they
-// must re-enter it. On success we write the session to localStorage and hard-nav
-// so the root AuthProvider re-initialises from storage (a soft push would leave
-// the in-memory user null and the guard would bounce to /login).
+// Partner setup link landing. The link lets the partner set their PRISM password
+// on first use; every subsequent visit requires re-entry of that password. On
+// success we write the session to localStorage and hard-nav so the root
+// AuthProvider re-initialises from storage (a soft push would leave the in-memory
+// user null and the guard would bounce to /login).
 
 type Phase = "loading" | "setup" | "verify" | "dead";
 
@@ -105,7 +105,7 @@ export default function MagicLinkPage() {
 
         {phase === "loading" && (
           <div className="flex items-center gap-2 text-neutral-300 text-sm">
-            <Loader2 className="size-4 animate-spin" /> Opening your report…
+            <Loader2 className="size-4 animate-spin" /> Opening your setup link…
           </div>
         )}
 
@@ -129,8 +129,8 @@ export default function MagicLinkPage() {
               </h1>
               <p className="text-neutral-400 text-sm mt-1">
                 {phase === "setup"
-                  ? `Choose a password for ${name || "your organization"}. You'll use it each time you open this report.`
-                  : `Enter the password for ${name || "your organization"} to open this report.`}
+                  ? `Choose a password to set up ${name || "your organization"}'s PRISM login. You'll use it each time you sign in.`
+                  : `Enter the password for ${name || "your organization"} to sign in to PRISM.`}
               </p>
             </div>
 

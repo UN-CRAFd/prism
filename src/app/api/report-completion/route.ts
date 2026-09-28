@@ -123,17 +123,20 @@ export async function GET(req: NextRequest) {
       listSection("lessons_learned", "lesson_learned", 1),
       listSection("external_coverage", "description", 3),
 
-      // Workplan — every activity has a progress status in the project's ACTIVE
-      // update window. Progress is now project-level (per window), so this check
-      // is uniform across the project's reports; no active window ⇒ incomplete.
+      // Workplan — every activity has a progress status in this report's own window
+      // (the AR or FR row whose year and type_code match the report). No matching
+      // window ⇒ incomplete.
       query<Row>(
                `SELECT (SELECT COUNT(*) FROM reporting_platform.workplan_activities WHERE project_id = $1)::int AS activities,
                 (SELECT COUNT(*) FROM reporting_platform.workplan_activities a
                    JOIN reporting_platform.workplan_entries e ON e.activity_id = a.id
-                   JOIN reporting_platform.workplan_updates wu
-                     ON wu.id = e.update_id AND wu.is_active AND wu.project_id = $1
-                  WHERE a.project_id = $1 AND e.status IS NOT NULL)::int AS done`,
-        [projectId]
+                   JOIN reporting_platform.workplan_updates wu ON wu.id = e.update_id AND wu.project_id = $1
+                   JOIN reporting_platform.reports r ON r.id = $2
+                  WHERE a.project_id = $1
+                    AND wu.year = r.year
+                    AND wu.type_code = CASE r.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END
+                    AND e.status IS NOT NULL)::int AS done`,
+        [projectId, reportId]
       ).then((r) => n(r[0]?.activities) > 0 && n(r[0]?.done) === n(r[0]?.activities)),
 
       // Expenditure — every category has an entered amount for this report.

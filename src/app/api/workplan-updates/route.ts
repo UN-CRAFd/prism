@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { query } from "@/lib/db";
+import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 import { workplanUpdateTypeCodes } from "@/lib/workplan";
 import { loadOptionOverrides } from "@/lib/option-settings";
@@ -7,14 +7,14 @@ import { logger } from "@/lib/logger";
 
 // ── Workplan update windows (admin-owned) ────────────────────────────────────
 //
-// Windows are project-level, labelled [YEAR] + [TR/NCE/BR/AR/FR]. Exactly one
-// window per project may be `is_active` (the only one partners may edit); windows
-// may be `hidden` from partners. Progress rows (workplan_entries) attach here.
+// Windows are project-level, labelled [YEAR] + [TR/NCE/BR/AR/FR]. Each report's
+// editable window is identified by matching (year, type_code) — no is_active or
+// hidden flag is used for routing. Progress rows (workplan_entries) attach here.
 //
-// GET    ?project_id=  → windows for the project (partners: non-hidden only)
-// POST   { project_id, year, type_code }              (admin)
-// PATCH  { id, is_active? | hidden? | sort_order? }   (admin)
-// DELETE ?id=                                          (admin)
+// GET    ?project_id=  → windows for the project
+// POST   { project_id, year, type_code }  (admin)
+// PATCH  { id, sort_order? }              (admin)
+// DELETE ?id=                             (admin)
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -94,43 +94,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  // Activating a window is exclusive per project (the partial unique index would
-  // otherwise reject a second active row) — clear siblings in one transaction.
-  if (body.is_active === true) {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `UPDATE reporting_platform.workplan_updates
-            SET is_active = FALSE
-          WHERE project_id = (SELECT project_id FROM reporting_platform.workplan_updates WHERE id = $1)
-            AND id <> $1`,
-        [id]
-      );
-      const res = await client.query(
-        `UPDATE reporting_platform.workplan_updates
-            SET is_active = TRUE
-          WHERE id = $1
-          RETURNING id, project_id, year, type_code, sort_order, is_active, hidden`,
-        [id]
-      );
-      await client.query("COMMIT");
-      if (res.rows.length === 0) return NextResponse.json({ error: "Window not found" }, { status: 404 });
-      return NextResponse.json(res.rows[0]);
-    } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
-      logger.error("PATCH /api/workplan-updates (activate) error:", err);
-      return NextResponse.json({ error: "Failed to update window" }, { status: 500 });
-    } finally {
-      client.release();
-    }
-  }
-
-  // Non-activating patches: is_active:false, hidden, sort_order.
   const sets: string[] = [];
   const params: unknown[] = [id];
-  if (body.is_active === false) sets.push(`is_active = FALSE`);
-  if (typeof body.hidden === "boolean") { params.push(body.hidden); sets.push(`hidden = $${params.length}`); }
   if (body.sort_order !== undefined && Number.isInteger(Number(body.sort_order))) {
     params.push(Number(body.sort_order));
     sets.push(`sort_order = $${params.length}`);

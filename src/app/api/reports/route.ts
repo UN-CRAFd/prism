@@ -276,23 +276,19 @@ async function populateExpenditureEntries(client: PoolClient, reportIds: number[
 
 // Ensure each new report has its matching workplan update window, and make that
 // window the project's active one. Workplan progress attaches to admin-managed
-// update windows (workplan_updates), each labelled [YEAR]+[code]; a report with no
-// active window shows partners the "No active update window has been set" notice.
-// So we auto-create the window that corresponds to the report — annual → 'AR',
-// final → 'FR', keyed on (project_id, year, type_code), mirroring the migration-046
-// backfill mapping — then activate it so the partner can enter progress right away.
+// update windows (workplan_updates), each labelled [YEAR]+[code]. Each report's
+// editable window is identified by matching (year, type_code) — annual → 'AR',
+// final → 'FR' — so no is_active flag is needed. We auto-create the matching
+// window keyed on (project_id, year, type_code), mirroring the migration-046
+// backfill mapping.
 //
 // Idempotent creation: a NOT EXISTS anti-join skips any (project, year, code)
-// window that already exists, so re-creating a report (or an admin having added the
-// window by hand) creates nothing. Exactly one report — and thus at most one new
-// window — is created per project in both the single and annual-batch paths, so
-// activating the freshly-inserted windows keeps the one-active-per-project invariant
-// (partial unique index workplan_updates_one_active_uq) after we clear the prior
-// active window for those projects.
+// window that already exists, so re-creating a report (or an admin having added
+// the window by hand) creates nothing.
 async function seedWorkplanUpdateWindows(client: PoolClient, reportIds: number[]) {
   if (reportIds.length === 0) return;
 
-  const inserted = await client.query<{ id: number; project_id: number }>(
+  await client.query<{ id: number; project_id: number }>(
     `INSERT INTO reporting_platform.workplan_updates (project_id, year, type_code, sort_order)
      SELECT nr.project_id, nr.year,
             CASE nr.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END AS type_code,
@@ -308,29 +304,8 @@ async function seedWorkplanUpdateWindows(client: PoolClient, reportIds: number[]
            WHERE wu.project_id = nr.project_id
              AND wu.year = nr.year
              AND wu.type_code = CASE nr.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END
-        )
-     RETURNING id, project_id`,
+        )`,
     [reportIds]
-  );
-
-  const newWindowIds = inserted.rows.map((r) => r.id);
-  if (newWindowIds.length === 0) return;
-
-  const projectIds = inserted.rows.map((r) => r.project_id);
-  // Clear the previously-active window on just these projects, then activate the
-  // new windows — order matters so the one-active partial unique index never sees
-  // two active rows for a project mid-statement.
-  await client.query(
-    `UPDATE reporting_platform.workplan_updates
-        SET is_active = FALSE
-      WHERE project_id = ANY($1::int[]) AND is_active AND id <> ALL($2::int[])`,
-    [projectIds, newWindowIds]
-  );
-  await client.query(
-    `UPDATE reporting_platform.workplan_updates
-        SET is_active = TRUE
-      WHERE id = ANY($1::int[])`,
-    [newWindowIds]
   );
 }
 

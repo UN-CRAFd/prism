@@ -68,7 +68,7 @@
   },
   "workplanUpdates": {
     "title": "Update windows",
-    "description": "Define the progress reporting windows partners report against ([YEAR] + type). Mark one window active — it is the only one partners can edit — and hide superseded windows so partners see just the latest and the one to update.",
+    "description": "Define the progress reporting windows partners report against ([YEAR] + type). Each report edits the window for its own year; earlier windows are shown for reference.",
     "colWindow": "Window",
     "colActive": "Active",
     "colHidden": "Hidden",

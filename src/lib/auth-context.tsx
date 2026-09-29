@@ -46,6 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
+  const lastActivityRef = useRef<number>(Date.now());
+  // Mirrors showWarning state so activity listeners (registered once) can read
+  // the live value without a stale closure.
+  const showWarningRef = useRef(false);
+
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/auth/login", {
@@ -56,6 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return false;
       const data = await res.json();
       if (!data?.user) return false;
+      showWarningRef.current = false;
+      setShowWarning(false);
+      lastActivityRef.current = Date.now();
       setUser(data.user);
       localStorage.setItem("crafd-user", JSON.stringify(data.user));
       return true;
@@ -65,16 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    showWarningRef.current = false;
+    setShowWarning(false);
+    lastActivityRef.current = Date.now();
     setUser(null);
     localStorage.removeItem("crafd-user");
     // Clear the server session cookie too; ignore transport errors on logout.
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   }, []);
-
-  const lastActivityRef = useRef<number>(Date.now());
-  // Mirrors showWarning state so activity listeners (registered once) can read
-  // the live value without a stale closure.
-  const showWarningRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;

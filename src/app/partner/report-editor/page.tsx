@@ -77,14 +77,8 @@ export default function ReportEditorPage() {
     });
   }, [reports]);
 
-  // Only show Open and Under Review reports; Closed reports are excluded.
-  const activeReports = reports.filter(
-    (r) => r.status === "Open" || r.status === "Under Review"
-  );
-
-  // Group by year, newest first. Empty year sections cannot occur because we
-  // filtered above before grouping.
-  const byYear = activeReports.reduce<Record<number, Report[]>>((acc, r) => {
+  // Group all reports by year, newest first.
+  const byYear = reports.reduce<Record<number, Report[]>>((acc, r) => {
     (acc[r.year] ??= []).push(r);
     return acc;
   }, {});

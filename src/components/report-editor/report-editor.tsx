@@ -15,7 +15,7 @@ import {
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
-import { Loader2, FileQuestion, Lock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, FileQuestion, Lock, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
@@ -701,6 +701,13 @@ export function ReportEditor({
         <div className="flex items-center gap-3 shrink-0">
           {reportId && !sectionLoading && !notFound && (
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
+          )}
+          {reportId && mode === "admin" && (
+            <Button variant="outline" size="sm" className="h-9 shrink-0 bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 hover:text-white"
+              onClick={() => window.open(`/report-print/${reportId}?auto=1`, "_blank")}>
+              <Printer className="size-4 mr-1.5" />
+              Print
+            </Button>
           )}
 
           <Select

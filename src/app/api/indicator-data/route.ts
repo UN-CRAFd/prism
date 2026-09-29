@@ -14,7 +14,7 @@ import { logger } from "@/lib/logger";
 const SELECT_WITH_INDICATOR = `
   SELECT d.id, d.report_id, d.indicator_id,
          d.baseline_value, d.baseline_year, d.target_value, d.target_year,
-         d.achieved_value, d.status, d.comment, d.linked_activity_id, d.sort_order,
+         d.achieved_value, d.status, d.comment, d.linked_activity_id, d.linked_results, d.sort_order,
          i.name AS indicator_name,
          i.description AS indicator_description,
          i.means_of_verification,
@@ -51,9 +51,9 @@ function validateYear(v: unknown, fieldName: string): NextResponse | null {
 async function syncAnnualIndicators(projectId: number) {
   await query(
     `INSERT INTO reporting_platform.indicator_data
-       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_activity_id, sort_order)
+       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_activity_id, linked_results, sort_order)
      SELECT annual.id, pd.indicator_id, pd.baseline_value, pd.baseline_year,
-            pd.target_value, pd.target_year, pd.linked_activity_id, pd.sort_order
+            pd.target_value, pd.target_year, pd.linked_activity_id, pd.linked_results, pd.sort_order
        FROM reporting_platform.reports annual
        JOIN reporting_platform.reports prodoc
          ON prodoc.project_id = annual.project_id AND prodoc.data_type = 'prodoc'
@@ -160,6 +160,7 @@ type MatrixRawRow = {
   status: string | null;
   comment: string | null;
   linked_activity_id: number | null;
+  linked_results: string[];
   sort_order: number;
   report_year: number;
   is_current: boolean;
@@ -192,7 +193,7 @@ async function getMatrix(reportId: string) {
   const rows = await query<MatrixRawRow>(
     `SELECT d.id, d.report_id, d.indicator_id,
             d.baseline_value, d.baseline_year, d.target_value, d.target_year,
-            d.achieved_value, d.status, d.comment, d.linked_activity_id, d.sort_order,
+            d.achieved_value, d.status, d.comment, d.linked_activity_id, d.linked_results, d.sort_order,
             r.year AS report_year, (r.id = $2) AS is_current,
             i.name AS indicator_name, i.description AS indicator_description,
             i.means_of_verification, i.category, i.cycle, i.is_standard
@@ -225,6 +226,7 @@ async function getMatrix(reportId: string) {
       target_value: r.target_value,
       target_year: r.target_year,
       linked_activity_id: r.linked_activity_id,
+      linked_results: r.linked_results,
       currentLineId: r.id,
       byYear: {} as Record<number, unknown>,
     });
@@ -313,18 +315,18 @@ export async function POST(req: NextRequest) {
 
     const inserted = await query<{ id: number }>(
       `INSERT INTO reporting_platform.indicator_data
-         (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_activity_id, sort_order)
+         (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_results, sort_order)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
       [
         reportId,          // $1
         indicator_id,      // $2
-        body.baseline_value || null,              // $3
-        toYear(body.baseline_year),               // $4
-        body.target_value || null,                // $5
-        toYear(body.target_year),                 // $6
-        body.linked_activity_id ?? null,          // $7
-        nextOrder,                                // $8
+        body.baseline_value || null,                                      // $3
+        toYear(body.baseline_year),                                       // $4
+        body.target_value || null,                                        // $5
+        toYear(body.target_year),                                         // $6
+        Array.isArray(body.linked_results) ? body.linked_results : [],   // $7
+        nextOrder,                                                        // $8
       ]
     );
 
@@ -334,21 +336,21 @@ export async function POST(req: NextRequest) {
     if (reportMeta[0]?.data_type === "prodoc") {
       await query(
         `INSERT INTO reporting_platform.indicator_data
-           (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_activity_id, sort_order)
+           (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_results, sort_order)
          SELECT annual.id, $1, $2, $3, $4, $5, $6, $7
            FROM reporting_platform.reports annual
           WHERE annual.project_id = $8
             AND annual.data_type = 'report'
          ON CONFLICT (report_id, indicator_id) DO NOTHING`,
         [
-          indicator_id,                          // $1
-          body.baseline_value || null,            // $2
-          toYear(body.baseline_year),             // $3
-          body.target_value || null,              // $4
-          toYear(body.target_year),               // $5
-          body.linked_activity_id ?? null,        // $6
-          body.sort_order ?? inserted[0].id,      // $7
-          reportMeta[0].project_id,              // $8
+          indicator_id,                                                        // $1
+          body.baseline_value || null,                                         // $2
+          toYear(body.baseline_year),                                          // $3
+          body.target_value || null,                                           // $4
+          toYear(body.target_year),                                            // $5
+          Array.isArray(body.linked_results) ? body.linked_results : [],      // $6
+          body.sort_order ?? inserted[0].id,                                   // $7
+          reportMeta[0].project_id,                                            // $8
         ]
       );
     }
@@ -385,7 +387,7 @@ export async function PATCH(req: NextRequest) {
 
   const allowed = [
     "baseline_value", "baseline_year", "target_value", "target_year",
-    "achieved_value", "status", "comment", "linked_activity_id",
+    "achieved_value", "status", "comment", "linked_results",
   ] as const;
 
   if ("baseline_year" in fields) {
@@ -396,6 +398,15 @@ export async function PATCH(req: NextRequest) {
     const err = validateYear(fields.target_year, "target_year");
     if (err) return err;
   }
+  if ("linked_results" in fields) {
+    const lr = fields.linked_results;
+    if (!Array.isArray(lr) || lr.some((s) => typeof s !== "string" || !/^(outcome|objective):\S+$/.test(s))) {
+      return NextResponse.json(
+        { error: "linked_results must be an array of strings each matching outcome:<n> or objective:<num>" },
+        { status: 400 }
+      );
+    }
+  }
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -404,7 +415,7 @@ export async function PATCH(req: NextRequest) {
     if (!(field in fields)) continue;
     let val: unknown = fields[field];
     if (field === "baseline_year" || field === "target_year") val = toYear(val);
-    else if (field === "linked_activity_id") val = (val === null || val === undefined || val === "") ? null : Number(val);
+    else if (field === "linked_results") val = Array.isArray(val) ? val : [];
     else val = val || null;
     values.push(val);
     updates.push(`${field} = $${values.length}`);

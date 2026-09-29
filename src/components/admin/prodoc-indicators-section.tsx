@@ -13,7 +13,14 @@ import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/repor
 import labels from "@/lib/labels";
 import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
 import { cycleLabel, CYCLE_KEYS, DEFAULT_CYCLE } from "@/lib/indicators";
-import { type ContributorActivity, LinkedActivityPicker } from "@/components/report-editor/contributor-matrix";
+import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
+import { resultOptions, resultLabel, type ResultOption } from "@/lib/workplan";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
 
 export interface ProdocIndicatorLine {
   id: number;
@@ -22,7 +29,7 @@ export interface ProdocIndicatorLine {
   baseline_year: number | null;
   target_value: string | null;
   target_year: number | null;
-  linked_activity_id: number | null;
+  linked_results: string[];
   indicator_name: string;
   indicator_description: string | null;
   means_of_verification: string | null;
@@ -40,7 +47,52 @@ export interface ProdocIndicatorEdit {
   baseline_year: number | null;
   target_value: string | null;
   target_year: number | null;
-  linked_activity_id: number | null;
+  linked_results: string[];
+}
+
+function LinkedResultsPicker({
+  options,
+  selected,
+  onChange,
+}: {
+  options: ResultOption[];
+  selected: string[];
+  onChange: (keys: string[]) => Promise<void>;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex flex-col gap-0.5 disabled:cursor-not-allowed disabled:opacity-50">
+          {selected.length === 0
+            ? <span className="text-muted-foreground py-0.5">No outcome / objective</span>
+            : selected.map((key) => (
+                <span key={key} className="line-clamp-1 font-medium">{options.find((o) => o.key === key)?.label ?? key}</span>
+              ))}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
+        {options.length === 0 && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan results yet.</div>
+        )}
+        {options.map((opt) => {
+          const checked = selected.includes(opt.key);
+          return (
+            <DropdownMenuCheckboxItem
+              key={opt.key}
+              checked={checked}
+              onCheckedChange={() =>
+                onChange(checked ? selected.filter((k) => k !== opt.key) : [...selected, opt.key])
+              }
+              onSelect={(e) => e.preventDefault()}
+              className={"text-xs" + (opt.kind === "outcome" ? " font-semibold" : "")}
+            >
+              <span className="line-clamp-2">{opt.label}</span>
+            </DropdownMenuCheckboxItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function ProdocIndicatorsSection({
@@ -55,20 +107,18 @@ export function ProdocIndicatorsSection({
   readOnly,
   fillHeight,
   activities,
-  activityById,
 }: {
   lines: ProdocIndicatorLine[];
   indicatorItems: ComboboxItem[];
   onAdd: (item: ComboboxItem) => Promise<void>;
   onCreate: (name: string, description: string, meansOfVerification: string, cycle: string) => Promise<void>;
   onEdit: (indicatorId: number, lineId: number, patch: ProdocIndicatorEdit) => Promise<void>;
-  onUpdateValues: (lineId: number, values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">) => Promise<void>;
+  onUpdateValues: (lineId: number, values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">) => Promise<void>;
   onDelete: (lineId: number) => Promise<void>;
   isAdmin: boolean;
   readOnly: boolean;
   fillHeight: boolean;
   activities: ContributorActivity[];
-  activityById: Map<number, ContributorActivity>;
 }) {
   const [table, setTable] = useState<IndicatorTableKey>("standard");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -81,7 +131,7 @@ export function ProdocIndicatorsSection({
   const [createMeansOfVerification, setCreateMeansOfVerification] = useState("");
   const [createCycle, setCreateCycle] = useState<string>(DEFAULT_CYCLE);
   const [creatingBusy, setCreatingBusy] = useState(false);
-  const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">>>({});
+  const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">>>({});
   const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
 
   function startEdit(line: ProdocIndicatorLine) {
@@ -95,7 +145,7 @@ export function ProdocIndicatorsSection({
       baseline_year: line.baseline_year,
       target_value: line.target_value,
       target_year: line.target_year,
-      linked_activity_id: line.linked_activity_id,
+      linked_results: line.linked_results,
     });
   }
 
@@ -126,7 +176,7 @@ export function ProdocIndicatorsSection({
       baseline_year: line.baseline_year,
       target_value: line.target_value,
       target_year: line.target_year,
-      linked_activity_id: line.linked_activity_id,
+      linked_results: line.linked_results,
     };
     return valueDrafts[line.id] ? { ...saved, ...valueDrafts[line.id] } : saved;
   }
@@ -232,7 +282,7 @@ export function ProdocIndicatorsSection({
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.baselineYear}</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.targetYear}</th>
-              <th className={headCell + " w-48"} style={headShadow}>Linked activity</th>
+              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / objective</th>
               {type === "custom" && <th className={headCell + " w-24 text-right"} style={headShadow} />}
             </tr>
           </thead>
@@ -321,16 +371,12 @@ export function ProdocIndicatorsSection({
                   </td>
                   <td className="px-4 py-3">
                     <div className={readOnly ? "pointer-events-none opacity-50" : ""}>
-                      <LinkedActivityPicker
-                        activities={activities}
-                        activityById={activityById}
-                        multiple={false}
-                        selected={line.linked_activity_id != null ? [line.linked_activity_id] : []}
-                        emptyLabel="No activity"
-                        onChange={async (ids) => {
-                          const linked_activity_id = ids[0] ?? null;
-                          updateValues(line.id, { linked_activity_id });
-                          await onUpdateValues(line.id, { ...valuesFor(line), linked_activity_id });
+                      <LinkedResultsPicker
+                        options={resultOptions(activities)}
+                        selected={values.linked_results}
+                        onChange={async (linked_results) => {
+                          updateValues(line.id, { linked_results });
+                          await onUpdateValues(line.id, { ...valuesFor(line), linked_results });
                         }}
                       />
                     </div>

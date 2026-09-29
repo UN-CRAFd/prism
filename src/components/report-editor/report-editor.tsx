@@ -106,12 +106,8 @@ export function ReportEditor({
   const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
   const [loadingIndicators, setLoadingIndicators] = useState(false);
 
-  // Activities for the linked-activity column in the indicators table (read-only display).
+  // Activities for the linked outcome / objective column in the indicators table (read-only display).
   const [activities, setActivities] = useState<ContributorActivity[]>([]);
-  const activityById = useMemo(
-    () => new Map(activities.map((a) => [a.id, a])),
-    [activities]
-  );
 
   const loadActivities = useCallback(async (projectId: number) => {
     try {
@@ -910,7 +906,6 @@ export function ReportEditor({
             isAdmin={mode === "admin"}
             fillHeight={fillHeight}
             activities={activities}
-            activityById={activityById}
           />
 
         ) : params.section === "transfers" ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
@@ -101,7 +101,7 @@ interface IndicatorLine {
   category: string | null;
   cycle: string | null;
   is_standard: boolean;
-  linked_activity_id: number | null;
+  linked_results: string[];
 }
 
 interface LibraryIndicator {
@@ -219,12 +219,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [newIndDescription, setNewIndDescription] = useState("");
   const [newIndMeansOfVerification, setNewIndMeansOfVerification] = useState("");
 
-  // Workplan activities for the linked-activity picker on the indicators tab.
+  // Workplan activities for the linked outcome / objective picker on the indicators tab.
   const [activities, setActivities] = useState<ContributorActivity[]>([]);
-  const activityById = useMemo(
-    () => new Map(activities.map((a) => [a.id, a])),
-    [activities]
-  );
 
   const loadActivities = useCallback(async (prodocId: string) => {
     const projectId = docs.find((d) => String(d.id) === prodocId)?.project_id;
@@ -747,7 +743,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   async function handleProdocIndicatorValues(
     lineId: number,
-    values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_activity_id">,
+    values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">,
   ) {
     handleSaveStateChange("saving");
     setError(null);
@@ -1679,7 +1675,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             readOnly={readOnly}
             fillHeight={fillHeight}
             activities={activities}
-            activityById={activityById}
           />
         ) : selectedSection === "indicators" && false ? (
           <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>

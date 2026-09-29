@@ -17,7 +17,7 @@ import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStat
 import { numericAmount } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
-import { activityLabel } from "@/lib/transfers";
+import { resultLabel } from "@/lib/workplan";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
   return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
@@ -59,7 +59,6 @@ export interface IndicatorsSectionProps {
   // Freeze the column headers to the top while the matrix body scrolls.
   fillHeight?: boolean;
   activities: ContributorActivity[];
-  activityById: Map<number, ContributorActivity>;
 }
 
 export function IndicatorsSection({
@@ -71,7 +70,6 @@ export function IndicatorsSection({
   isAdmin,
   fillHeight = false,
   activities,
-  activityById,
 }: IndicatorsSectionProps) {
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear, "indicators");
   const [table, setTable] = useState<IndicatorTableKey>("standard");
@@ -124,7 +122,7 @@ export function IndicatorsSection({
         ]}
         pastSubCols={pastSubCols}
         trailingCols={[
-          { label: "Linked activity", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
+          { label: "Linked outcome / objective", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
         ]}
       >
         <tbody>
@@ -234,9 +232,11 @@ export function IndicatorsSection({
                 })}
 
                 <td className="px-3 py-2 border-l border-t text-sm text-muted-foreground">
-                  {row.linked_activity_id != null
-                    ? activityLabel(activityById.get(row.linked_activity_id)) || "—"
-                    : "—"}
+                  {row.linked_results.length > 0
+                    ? row.linked_results.map((k) => (
+                        <div key={k}>{resultLabel(k, activities)}</div>
+                      ))
+                    : <span className="text-muted-foreground/40">—</span>}
                 </td>
               </tr>
             );

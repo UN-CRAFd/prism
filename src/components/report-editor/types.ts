@@ -103,7 +103,7 @@ export interface IndicatorMatrixRow {
   baseline_year: number | null;
   target_value: string | null;
   target_year: number | null;
-  linked_activity_id: number | null;
+  linked_results: string[];
   currentLineId: number;
   byYear: Record<number, IndicatorYearCell | undefined>;
 }

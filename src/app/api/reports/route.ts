@@ -186,8 +186,8 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
 
   await client.query(
     `INSERT INTO reporting_platform.indicator_data
-       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, sort_order)
-     SELECT nr.id, d.indicator_id, d.baseline_value, d.baseline_year, d.target_value, d.target_year, d.sort_order
+       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_results, sort_order)
+     SELECT nr.id, d.indicator_id, d.baseline_value, d.baseline_year, d.target_value, d.target_year, d.linked_results, d.sort_order
        FROM reporting_platform.reports nr
        JOIN reporting_platform.reports pd
          ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'

@@ -111,3 +111,47 @@ export function quarterFromDate(dateStr?: string | null): string | null {
   if (month < 1 || month > 12) return null;
   return formatQuarterKey(year, Math.floor((month - 1) / 3) + 1);
 }
+
+export interface ResultOption {
+  key: string;
+  label: string;
+  kind: "outcome" | "objective";
+}
+
+// De-duplicated, ordered list of linkable results derived from workplan activities.
+// Emits one 'outcome:<n>' entry per distinct outcome group (n = objective_num before
+// the first dot) followed by its 'objective:<num>' entries. Rows without
+// objective_num are skipped.
+export function resultOptions(activities: {
+  outcome?: string | null;
+  objective_num?: string | null;
+  objective_text?: string | null;
+}[]): ResultOption[] {
+  const seenOutcomes = new Set<string>();
+  const seenObjectives = new Set<string>();
+  const out: ResultOption[] = [];
+  for (const a of activities) {
+    const num = a.objective_num?.trim();
+    if (!num) continue;
+    const n = num.split(".")[0];
+    if (!seenOutcomes.has(n)) {
+      seenOutcomes.add(n);
+      const text = a.outcome?.trim();
+      out.push({ key: `outcome:${n}`, label: text ? `Outcome ${n}: ${text}` : `Outcome ${n}`, kind: "outcome" });
+    }
+    if (!seenObjectives.has(num)) {
+      seenObjectives.add(num);
+      const text = a.objective_text?.trim();
+      out.push({ key: `objective:${num}`, label: text ? `${num}: ${text}` : num, kind: "objective" });
+    }
+  }
+  return out;
+}
+
+// Label for a linked-result key, or the key itself if not found (e.g. after renumbering).
+export function resultLabel(
+  key: string,
+  activities: Parameters<typeof resultOptions>[0],
+): string {
+  return resultOptions(activities).find((o) => o.key === key)?.label ?? key;
+}

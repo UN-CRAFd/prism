@@ -484,7 +484,7 @@
     "complementaryAmount": "e.g. 30000"
   },
   "partnerEditor": {
-    "title": "Report Editor",
+    "title": "Project Report",
     "assessmentLabel": "Rating",
     "contextLabel": "Context",
     "selectReport": "Select a report",
@@ -507,7 +507,7 @@
     "sectionNotFound": "Section not found."
   },
   "adminEditor": {
-    "title": "Report Editor",
+    "title": "Project Report Editor",
     "subtitle": "Edit survey questions and risks for a selected report",
     "selectReport": "Select a report",
     "selectToStart": "Select a report to start editing.",

@@ -55,7 +55,7 @@ const administrationLinks = [
 
 const editorLinks = [
   { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: FolderPen },
-  { href: "/admin/report-editor", label: "Report Editor", icon: ClipboardPen },
+  { href: "/admin/report-editor", label: "Project Report Editor", icon: ClipboardPen },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
   { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
@@ -333,7 +333,7 @@ export function AppSidebar() {
             ...(hasReports !== false
               ? [{
                   href: "/partner/report-editor",
-                  label: "Report Editor",
+                  label: "Project Report",
                   icon: FileText,
                   isActive: (p: string) => p.startsWith("/partner/report-editor"),
                 }]

@@ -15,7 +15,7 @@ import {
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
-import { Loader2, FileQuestion, Lock, ChevronRight } from "lucide-react";
+import { Loader2, FileQuestion, Lock, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
@@ -632,6 +632,11 @@ export function ReportEditor({
     return i >= 0 && i < REPORT_SECTIONS.length - 1 ? REPORT_SECTIONS[i + 1] : null;
   })();
 
+  const prevSection = (() => {
+    const i = REPORT_SECTIONS.findIndex((s) => s.value === params.section);
+    return i > 0 ? REPORT_SECTIONS[i - 1] : null;
+  })();
+
   const canSubmit =
     mode !== "admin" &&
     selectedReport?.status === "Open" &&
@@ -984,7 +989,12 @@ export function ReportEditor({
         </ReadOnlyProvider>
 
         {reportId && !notFound && !loadingReports && !sectionLoading && (
-          <div className={cn("flex justify-end", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+          <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+            {prevSection ? (
+              <Button variant="outline" onClick={() => handleSectionChange(prevSection.value)}>
+                <ChevronLeft className="size-4" /> Back: {prevSection.label}
+              </Button>
+            ) : <div />}
             {nextSection ? (
               <Button variant="outline" onClick={() => handleSectionChange(nextSection.value)}>
                 Next: {nextSection.label}

@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Check, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -1228,6 +1228,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     return i >= 0 && i < sections.length - 1 ? sections[i + 1] : null;
   })();
 
+  const prevSection = (() => {
+    const i = sections.findIndex((s) => s.value === selectedSection);
+    return i > 0 ? sections[i - 1] : null;
+  })();
+
   // Frozen column header for the inline risk/indicators tables: pin each header
   // cell to the top of the bounded scroll box. The tables are border-collapse,
   // so the collapsed bottom border vanishes on sticky cells — an inset box-shadow
@@ -1863,7 +1868,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </fieldset>
         </ReadOnlyProvider>
         {selectedProdocId && !sectionLoading && (
-          <div className={cn("flex justify-end", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+          <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
+            {prevSection ? (
+              <Button variant="outline" onClick={() => handleSectionChange(prevSection.value)}>
+                <ChevronLeft className="size-4" /> Back: {prevSection.label}
+              </Button>
+            ) : <div />}
             {nextSection ? (
               <Button variant="outline" onClick={() => handleSectionChange(nextSection.value)}>
                 Next: {nextSection.label}

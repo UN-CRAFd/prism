@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
@@ -803,10 +804,9 @@ export function GeneralInfoAdminEditor({
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{g.fields.startDate}</label>
-            <Input
-              type="date"
+            <DateInput
               value={form.project_start_date}
-              onChange={(e) => setField("project_start_date", e.target.value)}
+              onChange={(v) => setField("project_start_date", v)}
               className="text-sm"
             />
           </div>

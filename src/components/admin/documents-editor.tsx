@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -181,7 +182,7 @@ export function DocumentsEditor({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">{d.columns.date}</label>
-              <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="w-full" />
+              <DateInput value={docDate} onChange={(v) => setDocDate(v)} className="w-full" />
             </div>
 
             <div className="space-y-1.5">

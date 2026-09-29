@@ -20,6 +20,11 @@ export function shortName(value: string | null | undefined): string {
 }
 
 export function formatDate(date: string | Date): string {
+  // Plain YYYY-MM-DD: parse directly from the string to avoid UTC→local shifts.
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split("-");
+    return `${day}/${month}/${year}`;
+  }
   const d = typeof date === "string" ? new Date(date) : date;
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -80,11 +81,9 @@ function ChangeDateDialogUI({
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-foreground">Submission date</label>
-            <Input
-              type="date"
+            <DateInput
               value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onCancel(); }}
+              onChange={(v) => setValue(v)}
             />
             <p className="text-xs text-muted-foreground">Leave empty to clear the date.</p>
           </div>
@@ -456,12 +455,10 @@ export function CreateReportForm({
 
           {dataType === "report" && (
             <Field label="Submission date">
-              <Input
-                type="date"
+              <DateInput
                 className="w-full"
-                placeholder="dd/mm/yyyy"
                 value={submissionDate}
-                onChange={(e) => setSubmissionDate(e.target.value)}
+                onChange={(v) => setSubmissionDate(v)}
               />
             </Field>
           )}

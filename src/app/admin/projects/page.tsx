@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -769,7 +770,7 @@ export default function ProjectsPage() {
                 />
               </Field>
               <Field label="Start date">
-                <Input value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" />
+                <DateInput value={startDate} onChange={(v) => setStartDate(v)} />
               </Field>
               <Field label="Duration (months)">
                 <Input value={durationMonths} onChange={(e) => setDurationMonths(clampDuration(e.target.value))} type="text" inputMode="numeric" placeholder="e.g. 24" />
@@ -1059,11 +1060,9 @@ export default function ProjectsPage() {
               )}
 
               <label className="text-xs font-medium text-foreground">Revision date</label>
-              <Input
+              <DateInput
                 value={revDate}
-                onChange={(e) => { setRevDate(e.target.value); setRevError(null); }}
-                type="date"
-                autoFocus
+                onChange={(v) => { setRevDate(v); setRevError(null); }}
                 className="mt-1.5"
               />
 

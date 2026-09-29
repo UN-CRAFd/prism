@@ -355,7 +355,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
           return s ? <ValueBadge value={statusLabel(s)} colors={STATUS_COLORS[s as IndicatorStatus] ?? FALLBACK_COLORS} /> : DASH;
         },
       },
-      { header: "Comment", cell: (r, ctx) => trunc(r.comment, `icom-${r.id}`, ctx) },
+      { header: "Description", cell: (r, ctx) => trunc(r.comment, `icom-${r.id}`, ctx) },
     ],
   },
   {
@@ -367,7 +367,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { header: "Planned", headClass: "w-[150px]", cell: (r) => quarters(r.planned_quarters) },
       { header: "Updated", headClass: "w-[150px]", cell: (r) => quarters(r.updated_quarters) },
       { header: "Status", headClass: "w-[130px]", cell: (r) => <Tag value={r.status as string | null} /> },
-      { header: "Comment", cell: (r, ctx) => trunc(r.comment, `wcom-${r.id}`, ctx) },
+      { header: "Description", cell: (r, ctx) => trunc(r.comment, `wcom-${r.id}`, ctx) },
     ],
   },
   {
@@ -377,7 +377,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { header: "Category", headClass: "w-[220px]", cell: (r) => <p className="break-words font-medium">{r.category_name as string}</p> },
       { header: "Approved Budget", headClass: "w-[150px]", cell: (r) => money(r.approved_amount) },
       { header: "Expenditure", headClass: "w-[150px]", cell: (r) => money(r.annual_expenditure) },
-      { header: "Comment", cell: (r, ctx) => trunc(r.comment, `ecom-${r.id}`, ctx) },
+      { header: "Description", cell: (r, ctx) => trunc(r.comment, `ecom-${r.id}`, ctx) },
     ],
   },
   {

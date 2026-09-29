@@ -404,7 +404,7 @@
       "targetYear": "Target Year",
       "achievedValue": "Achieved value",
       "status": "Status",
-      "comment": "Comment",
+      "comment": "Description",
       "actions": "Actions"
     },
     "remarks": {

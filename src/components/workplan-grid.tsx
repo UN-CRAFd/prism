@@ -445,7 +445,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Project partner</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Description</th>
               </>
             }
           />
@@ -1286,7 +1286,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                 <>
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>}
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Comment</th>}
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Description</th>}
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted px-2 py-2 w-10 align-bottom" />
                 </>
               }

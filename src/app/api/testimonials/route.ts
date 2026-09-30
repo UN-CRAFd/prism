@@ -7,13 +7,17 @@ import { logger } from "@/lib/logger";
 //   • leadership — exactly one quote from the organisation's leadership (max 1)
 //   • partner    — up to three quotes from partners or users (max 3)
 // GET ?reportId=&kind= (kind optional), POST { reportId, kind, ... }, PATCH { id, ... }, DELETE ?id=
+// Photos are now stored in testimonial_photos (many per testimonial); the GET
+// response includes a `photos` array per row (no bytes — same fields as the
+// /api/testimonial-photos list endpoint).
 
-const FIELDS = ["quote", "person_name", "person_title", "photo_label", "photo_link", "photo_credits"] as const;
+const FIELDS = ["quote", "person_name", "person_title"] as const;
 const KIND_MAX: Record<string, number> = { leadership: 1, partner: 3 };
 
-// Columns returned to the client — the text FIELDS plus uploaded-photo metadata,
-// but NEVER the photo_content bytes (those stream from the [id]/photo route).
-const RETURN_COLS = `id, report_id, kind, ${FIELDS.join(", ")}, photo_file_name, photo_mime_type, photo_size_bytes, sort_order`;
+const RETURN_COLS = `id, report_id, kind, ${FIELDS.join(", ")}, sort_order`;
+
+const PHOTO_COLS =
+  "id, testimonial_id, photo_link, photo_file_name, photo_mime_type, photo_size_bytes, (photo_content IS NOT NULL) AS has_file, photo_label, photo_credits, sort_order";
 
 function isKind(v: unknown): v is "leadership" | "partner" {
   return v === "leadership" || v === "partner";
@@ -42,7 +46,27 @@ export async function GET(req: NextRequest) {
           ORDER BY sort_order ASC, id ASC`,
         params
       );
-      return NextResponse.json(rows);
+      // Attach photos for each testimonial (no bytes).
+      const typedRows = rows as Array<{ id: number } & Record<string, unknown>>;
+      const ids = typedRows.map((r) => r.id);
+      const photos = ids.length
+        ? await query(
+            `SELECT ${PHOTO_COLS}
+               FROM reporting_platform.testimonial_photos
+              WHERE testimonial_id = ANY($1)
+              ORDER BY sort_order ASC, id ASC`,
+            [ids]
+          )
+        : [];
+      const photosByTestimonial = new Map<number, unknown[]>();
+      for (const ph of photos as Array<{ testimonial_id: number }>) {
+        const arr = photosByTestimonial.get(ph.testimonial_id) ?? [];
+        arr.push(ph);
+        photosByTestimonial.set(ph.testimonial_id, arr);
+      }
+      return NextResponse.json(
+        typedRows.map((r) => ({ ...r, photos: photosByTestimonial.get(r.id) ?? [] }))
+      );
     }
 
     // Cross-report listing with project/partner context (admin / export views).
@@ -51,7 +75,7 @@ export async function GET(req: NextRequest) {
     const rows = await query(
       `SELECT
          t.id, t.report_id, t.kind, ${FIELDS.map((f) => `t.${f}`).join(", ")},
-         t.photo_file_name, t.photo_mime_type, t.photo_size_bytes, t.sort_order,
+         t.sort_order,
          r.year, r.report_type,
          p.project_title, p.short_name AS project_short_name,
          pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
@@ -62,7 +86,26 @@ export async function GET(req: NextRequest) {
        WHERE r.data_type = 'report'
        ORDER BY r.year DESC, pt.short_name, p.project_title, t.kind, t.sort_order`
     );
-    return NextResponse.json(rows);
+    const typedRows2 = rows as Array<{ id: number } & Record<string, unknown>>;
+    const ids = typedRows2.map((r) => r.id);
+    const photos = ids.length
+      ? await query(
+          `SELECT ${PHOTO_COLS}
+             FROM reporting_platform.testimonial_photos
+            WHERE testimonial_id = ANY($1)
+            ORDER BY sort_order ASC, id ASC`,
+          [ids]
+        )
+      : [];
+    const photosByTestimonial = new Map<number, unknown[]>();
+    for (const ph of photos as Array<{ testimonial_id: number }>) {
+      const arr = photosByTestimonial.get(ph.testimonial_id) ?? [];
+      arr.push(ph);
+      photosByTestimonial.set(ph.testimonial_id, arr);
+    }
+    return NextResponse.json(
+      typedRows2.map((r) => ({ ...r, photos: photosByTestimonial.get(r.id) ?? [] }))
+    );
   } catch (err) {
     logger.error("GET /api/testimonials error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
@@ -134,16 +177,11 @@ export async function PATCH(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    // Typing an external link removes any uploaded photo (mutually exclusive).
-    const clearPhoto = typeof body.photo_link === "string" && body.photo_link.trim() !== "";
-    const clearClause = clearPhoto
-      ? ", photo_content = NULL, photo_mime_type = NULL, photo_file_name = NULL, photo_size_bytes = NULL"
-      : "";
     const setClause = FIELDS.map((f, i) => `${f} = $${i + 1}`).join(", ");
     const values = [...FIELDS.map((f) => body[f] ?? null), id];
     const rows = await query(
       `UPDATE reporting_platform.testimonials
-          SET ${setClause}${clearClause}, updated_at = NOW()
+          SET ${setClause}, updated_at = NOW()
         WHERE id = $${FIELDS.length + 1}
       RETURNING ${RETURN_COLS}`,
       values

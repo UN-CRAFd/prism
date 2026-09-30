@@ -16,6 +16,7 @@ import { Download, Info, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
+import { useReadOnly } from "@/components/ui/read-only-context";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
@@ -30,7 +31,7 @@ import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } 
 // onSaveStateChange so the parent can render a single shared indicator.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SectionFieldType = "input" | "textarea" | "select" | "multiselect" | "links" | "photo";
+export type SectionFieldType = "input" | "textarea" | "select" | "multiselect" | "links" | "photo" | "testimonial-photos";
 
 // A multiselect cell keeps its picks in the same plain TEXT column a single
 // select used, comma-joined — the convention `links` already follows here. That
@@ -250,6 +251,315 @@ function PhotoField({
         </div>
       )}
       {error && <p className="text-[11px] text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+type TestimonialPhoto = {
+  id: number;
+  testimonial_id: number;
+  photo_link: string | null;
+  photo_file_name: string | null;
+  photo_mime_type: string | null;
+  photo_size_bytes: number | null;
+  has_file: boolean;
+  photo_label: string | null;
+  photo_credits: string | null;
+  sort_order: number;
+};
+
+// Photos column for testimonials: fetches from /api/testimonial-photos, renders
+// each photo with editable label/credits (saved on blur), a remove button, and
+// an "Add photo" panel with upload and link options. Leadership rows can have
+// any number of photos; partner rows are capped at one.
+function TestimonialPhotosField({
+  testimonialId,
+  kind,
+}: {
+  testimonialId: number | null;
+  kind: "leadership" | "partner";
+}) {
+  const readOnly = useReadOnly();
+  const confirm = useConfirm();
+  const p = labels.testimonials.photo;
+
+  const [photos, setPhotos] = useState<TestimonialPhoto[]>([]);
+  const [drafts, setDrafts] = useState<Record<number, { photo_label: string; photo_credits: string }>>({});
+  const [loading, setLoading] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [addMode, setAddMode] = useState<"link" | "upload">("link");
+  const [addLink, setAddLink] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Always-current snapshot of photos for use in async/debounced closures.
+  const photosRef = useRef<TestimonialPhoto[]>([]);
+  photosRef.current = photos;
+
+  // Pending debounce timers and their flush functions, keyed by `${photoId}:${field}`.
+  const debounceTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const pendingFlushesRef = useRef(new Map<string, () => void>());
+
+  useEffect(() => {
+    if (testimonialId == null) return;
+    setLoading(true);
+    fetch(`/api/testimonial-photos?testimonialId=${testimonialId}`)
+      .then((r) => r.json())
+      .then((data) => setPhotos(Array.isArray(data) ? data : []))
+      .catch(() => setFieldError("Failed to load photos"))
+      .finally(() => setLoading(false));
+  }, [testimonialId]);
+
+  // Re-sync drafts only when the set of photo IDs changes (add/remove/testimonial
+  // change), not when individual photo values update from a PATCH response.
+  const photoIdsKey = photos.map((ph) => ph.id).join(",");
+  useEffect(() => {
+    setDrafts(
+      Object.fromEntries(
+        photos.map((ph) => [ph.id, { photo_label: ph.photo_label ?? "", photo_credits: ph.photo_credits ?? "" }])
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoIdsKey]);
+
+  // On unmount, flush any debounces that are still pending.
+  useEffect(() => {
+    return () => {
+      for (const flush of pendingFlushesRef.current.values()) flush();
+    };
+  }, []);
+
+  const canAddMore = kind === "leadership" || photos.length < 1;
+
+  async function removePhoto(photoId: number) {
+    if (!await confirm({ message: "Delete this photo?" })) return;
+    try {
+      await fetch(`/api/testimonial-photos?id=${photoId}`, { method: "DELETE" });
+      setPhotos((prev) => prev.filter((ph) => ph.id !== photoId));
+    } catch {
+      setFieldError("Failed to delete photo");
+    }
+  }
+
+  async function patchPhotoField(
+    photoId: number,
+    field: "photo_label" | "photo_credits",
+    value: string
+  ) {
+    const photo = photosRef.current.find((ph) => ph.id === photoId);
+    if (!photo) return;
+    if (value === (photo[field] ?? "")) return;
+    try {
+      const res = await fetch("/api/testimonial-photos", {
+        method: "PATCH",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: photoId, [field]: value || null }),
+      });
+      if (res.ok) {
+        const updated: TestimonialPhoto = await res.json();
+        setPhotos((prev) => prev.map((ph) => (ph.id === photoId ? updated : ph)));
+      }
+    } catch { /* best-effort */ }
+  }
+
+  function scheduleSave(
+    photoId: number,
+    field: "photo_label" | "photo_credits",
+    value: string
+  ) {
+    const key = `${photoId}:${field}`;
+    const existing = debounceTimersRef.current.get(key);
+    if (existing) clearTimeout(existing);
+    const flush = () => {
+      debounceTimersRef.current.delete(key);
+      pendingFlushesRef.current.delete(key);
+      void patchPhotoField(photoId, field, value);
+    };
+    debounceTimersRef.current.set(key, setTimeout(flush, 600));
+    pendingFlushesRef.current.set(key, flush);
+  }
+
+  function saveOnBlur(
+    photoId: number,
+    field: "photo_label" | "photo_credits",
+    value: string
+  ) {
+    const key = `${photoId}:${field}`;
+    const existing = debounceTimersRef.current.get(key);
+    if (existing) clearTimeout(existing);
+    debounceTimersRef.current.delete(key);
+    pendingFlushesRef.current.delete(key);
+    void patchPhotoField(photoId, field, value);
+  }
+
+  async function addLinkPhoto() {
+    if (!addLink.trim() || testimonialId == null) return;
+    setAddBusy(true); setAddError(null);
+    try {
+      const res = await fetch("/api/testimonial-photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testimonialId, photo_link: addLink }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed to add photo"); }
+      const created: TestimonialPhoto = await res.json();
+      setPhotos((prev) => [...prev, created]);
+      setAddLink("");
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to add photo");
+    } finally { setAddBusy(false); }
+  }
+
+  async function uploadPhoto(file: File | null) {
+    if (!file || testimonialId == null) return;
+    setAddError(null);
+    if (!isAllowedImageExtension(file.name)) { setAddError(p.errorType); return; }
+    if (file.size > MAX_PHOTO_BYTES) { setAddError(p.errorSize.replace("{mb}", String(MAX_PHOTO_MB))); return; }
+    setAddBusy(true);
+    try {
+      const body = new FormData();
+      body.append("testimonialId", String(testimonialId));
+      body.append("file", file);
+      const res = await fetch("/api/testimonial-photos", { method: "POST", body });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || p.errorSave); }
+      const created: TestimonialPhoto = await res.json();
+      setPhotos((prev) => [...prev, created]);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : p.errorSave);
+    } finally {
+      setAddBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  if (testimonialId == null) {
+    return <p className="text-xs text-muted-foreground">Save the row first to add photos.</p>;
+  }
+  if (loading) {
+    return <div className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" /> Loading…</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {photos.length > 0 && (
+        <div className="space-y-2">
+          {photos.map((photo) => (
+            <div key={photo.id} className="rounded border bg-muted/30 p-2 space-y-1.5">
+              {photo.has_file ? (
+                <div className="flex items-start gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/testimonial-photos/${photo.id}/file`}
+                    alt={photo.photo_file_name ?? "photo"}
+                    className="h-14 w-14 rounded object-cover border shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground truncate" title={photo.photo_file_name ?? undefined}>{photo.photo_file_name}</p>
+                    <a
+                      href={`/api/testimonial-photos/${photo.id}/file?download=1`}
+                      download={photo.photo_file_name ?? undefined}
+                      className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                    >
+                      <Download className="size-3" /> {p.download}
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <a href={photo.photo_link ?? undefined} target="_blank" rel="noreferrer" className="text-xs text-primary underline underline-offset-2 break-all">
+                  {photo.photo_link}
+                </a>
+              )}
+              <Input
+                value={drafts[photo.id]?.photo_label ?? ""}
+                placeholder={labels.testimonials.placeholders.photoLabel}
+                className="text-xs h-7"
+                disabled={readOnly}
+                onChange={(e) => {
+                  setDrafts((prev) => ({ ...prev, [photo.id]: { ...prev[photo.id], photo_label: e.target.value } }));
+                  scheduleSave(photo.id, "photo_label", e.target.value);
+                }}
+                onBlur={(e) => saveOnBlur(photo.id, "photo_label", e.target.value)}
+              />
+              <Input
+                value={drafts[photo.id]?.photo_credits ?? ""}
+                placeholder="Photo credits"
+                className="text-xs h-7"
+                disabled={readOnly}
+                onChange={(e) => {
+                  setDrafts((prev) => ({ ...prev, [photo.id]: { ...prev[photo.id], photo_credits: e.target.value } }));
+                  scheduleSave(photo.id, "photo_credits", e.target.value);
+                }}
+                onBlur={(e) => saveOnBlur(photo.id, "photo_credits", e.target.value)}
+              />
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => removePhoto(photo.id)}
+                  className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1"
+                >
+                  <Trash2 className="size-3" /> {p.remove}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!readOnly && canAddMore && (
+        <div className="space-y-1.5">
+          <div className="inline-flex rounded-md border p-0.5 text-xs">
+            {(["link", "upload"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setAddMode(m)}
+                className={cn("px-2 py-0.5 rounded transition-colors", addMode === m ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")}
+              >
+                {m === "link" ? p.linkTab : p.uploadTab}
+              </button>
+            ))}
+          </div>
+          {addMode === "link" ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={addLink}
+                onChange={(e) => setAddLink(e.target.value)}
+                placeholder={labels.common.placeholders.url}
+                className="text-xs h-7"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs shrink-0 gap-1"
+                onClick={addLinkPhoto}
+                disabled={addBusy || !addLink.trim()}
+              >
+                {addBusy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+                Add
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <input
+                ref={fileRef}
+                type="file"
+                accept={IMAGE_ACCEPT}
+                disabled={addBusy}
+                onChange={(e) => uploadPhoto(e.target.files?.[0] ?? null)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent text-sm outline-none cursor-pointer file:cursor-pointer file:mr-3 file:h-full file:border-0 file:bg-muted file:px-3 file:text-xs file:font-medium disabled:opacity-50"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {addBusy ? <span className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> …</span> : p.hint.replace("{mb}", String(MAX_PHOTO_MB))}
+              </p>
+            </div>
+          )}
+          {addError && <p className="text-[11px] text-destructive">{addError}</p>}
+        </div>
+      )}
+
+      {fieldError && <p className="text-[11px] text-destructive">{fieldError}</p>}
     </div>
   );
 }
@@ -554,7 +864,7 @@ export function SectionTableEditor({
               <th key={f.key} className={cn("text-left px-4 py-3 text-xs font-medium text-muted-foreground", f.headClass)}>
                 {/* Photo columns collect images — surface the CRAF'd image standards
                     behind an info icon so contributors upload/label them correctly. */}
-                {f.type === "photo" ? (
+                {f.type === "photo" || f.type === "testimonial-photos" ? (
                   <span className="inline-flex items-center gap-1">
                     {f.header}
                     <Tooltip>
@@ -623,6 +933,11 @@ export function SectionTableEditor({
                       ensureId={() => forceCreateRow(rowsRef.current.find((r) => r.key === row.key) ?? row)}
                       onUploaded={(fileName) => patchRowValues(row.key, { photo_file_name: fileName, [f.key]: "" })}
                       onRemoved={() => patchRowValues(row.key, { photo_file_name: "" })}
+                    />
+                  ) : f.type === "testimonial-photos" ? (
+                    <TestimonialPhotosField
+                      testimonialId={row.id}
+                      kind={(kind ?? "leadership") as "leadership" | "partner"}
                     />
                   ) : f.type === "multiselect" ? (
                     <MultiSelect
@@ -762,9 +1077,7 @@ const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
   { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords },
   { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40" },
   { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44" },
-  { key: "photo_label", header: labels.testimonials.columns.photoLabel, type: "input", placeholder: labels.testimonials.placeholders.photoLabel, headClass: "w-40" },
-  { key: "photo_link", header: labels.testimonials.columns.photoLink, type: "photo", placeholder: labels.common.placeholders.url, headClass: "w-56" },
-  { key: "photo_credits", header: labels.testimonials.columns.photoCredits, type: "input", placeholder: labels.testimonials.placeholders.photoCredits, headClass: "w-40" },
+  { key: "_photos", header: labels.testimonials.columns.photoLink, type: "testimonial-photos", headClass: "w-64" },
 ];
 
 export function buildTestimonialSpecs(): Record<"leadership" | "partner", SectionSpec> {

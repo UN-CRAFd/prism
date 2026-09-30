@@ -147,16 +147,35 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => n(r[0]?.cats) > 0 && n(r[0]?.filled) >= n(r[0]?.cats)),
 
-      // Testimonials — a leadership quote and at least one partner quote are both present.
+      // Testimonials — a leadership row and at least one partner row must each have
+      // quote, person_name and person_title filled; no started-but-incomplete row of
+      // either kind is allowed; and every photo must have caption and credits.
       query<Row>(
         `SELECT EXISTS (SELECT 1 FROM reporting_platform.testimonials
                          WHERE report_id = $1 AND kind = 'leadership'
-                           AND quote IS NOT NULL AND quote <> '') AS leadership_ok,
+                           AND COALESCE(trim(quote), '') <> ''
+                           AND COALESCE(trim(person_name), '') <> ''
+                           AND COALESCE(trim(person_title), '') <> '') AS leadership_ok,
                EXISTS (SELECT 1 FROM reporting_platform.testimonials
                          WHERE report_id = $1 AND kind = 'partner'
-                           AND quote IS NOT NULL AND quote <> '') AS partner_ok`,
+                           AND COALESCE(trim(quote), '') <> ''
+                           AND COALESCE(trim(person_name), '') <> ''
+                           AND COALESCE(trim(person_title), '') <> '') AS partner_ok,
+               NOT EXISTS (
+                 SELECT 1 FROM reporting_platform.testimonials
+                  WHERE report_id = $1
+                    AND (COALESCE(trim(quote), '') <> '' OR COALESCE(trim(person_name), '') <> '' OR COALESCE(trim(person_title), '') <> '')
+                    AND (COALESCE(trim(quote), '') = '' OR COALESCE(trim(person_name), '') = '' OR COALESCE(trim(person_title), '') = '')
+               ) AS fields_ok,
+               NOT EXISTS (
+                 SELECT 1
+                   FROM reporting_platform.testimonial_photos p
+                   JOIN reporting_platform.testimonials t ON t.id = p.testimonial_id
+                  WHERE t.report_id = $1
+                    AND (COALESCE(trim(p.photo_label), '') = '' OR COALESCE(trim(p.photo_credits), '') = '')
+               ) AS photos_ok`,
         [reportId]
-      ).then((r) => r[0]?.leadership_ok === true && r[0]?.partner_ok === true),
+      ).then((r) => r[0]?.leadership_ok === true && r[0]?.partner_ok === true && r[0]?.fields_ok === true && r[0]?.photos_ok === true),
     ]);
 
     const sections: Record<string, boolean> = {

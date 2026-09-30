@@ -660,6 +660,23 @@ CREATE TRIGGER testimonials_updated_at
     BEFORE UPDATE ON testimonials
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+CREATE TABLE IF NOT EXISTS testimonial_photos (
+    id                SERIAL       PRIMARY KEY,
+    testimonial_id    INTEGER      NOT NULL REFERENCES testimonials(id) ON DELETE CASCADE,
+    photo_link        TEXT,
+    photo_content     BYTEA,
+    photo_mime_type   TEXT,
+    photo_file_name   TEXT,
+    photo_size_bytes  INTEGER,
+    photo_label       TEXT,
+    photo_credits     TEXT,
+    sort_order        INTEGER      NOT NULL DEFAULT 1,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS testimonial_photos_testimonial_idx ON testimonial_photos(testimonial_id);
+
 -- ── Workplan: project-level activities + per-report progress entries ─────────
 CREATE TABLE IF NOT EXISTS workplan_activities (
     id                 SERIAL       PRIMARY KEY,

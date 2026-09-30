@@ -180,11 +180,26 @@ const EXPORTS: Record<string, SectionExport> = {
   },
 
   testimonials: {
-    // photo_link = external URL; photo_file = uploaded image's file name (the two
-    // are mutually exclusive — a CSV can't embed the bytes, so its name is recorded;
-    // the bytes themselves ship in files/ when "Include photos" is on).
+    // Photos now live in testimonial_photos (many per testimonial). The CSV
+    // records the first photo's link/file name per testimonial for back-compat.
     headers: ["year", "project_name", "partner", "kind", "quote", "person_name", "person_title", "photo_label", "photo_link", "photo_file", "photo_credits"],
-    sql: reportScoped("testimonials", "t", "report_id", "t.kind, t.quote, t.person_name, t.person_title, t.photo_label, t.photo_link, t.photo_file_name AS photo_file, t.photo_credits", "t.kind, t.sort_order, t.id"),
+    sql: `
+    SELECT r.year, p.project_title AS project_name, pt.short_name AS partner,
+           t.kind, t.quote, t.person_name, t.person_title,
+           ph.photo_label, ph.photo_link, ph.photo_file_name AS photo_file, ph.photo_credits
+      FROM reporting_platform.testimonials t
+      JOIN reporting_platform.reports  r  ON r.id  = t.report_id
+      JOIN reporting_platform.projects p  ON p.id  = r.project_id
+      JOIN reporting_platform.partners pt ON pt.id = p.partner_id
+      LEFT JOIN LATERAL (
+        SELECT photo_label, photo_link, photo_file_name, photo_credits
+          FROM reporting_platform.testimonial_photos
+         WHERE testimonial_id = t.id
+         ORDER BY sort_order ASC, id ASC
+         LIMIT 1
+      ) ph ON true
+     WHERE r.data_type = ANY(%DATA_TYPES%) %PROJECT_FILTER%
+     ORDER BY r.year, pt.short_name, p.project_title, t.kind, t.sort_order, t.id`,
   },
 
   risk: {

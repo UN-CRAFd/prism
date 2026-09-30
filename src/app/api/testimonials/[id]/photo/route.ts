@@ -96,12 +96,14 @@ export async function GET(
     const photo = rows[0];
     // pg returns bytea as a Node Buffer; hand its bytes to the Response body.
     const body = new Uint8Array(photo.photo_content!);
-    const safeName = (photo.photo_file_name || "photo").replace(/"/g, "'");
+    const rawName = photo.photo_file_name || "photo";
+    const asciiFallback = rawName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "");
+    const disposition = `${download ? "attachment" : "inline"}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(rawName)}`;
     return new NextResponse(body, {
       status: 200,
       headers: {
         "Content-Type": photo.photo_mime_type || "application/octet-stream",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${safeName}"`,
+        "Content-Disposition": disposition,
         "Content-Length": String(body.byteLength),
         "Cache-Control": "private, no-store",
       },

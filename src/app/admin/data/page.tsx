@@ -203,6 +203,59 @@ const projectCol: ColumnDef = { header: "Project", headClass: "w-[130px]", cell:
 const partnerCol: ColumnDef = { header: "Partner", headClass: "w-[100px]", cell: (r) => <p className="break-words text-muted-foreground">{shortName(r.partner_short_name)}</p> };
 const leadCols = [yearCol, projectCol, partnerCol];
 
+type AdminTestimonialPhoto = {
+  id: number;
+  photo_link: string | null;
+  photo_file_name: string | null;
+  has_file: boolean;
+  photo_label: string | null;
+  photo_credits: string | null;
+};
+
+function TestimonialPhotosCell({ photos }: { photos: AdminTestimonialPhoto[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!photos.length) return <span className="text-muted-foreground">—</span>;
+  const first = photos[0];
+  const firstEl = first.photo_link
+    ? <LinksList raw={first.photo_link} />
+    : first.has_file
+      ? <a href={`/api/testimonial-photos/${first.id}/file`} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 break-all">{first.photo_file_name || "file"}</a>
+      : <span className="text-muted-foreground">{first.photo_label || "—"}</span>;
+  if (!expanded) {
+    return (
+      <div>
+        {firstEl}
+        {photos.length > 1 && (
+          <button type="button" onClick={() => setExpanded(true)} className="text-xs text-muted-foreground hover:text-foreground block">
+            +{photos.length - 1} more
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {photos.map((photo) => {
+        const linkEl = photo.photo_link
+          ? <a href={photo.photo_link} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 break-all">{photo.photo_link}</a>
+          : photo.has_file
+            ? <a href={`/api/testimonial-photos/${photo.id}/file`} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 break-all">{photo.photo_file_name || "file"}</a>
+            : <span className="text-muted-foreground">—</span>;
+        const meta = [photo.photo_label, photo.photo_credits].filter(Boolean).join(" · ");
+        return (
+          <div key={photo.id}>
+            {linkEl}
+            {meta && <p className="text-xs text-muted-foreground">{meta}</p>}
+          </div>
+        );
+      })}
+      <button type="button" onClick={() => setExpanded(false)} className="text-xs text-muted-foreground hover:text-foreground">
+        Show less
+      </button>
+    </div>
+  );
+}
+
 const SECTION_CONFIGS: SectionConfig[] = [
   {
     value: "surveys", label: "Survey", endpoint: "/api/surveys", reportIdKey: "report_id", minWidth: 1000,
@@ -274,13 +327,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { header: "Quote", headClass: "w-[32%]", cell: (r, ctx) => trunc(r.quote, `quote-${r.id}`, ctx) },
       { header: "Person", headClass: "w-[140px]", cell: (r) => <p className="break-words font-medium">{(r.person_name as string) || "—"}</p> },
       { header: "Title", headClass: "w-[160px]", cell: (r) => <p className="break-words text-muted-foreground">{(r.person_title as string) || "—"}</p> },
-      { header: "Photo", cell: (r) => (
-        r.photo_link
-          ? <LinksList raw={r.photo_link as string} />
-          : r.photo_file_name
-            ? <a href={`/api/testimonials/${r.id}/photo`} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 break-all">{r.photo_file_name as string}</a>
-            : <span className="text-muted-foreground">{(r.photo_label as string) || "—"}</span>
-      ) },
+      { header: "Photo", cell: (r) => <TestimonialPhotosCell photos={(r.photos as AdminTestimonialPhoto[]) ?? []} /> },
     ],
   },
   {

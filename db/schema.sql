@@ -996,6 +996,15 @@ CREATE TABLE IF NOT EXISTS prodoc_editor_locks (
     last_seen_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS report_editor_locks (
+    report_id     INTEGER      PRIMARY KEY REFERENCES reports(id) ON DELETE CASCADE,
+    session_id    TEXT         NOT NULL,
+    holder_name   TEXT         NOT NULL,
+    holder_role   TEXT         NOT NULL,
+    acquired_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    last_seen_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- ── Project documents / annexes ──────────────────────────────────────────────
 -- Partner-uploaded documents attached to the project document (annexes, budgets,
 -- agreements, …). Project-scoped. The file bytes live in the `content` bytea

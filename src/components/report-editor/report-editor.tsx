@@ -15,7 +15,7 @@ import {
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
-import { Loader2, FileQuestion, Lock, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { Loader2, FileQuestion, Lock, AlertTriangle, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
@@ -44,6 +44,7 @@ import { SurveysSection } from "@/components/report-editor/sections/surveys-sect
 import { RiskSection } from "@/components/report-editor/sections/risk-section";
 import { IndicatorsSection } from "@/components/report-editor/sections/indicators-section";
 import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
+import { useReportLock } from "@/components/report-editor/use-report-lock";
 
 function toSlug(r: Report): string {
   return projectSlug(r.project_short_name, r.project_title);
@@ -583,11 +584,18 @@ export function ReportEditor({
   //   Under Review  → admin only (partner is read-only)
   //   Closed        → no one
   // (forceReadOnly still wins as an explicit override.)
-  const readOnly =
+  const statusReadOnly =
     forceReadOnly ||
     (!!selectedReport &&
       (selectedReport.status === "Closed" ||
         (selectedReport.status === "Under Review" && mode !== "admin")));
+
+  const { phase, holder, noteEdit, startEditing, isReadOnlyByLock } = useReportLock({
+    reportId,
+    enabled: !statusReadOnly && reportId != null,
+  });
+
+  const readOnly = statusReadOnly || isReadOnlyByLock;
   const sectionLoading =
     params.section === "surveys" ? loadingSurveys :
     params.section === "overview" ? loadingOverview :
@@ -623,6 +631,20 @@ export function ReportEditor({
       fetchCompletion(reportId);
     prevSaveStateRef.current = displaySaveState;
   }, [displaySaveState, reportId, fetchCompletion]);
+
+  // Wire noteEdit so the inactivity clock resets whenever a save begins.
+  useEffect(() => {
+    if (parentAutosave.state === "saving") noteEdit();
+  }, [parentAutosave.state, noteEdit]);
+
+  useEffect(() => {
+    if (phase === "lock-error") setError("The editing lock could not be checked. Please reload the page.");
+  }, [phase]);
+
+  function handleChildSaveStateChange(state: SaveState) {
+    setChildSaveState(state);
+    if (state === "saving") noteEdit();
+  }
 
   // Sections whose table freezes its column header inside a bounded scroll box.
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
@@ -842,12 +864,73 @@ export function ReportEditor({
           </div>
         )}
 
-        {readOnly && !sectionLoading && !notFound && (
+        {statusReadOnly && !sectionLoading && !notFound && (
           <div className="mb-6 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <Lock className="size-4 shrink-0" />
             <span>
               This report is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
             </span>
+          </div>
+        )}
+
+        {/* Lock acquisition in progress */}
+        {!statusReadOnly && reportId && phase === "acquiring" && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-600">
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+            <span>Checking editor availability…</span>
+          </div>
+        )}
+
+        {/* Editing session ended due to inactivity */}
+        {!statusReadOnly && reportId && phase === "timed-out" && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            <div className="flex items-center gap-2">
+              <Lock className="size-3.5 shrink-0" />
+              <span>Your editing session ended due to inactivity.</span>
+            </div>
+            <button
+              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+              onClick={startEditing}
+            >
+              Start editing
+            </button>
+          </div>
+        )}
+
+        {/* Another session holds the lock */}
+        {!statusReadOnly && reportId && phase === "blocked" && holder && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            <Lock className="size-3.5 shrink-0" />
+            <span><b>{holder.name}</b> currently has this report open.</span>
+          </div>
+        )}
+
+        {/* Lock just freed — user must click to claim it */}
+        {!statusReadOnly && reportId && phase === "available" && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-900">
+            <span>This report is now available.</span>
+            <button
+              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-green-300 bg-green-50 hover:bg-green-100 text-green-900"
+              onClick={startEditing}
+            >
+              Start editing
+            </button>
+          </div>
+        )}
+
+        {/* Inactivity warning — lock will expire in ~1 minute */}
+        {!statusReadOnly && reportId && phase === "warning" && (
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              <span>Your editing session will expire in 1 minute due to inactivity.</span>
+            </div>
+            <button
+              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-900"
+              onClick={noteEdit}
+            >
+              Keep editing
+            </button>
           </div>
         )}
 
@@ -928,7 +1011,7 @@ export function ReportEditor({
               projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
               config={TRANSFERS_MATRIX_CONFIG}
               pushCommand={pushCommand}
-              onSaveStateChange={setChildSaveState}
+              onSaveStateChange={handleChildSaveStateChange}
               onError={setError}
               fillHeight={fillHeight}
             />
@@ -942,7 +1025,7 @@ export function ReportEditor({
               projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
               config={COMPLEMENTARY_MATRIX_CONFIG}
               pushCommand={pushCommand}
-              onSaveStateChange={setChildSaveState}
+              onSaveStateChange={handleChildSaveStateChange}
               onError={setError}
               fillHeight={fillHeight}
             />
@@ -950,7 +1033,7 @@ export function ReportEditor({
 
         ) : params.section === "testimonials" ? (
           reportId ? (
-            <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={setChildSaveState} pushCommand={pushCommand} />
+            <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={handleChildSaveStateChange} pushCommand={pushCommand} />
           ) : null
 
         ) : params.section in sectionSpecs ? (
@@ -959,7 +1042,7 @@ export function ReportEditor({
               key={params.section}
               reportId={reportId}
               spec={sectionSpecs[params.section]}
-              onSaveStateChange={setChildSaveState}
+              onSaveStateChange={handleChildSaveStateChange}
               commentSection={params.section}
               pushCommand={pushCommand}
             />
@@ -969,7 +1052,7 @@ export function ReportEditor({
           reportId && selectedReport ? (
             <WorkplanPartnerEditor
               reportId={reportId}
-              onSaveStateChange={setChildSaveState}
+              onSaveStateChange={handleChildSaveStateChange}
               fillHeight
               readOnly={readOnly}
               pushCommand={pushCommand}
@@ -980,7 +1063,7 @@ export function ReportEditor({
           reportId ? (
             <ExpenditurePartnerEditor
               reportId={reportId}
-              onSaveStateChange={setChildSaveState}
+              onSaveStateChange={handleChildSaveStateChange}
               fillHeight={fillHeight}
             />
           ) : null

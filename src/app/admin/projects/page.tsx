@@ -29,7 +29,7 @@ import {
 } from "@/components/admin/shared";
 import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
-import { formatDate, projectSlug, timeAgo } from "@/lib/utils";
+import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
 
 // Prodoc uses the same status set as reports (it IS a reports row). Values are
@@ -129,18 +129,6 @@ function projectEndDate(startDate: string, durationMonths: number): Date {
   return dt;
 }
 
-function fmtUsd(v: string | null) {
-  if (!v) return <Dash />;
-  const n = parseFloat(v);
-  if (isNaN(n)) return v;
-  if (n >= 1_000_000) {
-    return "$" + (n / 1_000_000).toFixed(1) + " M";
-  }
-  if (n >= 1_000) {
-    return "$" + Math.round(n / 1_000) + "k";
-  }
-  return "$" + n.toLocaleString("en-US");
-}
 
 // Multi-select over the partner list (dynamic options, numeric ids), used to
 // grant prodoc edit rights. Mirrors the chip/checkbox look of ui/MultiSelect but
@@ -613,7 +601,7 @@ export default function ProjectsPage() {
         {p.grant_size_usd && (
           <span className="inline-flex items-center gap-1.5">
             <DollarSign className="size-3 shrink-0" />
-            {fmtUsd(p.grant_size_usd)}
+            {formatUsd(p.grant_size_usd)}
           </span>
         )}
         {durationLabel(p.project_duration_months) && (
@@ -861,7 +849,7 @@ export default function ProjectsPage() {
                     </Select>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">{p.mptfo_project_number || <Dash />}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtUsd(p.grant_size_usd)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatUsd(p.grant_size_usd)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>

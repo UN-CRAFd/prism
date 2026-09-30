@@ -14,7 +14,7 @@ import labels from "@/lib/labels";
 import { numericAmount } from "@/lib/numeric-input";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { cn } from "@/lib/utils";
+import { cn, formatUsd } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 import { CURRENT_YEAR_HEAD, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
@@ -708,16 +708,16 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
               <div className="space-y-2">
                 <div className="flex justify-between gap-2 text-sm">
                   <span className="text-muted-foreground truncate min-w-0">Grant size:</span>
-                  <span className="font-semibold tabular-nums shrink-0">{grantSize ? formatAmount(grantSize) : "—"}</span>
+                  <span className="font-semibold tabular-nums shrink-0">{grantSize ? formatUsd(grantSize) : "—"}</span>
                 </div>
                 <div className="flex justify-between gap-2 text-sm">
                   <span className="text-muted-foreground truncate min-w-0">Total budget:</span>
-                  <span className="font-semibold tabular-nums shrink-0">{formatAmount(totalBudget)}</span>
+                  <span className="font-semibold tabular-nums shrink-0">{formatUsd(totalBudget)}</span>
                 </div>
                 <div className={`flex justify-between gap-2 text-sm pt-2 border-t ${availableBalance !== null && availableBalance < 0 ? "text-red-600" : ""}`}>
                   <span className="font-medium truncate min-w-0">Available:</span>
                   <span className={`font-bold tabular-nums shrink-0 ${availableBalance === null ? "text-muted-foreground" : availableBalance < 0 ? "text-red-600" : "text-green-700"}`}>
-                    {availableBalance !== null ? formatAmount(availableBalance) : "—"}
+                    {availableBalance !== null ? formatUsd(availableBalance) : "—"}
                   </span>
                 </div>
                 {budgetMismatch && (

@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
-import { formatDate, shortName } from "@/lib/utils";
+import { formatDate, shortName, formatUsd } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 import { getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
@@ -85,10 +85,7 @@ interface ProdocData {
   sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number; priority?: string }[];
 }
 
-function fmtUsd(v: number | null): string {
-  if (v == null) return "—";
-  return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
+
 function fmtDate(s: string | null): string {
   if (!s) return "—";
   return formatDate(s);
@@ -321,7 +318,7 @@ export default function ProdocPrintPage() {
             items={[
               ["MPTFO number", (m.mptfo_project_number as string) || "—"],
               ["Status", (m.status as string) || "—"],
-              ["Funding amount", fmtUsd(m.grant_size_usd != null ? num(m.grant_size_usd) : null)],
+              ["Funding amount", formatUsd(m.grant_size_usd != null ? num(m.grant_size_usd) : null)],
               ["Start date", fmtDate(m.project_start_date as string | null)],
               ["Duration", m.project_duration_months ? `${m.project_duration_months} months` : "—"],
               ["Geographic scope", (m.geographic_scope as string) || "—"],
@@ -427,7 +424,7 @@ export default function ProdocPrintPage() {
                               textAlign: "right", padding: "6px 8px",
                               borderBottom: `1px solid ${LINE}`, verticalAlign: "top",
                             }}>
-                              <div>{fmtUsd(amt)}</div>
+                              <div>{formatUsd(amt)}</div>
                               {c?.date_description && (
                                 <div style={{ fontSize: 9.5, color: MUTED, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                                   {c.date_description}
@@ -440,7 +437,7 @@ export default function ProdocPrintPage() {
                           textAlign: "right", padding: "6px 8px", fontWeight: 600,
                           borderBottom: `1px solid ${LINE}`, verticalAlign: "middle",
                         }}>
-                          {fmtUsd(orgTotal(org.id))}
+                          {formatUsd(orgTotal(org.id))}
                         </td>
                       </tr>
                     ))}
@@ -448,11 +445,11 @@ export default function ProdocPrintPage() {
                       <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>Total</td>
                       {tranches.map((t) => (
                         <td key={t} style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
-                          {fmtUsd(trancheTotal(t))}
+                          {formatUsd(trancheTotal(t))}
                         </td>
                       ))}
                       <td style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
-                        {fmtUsd(grandTotal)}
+                        {formatUsd(grandTotal)}
                       </td>
                     </tr>
                   </tbody>
@@ -582,8 +579,8 @@ export default function ProdocPrintPage() {
                   <tr key={c}>
                     <Td>{c}</Td>
                     <Td>{descriptionMap[c] ?? ""}</Td>
-                    <Td align="right">{fmtUsd(catTotal(c))}</Td>
-                    {years.map((y) => <Td key={y} align="right">{fmtUsd(budgetAt(c, y))}</Td>)}
+                    <Td align="right">{formatUsd(catTotal(c))}</Td>
+                    {years.map((y) => <Td key={y} align="right">{formatUsd(budgetAt(c, y))}</Td>)}
                   </tr>
                 ))}
                 <TotalRow label="Project costs sub total" years={years} cells={years.map(yearSub)} total={grandSub} />
@@ -898,9 +895,9 @@ function TotalRow({
     <tr style={{ background: strong ? "#f3f4f6" : "#fafafa", fontWeight: strong ? 700 : 600 }}>
       <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{label}</td>
       <td style={{ borderTop: `1px solid ${LINE}` }} />
-      <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(total)}</td>
+      <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{formatUsd(total)}</td>
       {years.map((y, i) => (
-        <td key={y} style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{fmtUsd(cells[i])}</td>
+        <td key={y} style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>{formatUsd(cells[i])}</td>
       ))}
     </tr>
   );

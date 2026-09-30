@@ -622,7 +622,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                               <Input
                                 type="text"
                                 inputMode="decimal"
-                                value={focused ? state.amount : (state.amount.trim() !== "" && !isNaN(parsed) ? parsed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : state.amount)}
+                                value={focused ? state.amount : (state.amount.trim() !== "" && !isNaN(parsed) ? formatAmount(parsed) : state.amount)}
                                 onChange={(e) => updateCell(row.entityId, { amount: numericAmount(e.target.value) })}
                                 onFocus={() => setFocusedCellKey(cellKey)}
                                 onBlur={() => {

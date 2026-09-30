@@ -21,10 +21,10 @@ export function activityLabel(a: ActivityRef | null | undefined): string {
   return a.activity_text ? `${num}: ${a.activity_text}` : num;
 }
 
-// Format a stored numeric amount for display, grouped with thousands separators.
+// Format a stored numeric amount for display: always 2 decimal places.
 export function formatAmount(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
   const n = typeof value === "number" ? value : Number(value);
-  if (Number.isNaN(n)) return String(value);
-  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

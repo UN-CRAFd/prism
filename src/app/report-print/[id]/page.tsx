@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
-import { formatDate, shortName } from "@/lib/utils";
+import { formatDate, shortName, formatUsd } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { statusLabel } from "@/lib/indicators";
 import { resultLabel, quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
@@ -159,12 +159,6 @@ async function fetchSection<T>(url: string): Promise<{ data: T | null; error: st
   }
 }
 
-function fmtUsd(v: number | string | null | undefined): string {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
 
 function fmtDate(s: string | null | undefined): string {
   if (!s) return "—";
@@ -480,7 +474,7 @@ export default function ReportPrintPage() {
               <div style={{ marginBottom: 10 }}>
                 <MetaGrid items={[
                   ["MPTFO number", overview.mptfo_project_number || "—"],
-                  ["Funding amount", fmtUsd(overview.grant_size_usd)],
+                  ["Funding amount", formatUsd(overview.grant_size_usd)],
                   ["Geographic scope", overview.geographic_scope || "—"],
                   ["Project start date", fmtDate(overview.project_start_date)],
                   ["Duration", overview.project_duration_months ? `${overview.project_duration_months} months` : "—"],
@@ -888,10 +882,10 @@ export default function ReportPrintPage() {
                   return (
                     <tr key={cat.id}>
                       <Td>{cat.name}</Td>
-                      <Td align="right">{fmtUsd(budget)}</Td>
-                      <Td align="right">{fmtUsd(spent)}</Td>
+                      <Td align="right">{formatUsd(budget)}</Td>
+                      <Td align="right">{formatUsd(spent)}</Td>
                       <Td align="right" style={{ color: diff < 0 ? "#b91c1c" : undefined }}>
-                        {fmtUsd(diff)}
+                        {formatUsd(diff)}
                       </Td>
                     </tr>
                   );
@@ -906,10 +900,10 @@ export default function ReportPrintPage() {
                         <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>
                           Project costs sub-total
                         </td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{fmtUsd(totalBudget)}</td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{fmtUsd(totalSpent)}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalBudget)}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalSpent)}</td>
                         <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, color: totalBudget - totalSpent < 0 ? "#b91c1c" : undefined }}>
-                          {fmtUsd(totalBudget - totalSpent)}
+                          {formatUsd(totalBudget - totalSpent)}
                         </td>
                       </tr>
                       {expRate > 0 && (
@@ -917,19 +911,19 @@ export default function ReportPrintPage() {
                           <td style={{ padding: "6px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "middle" }}>
                             Indirect support costs ({Math.round(expRate * 100)}%)
                           </td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{fmtUsd(totalBudget * expRate)}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{fmtUsd(totalSpent * expRate)}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{formatUsd(totalBudget * expRate)}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{formatUsd(totalSpent * expRate)}</td>
                           <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}`, color: (totalBudget - totalSpent) * expRate < 0 ? "#b91c1c" : undefined }}>
-                            {fmtUsd((totalBudget - totalSpent) * expRate)}
+                            {formatUsd((totalBudget - totalSpent) * expRate)}
                           </td>
                         </tr>
                       )}
                       <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
                         <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>Total</td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{fmtUsd(totalBudget * (1 + expRate))}</td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{fmtUsd(totalSpent * (1 + expRate))}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalBudget * (1 + expRate))}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalSpent * (1 + expRate))}</td>
                         <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, color: (totalBudget - totalSpent) * (1 + expRate) < 0 ? "#b91c1c" : undefined }}>
-                          {fmtUsd((totalBudget - totalSpent) * (1 + expRate))}
+                          {formatUsd((totalBudget - totalSpent) * (1 + expRate))}
                         </td>
                       </tr>
                     </>
@@ -1004,7 +998,7 @@ export default function ReportPrintPage() {
                     <tr key={r.transfer_partner_id}>
                       <Td>{r.organization_name}</Td>
                       <Td>{r.partner_type || "—"}</Td>
-                      <Td align="right">{fmtUsd(byYear?.amount_transferred != null ? num(byYear.amount_transferred) : null)}</Td>
+                      <Td align="right">{formatUsd(byYear?.amount_transferred != null ? num(byYear.amount_transferred) : null)}</Td>
                     </tr>
                   );
                 })}
@@ -1033,7 +1027,7 @@ export default function ReportPrintPage() {
                     <tr key={r.contributor_id}>
                       <Td>{r.contributor_name}</Td>
                       <Td>{r.funding_type || "—"}</Td>
-                      <Td align="right">{fmtUsd(byYear?.contribution_amount != null ? num(byYear.contribution_amount) : null)}</Td>
+                      <Td align="right">{formatUsd(byYear?.contribution_amount != null ? num(byYear.contribution_amount) : null)}</Td>
                     </tr>
                   );
                 })}

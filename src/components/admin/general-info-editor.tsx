@@ -16,7 +16,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import { richTextLength } from "@/lib/richtext";
 import { numericAmount, numericInteger, clampDuration } from "@/lib/numeric-input";
-import { cn, shortName } from "@/lib/utils";
+import { cn, shortName, formatAmount, formatUsd } from "@/lib/utils";
 import { Loader2, Plus, Trash2, Users, Coins, FileText, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
@@ -118,10 +118,6 @@ function parseAmount(s: string): number {
   return parseFloat(t.replace(/,/g, ""));
 }
 
-// US number format: comma as thousands separator, period as decimal.
-function formatUS(n: number): string {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 function coerce(key: FieldKey, value: string): unknown {
   switch (key) {
@@ -422,7 +418,6 @@ export function GeneralInfoAdminEditor({
       ? addMonthsISO(projectStartDate, durationForRange)
       : null;
   const tranchesMatchGrant = grantSize != null && trancheTotal <= grantSize + 0.005 && trancheTotal >= grantSize - 1;
-  const fmtUsd = (n: number) => formatUS(n);
 
   // ── Organization list CRUD (immediate) ─────────────────────────────────
   async function addOrg(type: "participating" | "implementing") {
@@ -786,7 +781,7 @@ export function GeneralInfoAdminEditor({
               value={grantFocused
                 ? form.grant_size_usd
                 : form.grant_size_usd.trim() !== "" && !isNaN(parseAmount(form.grant_size_usd))
-                  ? formatUS(parseAmount(form.grant_size_usd))
+                  ? formatAmount(parseAmount(form.grant_size_usd))
                   : form.grant_size_usd}
               onChange={(e) => setField("grant_size_usd", numericAmount(e.target.value))}
               onFocus={() => setGrantFocused(true)}
@@ -993,7 +988,7 @@ export function GeneralInfoAdminEditor({
                     <tr key={org.id} className="transition-colors hover:bg-muted/20">
                       <td className="px-4 py-3 align-middle font-medium text-sm whitespace-nowrap">{org.name}</td>
                       <td className="px-4 py-3 align-middle text-right tabular-nums text-sm text-muted-foreground whitespace-nowrap">
-                        {fmtUsd(rowTotal)}
+                        {formatAmount(rowTotal)}
                       </td>
                       {Array.from({ length: trancheCount }, (_, i) => {
                         const tn = i + 1;
@@ -1010,7 +1005,7 @@ export function GeneralInfoAdminEditor({
                                 value={focusedCellKey === cellKey
                                   ? amount
                                   : amount.trim() !== "" && !isNaN(parseAmount(amount))
-                                    ? formatUS(parseAmount(amount))
+                                    ? formatAmount(parseAmount(amount))
                                     : amount}
                                 onChange={(e) => setCell(org.id, tn, { amount: numericAmount(e.target.value) })}
                                 onFocus={() => setFocusedCellKey(cellKey)}
@@ -1047,7 +1042,7 @@ export function GeneralInfoAdminEditor({
                   <td className="px-4 py-3 align-middle text-sm font-semibold">{g.tranches.total}</td>
                   <td className="px-4 py-3 align-middle text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-sm font-semibold tabular-nums">{fmtUsd(trancheTotal)}</span>
+                      <span className="text-sm font-semibold tabular-nums">{formatAmount(trancheTotal)}</span>
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
@@ -1058,7 +1053,7 @@ export function GeneralInfoAdminEditor({
                             : "bg-amber-100 text-amber-800"
                         )}
                       >
-                        {grantSize == null ? "—" : tranchesMatchGrant ? "Matches budget" : `/ ${fmtUsd(grantSize)}`}
+                        {grantSize == null ? "—" : tranchesMatchGrant ? "Matches budget" : `/ ${formatUsd(grantSize)}`}
                       </span>
                     </div>
                   </td>
@@ -1067,7 +1062,7 @@ export function GeneralInfoAdminEditor({
                     const isAmountCol = i % 2 === 0;
                     return (
                       <td key={i} className={cn(isAmountCol ? "border-l px-4 py-3 text-right text-sm font-semibold tabular-nums" : "")}>
-                        {isAmountCol ? fmtUsd(getTrancheTotal(tn)) : null}
+                        {isAmountCol ? formatAmount(getTrancheTotal(tn)) : null}
                       </td>
                     );
                   })}
@@ -1079,7 +1074,7 @@ export function GeneralInfoAdminEditor({
 
         {grantSize != null && participatingOrgs.length > 0 && !tranchesMatchGrant && (() => {
           const isOver = trancheTotal > grantSize;
-          const difference = fmtUsd(Math.abs(trancheTotal - grantSize));
+          const difference = formatUsd(Math.abs(trancheTotal - grantSize));
           const message = isOver
             ? g.tranches.mismatchOver.replace("{difference}", difference)
             : g.tranches.mismatchUnder.replace("{difference}", difference);

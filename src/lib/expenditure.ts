@@ -50,14 +50,14 @@ export function grandTotal(subTotal: number, rate: number): number {
   return subTotal + indirect(subTotal, rate);
 }
 
-// USD formatting matching the reference sheet: thousands separators, no decimals,
-// negatives as "-1,234". Blank for null so empty cells stay empty.
-const FMT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+// USD formatting: thousands separators, always 2 decimal places.
+// Blank for null so empty cells stay empty.
+const FMT = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function formatAmount(v: number | null | undefined, { blankZero = false } = {}): string {
   if (v === null || v === undefined) return "";
   if (blankZero && v === 0) return "";
-  return FMT.format(Math.round(v));
+  return FMT.format(v);
 }
 
 // Difference = actual − approved (negative = underspend, as in the sheet).

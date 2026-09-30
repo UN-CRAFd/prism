@@ -32,6 +32,21 @@ export function formatDate(date: string | Date): string {
   return `${day}/${month}/${year}`;
 }
 
+export function formatAmount(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function formatUsd(v: number | string | null | undefined): string {
+  const a = formatAmount(v);
+  if (a === "—") return "—";
+  const n = Number(v);
+  if (n < 0) return "-$" + a.slice(1);
+  return "$" + a;
+}
+
 // Compact relative time ("just now", "5m ago", "3h ago", "2d ago"), falling back
 // to a date for anything older than a week. Client-only (reads the current time).
 export function timeAgo(date: string | Date): string {

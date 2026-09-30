@@ -37,7 +37,7 @@ export default function ReportEditorPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [completion, setCompletion] = useState<Record<number, number>>({}); // reportId → sections started (0-7)
+  const [completion, setCompletion] = useState<Record<number, { completed: number; totalSections: number }>>({});
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -67,12 +67,12 @@ export default function ReportEditorPage() {
       reports.map((r) =>
         fetch(`/api/report-completion?reportId=${r.id}`)
           .then((res) => res.json())
-          .then((data) => ({ id: r.id, filled: data.sectionsStarted ?? 0 }))
-          .catch(() => ({ id: r.id, filled: 0 }))
+          .then((data) => ({ id: r.id, completed: data.completed ?? 0, totalSections: data.totalSections ?? 0 }))
+          .catch(() => ({ id: r.id, completed: 0, totalSections: 0 }))
       )
     ).then((results) => {
-      const c: Record<number, number> = {};
-      for (const { id, filled } of results) c[id] = filled;
+      const c: Record<number, { completed: number; totalSections: number }> = {};
+      for (const { id, completed, totalSections } of results) c[id] = { completed, totalSections };
       setCompletion(c);
     });
   }, [reports]);
@@ -122,8 +122,8 @@ export default function ReportEditorPage() {
                 <h2 className="t-heading-section mb-3">{year}</h2>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {byYear[year].map((report) => {
-                    const started = completion[report.id] ?? 0;
-                    const pct = Math.min(100, Math.round((started / 7) * 100));
+                    const { completed, totalSections } = completion[report.id] ?? { completed: 0, totalSections: 0 };
+                    const pct = totalSections > 0 ? Math.round((completed / totalSections) * 100) : 0;
                     return (
                       <div
                         key={report.id}

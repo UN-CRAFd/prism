@@ -5,10 +5,9 @@ import { logger } from "@/lib/logger";
 
 // Report completion, per section.
 //
-//   • `sections` — a { [sectionValue]: boolean } map: true when the section
-//     fulfils its fill-out criteria (used for the sidebar checkmarks).
-//   • `sectionsStarted` / `total` — legacy coarse progress (# of the 7 list/grid
-//     sections that have at least one row) kept for the report list page.
+//   • `sections`      — { [sectionValue]: boolean } map used for sidebar checkmarks.
+//   • `completed`     — number of sections that are true.
+//   • `totalSections` — total number of sections.
 //
 // A section is "complete" only when it is actually filled out — an empty section
 // is never complete (so the checkmark means "done", not "nothing to do").
@@ -195,11 +194,10 @@ export async function GET(req: NextRequest) {
       testimonials,
     };
 
-    // Legacy coarse progress: the 7 list/grid sections that have any content.
-    const startedKeys = ["achievements", "partnerships", "results", "lessons", "external-coverage", "workplan", "expenditure"] as const;
-    const sectionsStarted = startedKeys.filter((k) => sections[k]).length;
+    const completed = Object.values(sections).filter(Boolean).length;
+    const totalSections = Object.keys(sections).length;
 
-    return NextResponse.json({ sections, sectionsStarted, total: startedKeys.length });
+    return NextResponse.json({ sections, completed, totalSections });
   } catch (err) {
     logger.error("GET /api/report-completion error:", err);
     return NextResponse.json({ error: "Failed to load completion" }, { status: 500 });

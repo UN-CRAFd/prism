@@ -171,7 +171,7 @@
       "description": "Describe the project…"
     },
     "tranches": {
-      "heading": "Tranche release",
+      "heading": "Tranche release schedule",
       "description": "Enter the disbursement schedule as a matrix — one row per organisation, one column pair per tranche. The grand total across all cells should match the approved funding amount.",
       "add": "Add tranche",
       "empty": "No tranches yet. Add one to schedule the grant disbursement.",

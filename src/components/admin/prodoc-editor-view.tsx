@@ -20,6 +20,7 @@ import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
 import { NarrativesAdminEditor } from "@/components/admin/narratives-editor";
 import { GeneralInfoAdminEditor } from "@/components/admin/general-info-editor";
+import { TrancheScheduleEditor } from "@/components/admin/tranche-schedule-editor";
 import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
 import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { DocumentsEditor } from "@/components/admin/documents-editor";
@@ -1221,7 +1222,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // body scrolls rather than scrolling with the whole page.
   const fillHeight =
     !!selectedProdocId &&
-    ["workplan", "expenditure", "indicators", "risk"].includes(selectedSection);
+    ["workplan", "indicators", "risk"].includes(selectedSection);
 
   const nextSection = (() => {
     const i = sections.findIndex((s) => s.value === selectedSection);
@@ -1862,7 +1863,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} pushCommand={pushCommand} />
           ) : null
         ) : selectedSection === "expenditure" ? (
-          selectedDoc ? <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} /> : null
+          selectedDoc ? (
+            <div className="space-y-6">
+              <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} onSaveStateChange={handleSaveStateChange} fillHeight={false} />
+              <TrancheScheduleEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} />
+            </div>
+          ) : null
         ) : null}
         </div>
         </fieldset>

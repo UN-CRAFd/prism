@@ -124,7 +124,8 @@ export async function GET(
                 po.sort_order,
                 ptc.tranche_number,
                 ptc.amount,
-                ptc.date_description
+                ptc.date_description,
+                ptc.release_date::text AS release_date
            FROM reporting_platform.project_organizations po
            LEFT JOIN reporting_platform.project_tranche_cells ptc
              ON ptc.organization_id = po.id AND ptc.project_id = $1

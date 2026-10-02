@@ -76,6 +76,7 @@ interface ProdocData {
     tranche_number: number | null;
     amount: string | null;
     date_description: string | null;
+    release_date: string | null;
   }[];
   signatures: {
     contacts: { name: string; job_title: string | null; roles: string | null; signed_at: string | null }[];
@@ -318,7 +319,7 @@ export default function ProdocPrintPage() {
             items={[
               ["MPTFO number", (m.mptfo_project_number as string) || "—"],
               ["Status", (m.status as string) || "—"],
-              ["Funding amount", formatUsd(m.grant_size_usd != null ? num(m.grant_size_usd) : null)],
+              ["Requested funding amount", formatUsd(m.grant_size_usd != null ? num(m.grant_size_usd) : null)],
               ["Start date", fmtDate(m.project_start_date as string | null)],
               ["Duration", m.project_duration_months ? `${m.project_duration_months} months` : "—"],
               ["Geographic scope", (m.geographic_scope as string) || "—"],
@@ -364,100 +365,6 @@ export default function ProdocPrintPage() {
             </div>
           </Section>
         )}
-
-        {/* ── Tranche release matrix ── */}
-        {(() => {
-          // Derive the unique set of participating organisations (preserving
-          // sort_order) and the set of tranche column numbers present across all
-          // cells. Matches the editor's filter: only type='participating' orgs.
-          const orgMap = new Map<number, { name: string; sort_order: number }>();
-          const trancheNums = new Set<number>();
-          for (const row of data.trancheCells) {
-            if (!orgMap.has(row.organization_id)) {
-              orgMap.set(row.organization_id, { name: row.organization_name, sort_order: row.sort_order });
-            }
-            if (row.tranche_number != null) trancheNums.add(row.tranche_number);
-          }
-          const orgs = Array.from(orgMap.entries())
-            .sort((a, b) => a[1].sort_order - b[1].sort_order)
-            .map(([id, { name }]) => ({ id, name }));
-          const tranches = Array.from(trancheNums).sort((a, b) => a - b);
-
-          if (orgs.length === 0) return null;
-
-          const cell = (orgId: number, t: number) =>
-            data.trancheCells.find((r) => r.organization_id === orgId && r.tranche_number === t);
-          const cellAmt = (orgId: number, t: number) => num(cell(orgId, t)?.amount);
-          const orgTotal = (orgId: number) => tranches.reduce((s, t) => s + cellAmt(orgId, t), 0);
-          const trancheTotal = (t: number) => orgs.reduce((s, o) => s + cellAmt(o.id, t), 0);
-          const grandTotal = orgs.reduce((s, o) => s + orgTotal(o.id), 0);
-
-          // Tranche and Total columns are fixed-width; org name column takes the rest.
-          const COL_W = 90;
-          const TOTAL_W = 90;
-
-          return (
-            <Section title="Tranche Release">
-              <div data-block style={{ overflowX: "visible" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
-                  <colgroup>
-                    <col />
-                    {tranches.map((t) => <col key={t} style={{ width: COL_W }} />)}
-                    <col style={{ width: TOTAL_W }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <Th align="left">Organisation</Th>
-                      {tranches.map((t) => <Th key={t} align="right">Tranche {t}</Th>)}
-                      <Th align="right">Total</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orgs.map((org) => (
-                      <tr key={org.id}>
-                        <Td>{org.name}</Td>
-                        {tranches.map((t) => {
-                          const c = cell(org.id, t);
-                          const amt = num(c?.amount);
-                          return (
-                            <td key={t} style={{
-                              textAlign: "right", padding: "6px 8px",
-                              borderBottom: `1px solid ${LINE}`, verticalAlign: "top",
-                            }}>
-                              <div>{formatUsd(amt)}</div>
-                              {c?.date_description && (
-                                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
-                                  {c.date_description}
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td style={{
-                          textAlign: "right", padding: "6px 8px", fontWeight: 600,
-                          borderBottom: `1px solid ${LINE}`, verticalAlign: "middle",
-                        }}>
-                          {formatUsd(orgTotal(org.id))}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-                      <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>Total</td>
-                      {tranches.map((t) => (
-                        <td key={t} style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
-                          {formatUsd(trancheTotal(t))}
-                        </td>
-                      ))}
-                      <td style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
-                        {formatUsd(grandTotal)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </Section>
-          );
-        })()}
 
         {/* ── Narratives ── */}
         {data.narratives.length > 0 && (
@@ -564,7 +471,7 @@ export default function ProdocPrintPage() {
 
         {/* ── Expenditure budget ── */}
         {categories.length > 0 && years.length > 0 && (
-          <Section title="Approved Budget (USD)">
+          <Section title="Budget (USD)">
             <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
                 <tr>
@@ -592,6 +499,106 @@ export default function ProdocPrintPage() {
             </table>
           </Section>
         )}
+
+        {/* ── Tranche release matrix ── */}
+        {(() => {
+          // Derive the unique set of participating organisations (preserving
+          // sort_order) and the set of tranche column numbers present across all
+          // cells. Matches the editor's filter: only type='participating' orgs.
+          const orgMap = new Map<number, { name: string; sort_order: number }>();
+          const trancheNums = new Set<number>();
+          for (const row of data.trancheCells) {
+            if (!orgMap.has(row.organization_id)) {
+              orgMap.set(row.organization_id, { name: row.organization_name, sort_order: row.sort_order });
+            }
+            if (row.tranche_number != null) trancheNums.add(row.tranche_number);
+          }
+          const orgs = Array.from(orgMap.entries())
+            .sort((a, b) => a[1].sort_order - b[1].sort_order)
+            .map(([id, { name }]) => ({ id, name }));
+          const tranches = Array.from(trancheNums).sort((a, b) => a - b);
+
+          if (orgs.length === 0) return null;
+
+          const cell = (orgId: number, t: number) =>
+            data.trancheCells.find((r) => r.organization_id === orgId && r.tranche_number === t);
+          const cellAmt = (orgId: number, t: number) => num(cell(orgId, t)?.amount);
+          const orgTotal = (orgId: number) => tranches.reduce((s, t) => s + cellAmt(orgId, t), 0);
+          const trancheTotal = (t: number) => orgs.reduce((s, o) => s + cellAmt(o.id, t), 0);
+          const grandTotal = orgs.reduce((s, o) => s + orgTotal(o.id), 0);
+
+          // Tranche and Total columns are fixed-width; org name column takes the rest.
+          const COL_W = 90;
+          const TOTAL_W = 90;
+
+          return (
+            <Section title="Tranche Release Schedule">
+              <div data-block style={{ overflowX: "visible" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col />
+                    {tranches.map((t) => <col key={t} style={{ width: COL_W }} />)}
+                    <col style={{ width: TOTAL_W }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <Th align="left">Organisation</Th>
+                      {tranches.map((t) => <Th key={t} align="right">Tranche {t}</Th>)}
+                      <Th align="right">Total</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orgs.map((org) => (
+                      <tr key={org.id}>
+                        <Td>{org.name}</Td>
+                        {tranches.map((t) => {
+                          const c = cell(org.id, t);
+                          const amt = num(c?.amount);
+                          return (
+                            <td key={t} style={{
+                              textAlign: "right", padding: "6px 8px",
+                              borderBottom: `1px solid ${LINE}`, verticalAlign: "top",
+                            }}>
+                              <div>{formatUsd(amt)}</div>
+                              {c?.release_date && (
+                                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 2 }}>
+                                  {fmtDate(c.release_date)}
+                                </div>
+                              )}
+                              {c?.date_description && (
+                                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                                  <span style={{ fontStyle: "italic" }}>Activities covered: </span>
+                                  {c.date_description}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td style={{
+                          textAlign: "right", padding: "6px 8px", fontWeight: 600,
+                          borderBottom: `1px solid ${LINE}`, verticalAlign: "middle",
+                        }}>
+                          {formatUsd(orgTotal(org.id))}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
+                      <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>Total</td>
+                      {tranches.map((t) => (
+                        <td key={t} style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
+                          {formatUsd(trancheTotal(t))}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: "right", padding: "6px 8px", borderTop: `1px solid ${LINE}` }}>
+                        {formatUsd(grandTotal)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          );
+        })()}
 
         {/* ── Workplan ── */}
         {data.activities.length > 0 && (

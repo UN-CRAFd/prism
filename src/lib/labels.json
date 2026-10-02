@@ -177,10 +177,11 @@
       "empty": "No tranches yet. Add one to schedule the grant disbursement.",
       "columns": {
         "amount": "Tranche",
-        "date": "Date and description",
-        "comment": "Comment"
+        "releaseDate": "Release date",
+        "activities": "Activities covered"
       },
       "total": "Total",
+      "missingReleaseDate": "Add a release date for every tranche with an amount.",
       "grantSize": "Funding amount",
       "matches": "Tranches match the funding amount.",
       "mismatchOver": "Tranches are {difference} over the grant total — the project document cannot be submitted until they match.",

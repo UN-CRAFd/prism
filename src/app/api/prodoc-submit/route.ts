@@ -131,6 +131,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const missingDatesRows = await query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM reporting_platform.project_tranche_cells
+        WHERE project_id = $1 AND amount > 0 AND release_date IS NULL`,
+      [projectId]
+    );
+    if ((missingDatesRows[0]?.count ?? 0) > 0) {
+      return NextResponse.json(
+        { error: "Add a release date for every tranche with an amount in the tranche release schedule." },
+        { status: 422 }
+      );
+    }
+
     if (checkOnly) return NextResponse.json({ ok: true });
 
     const client = await pool.connect();

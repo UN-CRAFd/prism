@@ -9,14 +9,17 @@ import { logger } from "@/lib/logger";
 //
 //   GET  ?project_id=X   → all cells for the project (ordered by org, then tranche)
 //   PUT  { project_id, cells: [{ organization_id, tranche_number, amount,
-//                                date_description }] }
+//                                date_description, release_date }] }
 //                        → replace the whole set for the project (transactional)
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface CellInput {
   organization_id: number;
   tranche_number: number;
   amount: number;
   date_description: string | null;
+  release_date: string | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -30,7 +33,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, project_id, organization_id, tranche_number, amount, date_description
+      `SELECT id, project_id, organization_id, tranche_number, amount, date_description,
+              release_date::text AS release_date
          FROM reporting_platform.project_tranche_cells
         WHERE project_id = $1
         ORDER BY organization_id, tranche_number`,
@@ -80,7 +84,16 @@ export async function PUT(req: NextRequest) {
         ? c.date_description.trim()
         : null;
 
-    cells.push({ organization_id: orgId, tranche_number: trancheNumber, amount, date_description: dateDescription });
+    const rawDate = c.release_date;
+    let releaseDate: string | null = null;
+    if (rawDate != null && rawDate !== "") {
+      if (typeof rawDate !== "string" || !ISO_DATE_RE.test(rawDate)) {
+        return NextResponse.json({ error: `Invalid release_date: ${rawDate}` }, { status: 400 });
+      }
+      releaseDate = rawDate;
+    }
+
+    cells.push({ organization_id: orgId, tranche_number: trancheNumber, amount, date_description: dateDescription, release_date: releaseDate });
   }
 
   const session = await requireSession();
@@ -115,9 +128,9 @@ export async function PUT(req: NextRequest) {
     for (const cell of cells) {
       await client.query(
         `INSERT INTO reporting_platform.project_tranche_cells
-           (project_id, organization_id, tranche_number, amount, date_description)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [project_id, cell.organization_id, cell.tranche_number, cell.amount, cell.date_description]
+           (project_id, organization_id, tranche_number, amount, date_description, release_date)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [project_id, cell.organization_id, cell.tranche_number, cell.amount, cell.date_description, cell.release_date]
       );
     }
 
@@ -132,7 +145,8 @@ export async function PUT(req: NextRequest) {
 
   try {
     const rows = await query(
-      `SELECT id, project_id, organization_id, tranche_number, amount, date_description
+      `SELECT id, project_id, organization_id, tranche_number, amount, date_description,
+              release_date::text AS release_date
          FROM reporting_platform.project_tranche_cells
         WHERE project_id = $1
         ORDER BY organization_id, tranche_number`,

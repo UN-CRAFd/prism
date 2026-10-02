@@ -258,6 +258,7 @@ CREATE TABLE IF NOT EXISTS project_tranche_cells (
     tranche_number   INTEGER       NOT NULL CHECK (tranche_number >= 1),
     amount           NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
     date_description TEXT,
+    release_date     DATE,
     created_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
     UNIQUE (project_id, organization_id, tranche_number)

@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { numericAmount } from "@/lib/numeric-input";
@@ -19,6 +20,7 @@ interface CellForm {
   tranche_number: number;
   amount: string;
   date_description: string;
+  release_date: string;
 }
 
 interface OrgRow { id: number; name: string }
@@ -37,6 +39,7 @@ const cellsSnapshot = (cells: CellForm[], count: number) =>
       tranche_number: c.tranche_number,
       amount: c.amount.trim(),
       date_description: c.date_description.trim(),
+      release_date: c.release_date,
     })),
   });
 
@@ -85,7 +88,7 @@ export function TrancheScheduleEditor({
 
         const proj = await projRes.json();
         const orgRows: (OrgRow & { type: string })[] = await porgsRes.json();
-        const rawCells: { organization_id: number; tranche_number: number; amount: string | number | null; date_description: string | null }[] =
+        const rawCells: { organization_id: number; tranche_number: number; amount: string | number | null; date_description: string | null; release_date: string | null }[] =
           await cellsRes.json();
 
         if (cancelled) return;
@@ -98,6 +101,7 @@ export function TrancheScheduleEditor({
           tranche_number: c.tranche_number,
           amount: c.amount != null && Number(c.amount) !== 0 ? String(c.amount) : "",
           date_description: c.date_description ?? "",
+          release_date: c.release_date ?? "",
         }));
         const maxTranche = rawCells.reduce((m, c) => Math.max(m, c.tranche_number), 0);
         const loadedCount = Math.max(maxTranche, 1);
@@ -128,6 +132,7 @@ export function TrancheScheduleEditor({
           tranche_number: tn,
           amount: cell && cell.amount.trim() !== "" ? (parseAmount(cell.amount) || 0) : 0,
           date_description: cell?.date_description.trim() || null,
+          release_date: cell?.release_date || null,
         };
       })
     );
@@ -153,11 +158,14 @@ export function TrancheScheduleEditor({
   const getTrancheTotal = (trancheNumber: number) =>
     activeCells.filter((c) => c.tranche_number === trancheNumber).reduce((sum, c) => sum + cellAmount(c), 0);
 
+  // Warn when any active cell has amount > 0 but no release date.
+  const missingReleaseDate = activeCells.some((c) => cellAmount(c) > 0 && !c.release_date);
+
   // ── Mutations ─────────────────────────────────────────────────────────────
-  const setCell = (orgId: number, tranche: number, patch: { amount?: string; date_description?: string }) => {
+  const setCell = (orgId: number, tranche: number, patch: { amount?: string; date_description?: string; release_date?: string }) => {
     setTrancheCells((prev) => {
       const idx = prev.findIndex((c) => c.organization_id === orgId && c.tranche_number === tranche);
-      if (idx === -1) return [...prev, { organization_id: orgId, tranche_number: tranche, amount: "", date_description: "", ...patch }];
+      if (idx === -1) return [...prev, { organization_id: orgId, tranche_number: tranche, amount: "", date_description: "", release_date: "", ...patch }];
       return prev.map((c, i) => (i === idx ? { ...c, ...patch } : c));
     });
     schedule();
@@ -241,8 +249,11 @@ export function TrancheScheduleEditor({
                           </button>
                         </span>
                       </th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground w-36">
+                        {g.tranches.columns.releaseDate}
+                      </th>
                       <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground w-72">
-                        {g.tranches.columns.date}
+                        {g.tranches.columns.activities}
                       </th>
                     </Fragment>
                   );
@@ -264,6 +275,9 @@ export function TrancheScheduleEditor({
                       const cell = trancheCells.find((c) => c.organization_id === org.id && c.tranche_number === tn);
                       const amount = cell?.amount ?? "";
                       const desc = cell?.date_description ?? "";
+                      const releaseDate = cell?.release_date ?? "";
+                      const amtVal = amount.trim() !== "" ? (parseAmount(amount) || 0) : 0;
+                      const needsDate = amtVal > 0 && !releaseDate;
                       return (
                         <Fragment key={tn}>
                           <td className="px-4 py-3 align-middle border-l w-36">
@@ -287,15 +301,26 @@ export function TrancheScheduleEditor({
                               placeholder="0.00"
                               className="h-8 text-sm text-right tabular-nums w-full"
                               aria-label={`Tranche ${tn} amount for ${org.name}`}
+                              disabled={readOnly}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle w-36">
+                            <DateInput
+                              value={releaseDate}
+                              onChange={(v) => setCell(org.id, tn, { release_date: v })}
+                              disabled={readOnly}
+                              className={cn(needsDate && "border-amber-400")}
+                              aria-label={`Tranche ${tn} release date for ${org.name}`}
                             />
                           </td>
                           <td className="px-4 py-3 align-middle w-72">
                             <Textarea
                               value={desc}
                               onChange={(e) => setCell(org.id, tn, { date_description: e.target.value })}
-                              placeholder="Include tentative date for release and activities covered"
+                              placeholder="Activities covered by this tranche"
                               className="text-sm min-h-[60px] resize-y w-full"
-                              aria-label={`Tranche ${tn} date and description for ${org.name}`}
+                              aria-label={`Tranche ${tn} activities for ${org.name}`}
+                              disabled={readOnly}
                             />
                           </td>
                         </Fragment>
@@ -311,9 +336,9 @@ export function TrancheScheduleEditor({
                 <td className="px-4 py-3 align-middle text-right">
                   <span className="text-sm font-semibold tabular-nums">{formatAmount(trancheTotal)}</span>
                 </td>
-                {Array.from({ length: trancheCount * 2 }, (_, i) => {
-                  const tn = Math.floor(i / 2) + 1;
-                  const isAmountCol = i % 2 === 0;
+                {Array.from({ length: trancheCount * 3 }, (_, i) => {
+                  const tn = Math.floor(i / 3) + 1;
+                  const isAmountCol = i % 3 === 0;
                   return (
                     <td key={i} className={cn(isAmountCol ? "border-l px-4 py-3 text-right text-sm font-semibold tabular-nums" : "")}>
                       {isAmountCol ? formatAmount(getTrancheTotal(tn)) : null}
@@ -324,6 +349,10 @@ export function TrancheScheduleEditor({
             </tfoot>
           </table>
         </div>
+      )}
+
+      {missingReleaseDate && (
+        <p className="text-sm text-amber-700">{g.tranches.missingReleaseDate}</p>
       )}
 
       <FundingSummary kind="tranche" requested={grantSize} total={trancheTotal} />

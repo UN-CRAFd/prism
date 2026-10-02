@@ -106,7 +106,13 @@ export async function GET(req: NextRequest) {
                    FROM reporting_platform.project_tranche_cells tc
                    WHERE tc.project_id = p.id
                   ), 0
-                ) AS tranche_total
+                ) AS tranche_total,
+                (SELECT COUNT(*)
+                   FROM reporting_platform.project_tranche_cells tc
+                  WHERE tc.project_id = p.id
+                    AND tc.amount > 0
+                    AND tc.release_date IS NULL
+                )::int AS missing_release_dates
            FROM reporting_platform.projects p WHERE p.id = $1`,
         [projectId]
       ).then((r) => {
@@ -120,7 +126,8 @@ export async function GET(req: NextRequest) {
         const budgetOk = budgetDiffCents >= 0 && budgetDiffCents <= 100;
         const trancheDiffCents = Math.round(grant * 100) - Math.round(trancheTotal * 100);
         const trancheOk = trancheDiffCents >= 0 && trancheDiffCents <= 100;
-        return allFilled && budgetOk && trancheOk;
+        const releaseDatesOk = n(row.missing_release_dates) === 0;
+        return allFilled && budgetOk && trancheOk && releaseDatesOk;
       }),
 
       // Workplan — every activity has outcome, objective text and activity text.

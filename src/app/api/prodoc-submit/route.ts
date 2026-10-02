@@ -6,8 +6,8 @@ import { logStatusChange } from "@/lib/version-log";
 
 // POST /api/prodoc-submit — partner submits their project document for review.
 // Transitions status Open → Under Review, which locks partner editing.
-// Blocked if the tranche total doesn't match the approved funding amount within
-// the allowed tolerance (see validation below).
+// Blocked if required fields are missing or if the tranche/budget totals don't
+// match the requested funding amount within the allowed tolerance ($1 rounding).
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession();
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate required project fields and tranche total in one query.
+    // Validate required project fields, tranche total, and budget total in one query.
     const fundingRows = await query<{
       project_title: string | null;
       grant_size_usd: string | null;
@@ -54,16 +54,25 @@ export async function POST(request: NextRequest) {
       geographic_scope: string | null;
       description: string | null;
       tranche_total: string;
+      budget_total: string;
     }>(
       `SELECT
          p.project_title, p.grant_size_usd, p.project_start_date,
          p.project_duration_months, p.geographic_scope, p.description,
-         COALESCE(SUM(tc.amount), 0) AS tranche_total
+         COALESCE(SUM(tc.amount), 0) AS tranche_total,
+         ROUND(COALESCE(
+           (SELECT SUM(b.approved_amount)
+            FROM reporting_platform.expenditure_budgets b
+            WHERE b.project_id = p.id
+              AND b.year = ANY (reporting_platform.project_year_range(p.project_start_date, p.project_duration_months))
+           ), 0
+         ) * (1 + COALESCE(p.indirect_cost_rate, 0.07)), 2) AS budget_total
          FROM reporting_platform.projects p
          LEFT JOIN reporting_platform.project_tranche_cells tc ON tc.project_id = p.id
         WHERE p.id = $1
         GROUP BY p.project_title, p.grant_size_usd, p.project_start_date,
-                 p.project_duration_months, p.geographic_scope, p.description`,
+                 p.project_duration_months, p.geographic_scope, p.description,
+                 p.indirect_cost_rate`,
       [projectId]
     );
     if (fundingRows.length === 0) {
@@ -75,7 +84,7 @@ export async function POST(request: NextRequest) {
     // Check required fields before validating the tranche total.
     const emptyFields: string[] = [];
     if (!proj.project_title?.trim()) emptyFields.push("Project name");
-    if (!proj.grant_size_usd) emptyFields.push("Funding amount (USD)");
+    if (!proj.grant_size_usd) emptyFields.push("Requested funding amount");
     if (!proj.project_start_date) emptyFields.push("Start date");
     if (proj.project_duration_months == null) emptyFields.push("Duration (months)");
     if (!proj.geographic_scope?.trim()) emptyFields.push("Geographic scope");
@@ -87,20 +96,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate tranche total against approved funding amount.
-    // Tolerance: total must be within [grant_size_usd − $1, grant_size_usd].
-    // Exceeding the approved amount is never accepted; being more than $1 short
+    // Validate tranche and budget totals against the requested funding amount.
+    // Tolerance: each total must be within [grant_size_usd − $1, grant_size_usd].
+    // Exceeding the requested amount is never accepted; being more than $1 short
     // is also rejected. A gap of up to $1.00 (e.g. from rounding) is allowed.
-    const approved = parseFloat(proj.grant_size_usd!);
-    const total = parseFloat(proj.tranche_total);
-    const diff = approved - total; // positive = total is short; negative = total exceeds approved
+    const fmt = (v: number) =>
+      v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    if (diff < 0 || diff > 1) {
-      const fmt = (n: number) =>
-        n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const approved = parseFloat(proj.grant_size_usd!);
+
+    const trancheTotal = parseFloat(proj.tranche_total);
+    const trancheDiffCents = Math.round(approved * 100) - Math.round(trancheTotal * 100);
+    if (trancheDiffCents < 0 || trancheDiffCents > 100) {
       return NextResponse.json(
         {
-          error: `Tranche total is ${fmt(Math.abs(diff))} ${diff < 0 ? "over" : "short of"} the approved amount.`,
+          error: trancheDiffCents < 0
+            ? `The tranche release schedule exceeds the requested funding amount by ${fmt(Math.abs(trancheDiffCents) / 100)}.`
+            : `${fmt(trancheDiffCents / 100)} remains to be scheduled in the tranche release schedule.`,
+        },
+        { status: 422 }
+      );
+    }
+
+    const budgetTotal = parseFloat(proj.budget_total);
+    const budgetDiffCents = Math.round(approved * 100) - Math.round(budgetTotal * 100);
+    if (budgetDiffCents < 0 || budgetDiffCents > 100) {
+      return NextResponse.json(
+        {
+          error: budgetDiffCents < 0
+            ? `The total budget exceeds the requested funding amount by ${fmt(Math.abs(budgetDiffCents) / 100)}.`
+            : `${fmt(budgetDiffCents / 100)} remains to be budgeted.`,
         },
         { status: 422 }
       );

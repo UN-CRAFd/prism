@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { numericAmount } from "@/lib/numeric-input";
-import { cn, formatAmount, formatUsd } from "@/lib/utils";
-import { AlertTriangle, Coins, Loader2, Plus, X } from "lucide-react";
+import { cn, formatAmount } from "@/lib/utils";
+import { Coins, Loader2, Plus, X } from "lucide-react";
+import { FundingSummary } from "@/components/funding-summary";
 import labels from "@/lib/labels";
 
 const g = labels.generalInfo;
@@ -151,8 +152,6 @@ export function TrancheScheduleEditor({
     activeCells.filter((c) => c.organization_id === orgId).reduce((sum, c) => sum + cellAmount(c), 0);
   const getTrancheTotal = (trancheNumber: number) =>
     activeCells.filter((c) => c.tranche_number === trancheNumber).reduce((sum, c) => sum + cellAmount(c), 0);
-
-  const tranchesMatchGrant = grantSize != null && trancheTotal <= grantSize + 0.005 && trancheTotal >= grantSize - 1;
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const setCell = (orgId: number, tranche: number, patch: { amount?: string; date_description?: string }) => {
@@ -310,21 +309,7 @@ export function TrancheScheduleEditor({
               <tr className="border-t bg-muted/30">
                 <td className="px-4 py-3 align-middle text-sm font-semibold">{g.tranches.total}</td>
                 <td className="px-4 py-3 align-middle text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span className="text-sm font-semibold tabular-nums">{formatAmount(trancheTotal)}</span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
-                        grantSize == null
-                          ? "bg-muted text-muted-foreground"
-                          : tranchesMatchGrant
-                          ? "bg-green-100 text-green-800"
-                          : "bg-amber-100 text-amber-800"
-                      )}
-                    >
-                      {grantSize == null ? "—" : tranchesMatchGrant ? "Matches budget" : `/ ${formatUsd(grantSize)}`}
-                    </span>
-                  </div>
+                  <span className="text-sm font-semibold tabular-nums">{formatAmount(trancheTotal)}</span>
                 </td>
                 {Array.from({ length: trancheCount * 2 }, (_, i) => {
                   const tn = Math.floor(i / 2) + 1;
@@ -341,22 +326,7 @@ export function TrancheScheduleEditor({
         </div>
       )}
 
-      {grantSize != null && participatingOrgs.length > 0 && !tranchesMatchGrant && (() => {
-        const isOver = trancheTotal > grantSize;
-        const difference = formatUsd(Math.abs(trancheTotal - grantSize));
-        const message = isOver
-          ? g.tranches.mismatchOver.replace("{difference}", difference)
-          : g.tranches.mismatchUnder.replace("{difference}", difference);
-        return (
-          <div className={cn(
-            "flex items-start gap-2 rounded-md border px-3 py-2.5 text-sm font-medium",
-            isOver ? "border-red-300 bg-red-50 text-red-900" : "border-amber-300 bg-amber-50 text-amber-900"
-          )}>
-            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-            <span>{message}</span>
-          </div>
-        );
-      })()}
+      <FundingSummary kind="tranche" requested={grantSize} total={trancheTotal} />
     </div>
   );
 }

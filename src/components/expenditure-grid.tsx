@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
 import { numericAmount } from "@/lib/numeric-input";
-import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { cn, formatUsd } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
+import { FundingSummary } from "@/components/funding-summary";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 import { CURRENT_YEAR_HEAD, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
@@ -592,12 +593,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
     return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> {labels.common.loading}</div>;
   }
 
-  const totalBudget = totalSub * (1 + rate);
-  const availableBalance = grantSize ? grantSize - totalBudget : null;
-  // FMP requirement: the grant size and the total budget must reconcile to within
-  // $1 (rounding tolerance). Any larger gap — over or under — must be corrected.
-  const budgetMismatch = availableBalance !== null && Math.abs(availableBalance) >= 1;
-
+  const totalBudget = Math.round(totalSub * (1 + rate) * 100) / 100;
   return (
     <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
@@ -675,60 +671,29 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
             </table>
           </div>
 
-          {/* Below table: indirect rate editor + balance box */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Indirect rate editor */}
-            {isAdmin && (
-              <div className="rounded-xl border bg-card p-4 space-y-3">
-                <label className="text-sm font-medium text-muted-foreground">Indirect support cost rate</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    inputMode="decimal"
-                    value={rateInput}
-                    onChange={(e) => setRateInput(numericAmount(e.target.value))}
-                    onBlur={commitRate}
-                    className="h-9 w-20 text-sm text-right tabular-nums"
-                  />
-                  <span className="text-sm text-muted-foreground">%</span>
-                </div>
-                {/* When the parent shows the page-level indicator, skip this inline copy. */}
-                {!onSaveStateChange && (saveState === "saving" ? (
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-xs"><Loader2 className="size-3 animate-spin" /> {labels.common.saving}</span>
-                ) : saveState === "saved" ? (
-                  <span className="flex items-center gap-1.5 text-green-600 text-xs"><CheckCircle2 className="size-4" /> {labels.common.saved}</span>
-                ) : saveState === "error" ? (
-                  <span className="text-xs text-destructive">{labels.common.saveFailed}</span>
-                ) : null)}
-              </div>
-            )}
-
-            {/* Available balance */}
-            <div className="rounded-xl border bg-card p-4 space-y-3">
-              <label className="text-sm font-medium text-muted-foreground">Available balance</label>
-              <div className="space-y-2">
-                <div className="flex justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground truncate min-w-0">Grant size:</span>
-                  <span className="font-semibold tabular-nums shrink-0">{grantSize ? formatUsd(grantSize) : "—"}</span>
-                </div>
-                <div className="flex justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground truncate min-w-0">Total budget:</span>
-                  <span className="font-semibold tabular-nums shrink-0">{formatUsd(totalBudget)}</span>
-                </div>
-                <div className={`flex justify-between gap-2 text-sm pt-2 border-t ${availableBalance !== null && availableBalance < 0 ? "text-red-600" : ""}`}>
-                  <span className="font-medium truncate min-w-0">Available:</span>
-                  <span className={`font-bold tabular-nums shrink-0 ${availableBalance === null ? "text-muted-foreground" : availableBalance < 0 ? "text-red-600" : "text-green-700"}`}>
-                    {availableBalance !== null ? formatUsd(availableBalance) : "—"}
-                  </span>
-                </div>
-                {budgetMismatch && (
-                  <div className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900">
-                    <AlertTriangle className="size-3.5 shrink-0 mt-px" />
-                    <span>Adjust budget: difference between Grant Size and Total budget must be &lt;$1.</span>
-                  </div>
-                )}
-              </div>
+          {/* Below table: compact rate editor (admin-only) + funding summary */}
+          {isAdmin && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-muted-foreground shrink-0">Indirect support cost rate</span>
+              <Input
+                inputMode="decimal"
+                value={rateInput}
+                onChange={(e) => setRateInput(numericAmount(e.target.value))}
+                onBlur={commitRate}
+                className="h-8 w-20 text-sm text-right tabular-nums"
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+              {/* When the parent shows the page-level indicator, skip this inline copy. */}
+              {!onSaveStateChange && (saveState === "saving" ? (
+                <span className="flex items-center gap-1.5 text-muted-foreground text-xs"><Loader2 className="size-3 animate-spin" /> {labels.common.saving}</span>
+              ) : saveState === "saved" ? (
+                <span className="flex items-center gap-1.5 text-green-600 text-xs"><CheckCircle2 className="size-4" /> {labels.common.saved}</span>
+              ) : saveState === "error" ? (
+                <span className="text-xs text-destructive">{labels.common.saveFailed}</span>
+              ) : null)}
             </div>
-          </div>
+          )}
+          <FundingSummary kind="budget" requested={grantSize} total={totalBudget} />
         </>
       )}
     </div>

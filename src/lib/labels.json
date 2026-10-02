@@ -141,7 +141,7 @@
       "projectTitle": "Project name",
       "mptfoNumber": "MPTFO project number",
       "status": "Status",
-      "grantSize": "Funding amount (USD)",
+      "grantSize": "Requested funding amount",
       "startDate": "Start date",
       "durationMonths": "Duration (months)",
       "expectedEndDate": "Expected end date",
@@ -172,7 +172,7 @@
     },
     "tranches": {
       "heading": "Tranche release schedule",
-      "description": "Enter the disbursement schedule as a matrix — one row per organisation, one column pair per tranche. The grand total across all cells should match the approved funding amount.",
+      "description": "Set out how the requested funding will be released, with one row per organisation and one column per tranche.",
       "add": "Add tranche",
       "empty": "No tranches yet. Add one to schedule the grant disbursement.",
       "columns": {
@@ -572,5 +572,23 @@
     "copied": "Link copied",
     "print": "Print Guide",
     "tocTitle": "Contents"
+  },
+  "fundingSummary": {
+    "requestedLabel": "Requested funding amount",
+    "missingRequested": "Enter the requested funding amount in General information.",
+    "budget": {
+      "totalLabel": "Total budgeted",
+      "remainingLabel": "Remaining to be budgeted",
+      "ok": "The total budget matches the requested funding amount.",
+      "under": "{amount} remains to be budgeted. The project document can be submitted once the total budget matches the requested funding amount.",
+      "over": "The total budget exceeds the requested funding amount by {amount}. The project document can be submitted once the total budget matches the requested funding amount."
+    },
+    "tranche": {
+      "totalLabel": "Total scheduled",
+      "remainingLabel": "Remaining to be scheduled",
+      "ok": "The tranche release schedule matches the requested funding amount.",
+      "under": "{amount} remains to be scheduled. The project document can be submitted once the tranche release schedule matches the requested funding amount.",
+      "over": "The tranche release schedule exceeds the requested funding amount by {amount}. The project document can be submitted once the tranche release schedule matches the requested funding amount."
+    }
   }
 }

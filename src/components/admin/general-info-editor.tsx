@@ -243,10 +243,9 @@ export function GeneralInfoAdminEditor({
     return () => { cancelled = true; };
   }, [projectId]);
 
-  // ── Project field + tranches autosave ───────────────────────────────────
-  // One debounced flush covers both the project columns and the tranche set, so
-  // a single save indicator reflects everything on this tab. Each half only
-  // writes when its own snapshot changed.
+  // ── Project field autosave ────────────────────────────────────────────────
+  // Debounced flush covers only the project columns (tranche cells moved to
+  // TrancheScheduleEditor in the Budgets tab).
   const flush = useCallback(async () => {
     setError(null);
     // Project columns. Skip description if it's over the limit; other fields
@@ -572,9 +571,7 @@ export function GeneralInfoAdminEditor({
   }
 
   return (
-    // Card order via flex `order-*`: the cards are authored below in a
-    // different sequence, but render as Title/data → Programme & project cost
-    // (tranches) → Applicants/contacts (review feedback: contacts last).
+    // Card order via flex `order-*`: Title/data card first, contacts second.
     <div className="flex flex-col gap-6">
       {error && (
         <div className="order-first rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">

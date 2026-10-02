@@ -3,14 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
+import { cn, projectSlug } from "@/lib/utils";
 import { ArrowRight, FileText } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
-
-function toSlug(report: Report): string {
-  return (report.project_short_name ?? report.project_title).toLowerCase();
-}
 
 const STATUS_PILL: Record<string, string> = {
   Open:           "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -149,7 +145,7 @@ export default function ReportEditorPage() {
                         <button
                           onClick={() =>
                             router.push(
-                              `/partner/report-editor/${toSlug(report)}/${report.year}/overview`
+                              `/partner/report-editor/${projectSlug(report.project_short_name, report.project_title)}/${report.year}/overview`
                             )
                           }
                           className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-3 py-1.5 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"

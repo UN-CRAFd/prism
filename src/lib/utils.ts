@@ -6,9 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // The one definition of the URL slug form for project names.
-// Spaces → hyphens, lowercase; other punctuation is left as-is.
 export function projectSlug(shortName: string | null | undefined, title: string): string {
-  return (shortName ?? title).toLowerCase().replace(/\s+/g, "-");
+  const base = (shortName != null && shortName.trim() !== "" ? shortName : title);
+  const slug = base
+    .normalize("NFD").replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug || "project";
 }
 
 // Partner/project short names are always DISPLAYED in uppercase (e.g. "IDMC",

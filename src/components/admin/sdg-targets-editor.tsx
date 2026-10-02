@@ -6,7 +6,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import { numericAmount } from "@/lib/numeric-input";
 import { useAutosave, type SaveState } from "@/components/autosave";
@@ -121,13 +122,7 @@ export function SdgTargetsEditor({
   );
   const isHundred = Math.abs(total - 100) < 0.001;
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState className="py-8" />;
 
   return (
     <div className="space-y-4">

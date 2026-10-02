@@ -10,6 +10,7 @@ import {
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { formatDate } from "@/lib/utils";
 import { Loader2, Upload, FileText, Download, Trash2 } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import {
   documentTypes, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
@@ -126,13 +127,7 @@ export function DocumentsEditor({
     finally { setDeletingId(null); }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState className="py-8" />;
 
   return (
     <div className="space-y-6">

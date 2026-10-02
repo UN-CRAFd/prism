@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Download, Info, Loader2, Plus, Trash2, X } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
@@ -838,13 +839,7 @@ export function SectionTableEditor({
     });
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState />;
   if (error) {
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   }

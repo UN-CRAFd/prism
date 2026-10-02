@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
@@ -354,13 +355,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     });
   }, [updateShownLines]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState />;
 
   if (error) {
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
@@ -1212,13 +1207,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     return out;
   }, [rows]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState />;
 
   // Columns: [activity] (+[timeline label] in partner mode) + quarters + [project partner]
   // (+[status]+[comment] in partner mode) + [delete].

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { Loader2, Users, ShieldCheck, Trash2 } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { ROLE_SIGNATORY } from "@/lib/contact-roles";
 
@@ -127,13 +128,7 @@ export function SignaturesEditor({
     setNameError(null);
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState className="py-8" />;
 
   const contactSignatories = contacts.filter((c) => c.roles?.split("|").includes(ROLE_SIGNATORY));
   const hasAny = contactSignatories.length > 0 || standalones.length > 0;

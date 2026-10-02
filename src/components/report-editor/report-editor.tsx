@@ -23,6 +23,7 @@ import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
+import { LoadingState } from "@/components/admin/shared";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS } from "@/lib/report-sections";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
@@ -317,6 +318,15 @@ export function ReportEditor({
     fetchCompletion(reportId);
   }, [reportId, params.section, fetchCompletion]);
 
+  // Reset section-specific UI state on section change so that forms left open
+  // on one section (e.g. "Add risk") do not reappear when returning to it.
+  useEffect(() => {
+    setSubmitError(null);
+    setAddingRisk(false);
+    setNewRiskName("");
+    setNewRiskCategory([]);
+  }, [params.section]);
+
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
     if (!report) return;
@@ -326,7 +336,7 @@ export function ReportEditor({
   }
 
   function handleSectionChange(section: string) {
-    if (!selectedReport) return;
+    if (!selectedReport || section === params.section) return;
     router.push(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${section}`);
   }
 
@@ -852,7 +862,7 @@ export function ReportEditor({
           own box (single scroller, frozen header); every other tab scrolls here. */}
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {/* Tab instructions — only while the report is editable */}
-        {params.section !== "overview" && params.section !== "testimonials" && !sectionLoading && !notFound && !readOnly && (
+        {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (
           <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             {labels.tabInstructions[params.section as keyof typeof labels.tabInstructions] || ""}
           </div>
@@ -965,10 +975,13 @@ export function ReportEditor({
             <FileQuestion className="size-10 opacity-30" />
             <p className="text-sm">{params.project ? labels.partnerEditor.notFound : "Select a report above to view it."}</p>
           </div>
-        ) : loadingReports || sectionLoading ? (
+        ) : loadingReports ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
           </div>
+
+        ) : sectionLoading ? (
+          <LoadingState />
 
         ) : params.section === "surveys" ? (
           <SurveysSection surveys={surveys} rowStates={rowStates} updateRow={updateRow} />
@@ -1078,7 +1091,7 @@ export function ReportEditor({
         </fieldset>
         </ReadOnlyProvider>
 
-        {reportId && !notFound && !loadingReports && !sectionLoading && (
+        {reportId && !notFound && !loadingReports && (
           <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
             {prevSection ? (
               <Button variant="outline" onClick={() => handleSectionChange(prevSection.value)}>

@@ -25,6 +25,7 @@ import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
 import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { DocumentsEditor } from "@/components/admin/documents-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
+import { LoadingState } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
@@ -169,6 +170,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [selectedProdocId, setSelectedProdocId] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
+
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -264,7 +266,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }, [isPartner, user]);
 
   useEffect(() => {
-    if (params.section) setSelectedSection(params.section);
+    if (!params.section) return;
+    setSelectedSection(params.section);
+    setError(null); setSubmitError(null); setYearErrors({});
+    setAddingRisk(false); setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
+    setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation("");
+    setEditingIndicatorId(null); setEditingIndName(""); setEditingIndDescription(""); setEditingIndMov("");
+    setAddingIndicator(false); setCreatingIndicator(false); setNewIndName(""); setNewIndDescription(""); setNewIndMeansOfVerification("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.section]);
 
   // ── Load section data when document or section changes ──────────────────
@@ -548,8 +557,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }
 
   function handleSectionChange(val: string) {
+    if (val === selectedSection) return;
     setSelectedSection(val);
-    setRisks([]); setIndicatorLines([]); setLibrary([]);
+    setError(null); setSubmitError(null); setYearErrors({});
+    setAddingRisk(false); setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
+    setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation("");
+    setEditingIndicatorId(null); setEditingIndName(""); setEditingIndDescription(""); setEditingIndMov("");
+    setAddingIndicator(false); setCreatingIndicator(false); setNewIndName(""); setNewIndDescription(""); setNewIndMeansOfVerification("");
     const doc = docs.find((d) => String(d.id) === selectedProdocId);
     if (doc) pushUrl(doc, val);
   }
@@ -1487,7 +1501,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         {/* Title sentence for the quant tabs (review feedback): the other sections'
             editors render their own tabInstructions box; these four sections render
             inline here. Hidden when view-only, like the General Information box. */}
-        {selectedProdocId && !sectionLoading && !readOnly &&
+        {selectedProdocId && !readOnly &&
           ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
           <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             {selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
@@ -1542,9 +1556,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           )
 
         ) : sectionLoading ? (
-          <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-          </div>
+          <LoadingState className="py-8" />
 
         ) : selectedSection === "general" ? (
           selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} pushCommand={pushCommand} /> : null
@@ -1873,7 +1885,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </div>
         </fieldset>
         </ReadOnlyProvider>
-        {selectedProdocId && !sectionLoading && (
+        {selectedProdocId && (
           <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
             {prevSection ? (
               <Button variant="outline" onClick={() => handleSectionChange(prevSection.value)}>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { Loader2 } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
 import labels from "@/lib/labels";
@@ -122,13 +122,7 @@ export function NarrativesAdminEditor({
     return saved.answer !== cur.answer;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState className="py-8" />;
 
   return (
     <div className="space-y-4">

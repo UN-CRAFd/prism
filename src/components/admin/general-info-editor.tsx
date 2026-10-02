@@ -17,7 +17,8 @@ import { useAutosave, OverLimitError, type SaveState } from "@/components/autosa
 import { richTextLength } from "@/lib/richtext";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
 import { cn, formatAmount } from "@/lib/utils";
-import { Loader2, Plus, Trash2, Users, FileText, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, Users, FileText, Pencil, Check, X } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
@@ -562,13 +563,7 @@ export function GeneralInfoAdminEditor({
     .filter((oc) => !contacts.some((c) => c.contact_id === oc.id))
     .map((oc) => ({ id: oc.id, label: oc.name, hint: oc.job_title ?? undefined }));
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState className="py-8" />;
 
   return (
     // Card order via flex `order-*`: Title/data card first, contacts second.

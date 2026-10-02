@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
 import { numericAmount } from "@/lib/numeric-input";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
@@ -192,9 +193,7 @@ export function ExpenditurePartnerEditor({
     schedule();
   }
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> {labels.common.loading}</div>;
-  }
+  if (loading) return <LoadingState />;
   if (error) {
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   }
@@ -589,9 +588,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
   const yearSub = (year: number) => categories.reduce((a, c) => a + num(amt(c.id, year)), 0);
   const totalSub = categories.reduce((a, c) => a + catTotal(c.id), 0);
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> {labels.common.loading}</div>;
-  }
+  if (loading) return <LoadingState />;
 
   const totalBudget = Math.round(totalSub * (1 + rate) * 100) / 100;
   return (

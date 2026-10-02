@@ -54,10 +54,6 @@ const timelineConfig: Record<TimelineType, { dot: string; label: string }> = {
   now: { dot: "bg-red-500 ring-red-200", label: "text-red-600" },
 };
 
-function toSlug(report: Report): string {
-  return (report.project_short_name ?? report.project_title).toLowerCase();
-}
-
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function PartnerHomePage() {
@@ -254,7 +250,7 @@ export default function PartnerHomePage() {
                       key={report.id}
                       onClick={() =>
                         router.push(
-                          `/partner/report-editor/${toSlug(report)}/${report.year}/overview`
+                          `/partner/report-editor/${projectSlug(report.project_short_name, report.project_title)}/${report.year}/overview`
                         )
                       }
                       className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
@@ -333,7 +329,7 @@ export default function PartnerHomePage() {
                 </div>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {comments.map((c) => {
-                    const slug = (c.project_short_name ?? c.project_title).toLowerCase();
+                    const slug = projectSlug(c.project_short_name, c.project_title);
                     const done = c.partner_addressed;
                     const href = c.data_type === "prodoc"
                       ? `/partner/prodoc-editor/${slug}/${c.section}`

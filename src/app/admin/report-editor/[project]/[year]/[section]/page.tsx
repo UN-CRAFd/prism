@@ -1,5 +1,4 @@
-import { ReportEditorView } from "@/components/admin/report-editor-view";
-
+export const dynamic = "force-dynamic";
 export default function ReportEditorDynamicPage() {
-  return <ReportEditorView />;
+  return null;
 }

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
@@ -515,13 +516,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(years, currentYear, config.section);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
-      </div>
-    );
-  }
+  if (loading) return <LoadingState />;
 
   const activityById = new Map(activities.map((a) => [a.id, a]));
   const cellAmount = (row: MatrixRow, year: number) => {

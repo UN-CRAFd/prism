@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, ArrowUpDown, ArrowUp, ArrowDown, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -257,9 +258,14 @@ export function sortBy<T>(
 
 // ── Feedback states ────────────────────────────────────────────────────────
 
-export function LoadingState() {
+export function LoadingState({ className }: { className?: string }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 300);
+    return () => clearTimeout(t);
+  }, []);
   return (
-    <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+    <div className={cn("flex items-center justify-center py-20 text-muted-foreground gap-2", className, !visible && "invisible")}>
       <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
     </div>
   );

@@ -13,8 +13,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
-import { richTextLength } from "@/lib/richtext";
+import { useAutosave, type SaveState } from "@/components/autosave";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
 import { cn, formatAmount } from "@/lib/utils";
 import { Plus, Trash2, Users, FileText, Pencil, Check, X } from "lucide-react";
@@ -22,7 +21,7 @@ import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
-import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
+import { useCharLimits } from "@/lib/use-char-limits";
 import { InfoPopover } from "@/components/ui/info-popover";
 
 const ORG_NAME_MAX = 300;
@@ -136,6 +135,7 @@ export function GeneralInfoAdminEditor({
   pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
   const confirm = useConfirm();
+  const charLimits = useCharLimits();
 
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [partnerId, setPartnerId] = useState<number | null>(null);
@@ -249,18 +249,11 @@ export function GeneralInfoAdminEditor({
   // TrancheScheduleEditor in the Budgets tab).
   const flush = useCallback(async () => {
     setError(null);
-    // Project columns. Skip description if it's over the limit; other fields
-    // still save through so only the over-limit field is held back.
     const snapshot = { ...formRef.current };
     const payload: Record<string, unknown> = {};
     const savedKeys: FieldKey[] = [];
-    let descriptionOverLimit = false;
     for (const key of FIELD_KEYS) {
       if (snapshot[key] === savedRef.current[key]) continue;
-      if (key === "description" && richTextLength(snapshot[key]) > DESCRIPTION_MAX_CHARS) {
-        descriptionOverLimit = true;
-        continue;
-      }
       payload[key] = coerce(key, snapshot[key]);
       savedKeys.push(key);
     }
@@ -276,7 +269,6 @@ export function GeneralInfoAdminEditor({
       }
       for (const key of savedKeys) savedRef.current[key] = snapshot[key];
     }
-    if (descriptionOverLimit) throw new OverLimitError();
   }, [projectId]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
@@ -712,7 +704,7 @@ export function GeneralInfoAdminEditor({
             onChange={(html) => setField("description", html)}
             placeholder={g.placeholders.description}
             disabled={readOnly}
-            maxChars={DESCRIPTION_MAX_CHARS}
+            maxChars={charLimits.description}
           />
         </div>
 

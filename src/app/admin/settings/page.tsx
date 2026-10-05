@@ -3,12 +3,13 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { KeyRound, Loader2, CheckCircle2, AlertCircle, Tag, List } from "lucide-react";
+import { KeyRound, Loader2, CheckCircle2, AlertCircle, Tag, List, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LabelsEditor } from "@/components/admin/labels-editor";
 import { OptionsEditor } from "@/components/admin/options-editor";
+import { CharLimitsEditor } from "@/components/admin/char-limits-editor";
 
 const MIN_LENGTH = 8;
 
@@ -162,6 +163,23 @@ export default function AdminSettingsPage() {
             </p>
             <OptionsEditor />
           </div>
+        </div>
+
+        {/* Character limits */}
+        <div className="rounded-xl border bg-card p-6">
+          <div className="flex items-center gap-3 mb-1">
+            <Type className="size-5 text-amber-500 shrink-0" />
+            <h2 className="t-heading-section">Character limits</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-1">
+            Set the maximum plain-text length for each rich-text field in the project document.
+            Narrative questions added later default to 4,500 characters.
+          </p>
+          <p className="text-sm text-muted-foreground mb-6">
+            <span className="font-medium">Note:</span> Lowering a limit does not change existing
+            text. Over-limit text must be shortened before the project document can be submitted.
+          </p>
+          <CharLimitsEditor />
         </div>
       </div>
     </div>

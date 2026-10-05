@@ -5,6 +5,7 @@ import { Bold, Italic, Underline, List, ListOrdered, Link2, Table as TableIcon }
 import { cn } from "@/lib/utils";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import { toDisplayHtml, richTextLength } from "@/lib/richtext";
+import labels from "@/lib/labels";
 
 // ── Rich-text editor ───────────────────────────────────────────────────────────
 // A minimal, dependency-free contentEditable editor for the project-document
@@ -176,15 +177,18 @@ export function RichTextEditor({
         )}
       />
       {remaining !== null && !ro && (
-        <div
-          className={cn(
-            "px-3 pb-2 text-[11px] text-right tabular-nums select-none",
-            remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
+        <div className="px-3 pb-2 space-y-0.5 select-none">
+          <p
+            className={cn(
+              "text-[11px] text-right tabular-nums",
+              remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
+            )}
+          >
+            {`${(maxChars! - remaining).toLocaleString()}/${maxChars!.toLocaleString()} char.`}
+          </p>
+          {remaining < 0 && (
+            <p className="text-[11px] text-destructive">{labels.common.overLimitHint}</p>
           )}
-        >
-          {/* Compact used/limit counter (review feedback): e.g. "0/4,500 char." —
-              turns red via the class above once the used count passes the limit. */}
-          {`${(maxChars! - remaining).toLocaleString()}/${maxChars!.toLocaleString()} char.`}
         </div>
       )}
     </div>

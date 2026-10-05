@@ -3,6 +3,9 @@ import pool, { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { logStatusChange } from "@/lib/version-log";
+import { getCharLimits } from "@/lib/char-limits";
+import { narrativeLimit } from "@/lib/limits";
+import { richTextLength } from "@/lib/richtext";
 
 // POST /api/prodoc-submit — partner submits their project document for review.
 // Transitions status Open → Under Review, which locks partner editing.
@@ -86,12 +89,42 @@ export async function POST(request: NextRequest) {
     if (!proj.project_start_date) emptyFields.push("Start date");
     if (proj.project_duration_months == null) emptyFields.push("Duration (months)");
     if (!proj.geographic_scope?.trim()) emptyFields.push("Geographic scope");
-    if (!proj.description?.trim()) emptyFields.push("Description");
+    if (richTextLength(proj.description ?? "") === 0) emptyFields.push("Description");
     if (emptyFields.length > 0) {
       return NextResponse.json(
         { error: `Complete required fields in General: ${emptyFields.join(", ")}.` },
         { status: 422 }
       );
+    }
+
+    // Validate char limits.
+    const limits = await getCharLimits();
+    if (proj.description) {
+      const descLen = richTextLength(proj.description);
+      if (descLen > limits.description) {
+        return NextResponse.json(
+          { error: `Shorten the project description to ${limits.description.toLocaleString("en-US")} characters or fewer.` },
+          { status: 422 }
+        );
+      }
+    }
+
+    const narrativeRows = await query<{ narrative_key: string; label: string | null; answer: string | null }>(
+      `SELECT narrative_key, label, answer
+         FROM reporting_platform.project_narratives
+        WHERE project_id = $1
+        ORDER BY sort_order, id`,
+      [projectId]
+    );
+    for (const nr of narrativeRows) {
+      const lim = limits.narratives[nr.narrative_key] ?? narrativeLimit(nr.narrative_key);
+      if (richTextLength(nr.answer) > lim) {
+        const label = nr.label || nr.narrative_key;
+        return NextResponse.json(
+          { error: `Shorten the answer to "${label}" to ${lim.toLocaleString("en-US")} characters or fewer.` },
+          { status: 422 }
+        );
+      }
     }
 
     // Validate tranche and budget totals against the requested funding amount.

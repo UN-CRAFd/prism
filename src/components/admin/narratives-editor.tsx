@@ -4,10 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
-import { useAutosave, OverLimitError, type SaveState } from "@/components/autosave";
+import { useAutosave, type SaveState } from "@/components/autosave";
 import labels from "@/lib/labels";
-import { narrativeLimit } from "@/lib/limits";
-import { richTextLength } from "@/lib/richtext";
+import { useCharLimits } from "@/lib/use-char-limits";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per
@@ -33,6 +32,8 @@ export function NarrativesAdminEditor({
   // parent shows the amber view-only bar instead).
   readOnly?: boolean;
 }) {
+  const charLimits = useCharLimits();
+
   const [questions, setQuestions] = useState<Question[]>([]);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [loading, setLoading] = useState(false);
@@ -78,20 +79,13 @@ export function NarrativesAdminEditor({
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  // Save every dirty narrative. Over-limit answers are skipped and the flush
-  // throws OverLimitError so the autosave indicator surfaces the blocked state.
-  // A key's saved snapshot is only advanced once the PATCH succeeds, so edits
-  // made mid-save aren't lost.
+  // Save every dirty narrative. A key's saved snapshot is only advanced once the
+  // PATCH succeeds, so edits made mid-save aren't lost.
   const flush = useCallback(async () => {
-    let anyOverLimit = false;
     for (const q of questionsRef.current) {
       const cur = entriesRef.current[q.key] ?? EMPTY;
       const saved = savedRef.current[q.key] ?? EMPTY;
       if (cur.answer === saved.answer) continue;
-      if (richTextLength(cur.answer) > narrativeLimit(q.key)) {
-        anyOverLimit = true;
-        continue;
-      }
       const res = await fetch("/api/project-narratives", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -103,7 +97,6 @@ export function NarrativesAdminEditor({
       }
       savedRef.current[q.key] = { ...cur };
     }
-    if (anyOverLimit) throw new OverLimitError();
   }, [projectId]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
@@ -169,7 +162,7 @@ export function NarrativesAdminEditor({
                 onChange={(html) => update(q.key, { answer: html })}
                 placeholder={labels.narratives.placeholder}
                 disabled={readOnly}
-                maxChars={narrativeLimit(q.key)}
+                maxChars={charLimits.narrativeLimit(q.key)}
               />
             </div>
           </div>

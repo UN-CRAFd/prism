@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { getCharLimits } from "@/lib/char-limits";
+import { narrativeLimit } from "@/lib/limits";
+import { richTextLength } from "@/lib/richtext";
 
 // Project-document completion, per section.
 //
@@ -32,35 +35,50 @@ export async function GET(req: NextRequest) {
 
   try {
     // The prodoc report row carries the indicator/risk children.
-    const prodoc = await query<{ id: number }>(
-      `SELECT id FROM reporting_platform.reports
-        WHERE project_id = $1 AND data_type = 'prodoc'`,
-      [projectId]
-    );
+    const [prodoc, limits] = await Promise.all([
+      query<{ id: number }>(
+        `SELECT id FROM reporting_platform.reports
+          WHERE project_id = $1 AND data_type = 'prodoc'`,
+        [projectId]
+      ),
+      getCharLimits(),
+    ]);
     if (prodoc.length === 0) return NextResponse.json({ error: "Project document not found" }, { status: 404 });
     const prodocId = prodoc[0].id;
 
     const [general, narratives, indicators, risk, expenditure, workplan] = await Promise.all([
-      // General — required project fields (tranche/budget totals moved to expenditure).
+      // General — required fields present and description within char limit.
       query<Row>(
         `SELECT (p.project_title IS NOT NULL AND p.project_title <> ''
               AND p.grant_size_usd IS NOT NULL
               AND p.project_start_date IS NOT NULL
               AND p.project_duration_months IS NOT NULL
               AND p.geographic_scope IS NOT NULL AND p.geographic_scope <> ''
-              AND p.description IS NOT NULL AND p.description <> '') AS complete
+              AND p.description IS NOT NULL AND p.description <> '') AS complete,
+              p.description
            FROM reporting_platform.projects p
           WHERE p.id = $1`,
         [projectId]
-      ).then((r) => r[0]?.complete === true),
+      ).then((r) => {
+        const desc = r[0]?.description as string | null;
+        if (r[0]?.complete !== true) return false;
+        if (richTextLength(desc) === 0) return false;
+        return richTextLength(desc) <= limits.description;
+      }),
 
-      // Narratives — every question answered.
+      // Narratives — every question answered and within its char limit.
       query<Row>(
-        `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE answer IS NOT NULL AND answer <> '')::int AS ok
-           FROM reporting_platform.project_narratives WHERE project_id = $1`,
+        `SELECT narrative_key, answer FROM reporting_platform.project_narratives WHERE project_id = $1`,
         [projectId]
-      ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
+      ).then((rows) => {
+        if (rows.length === 0) return false;
+        return rows.every((r) => {
+          const a = (r.answer as string | null) ?? "";
+          if (richTextLength(a) === 0) return false;
+          const lim = limits.narratives[r.narrative_key as string] ?? narrativeLimit(r.narrative_key as string);
+          return richTextLength(a) <= lim;
+        });
+      }),
 
       // Indicators — every line has a baseline and a target.
       query<Row>(

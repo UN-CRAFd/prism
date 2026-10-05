@@ -3,9 +3,6 @@ import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
-import { badRequest } from "@/lib/http";
-import { DESCRIPTION_MAX_CHARS } from "@/lib/limits";
-import { richTextLength } from "@/lib/richtext";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
@@ -68,14 +65,7 @@ export async function PUT(
     const body = await request.json();
 
     if (body.description !== undefined) {
-      const sanitized = sanitizeRichText(body.description as string);
-      const len = richTextLength(sanitized);
-      if (len > DESCRIPTION_MAX_CHARS) {
-        return badRequest(
-          `Description exceeds the ${DESCRIPTION_MAX_CHARS.toLocaleString("en-US")}-character limit (${len.toLocaleString("en-US")} entered).`
-        );
-      }
-      body.description = sanitized;
+      body.description = sanitizeRichText(body.description as string);
     }
 
     const setClauses: string[] = [];

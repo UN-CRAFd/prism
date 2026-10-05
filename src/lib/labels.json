@@ -8,6 +8,7 @@
     "saved": "Saved",
     "saveFailed": "Save failed",
     "cancel": "Cancel",
+    "overLimitHint": "Over the limit — shorten this text before submitting.",
     "formerReports": "Former reports:",
     "rows": "Rows:",
     "baseline": "Baseline",

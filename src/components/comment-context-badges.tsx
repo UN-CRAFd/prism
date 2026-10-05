@@ -34,6 +34,7 @@ export function CommentContextBadges({
   section,
   itemLabel,
   dataType,
+  hideProject,
   className,
 }: {
   partner?: string | null;
@@ -44,6 +45,7 @@ export function CommentContextBadges({
   itemLabel?: string | null;
   // "prodoc" marks the comment as being on a project document (default "report").
   dataType?: string | null;
+  hideProject?: boolean;
   className?: string;
 }) {
   const isProdoc = dataType === "prodoc";
@@ -63,7 +65,7 @@ export function CommentContextBadges({
       )}
       {partner && <Badge variant="secondary">{shortName(partner)}</Badge>}
       <Badge variant="secondary">{reportLabel}</Badge>
-      <Badge variant="outline">{project}</Badge>
+      {!hideProject && <Badge variant="outline">{project}</Badge>}
       <Badge variant="outline">{sectionLabel}</Badge>
     </div>
   );

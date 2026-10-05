@@ -576,6 +576,27 @@
     "print": "Print Guide",
     "tocTitle": "Contents"
   },
+  "partnerHome": {
+    "yourProjects": "Your projects",
+    "pastProjects": "Past projects",
+    "noProjects": "No projects found — contact your CRAF'd programme manager.",
+    "noCurrent": "No active projects.",
+    "roleLead": "Project Lead",
+    "roleImpl": "Implementing Partner",
+    "todo": "to-do",
+    "todos": "to-dos",
+    "comment": "comment",
+    "comments": "comments",
+    "overdue": "Overdue"
+  },
+  "partnerProject": {
+    "allProjects": "All projects",
+    "needsAction": "Needs your action",
+    "documents": "Documents",
+    "nothingNeeded": "Nothing needs your attention right now.",
+    "notFound": "Project not found.",
+    "projectDocument": "Project Document"
+  },
   "fundingSummary": {
     "requestedLabel": "Requested funding amount",
     "missingRequested": "Enter the requested funding amount in General information.",

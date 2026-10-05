@@ -1,197 +1,68 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { cn, formatDate, projectSlug, shortName } from "@/lib/utils";
+import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
-import {
-  AlertCircle,
-  ArrowRight,
-  CalendarDays,
-  Check,
-  CheckCircle2,
-  ListTodo,
-  MessageSquare,
-  RotateCcw,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CommentContextBadges } from "@/components/comment-context-badges";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { LoadingState } from "@/components/admin/shared";
+import { buildPartnerProjects } from "@/lib/partner-projects";
+import type { FeedbackComment, PartnerProject } from "@/lib/partner-projects";
 import type { Report } from "@/lib/types";
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-interface FeedbackComment {
-  id: number;
-  section: string;
-  body: string;
-  item_label: string | null;
-  resolved: boolean;
-  partner_addressed: boolean;
-  year: number;
-  report_type: "annual" | "final" | null;
-  data_type: "report" | "prodoc";
-  project_title: string;
-  project_short_name: string | null;
-}
-
-type TimelineType = "start" | "deadline" | "end" | "now";
-
-interface TimelineEvent {
-  date: string;
-  label: string;
-  description: string;
-  type: TimelineType;
-  _dateObj: Date;
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-const timelineConfig: Record<TimelineType, { dot: string; label: string }> = {
-  start: { dot: "bg-green-500 ring-green-200", label: "text-green-700" },
-  deadline: { dot: "bg-amber-500 ring-amber-200", label: "text-amber-600" },
-  end: { dot: "bg-blue-500 ring-blue-200", label: "text-blue-600" },
-  now: { dot: "bg-red-500 ring-red-200", label: "text-red-600" },
-};
-
-// ── Page ───────────────────────────────────────────────────────────────────
 
 export default function PartnerHomePage() {
   const { user } = useAuth();
   const router = useRouter();
+  const search = useSearchParams();
+  const showAll = search.get("all") === "1";
 
   const [reports, setReports] = useState<Report[]>([]);
-  // Prodocs (one per project) — the source of project dates, independent of
-  // whether any reporting-year reports exist yet.
-  const [projects, setProjects] = useState<Report[]>([]);
+  const [prodocs, setProdocs] = useState<Report[]>([]);
   const [comments, setComments] = useState<FeedbackComment[]>([]);
-  const [loading, setLoading] = useState(true);
-  // The greeting (time-based) and user (client-side auth) only exist on the
-  // client; defer rendering them until mounted so hydration matches the server.
+  const [dataLoaded, setDataLoaded] = useState(false);
+  // Set to true once we've decided NOT to redirect (i.e. safe to render the list).
+  const [redirectChecked, setRedirectChecked] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!user) return;
-
-    // The API is the security boundary; both fetches are already scoped to
-    // reports this partner may access (owned + editor-granted projects).
-    fetch("/api/reports?data_type=report")
-      .then((r) => r.json())
-      .then((all: Report[]) => setReports(all))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-
-    fetch("/api/reports?data_type=prodoc")
-      .then((r) => r.json())
-      .then((all: Report[]) => setProjects(all))
-      .catch(() => {});
+    let cancelled = false;
+    const org = encodeURIComponent(user.organization || user.id);
+    Promise.all([
+      fetch("/api/reports?data_type=report").then((r) => r.json()).catch(() => []),
+      fetch("/api/reports?data_type=prodoc").then((r) => r.json()).catch(() => []),
+      fetch(`/api/comments?partnerShortName=${org}`).then((r) => r.json()).catch(() => []),
+    ]).then(([rpts, pdocs, cmts]) => {
+      if (cancelled) return;
+      setReports(Array.isArray(rpts) ? rpts : []);
+      setProdocs(Array.isArray(pdocs) ? pdocs : []);
+      setComments(Array.isArray(cmts) ? cmts : []);
+      setDataLoaded(true);
+    });
+    return () => { cancelled = true; };
   }, [user]);
 
-  useEffect(() => {
-    if (!user) return;
-    fetch(`/api/comments?partnerShortName=${encodeURIComponent(user.organization || user.id)}`)
-      .then((r) => r.json())
-      .then((data: FeedbackComment[]) => setComments(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, [user]);
-
-  // Partner-side "addressed" confirmation. Optimistic; reverts on failure.
-  async function toggleAddressed(id: number, next: boolean) {
-    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, partner_addressed: next } : c)));
-    try {
-      const res = await fetch("/api/comments", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, partner_addressed: next }),
-      });
-      if (!res.ok) throw new Error("failed");
-    } catch {
-      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, partner_addressed: !next } : c)));
-    }
-  }
-
-  const pendingReports = useMemo(
-    () => reports.filter((r) => !r.authorized),
-    [reports]
+  const allProjects = useMemo(
+    () => (user ? buildPartnerProjects(reports, prodocs, comments, user) : []),
+    [reports, prodocs, comments, user]
   );
 
-  // The partner's projects (one prodoc each), with a role flag: they are the
-  // project LEAD when the prodoc's owning partner matches their org, otherwise
-  // an implementing partner granted edit rights.
-  const myProjects = useMemo(() => {
-    if (!user) return [];
-    const isLead = (r: Report) =>
-      r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
-      r.partner_short_name === user.organization;
-    const seen = new Set<number>();
-    return projects
-      .filter((r) => (seen.has(r.project_id) ? false : (seen.add(r.project_id), true)))
-      .map((r) => ({ report: r, lead: isLead(r) }))
-      .sort((a, b) => a.report.project_title.localeCompare(b.report.project_title));
-  }, [projects, user]);
+  const currentProjects = useMemo(() => allProjects.filter((p) => !p.isPast), [allProjects]);
+  const pastProjects = useMemo(() => allProjects.filter((p) => p.isPast), [allProjects]);
 
-  const timeline = useMemo<TimelineEvent[]>(() => {
-    const events: TimelineEvent[] = [];
-
-    // Project start & end — one pair per project, sourced from prodocs so they
-    // show even when no reporting-year reports exist. Fall back to report rows
-    // if prodocs haven't loaded for some reason.
-    const projectRows = projects.length > 0 ? projects : reports;
-    const seenProjects = new Set<number>();
-    for (const r of projectRows) {
-      if (seenProjects.has(r.project_id)) continue;
-      seenProjects.add(r.project_id);
-      if (!r.project_start_date) continue;
-
-      const start = new Date(r.project_start_date);
-      events.push({
-        date: formatDate(start),
-        label: "Project start",
-        description: r.project_title,
-        type: "start",
-        _dateObj: start,
-      });
-
-      if (r.project_duration_months) {
-        const end = new Date(start);
-        end.setMonth(end.getMonth() + r.project_duration_months);
-        events.push({
-          date: formatDate(end),
-          label: "Project end",
-          description: r.project_title,
-          type: "end",
-          _dateObj: end,
-        });
-      }
+  // If exactly one current project and no ?all=1, skip the list and go to that project.
+  useEffect(() => {
+    if (!dataLoaded) return;
+    if (showAll) { setRedirectChecked(true); return; }
+    if (currentProjects.length === 1) {
+      router.replace(`/partner/projects/${currentProjects[0].slug}`);
+      // Stay on loading while the navigation settles.
+    } else {
+      setRedirectChecked(true);
     }
-
-    // Report deadlines
-    for (const r of reports) {
-      if (!r.report_submission_date) continue;
-      events.push({
-        date: formatDate(r.report_submission_date),
-        label: `${r.year} report deadline`,
-        description: r.project_title,
-        type: "deadline",
-        _dateObj: new Date(r.report_submission_date),
-      });
-    }
-
-    if (events.length === 0) return [];
-
-    // "You are here" marker at today's chronological position
-    const now = new Date();
-    events.push({
-      date: formatDate(now),
-      label: "Today",
-      description: "",
-      type: "now",
-      _dateObj: now,
-    });
-
-    return events.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
-  }, [reports, projects]);
+  }, [dataLoaded, currentProjects, showAll, router]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -200,241 +71,129 @@ export default function PartnerHomePage() {
     return "Good evening";
   }, []);
 
+  const [pastExpanded, setPastExpanded] = useState(false);
 
   return (
     <div className="flex flex-col min-h-full bg-background">
-      {/* Header */}
+      {/* Header banner */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
         <h1 className="t-title-banner">
-          {mounted ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}` : " "}
+          {mounted
+            ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}`
+            : " "}
         </h1>
         <p className="text-neutral-400 text-sm mt-2">Partner Dashboard</p>
       </div>
 
       <div className="flex-1 px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-
-          {/* ── To-do ── */}
-          <section className="lg:col-span-2 flex flex-col gap-6">
+        {!redirectChecked ? (
+          <LoadingState className="py-16" />
+        ) : allProjects.length === 0 ? (
+          <div className="text-center py-16 text-sm text-muted-foreground">
+            {labels.partnerHome.noProjects}
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Current projects */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <ListTodo className="size-4 text-muted-foreground" />
-                  <h2 className="t-heading-section">To-do</h2>
+              <h2 className="t-heading-section mb-4">{labels.partnerHome.yourProjects}</h2>
+              {currentProjects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{labels.partnerHome.noCurrent}</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {currentProjects.map((p) => (
+                    <ProjectCard
+                      key={p.project_id}
+                      project={p}
+                      onClick={() => router.push(`/partner/projects/${p.slug}`)}
+                    />
+                  ))}
                 </div>
-                {!loading && pendingReports.length > 0 && (
-                  <span className="inline-flex items-center justify-center rounded-full bg-crafd-yellow text-black text-[10px] font-bold w-5 h-5">
-                    {pendingReports.length}
-                  </span>
-                )}
-              </div>
-
-              <div className="rounded-xl border bg-card overflow-hidden divide-y">
-                {loading ? (
-                  <div className="px-4 py-6 text-center">
-                    <p className="text-sm text-muted-foreground">{labels.common.loading}</p>
-                  </div>
-                ) : pendingReports.length === 0 ? (
-                  <div className="flex items-center gap-3 px-4 py-6 justify-center">
-                    <CheckCircle2 className="size-4 text-green-500" />
-                    <p className="text-sm text-muted-foreground">
-                      {reports.length === 0
-                        ? "No active reporting cycles — check back later."
-                        : "All reports authorized. Nothing pending."}
-                    </p>
-                  </div>
-                ) : (
-                  pendingReports.map((report) => (
-                    <button
-                      key={report.id}
-                      onClick={() =>
-                        router.push(
-                          `/partner/report-editor/${projectSlug(report.project_short_name, report.project_title)}/${report.year}/overview`
-                        )
-                      }
-                      className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
-                    >
-                      <AlertCircle className="size-4 text-amber-500 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          Complete {report.year} annual report
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {report.project_title} · Pending authorization
-                        </p>
-                      </div>
-                      <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* ── Your projects ── */}
-            {!loading && myProjects.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ListTodo className="size-4 text-muted-foreground" />
-                  <h2 className="t-heading-section">Your projects</h2>
-                </div>
-                <div className="rounded-xl border bg-card overflow-hidden divide-y">
-                  {myProjects.map(({ report, lead }) => {
-                    // Match the prodoc-editor's slug (whitespace → hyphens) so the
-                    // link pre-selects this project.
-                    const slug = projectSlug(report.project_short_name, report.project_title);
-                    return (
-                      <button
-                        key={report.project_id}
-                        onClick={() => router.push(`/partner/prodoc-editor/${slug}/general`)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{report.project_title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {shortName(report.partner_short_name)}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                            lead
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : "bg-violet-50 text-violet-700 border border-violet-200"
-                          )}
-                        >
-                          {lead ? "Project Lead" : "Implementing Partner"}
-                        </span>
-                        <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* ── Feedback from CRAF'd ── */}
-            {comments.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="size-4 text-muted-foreground" />
-                    <h2 className="t-heading-section">Feedback from CRAF&apos;d</h2>
-                  </div>
-                  {comments.some((c) => !c.partner_addressed) && (
-                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold w-5 h-5">
-                      {comments.filter((c) => !c.partner_addressed).length}
-                    </span>
-                  )}
-                </div>
-                <div className="rounded-xl border bg-card overflow-hidden divide-y">
-                  {comments.map((c) => {
-                    const slug = projectSlug(c.project_short_name, c.project_title);
-                    const done = c.partner_addressed;
-                    const href = c.data_type === "prodoc"
-                      ? `/partner/prodoc-editor/${slug}/${c.section}`
-                      : `/partner/report-editor/${slug}/${c.year}/${c.section}`;
-                    return (
-                      <div key={c.id} className={cn("px-4 py-3 transition-colors cursor-pointer hover:bg-accent/60", done && "bg-muted/20")} onClick={() => router.push(href)}>
-                        <div className="w-full flex items-start gap-3 text-left">
-                          <MessageSquare className={cn("size-4 mt-0.5 shrink-0", done ? "text-muted-foreground/40" : "text-amber-500")} />
-                          <div className="flex-1 min-w-0">
-                            <p className={cn("text-sm", done && "line-through text-muted-foreground")}>{c.body}</p>
-                            <div className={cn("flex items-center justify-between gap-2 mt-2", done && "opacity-60")}>
-                              <CommentContextBadges
-                                reportType={c.report_type}
-                                year={c.year}
-                                project={c.project_short_name ?? c.project_title}
-                                section={c.section}
-                                itemLabel={c.item_label}
-                                dataType={c.data_type}
-                                className="!gap-1"
-                              />
-                              {done ? (
-                                <Button size="sm" variant="outline" className="h-6 px-2 gap-1 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); toggleAddressed(c.id, false); }}>
-                                  <RotateCcw className="size-3" /> Undo
-                                </Button>
-                              ) : (
-                                <Button size="sm" className="h-6 px-2 gap-1 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); toggleAddressed(c.id, true); }}>
-                                  <Check className="size-3" /> Resolve
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                          <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 hover:text-muted-foreground transition-colors" />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ── Timeline ── */}
-          <section className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <CalendarDays className="size-4 text-muted-foreground" />
-              <h2 className="t-heading-section">Timeline</h2>
-            </div>
-
-            <div className="relative pl-4">
-              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-
-              {!loading && timeline.length === 0 && (
-                <p className="text-xs text-muted-foreground">No report deadlines found.</p>
               )}
-
-              <ol className="flex flex-col gap-0">
-                {timeline.map((event, i) => {
-                  const cfg = timelineConfig[event.type];
-                  const isNow = event.type === "now";
-                  const isPast = !isNow && event._dateObj < new Date();
-
-                  return (
-                    <li key={i} className="relative flex gap-4 pb-6 last:pb-0">
-                      <div
-                        className={cn(
-                          "absolute -left-4 mt-0.5 size-3.5 rounded-full ring-2 ring-white shrink-0",
-                          isNow
-                            ? "bg-red-500 ring-red-200 animate-pulse"
-                            : cn(cfg.dot, isPast && "opacity-40")
-                        )}
-                      />
-                      <div className="pl-2">
-                        <p className={cn(
-                          "text-[10px] font-semibold uppercase tracking-wider mb-0.5",
-                          isNow ? cfg.label : isPast ? "text-muted-foreground" : cfg.label
-                        )}>
-                          {event.date}
-                          {isNow && (
-                            <span className="ml-1.5 normal-case font-normal text-[9px] bg-red-500 text-white rounded-full px-1.5 py-0.5">
-                              You are here
-                            </span>
-                          )}
-                        </p>
-                        <p className={cn(
-                          "text-sm font-medium leading-snug",
-                          isNow && "text-red-600",
-                          isPast && "text-muted-foreground"
-                        )}>
-                          {event.label}
-                        </p>
-                        {event.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                            {event.description}
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
             </div>
-          </section>
 
-        </div>
+            {/* Past projects — collapsed by default */}
+            {pastProjects.length > 0 && (
+              <div>
+                <button
+                  className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors mb-3"
+                  onClick={() => setPastExpanded((v) => !v)}
+                >
+                  {pastExpanded
+                    ? <ChevronDown className="size-4" />
+                    : <ChevronRight className="size-4" />}
+                  {labels.partnerHome.pastProjects} ({pastProjects.length})
+                </button>
+                {pastExpanded && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pastProjects.map((p) => (
+                      <ProjectCard
+                        key={p.project_id}
+                        project={p}
+                        onClick={() => router.push(`/partner/projects/${p.slug}`)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function ProjectCard({
+  project,
+  onClick,
+}: {
+  project: PartnerProject;
+  onClick: () => void;
+}) {
+  const actionCount = project.actions.length;
+  const commentCount = project.unansweredComments.length;
+  return (
+    <button
+      onClick={onClick}
+      className="text-left rounded-xl border bg-card p-5 hover:bg-accent/40 transition-colors group flex flex-col gap-3"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-semibold leading-snug">{project.title}</p>
+        <span
+          className={cn(
+            "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            project.role === "lead"
+              ? "bg-blue-50 text-blue-700 border border-blue-200"
+              : "bg-violet-50 text-violet-700 border border-violet-200"
+          )}
+        >
+          {project.role === "lead"
+            ? labels.partnerHome.roleLead
+            : labels.partnerHome.roleImpl}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">{shortName(project.lead_org)}</p>
+      {(project.hasOverdue || actionCount > 0 || commentCount > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {project.hasOverdue && (
+            <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 text-[13px] font-semibold px-2.5 py-0.5">
+              {labels.partnerHome.overdue}
+            </span>
+          )}
+          {actionCount > 0 && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[13px] font-semibold px-2.5 py-0.5">
+              {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
+            </span>
+          )}
+          {commentCount > 0 && (
+            <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-[13px] font-semibold px-2.5 py-0.5">
+              {commentCount} {commentCount === 1 ? labels.partnerHome.comment : labels.partnerHome.comments}
+            </span>
+          )}
+        </div>
+      )}
+    </button>
   );
 }

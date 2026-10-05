@@ -101,7 +101,7 @@ export default function PartnerHomePage() {
               {currentProjects.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{labels.partnerHome.noCurrent}</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-3">
                   {currentProjects.map((p) => (
                     <ProjectCard
                       key={p.project_id}
@@ -126,7 +126,7 @@ export default function PartnerHomePage() {
                   {labels.partnerHome.pastProjects} ({pastProjects.length})
                 </button>
                 {pastExpanded && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-3">
                     {pastProjects.map((p) => (
                       <ProjectCard
                         key={p.project_id}
@@ -157,13 +157,15 @@ function ProjectCard({
   return (
     <button
       onClick={onClick}
-      className="text-left rounded-xl border bg-card p-5 hover:bg-accent/40 transition-colors group flex flex-col gap-3"
+      className="w-full text-left rounded-xl border bg-card px-5 py-5 hover:bg-accent/40 transition-colors group flex flex-col sm:flex-row sm:items-center gap-3"
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold leading-snug">{project.title}</p>
+      {/* Left: title + lead org + role badge */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[17px] font-semibold leading-snug">{project.title}</p>
+        <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
         <span
           className={cn(
-            "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            "mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium",
             project.role === "lead"
               ? "bg-blue-50 text-blue-700 border border-blue-200"
               : "bg-violet-50 text-violet-700 border border-violet-200"
@@ -174,26 +176,26 @@ function ProjectCard({
             : labels.partnerHome.roleImpl}
         </span>
       </div>
-      <p className="text-xs text-muted-foreground">{shortName(project.lead_org)}</p>
-      {(project.hasOverdue || actionCount > 0 || commentCount > 0) && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {project.hasOverdue && (
-            <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 text-[13px] font-semibold px-2.5 py-0.5">
-              {labels.partnerHome.overdue}
-            </span>
-          )}
-          {actionCount > 0 && (
-            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[13px] font-semibold px-2.5 py-0.5">
-              {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
-            </span>
-          )}
-          {commentCount > 0 && (
-            <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-[13px] font-semibold px-2.5 py-0.5">
-              {commentCount} {commentCount === 1 ? labels.partnerHome.comment : labels.partnerHome.comments}
-            </span>
-          )}
-        </div>
-      )}
+
+      {/* Right: status chips + arrow */}
+      <div className="flex items-center gap-2 flex-wrap shrink-0">
+        {project.hasOverdue && (
+          <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 text-[13px] font-medium px-2.5 py-0.5">
+            {labels.partnerHome.overdue}
+          </span>
+        )}
+        {actionCount > 0 && (
+          <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[13px] font-medium px-2.5 py-0.5">
+            {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
+          </span>
+        )}
+        {commentCount > 0 && (
+          <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-[13px] font-medium px-2.5 py-0.5">
+            {commentCount} {commentCount === 1 ? labels.partnerHome.comment : labels.partnerHome.comments}
+          </span>
+        )}
+        <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 ml-1" />
+      </div>
     </button>
   );
 }

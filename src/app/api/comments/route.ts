@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
+import { requireSession, requireAdmin, guardReport, guardRow, editorProjectIds } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // Comments on report items (polymorphic — see migrations/032).
@@ -160,21 +160,42 @@ export async function GET(req: NextRequest) {
       // Replies are excluded (parent_id IS NULL): the partner's own replies are
       // comments on their own project, so without this filter they would appear
       // in the partner's own to-do feed as items awaiting their attention.
+      //
+      // Access rule mirrors /api/reports: a partner sees their own org's projects
+      // (owner match on pt.short_name) PLUS any projects they were granted access
+      // to via project_editors. Admins requesting another partner's feed see only
+      // owner projects (editorProjectIds operates on the session, not a partner id).
+      const queryValues: unknown[] = [partnerShortName];
+      const ownArm = `LOWER(pt.short_name) = LOWER($1)`;
+      let projectFilter: string;
+      if (session.role !== "admin") {
+        const editorIds = await editorProjectIds(session);
+        if (editorIds.length) {
+          queryValues.push(editorIds);
+          projectFilter = `(${ownArm} OR p.id = ANY($${queryValues.length}::int[]))`;
+        } else {
+          projectFilter = ownArm;
+        }
+      } else {
+        projectFilter = ownArm;
+      }
+
       const rows = await query(
         `SELECT c.id, c.report_id, c.section, c.item_id, c.body, c.resolved, c.partner_addressed, c.created_at,
                 c.parent_id, c.author, c.author_role,
                 r.year, r.report_type, r.data_type,
+                p.id   AS project_id,
                 p.project_title,
                 p.short_name AS project_short_name
            FROM reporting_platform.item_comments c
            JOIN reporting_platform.reports  r  ON r.id  = c.report_id
            JOIN reporting_platform.projects p  ON p.id  = r.project_id
            JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-          WHERE LOWER(pt.short_name) = LOWER($1)
+          WHERE ${projectFilter}
             AND c.resolved = FALSE
             AND c.parent_id IS NULL
           ORDER BY c.partner_addressed ASC, c.created_at DESC`,
-        [partnerShortName]
+        queryValues
       );
       return NextResponse.json(await withItemLabels(rows as CommentRow[]));
     }

@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
-import { ArrowLeft, ArrowRight, CheckCircle2, FileStack, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, FileStack, FileText } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
-import { buildPartnerProjects, reportName } from "@/lib/partner-projects";
+import { buildPartnerProjects, docStatusLine, reportName } from "@/lib/partner-projects";
 import { ActionRow, CommentRow } from "@/components/partner/project-rows";
 import type { FeedbackComment, PartnerProject, TimelineEvent } from "@/lib/partner-projects";
 import type { Report } from "@/lib/types";
@@ -17,27 +17,46 @@ import type { Report } from "@/lib/types";
 // ── Timeline stepper ─────────────────────────────────────────────────────────
 
 function HorizontalTimeline({ events }: { events: TimelineEvent[] }) {
+  const today = useMemo(() => new Date(), []);
   return (
     <div className="overflow-x-auto">
       <div className="flex items-start min-w-full">
         {events.map((ev, i) => {
           const isNow = ev.type === "now";
           const isLast = i === events.length - 1;
-          const dotClass = isNow
-            ? "bg-red-500 ring-2 ring-red-200 animate-pulse"
-            : ev.done
-            ? "bg-green-500 ring-2 ring-green-200"
-            : "bg-white border-2 border-gray-300";
+
           const labelClass = isNow
-            ? "text-red-600"
-            : ev.done
+            ? "text-foreground"
+            : ev.submitted
             ? "text-green-700"
+            : ev.overdue
+            ? "text-red-600"
             : "text-muted-foreground";
+
           return (
             <Fragment key={i}>
               {/* Event column */}
               <div className="flex flex-col items-center shrink-0" style={{ minWidth: 80 }}>
-                <div className={cn("size-4 rounded-full", dotClass)} />
+                {/* Dot */}
+                {ev.submitted ? (
+                  <div className="size-4 rounded-full bg-green-500 flex items-center justify-center">
+                    <Check className="size-2.5 text-white" strokeWidth={3} />
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "size-4 rounded-full",
+                      isNow
+                        ? "bg-gray-900 ring-2 ring-gray-300"
+                        : ev.overdue
+                        ? "bg-red-500 ring-2 ring-red-200"
+                        : ev.pastDate
+                        ? "bg-gray-400 ring-2 ring-gray-200"
+                        : "bg-white border-2 border-gray-300"
+                    )}
+                  />
+                )}
+                {/* Label */}
                 <p
                   className={cn(
                     "text-sm font-semibold mt-2 text-center leading-tight",
@@ -46,11 +65,13 @@ function HorizontalTimeline({ events }: { events: TimelineEvent[] }) {
                 >
                   {ev.label}
                 </p>
+                {/* Description (prodoc/deadline second line) */}
                 {ev.description && (
                   <p className="text-[13px] text-muted-foreground text-center mt-0.5">
                     {ev.description}
                   </p>
                 )}
+                {/* Date (start/end/now second line) */}
                 {ev.date && (
                   <p className="text-[13px] text-muted-foreground text-center mt-0.5">
                     {ev.date}
@@ -76,12 +97,12 @@ function HorizontalTimeline({ events }: { events: TimelineEvent[] }) {
 function DocumentRow({
   icon: Icon,
   label,
-  status,
+  statusLine,
   href,
 }: {
   icon: React.ElementType;
   label: string;
-  status: string;
+  statusLine: string;
   href: string;
 }) {
   return (
@@ -92,7 +113,7 @@ function DocumentRow({
       <Icon className="size-4 text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{label}</p>
-        <p className="text-xs text-muted-foreground">{status}</p>
+        <p className="text-xs text-muted-foreground">{statusLine}</p>
       </div>
       <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
     </Link>
@@ -187,6 +208,7 @@ export default function ProjectPage() {
 
   const prodocSlug = project.slug;
   const prodocHref = `/partner/prodoc-editor/${prodocSlug}/general`;
+  const today = new Date();
 
   return (
     <div className="flex flex-col min-h-full bg-background">
@@ -237,7 +259,7 @@ export default function ProjectPage() {
               <DocumentRow
                 icon={FileStack}
                 label={labels.partnerProject.projectDocument}
-                status={project.prodoc.status ?? "—"}
+                statusLine={docStatusLine(project.prodoc, today)}
                 href={prodocHref}
               />
               {project.reports.map((r) => (
@@ -245,7 +267,7 @@ export default function ProjectPage() {
                   key={r.id}
                   icon={FileText}
                   label={reportName(r.year, r.report_type)}
-                  status={r.status ?? "—"}
+                  statusLine={docStatusLine(r, today)}
                   href={`/partner/report-editor/${prodocSlug}/${r.year}/overview`}
                 />
               ))}

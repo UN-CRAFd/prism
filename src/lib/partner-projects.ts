@@ -33,11 +33,16 @@ export interface ProjectAction {
 export type TimelineEventType = "start" | "prodoc" | "deadline" | "end" | "now";
 
 export interface TimelineEvent {
-  date: string;           // formatted DD/MM/YYYY, empty for the ProDoc step
   label: string;
-  description?: string;
   type: TimelineEventType;
-  done: boolean;
+  // date shown below the label (for start/end/now; empty for prodoc/deadline)
+  date: string;
+  // precomputed second line for prodoc/deadline events (empty for start/end/now)
+  description: string;
+  // visual state
+  submitted: boolean;   // green dot + check (prodoc/deadline: status !== "Open")
+  overdue: boolean;     // red dot (deadline: not submitted AND deadline < today)
+  pastDate: boolean;    // grey dot (start/end: date has passed)
   _dateObj: Date;
 }
 
@@ -70,6 +75,19 @@ export function reportName(
   reportType: "annual" | "final" | null | undefined
 ): string {
   return `${year} ${reportType === "final" ? "Final" : "Annual"} Report`;
+}
+
+// Second line shown in the Documents box (and mirrors the timeline description).
+export function docStatusLine(r: Report, today: Date = new Date()): string {
+  const submitted = r.status !== "Open";
+  if (submitted) {
+    return r.submitted_at ? `Submitted ${formatDate(r.submitted_at)}` : "Submitted";
+  }
+  if (r.data_type === "prodoc") return "Not submitted";
+  if (!r.report_submission_date) return "No due date set";
+  const dueDate = new Date(r.report_submission_date);
+  if (dueDate < today) return `Overdue · due ${formatDate(r.report_submission_date)}`;
+  return `Due ${formatDate(r.report_submission_date)}`;
 }
 
 // ── Pure builder ────────────────────────────────────────────────────────────
@@ -112,10 +130,10 @@ export function buildPartnerProjects(
     const projectComments = commentsByProject.get(prodoc.project_id) ?? [];
     const unansweredComments = projectComments.filter((c) => !c.partner_addressed);
 
-    // Actions: pending reports (in year order) + open prodoc
+    // Actions: Open reports + Open prodoc
     const actions: ProjectAction[] = [];
     for (const r of projectReports) {
-      if (!r.authorized) {
+      if (r.status === "Open") {
         const dueDate = r.report_submission_date ? new Date(r.report_submission_date) : null;
         const overdue = dueDate != null && dueDate < today;
         const dueSoon = dueDate != null && !overdue && dueDate <= thirtyDaysOut;
@@ -133,7 +151,7 @@ export function buildPartnerProjects(
     if (prodoc.status === "Open") {
       actions.push({
         type: "prodoc",
-        label: "Complete project document",
+        label: "Complete Project Document",
         href: `/partner/prodoc-editor/${slug}/general`,
         dueDateFormatted: null,
         overdue: false,
@@ -178,64 +196,109 @@ function buildProjectTimeline(prodoc: Report, reports: Report[]): TimelineEvent[
   const today = new Date();
   const events: TimelineEvent[] = [];
 
-  // ProDoc step — always first (epoch _dateObj), no date shown.
+  const prodocSubmitted = prodoc.status !== "Open";
+  const prodocSubmittedAt = prodoc.submitted_at ? new Date(prodoc.submitted_at) : null;
+
+  // ProDoc: at submitted_at when submitted, epoch when not (always sorts first
+  // when not yet submitted).
   events.push({
-    date: "",
     label: "Project document",
-    description: prodoc.status ?? undefined,
     type: "prodoc",
-    done: prodoc.status !== "Open",
-    _dateObj: new Date(0),
+    date: "",
+    description: prodocSubmitted
+      ? prodoc.submitted_at ? `Submitted ${formatDate(prodoc.submitted_at)}` : "Submitted"
+      : "Not submitted",
+    submitted: prodocSubmitted,
+    overdue: false,
+    pastDate: false,
+    _dateObj: prodocSubmitted && prodocSubmittedAt ? prodocSubmittedAt : new Date(0),
   });
 
   // Project start
   if (prodoc.project_start_date) {
     const startDate = new Date(prodoc.project_start_date);
     events.push({
-      date: formatDate(prodoc.project_start_date),
       label: "Project start",
       type: "start",
-      done: startDate < today,
+      date: formatDate(prodoc.project_start_date),
+      description: "",
+      submitted: false,
+      overdue: false,
+      pastDate: startDate < today,
       _dateObj: startDate,
     });
   }
 
-  // Report deadlines
-  for (const r of reports) {
-    if (!r.report_submission_date) continue;
-    const deadlineDate = new Date(r.report_submission_date);
-    events.push({
-      date: formatDate(r.report_submission_date),
-      label: reportName(r.year, r.report_type),
-      type: "deadline",
-      done: r.authorized === true || deadlineDate < today,
-      _dateObj: deadlineDate,
-    });
-  }
-
-  // Project end
+  // Calculate project end date for no-deadline sentinel
+  let projectEndDate: Date | null = null;
   if (prodoc.project_start_date && prodoc.project_duration_months) {
     const start = new Date(prodoc.project_start_date);
     const end = new Date(start);
     end.setMonth(end.getMonth() + prodoc.project_duration_months);
+    projectEndDate = end;
+  }
+  // Sentinel for reports with no deadline: sort just before project end.
+  const noDeadlineSentinel = projectEndDate
+    ? new Date(projectEndDate.getTime() - 1)
+    : new Date(8640000000000000 - 1);
+
+  // Report deadlines — no-deadline reports use the sentinel
+  for (const r of reports) {
+    const submitted = r.status !== "Open";
+    const hasDeadline = !!r.report_submission_date;
+    const deadlineDate = hasDeadline ? new Date(r.report_submission_date!) : null;
+    const overdue = !submitted && deadlineDate != null && deadlineDate < today;
+
+    let description: string;
+    if (submitted) {
+      description = r.submitted_at
+        ? `Submitted ${formatDate(r.submitted_at)}`
+        : "Submitted";
+    } else if (!hasDeadline) {
+      description = "No due date set";
+    } else if (overdue) {
+      description = `Overdue · due ${formatDate(r.report_submission_date!)}`;
+    } else {
+      description = `Due ${formatDate(r.report_submission_date!)}`;
+    }
+
     events.push({
-      date: formatDate(end),
+      label: reportName(r.year, r.report_type),
+      type: "deadline",
+      date: "",
+      description,
+      submitted,
+      overdue,
+      pastDate: false,
+      _dateObj: deadlineDate ?? noDeadlineSentinel,
+    });
+  }
+
+  // Project end
+  if (projectEndDate) {
+    events.push({
       label: "Project end",
       type: "end",
-      done: end < today,
-      _dateObj: end,
+      date: formatDate(projectEndDate),
+      description: "",
+      submitted: false,
+      overdue: false,
+      pastDate: projectEndDate < today,
+      _dateObj: projectEndDate,
     });
   }
 
   // Today marker
   events.push({
-    date: formatDate(today),
     label: "Today",
     type: "now",
-    done: false,
+    date: formatDate(today),
+    description: "",
+    submitted: false,
+    overdue: false,
+    pastDate: false,
     _dateObj: today,
   });
 
-  // ProDoc is pinned to epoch (new Date(0)) so it always sorts first.
   return events.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
 }

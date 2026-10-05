@@ -18,6 +18,7 @@ export interface Report {
 
   report_type?: "annual" | "final" | null;
   report_submission_date?: string | null;
+  submitted_at?: string | null;
   authorized?: boolean;
   data_type?: "report" | "prodoc";
   last_edited?: string | null;

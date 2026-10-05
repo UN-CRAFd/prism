@@ -110,6 +110,7 @@ export async function GET(request: Request) {
         TO_CHAR(r.report_submission_date, 'YYYY-MM-DD') AS report_submission_date,
         r.authorized,
         r.status,
+        TO_CHAR(r.submitted_at, 'YYYY-MM-DD') AS submitted_at,
         r.created_at,
         r.updated_at,
         r.data_type,

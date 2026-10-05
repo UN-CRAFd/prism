@@ -14,7 +14,7 @@ export function ActionRow({ action }: { action: ProjectAction }) {
   let subtitleClass: string;
 
   if (action.type === "prodoc") {
-    subtitle = action.prodocStatus ?? "";
+    subtitle = "Not submitted";
     subtitleClass = "text-muted-foreground";
   } else if (!action.dueDateFormatted) {
     subtitle = "No due date set";
@@ -85,7 +85,7 @@ export function CommentRow({
           )}
         />
         <div className="flex-1 min-w-0">
-          <p className={cn("text-sm", done && "line-through text-muted-foreground")}>
+          <p className={cn("text-sm [overflow-wrap:anywhere]", done && "line-through text-muted-foreground")}>
             {comment.body}
           </p>
           <div

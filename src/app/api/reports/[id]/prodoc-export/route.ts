@@ -59,7 +59,7 @@ export async function GET(
     const meta = metaRows[0];
     const projectId = meta.project_id as number;
 
-    const [narratives, risks, indicators, activities, budgets, categoryNotes, trancheCells, projectContacts, signatureContacts, secretariatSig, standaloneSignatories, sdgTargets] = await Promise.all([
+    const [narratives, risks, indicators, activities, budgets, categoryNotes, trancheCells, projectContacts, signatureContacts, standaloneSignatories, sdgTargets] = await Promise.all([
       query(
         `SELECT narrative_key, label, answer
            FROM reporting_platform.project_narratives
@@ -149,28 +149,15 @@ export async function GET(
         [projectId]
       ),
       // Signature slots: contacts with 'Signatory' among their pipe-delimited
-      // roles, with their signature date if signed. Contacts whose roles do not
-      // include 'Signatory' are excluded.
+      // roles. Signing is off-platform; prodoc_signatures data is not used.
       query(
-        `SELECT pc.name, pc.job_title, jc.roles,
-                TO_CHAR(sig.signed_at, 'YYYY-MM-DD') AS signed_at
+        `SELECT pc.name, pc.job_title, pc.organization, jc.roles
            FROM reporting_platform.project_contacts jc
            JOIN reporting_platform.partner_contacts pc ON pc.id = jc.contact_id
-           LEFT JOIN reporting_platform.prodoc_signatures sig
-             ON sig.project_id = jc.project_id
-            AND sig.party = 'contact'
-            AND sig.contact_id = jc.contact_id
           WHERE jc.project_id = $1
             AND $2 = ANY(string_to_array(jc.roles, '|'))
           ORDER BY jc.sort_order, pc.name`,
         [projectId, ROLE_SIGNATORY]
-      ),
-      query(
-        `SELECT TO_CHAR(signed_at, 'YYYY-MM-DD') AS signed_at
-           FROM reporting_platform.prodoc_signatures
-          WHERE project_id = $1 AND party = 'secretariat'
-          LIMIT 1`,
-        [projectId]
       ),
       query(
         `SELECT title, signee_name, organization
@@ -189,9 +176,8 @@ export async function GET(
     ]);
 
     const signatures = {
-      contacts: signatureContacts as { name: string; job_title: string | null; roles: string | null; signed_at: string | null }[],
-      secretariat: { signed_at: (secretariatSig[0] as { signed_at: string } | undefined)?.signed_at ?? null },
-      standaloneSignatories: standaloneSignatories as { title: string | null; signee_name: string; organization: string | null }[],
+      contacts: signatureContacts as { name: string; job_title: string | null; organization: string | null; roles: string | null }[],
+      standaloneSignatories: standaloneSignatories as { title: string | null; signee_name: string | null; organization: string | null }[],
     };
 
     return NextResponse.json({ meta, narratives, risks, indicators, activities, budgets, categoryNotes, trancheCells, contacts: projectContacts, signatures, sdgTargets });

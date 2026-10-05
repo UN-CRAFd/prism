@@ -982,13 +982,14 @@ CREATE TRIGGER prodoc_signatures_updated_at
 -- People who sign the project document without being project contacts (e.g. an
 -- OIC standing in, an emergency no-cost-extension substitute). Deliberately NOT
 -- written to partner_contacts — Niroj's explicit requirement. Managed from the
--- Signatures tab; rendered in the exported prodoc with a blank signature line so
--- the document can be printed and signed offline.
+-- Signatures tab; rendered in the exported prodoc with a blank signature space.
+-- All fields including signee_name are nullable — a fully blank signatory is
+-- valid and acts as a placeholder to be filled on the printed document.
 CREATE TABLE IF NOT EXISTS prodoc_signatories (
     id           SERIAL       PRIMARY KEY,
     project_id   INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title        TEXT,
-    signee_name  TEXT         NOT NULL,
+    signee_name  TEXT,                          -- nullable since migration 026
     organization TEXT,
     email        TEXT,
     sort_order   INTEGER      NOT NULL DEFAULT 0,

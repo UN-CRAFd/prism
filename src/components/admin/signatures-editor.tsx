@@ -11,12 +11,12 @@ import labels from "@/lib/labels";
 import { ROLE_SIGNATORY } from "@/lib/contact-roles";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
-// Admin-only tab for managing the signatory template on the project document.
-// Standalone signatories (prodoc_signatories) are added, edited, and removed
-// here; they appear with a blank signature line in the exported prodoc.
-// Contact-derived signatories (Signatory in their roles) and the CRAF'd
-// Secretariat row are listed for reference. Signing happens off-platform on
-// the printed document — there are no sign controls in the app.
+// Admin-only tab for managing signatories on the project document.
+// Contact-derived signatories (project contacts with ROLE_SIGNATORY in their
+// roles) can be removed here — that strips the Signatory role only, leaving
+// the contact linked to the project. Standalone signatories (prodoc_signatories)
+// can be added, edited, and removed; all fields including name are optional.
+// Signing never happens in the platform — the printed document is signed offline.
 
 const s = labels.signatures;
 
@@ -34,7 +34,7 @@ interface StandaloneSignatory {
   id: number;
   project_id: number;
   title: string | null;
-  signee_name: string;
+  signee_name: string | null;
   organization: string | null;
   email: string | null;
   sort_order: number;
@@ -60,9 +60,9 @@ export function SignaturesEditor({
   // Add-form state
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [nameError, setNameError] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingContactId, setDeletingContactId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,8 +87,6 @@ export function SignaturesEditor({
   }, [projectId]);
 
   async function addStandalone() {
-    if (!form.name.trim()) { setNameError(s.nameRequired); return; }
-    setNameError(null);
     setAddBusy(true);
     try {
       const res = await fetch("/api/prodoc-signatories", {
@@ -97,7 +95,7 @@ export function SignaturesEditor({
         body: JSON.stringify({
           project_id: projectId,
           title: form.title.trim() || null,
-          signee_name: form.name.trim(),
+          signee_name: form.name.trim() || null,
           organization: form.org.trim() || null,
           email: form.email.trim() || null,
         }),
@@ -122,10 +120,28 @@ export function SignaturesEditor({
     finally { setDeletingId(null); }
   }
 
+  async function removeContactSignatory(c: ProjectContact) {
+    const msg = s.removeContactConfirm.replace("{name}", c.name);
+    if (!await confirm({ message: msg, confirmLabel: s.remove, variant: "default" })) return;
+    setDeletingContactId(c.id);
+    try {
+      const newRoles = (c.roles?.split("|") ?? []).filter((r) => r !== ROLE_SIGNATORY);
+      const res = await fetch("/api/project-contacts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: c.id, roles: newRoles.length > 0 ? newRoles.join("|") : null }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to remove"); }
+      setContacts((prev) => prev.map((x) =>
+        x.id === c.id ? { ...x, roles: newRoles.length > 0 ? newRoles.join("|") : null } : x
+      ));
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setDeletingContactId(null); }
+  }
+
   function cancelForm() {
     setShowForm(false);
     setForm(EMPTY_FORM);
-    setNameError(null);
   }
 
   if (loading) return <LoadingState className="py-8" />;
@@ -161,7 +177,7 @@ export function SignaturesEditor({
         ) : (
           <div className="rounded-xl border divide-y overflow-hidden">
 
-            {/* Contact-derived signatories — listed for reference; signing is off-platform */}
+            {/* Contact-derived signatories */}
             {contactSignatories.map((c) => (
               <div key={c.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex-1 min-w-0">
@@ -172,23 +188,50 @@ export function SignaturesEditor({
                     <span className="italic">{s.viaContacts}</span>
                   </p>
                 </div>
+                {!readOnly && (
+                  <button
+                    onClick={() => removeContactSignatory(c)}
+                    disabled={deletingContactId === c.id}
+                    className="shrink-0 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                    aria-label={s.remove}
+                  >
+                    {deletingContactId === c.id
+                      ? <Loader2 className="size-4 animate-spin" />
+                      : <Trash2 className="size-4" />}
+                  </button>
+                )}
               </div>
             ))}
 
             {/* Standalone signatories */}
             {standalones.map((item) => {
+              const allEmpty = !item.signee_name && !item.title && !item.organization && !item.email;
+              const nameDisplay = item.signee_name || null;
               const subtext = [item.title, item.organization].filter(Boolean).join(" · ");
               return (
                 <div key={item.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate">{item.signee_name}</p>
+                      {allEmpty ? (
+                        <p className="text-sm text-muted-foreground italic truncate">{s.blankSignatory}</p>
+                      ) : (
+                        <>
+                          <p className={cn("text-sm font-medium truncate", !nameDisplay && "text-muted-foreground italic")}>
+                            {nameDisplay ?? s.nameNotSet}
+                          </p>
+                          <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {s.standaloneTag}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {!allEmpty && subtext && (
+                      <p className="text-xs text-muted-foreground truncate">{subtext}</p>
+                    )}
+                    {allEmpty && (
                       <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                         {s.standaloneTag}
                       </span>
-                    </div>
-                    {subtext && (
-                      <p className="text-xs text-muted-foreground truncate">{subtext}</p>
                     )}
                   </div>
                   {!readOnly && (
@@ -227,11 +270,10 @@ export function SignaturesEditor({
                   <label className="text-xs font-medium text-muted-foreground">{s.fieldName}</label>
                   <Input
                     value={form.name}
-                    onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); if (nameError) setNameError(null); }}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder="Full name"
-                    className={cn("h-8 text-sm", nameError && "border-destructive")}
+                    className="h-8 text-sm"
                   />
-                  {nameError && <p className="text-xs text-destructive">{nameError}</p>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{s.fieldOrg}</label>

@@ -48,9 +48,6 @@ export async function POST(req: NextRequest) {
 
   const { project_id, signee_name, title, organization, email } = body as Record<string, unknown>;
   if (!project_id) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
-  if (!signee_name || typeof signee_name !== "string" || !signee_name.trim()) {
-    return NextResponse.json({ error: "signee_name is required" }, { status: 400 });
-  }
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -71,10 +68,10 @@ export async function POST(req: NextRequest) {
        RETURNING ${RETURN_COLS}`,
       [
         project_id,
-        (title as string | null | undefined) ?? null,
-        signee_name.trim(),
-        (organization as string | null | undefined) ?? null,
-        (email as string | null | undefined) ?? null,
+        (typeof title === "string" ? title.trim() || null : null),
+        (typeof signee_name === "string" ? signee_name.trim() || null : null),
+        (typeof organization === "string" ? organization.trim() || null : null),
+        (typeof email === "string" ? email.trim() || null : null),
         sortOrder,
       ]
     );
@@ -110,17 +107,13 @@ export async function PATCH(req: NextRequest) {
     const gate = await guardProject(session, existing[0].project_id);
     if (gate) return gate;
 
-    if (signee_name !== undefined && (typeof signee_name !== "string" || !signee_name.trim())) {
-      return NextResponse.json({ error: "signee_name cannot be blank" }, { status: 400 });
-    }
-
     const sets: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
-    if (title !== undefined)        { sets.push(`title = $${idx++}`);        values.push((title as string | null) ?? null); }
-    if (signee_name !== undefined)  { sets.push(`signee_name = $${idx++}`);  values.push((signee_name as string).trim()); }
-    if (organization !== undefined) { sets.push(`organization = $${idx++}`); values.push((organization as string | null) ?? null); }
-    if (email !== undefined)        { sets.push(`email = $${idx++}`);        values.push((email as string | null) ?? null); }
+    if (title !== undefined)        { sets.push(`title = $${idx++}`);        values.push(typeof title === "string" ? title.trim() || null : null); }
+    if (signee_name !== undefined)  { sets.push(`signee_name = $${idx++}`);  values.push(typeof signee_name === "string" ? signee_name.trim() || null : null); }
+    if (organization !== undefined) { sets.push(`organization = $${idx++}`); values.push(typeof organization === "string" ? organization.trim() || null : null); }
+    if (email !== undefined)        { sets.push(`email = $${idx++}`);        values.push(typeof email === "string" ? email.trim() || null : null); }
 
     if (sets.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 });
 

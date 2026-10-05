@@ -79,9 +79,8 @@ interface ProdocData {
     release_date: string | null;
   }[];
   signatures: {
-    contacts: { name: string; job_title: string | null; roles: string | null; signed_at: string | null }[];
-    secretariat: { signed_at: string | null };
-    standaloneSignatories: { title: string | null; signee_name: string; organization: string | null }[];
+    contacts: { name: string; job_title: string | null; organization: string | null; roles: string | null }[];
+    standaloneSignatories: { title: string | null; signee_name: string | null; organization: string | null }[];
   };
   sdgTargets: { sdg_goal: number; target_code: string; percentage: string | number; priority?: string }[];
 }
@@ -726,32 +725,30 @@ export default function ProdocPrintPage() {
         {/* ── Signatures ── */}
         <Section title="Signatures">
           <div data-block style={{ display: "flex", flexWrap: "wrap", gap: 28, marginTop: 4 }}>
-            {(data.signatures.contacts.length > 0
-              ? data.signatures.contacts.map((c) => ({
-                  name: c.name,
-                  role: c.job_title || c.roles?.split("|")[0] || "Project contact",
-                  signedDate: c.signed_at,
-                }))
-              : [{
-                  name: (m.partner_long_name as string) || (m.partner_short_name as string) || "Organization",
-                  role: "Signatory",
-                  signedDate: null as string | null,
-                }]
-            ).map((s, i) => (
-              <SignatureBlock key={`app-${i}`} name={s.name} role={s.role} signedDate={s.signedDate} />
+            {/* Contact signatories */}
+            {data.signatures.contacts.map((c, i) => (
+              <SignatureBlock
+                key={`app-${i}`}
+                name={c.name}
+                title={c.job_title}
+                organisation={c.organization}
+              />
             ))}
+            {/* Standalone signatories */}
             {data.signatures.standaloneSignatories.map((sa, i) => (
               <SignatureBlock
                 key={`sa-${i}`}
-                name={[sa.title, sa.signee_name].filter(Boolean).join(" ")}
-                role={sa.organization || "Additional signatory"}
-                signedDate={null}
+                name={sa.signee_name || null}
+                title={sa.title}
+                organisation={sa.organization}
               />
             ))}
+            {/* CRAF'd Secretariat */}
             <SignatureBlock
-              name="CRAF'd Secretariat"
-              role="Complex Risk Analytics Fund"
-              signedDate={data.signatures.secretariat.signed_at}
+              key="secretariat"
+              name={null}
+              title={null}
+              organisation="CRAF'd Secretariat"
             />
           </div>
         </Section>
@@ -794,23 +791,27 @@ function QBox({ on }: { on: boolean }) {
   );
 }
 
-function SignatureBlock({ name, role, signedDate }: { name: string; role: string; signedDate?: string | null }) {
-  const signed = !!signedDate;
+function SignatureBlock({ name, title, organisation }: { name: string | null; title: string | null; organisation: string | null }) {
+  const BLANK = "____________________";
   return (
     <div className="avoid-break" style={{ flex: "1 1 220px", minWidth: 220 }}>
-      {/* Signing space — filled with a script signature once signed. */}
-      <div style={{ height: 46, display: "flex", alignItems: "flex-end", paddingBottom: 3 }}>
-        {signed && (
-          <span style={{ fontFamily: '"Segoe Script", "Bradley Hand", "Snell Roundhand", "Brush Script MT", cursive', fontSize: 22, color: INK, lineHeight: 1 }}>{name}</span>
-        )}
-      </div>
+      {/* Blank signing space — document is signed offline on the printed copy */}
+      <div style={{ height: 46 }} />
       <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 5 }}>
-        <div style={{ fontWeight: 700, fontSize: 12.5 }}>{name}</div>
-        <div style={{ fontSize: 11, color: MUTED }}>{role}</div>
-        <div style={{ fontSize: 10.5, color: MUTED, marginTop: 8 }}>
-          Date: {signed ? fmtDate(signedDate!) : "____________________"}
-        </div>
+        <LabelLine label="Name" value={name} blank={BLANK} />
+        <LabelLine label="Title" value={title} blank={BLANK} />
+        <LabelLine label="Organisation" value={organisation} blank={BLANK} />
+        <LabelLine label="Date" value={null} blank={BLANK} />
       </div>
+    </div>
+  );
+}
+
+function LabelLine({ label, value, blank }: { label: string; value: string | null; blank: string }) {
+  return (
+    <div style={{ fontSize: 11, marginTop: 5 }}>
+      <span style={{ color: MUTED }}>{label}: </span>
+      <span style={{ color: INK }}>{value || blank}</span>
     </div>
   );
 }

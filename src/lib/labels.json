@@ -92,7 +92,7 @@
     "secretariatSubtitle": "Complex Risk Analytics Fund",
     "sign": "Sign",
     "signedOn": "Signed",
-    "remove": "Remove signature",
+    "remove": "Remove",
     "emptyContacts": "No project contacts yet. Add contacts in the General Information tab.",
     "emptySignatories": "No contacts have Signatory in their Roles. On the General Information tab, add Signatory to a contact's Roles to have them appear here.",
     "awaitingSecretariat": "Awaiting signature",
@@ -106,7 +106,9 @@
     "fieldName": "Name",
     "fieldOrg": "Organization",
     "fieldEmail": "Email",
-    "nameRequired": "Name is required.",
+    "nameNotSet": "Name not set",
+    "blankSignatory": "Blank signatory — to be filled in on the printed document",
+    "removeContactConfirm": "Remove {name} as a signatory? They will stay in the project's contacts.",
     "deleteStandaloneConfirm": "Remove this signatory from the document?"
   },
   "documents": {

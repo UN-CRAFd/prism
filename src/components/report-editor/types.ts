@@ -51,6 +51,7 @@ export interface Risk {
   id: number;
   report_id: number;
   risk_name: string;
+  risk_description: string | null;
   risk_category: string[] | null;
   likelihood: number | null;
   impact: number | null;
@@ -64,6 +65,7 @@ export interface Risk {
 
 export interface RiskState {
   risk_name: string;
+  risk_description: string;
   risk_category: string[];
   updated_likelihood: number | null;
   updated_impact: number | null;

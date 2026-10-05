@@ -508,6 +508,7 @@ CREATE TABLE IF NOT EXISTS risk_management (
     id                  SERIAL       PRIMARY KEY,
     report_id           INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     risk_name           TEXT         NOT NULL,
+    risk_description    TEXT,
     likelihood          SMALLINT     CHECK (likelihood BETWEEN 1 AND 5),
     impact              SMALLINT     CHECK (impact BETWEEN 1 AND 5),
     updated_likelihood  SMALLINT     CHECK (updated_likelihood BETWEEN 1 AND 5),

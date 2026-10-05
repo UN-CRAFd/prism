@@ -79,6 +79,7 @@ interface Risk {
   id: number;
   report_id: number;
   risk_name: string;
+  risk_description: string | null;
   risk_category: string[] | null;
   likelihood: number | null;
   impact: number | null;
@@ -196,14 +197,21 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [risks, setRisks] = useState<Risk[]>([]);
   const [loadingRisk, setLoadingRisk] = useState(false);
   const [newRiskName, setNewRiskName] = useState("");
+  const [newRiskDescription, setNewRiskDescription] = useState("");
   const [newRiskCategory, setNewRiskCategory] = useState<string[]>([]);
+  const [newRiskLikelihood, setNewRiskLikelihood] = useState<number | null>(null);
+  const [newRiskImpact, setNewRiskImpact] = useState<number | null>(null);
   const [newRiskApprovedMitigation, setNewRiskApprovedMitigation] = useState("");
+  const [showAddRiskRow, setShowAddRiskRow] = useState(false);
   const [addingRisk, setAddingRisk] = useState(false);
+  const [newRiskErrors, setNewRiskErrors] = useState({ name: false, description: false, likelihood: false, impact: false });
   const [deletingRiskId, setDeletingRiskId] = useState<number | null>(null);
   const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
   const [editingRiskName, setEditingRiskName] = useState("");
+  const [editingRiskDescription, setEditingRiskDescription] = useState("");
   const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
   const [editingRiskApprovedMitigation, setEditingRiskApprovedMitigation] = useState("");
+  const [editRiskErrors, setEditRiskErrors] = useState({ name: false, description: false });
 
   // Indicator inline edit — custom indicators are partner-editable; standard indicators are admin-only.
   const [editingIndicatorId, setEditingIndicatorId] = useState<number | null>(null);
@@ -269,8 +277,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (!params.section) return;
     setSelectedSection(params.section);
     setError(null); setSubmitError(null); setYearErrors({});
-    setAddingRisk(false); setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
-    setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation("");
+    setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false });
+    setEditingRiskId(null); setEditingRiskName(""); setEditingRiskDescription(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); setEditRiskErrors({ name: false, description: false });
     setEditingIndicatorId(null); setEditingIndName(""); setEditingIndDescription(""); setEditingIndMov("");
     setAddingIndicator(false); setCreatingIndicator(false); setNewIndName(""); setNewIndDescription(""); setNewIndMeansOfVerification("");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -560,8 +568,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (val === selectedSection) return;
     setSelectedSection(val);
     setError(null); setSubmitError(null); setYearErrors({});
-    setAddingRisk(false); setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
-    setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation("");
+    setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false });
+    setEditingRiskId(null); setEditingRiskName(""); setEditingRiskDescription(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); setEditRiskErrors({ name: false, description: false });
     setEditingIndicatorId(null); setEditingIndName(""); setEditingIndDescription(""); setEditingIndMov("");
     setAddingIndicator(false); setCreatingIndicator(false); setNewIndName(""); setNewIndDescription(""); setNewIndMeansOfVerification("");
     const doc = docs.find((d) => String(d.id) === selectedProdocId);
@@ -571,11 +579,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // ── Risk CRUD ───────────────────────────────────────────────────────────
 
   async function handleRiskAdd() {
-    if (!newRiskName.trim() || !selectedProdocId) return;
+    if (!selectedProdocId) return;
+    const errs = {
+      name: !newRiskName.trim(),
+      description: !newRiskDescription.trim(),
+      likelihood: newRiskLikelihood == null,
+      impact: newRiskImpact == null,
+    };
+    if (errs.name || errs.description || errs.likelihood || errs.impact) {
+      setNewRiskErrors(errs);
+      return;
+    }
+    setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false });
     handleSaveStateChange("saving");
     setAddingRisk(true); setError(null);
     try {
-      const addBody = { reportId: Number(selectedProdocId), risk_name: newRiskName, risk_category: newRiskCategory, approved_mitigation: newRiskApprovedMitigation || null };
+      const addBody = { reportId: Number(selectedProdocId), risk_name: newRiskName, risk_description: newRiskDescription, likelihood: newRiskLikelihood, impact: newRiskImpact, risk_category: newRiskCategory, approved_mitigation: newRiskApprovedMitigation || null };
       const res = await fetch("/api/risk", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addBody),
@@ -583,7 +602,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       if (!res.ok) throw new Error("Failed to add risk");
       const created: Risk = await res.json();
       setRisks((prev) => [...prev, created]);
-      setNewRiskName(""); setNewRiskCategory([]); setNewRiskApprovedMitigation("");
+      setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false });
       handleSaveStateChange("saved");
       const riskAnchorId = created.id;
       pushCommand({
@@ -609,13 +628,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }
 
   async function handleRiskEditSave(id: number) {
-    if (!editingRiskName.trim()) return;
+    const editErrs = { name: !editingRiskName.trim(), description: !editingRiskDescription.trim() };
+    if (editErrs.name || editErrs.description) { setEditRiskErrors(editErrs); return; }
+    setEditRiskErrors({ name: false, description: false });
     handleSaveStateChange("saving");
     setError(null);
     try {
       const prevRisk = risks.find((r) => r.id === id);
-      const prevValues = prevRisk ? { risk_name: prevRisk.risk_name, risk_category: prevRisk.risk_category, approved_mitigation: prevRisk.approved_mitigation } : null;
-      const newValues = { risk_name: editingRiskName, risk_category: editingRiskCategory, approved_mitigation: editingRiskApprovedMitigation || null };
+      const prevValues = prevRisk ? { risk_name: prevRisk.risk_name, risk_description: prevRisk.risk_description, risk_category: prevRisk.risk_category, approved_mitigation: prevRisk.approved_mitigation } : null;
+      const newValues = { risk_name: editingRiskName, risk_description: editingRiskDescription || null, risk_category: editingRiskCategory, approved_mitigation: editingRiskApprovedMitigation || null };
       const res = await fetch("/api/risk", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...newValues }),
@@ -798,7 +819,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         undo: async () => {
           const cRes = await fetch("/api/risk", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reportId: capturedRisk.report_id, risk_name: capturedRisk.risk_name, risk_category: capturedRisk.risk_category ?? [], approved_mitigation: capturedRisk.approved_mitigation ?? null }),
+            body: JSON.stringify({ reportId: capturedRisk.report_id, risk_name: capturedRisk.risk_name, risk_description: capturedRisk.risk_description ?? null, risk_category: capturedRisk.risk_category ?? [], approved_mitigation: capturedRisk.approved_mitigation ?? null }),
           });
           if (!cRes.ok) { setError("Failed to restore risk"); return; }
           const created: Risk = await cRes.json();
@@ -1236,7 +1257,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // body scrolls rather than scrolling with the whole page.
   const fillHeight =
     !!selectedProdocId &&
-    ["workplan", "indicators", "risk"].includes(selectedSection);
+    ["workplan", "indicators"].includes(selectedSection);
 
   const nextSection = (() => {
     const i = sections.findIndex((s) => s.value === selectedSection);
@@ -1562,33 +1583,23 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} pushCommand={pushCommand} /> : null
 
         ) : selectedSection === "risk" ? (
-          <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
-            <div className="flex gap-2">
-              <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1" />
-              <div className="flex-1">
-                <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
-              </div>
-              <Input placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="flex-1" />
-              <Button onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
-                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-              </Button>
-            </div>
-            {risks.length === 0 ? (
+          <div className="space-y-3">
+            {risks.length === 0 && !showAddRiskRow ? (
               <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
                 {labels.adminEditor.emptyRisks}
               </div>
             ) : (
-              <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-hidden")}>
+              <div className="rounded-xl border bg-card overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT, stickyHead)}>{labels.risk.columns.number}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT, stickyHead)}>{labels.risk.columns.risk}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.risk.columns.likelihood}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.risk.columns.impact}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-28", HEAD_TEXT, stickyHead)}>{labels.risk.columns.riskLevel}</th>
-                      <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT, stickyHead)}>{labels.risk.columns.approvedMitigation}</th>
-                      <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT, stickyHead)}>{labels.risk.columns.actions}</th>
+                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT)}>{labels.risk.columns.number}</th>
+                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT)}>{labels.risk.columns.risk}</th>
+                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.likelihood}</th>
+                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.impact}</th>
+                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.riskLevel}</th>
+                      <th className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT)}>{labels.risk.columns.approvedMitigation}</th>
+                      <th className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.actions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -1599,12 +1610,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
                           {isEditing ? (
                             <>
-                              {/* Edit inline, keeping each field in its own column
-                                  (name + categories in Risk; likelihood/impact stay
-                                  the inline dropdowns; mitigation in its column). */}
                               <td className="px-4 py-3 align-top">
                                 <div className="flex flex-col gap-2">
-                                  <Input value={editingRiskName} onChange={(e) => setEditingRiskName(e.target.value)} placeholder={labels.placeholders.riskName} className="text-sm" autoFocus />
+                                  <Input value={editingRiskName} onChange={(e) => { setEditingRiskName(e.target.value); if (editRiskErrors.name) setEditRiskErrors((p) => ({ ...p, name: false })); }} placeholder={labels.placeholders.riskName} className={cn("text-sm", editRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
+                                  <Textarea value={editingRiskDescription} onChange={(e) => { setEditingRiskDescription(e.target.value); if (editRiskErrors.description) setEditRiskErrors((p) => ({ ...p, description: false })); }} placeholder={labels.placeholders.riskDescription} className={cn("text-sm min-h-[60px] resize-y", editRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
                                   <MultiSelect optionKey="riskCategory" value={editingRiskCategory} onChange={setEditingRiskCategory} placeholder={labels.placeholders.riskCategories} />
                                 </div>
                               </td>
@@ -1623,7 +1632,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">
                                   <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); }}>{labels.common.cancel}</Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskDescription(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); setEditRiskErrors({ name: false, description: false }); }}>{labels.common.cancel}</Button>
                                 </div>
                               </td>
                             </>
@@ -1633,6 +1642,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                 <div className="flex items-start gap-2">
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium">{risk.risk_name}</p>
+                                    {risk.risk_description && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">{risk.risk_description}</p>
+                                    )}
                                     {risk.risk_category && risk.risk_category.length > 0 && (
                                       <div className="mt-1.5 flex flex-wrap gap-1">
                                         {risk.risk_category.map((cat) => (
@@ -1661,7 +1673,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className="px-4 py-3 align-top">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskCategory(risk.risk_category ?? []); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                                  <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskDescription(risk.risk_description ?? ""); setEditingRiskCategory(risk.risk_category ?? []); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); setEditRiskErrors({ name: false, description: false }); }} className="text-muted-foreground hover:text-foreground transition-colors">
                                     <Pencil className="size-3.5" />
                                   </button>
                                   <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
@@ -1674,8 +1686,61 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                         </tr>
                       );
                     })}
+                    {showAddRiskRow && (
+                      <>
+                        <tr className="bg-muted/10">
+                          <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{risks.length + 1}.</td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex flex-col gap-2">
+                              <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => { setNewRiskName(e.target.value); if (newRiskErrors.name) setNewRiskErrors((p) => ({ ...p, name: false })); }} className={cn("text-sm", newRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
+                              <Textarea placeholder={labels.placeholders.riskDescription} value={newRiskDescription} onChange={(e) => { setNewRiskDescription(e.target.value); if (newRiskErrors.description) setNewRiskErrors((p) => ({ ...p, description: false })); }} className={cn("text-sm min-h-[60px] resize-y", newRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
+                              <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className={cn(newRiskErrors.likelihood && "rounded-md ring-1 ring-destructive")}>
+                              <ScaleSelect kind="likelihood" value={newRiskLikelihood} onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className={cn(newRiskErrors.impact && "rounded-md ring-1 ring-destructive")}>
+                              <ScaleSelect kind="impact" value={newRiskImpact} onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <RiskLevelBadge likelihood={newRiskLikelihood} impact={newRiskImpact} />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <Textarea placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="text-sm min-h-[80px] resize-y" />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button size="sm" variant="outline" onClick={handleRiskAdd} disabled={addingRisk}>
+                                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => { setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false }); }}>{labels.common.cancel}</Button>
+                            </div>
+                          </td>
+                        </tr>
+                        {(newRiskErrors.name || newRiskErrors.description || newRiskErrors.likelihood || newRiskErrors.impact) && (
+                          <tr className="bg-muted/10">
+                            <td />
+                            <td colSpan={6} className="px-4 pb-3 pt-0">
+                              <p className="text-xs text-destructive">Add a name, description, likelihood and impact to save this risk.</p>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {!showAddRiskRow && !readOnly && (
+              <div className="flex justify-end">
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowAddRiskRow(true)} className="gap-1">
+                  <Plus className="size-4" />Add risk
+                </Button>
               </div>
             )}
           </div>

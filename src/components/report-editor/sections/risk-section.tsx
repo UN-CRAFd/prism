@@ -29,6 +29,8 @@ export interface RiskSectionProps {
   // Add-a-risk form
   newRiskName: string;
   setNewRiskName: (v: string) => void;
+  newRiskDescription: string;
+  setNewRiskDescription: (v: string) => void;
   newRiskCategory: string[];
   setNewRiskCategory: (v: string[]) => void;
   addingRisk: boolean;
@@ -44,6 +46,8 @@ export function RiskSection({
   reportYear,
   newRiskName,
   setNewRiskName,
+  newRiskDescription,
+  setNewRiskDescription,
   newRiskCategory,
   setNewRiskCategory,
   addingRisk,
@@ -53,17 +57,19 @@ export function RiskSection({
 }: RiskSectionProps) {
   const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
   const [draftCategory, setDraftCategory] = useState<string[]>([]);
 
   function startEdit(risk: Risk, state: RiskState) {
     setEditingRiskId(risk.id);
     setDraftName(state.risk_name);
+    setDraftDescription(state.risk_description);
     setDraftCategory(state.risk_category);
   }
 
   function handleSaveEdit(id: number) {
     if (!draftName.trim()) return;
-    updateRisk(id, { risk_name: draftName.trim(), risk_category: draftCategory });
+    updateRisk(id, { risk_name: draftName.trim(), risk_description: draftDescription, risk_category: draftCategory });
     setEditingRiskId(null);
   }
 
@@ -75,7 +81,8 @@ export function RiskSection({
     <div className="space-y-4">
       {/* Add a new risk */}
       <div className="flex flex-wrap gap-2">
-        <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newRiskName.trim()) handleRiskAdd(); }} className="flex-1 min-w-[200px]" />
+        <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} className="flex-1 min-w-[200px]" />
+        <Input placeholder={labels.placeholders.riskDescription} value={newRiskDescription} onChange={(e) => setNewRiskDescription(e.target.value)} className="flex-1 min-w-[200px]" />
         <div className="flex-1 min-w-[160px]">
           <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
         </div>
@@ -131,9 +138,16 @@ export function RiskSection({
                         <Input
                           value={draftName}
                           onChange={(e) => setDraftName(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter" && draftName.trim()) handleSaveEdit(risk.id); if (e.key === "Escape") handleCancelEdit(); }}
+                          onKeyDown={(e) => { if (e.key === "Escape") handleCancelEdit(); }}
                           className="text-sm h-8"
                           autoFocus
+                          placeholder={labels.placeholders.riskName}
+                        />
+                        <Textarea
+                          value={draftDescription}
+                          onChange={(e) => setDraftDescription(e.target.value)}
+                          className="text-sm min-h-[60px] resize-y"
+                          placeholder={labels.placeholders.riskDescription}
                         />
                         <MultiSelect
                           optionKey="riskCategory"
@@ -153,6 +167,9 @@ export function RiskSection({
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm">{isNew ? state.risk_name : risk.risk_name}</p>
+                          {(isNew ? state.risk_description : risk.risk_description) && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{isNew ? state.risk_description : risk.risk_description}</p>
+                          )}
                           {(() => {
                             const cats = isNew ? state.risk_category : (risk.risk_category ?? []);
                             return cats.length > 0 ? (

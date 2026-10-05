@@ -89,10 +89,11 @@ export async function GET(req: NextRequest) {
         [prodocId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Risk — every risk scored (likelihood + impact).
+      // Risk — every risk scored (likelihood + impact) and has a description.
       query<Row>(
         `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE likelihood IS NOT NULL AND impact IS NOT NULL)::int AS ok
+                COUNT(*) FILTER (WHERE likelihood IS NOT NULL AND impact IS NOT NULL
+                                   AND risk_description IS NOT NULL AND risk_description <> '')::int AS ok
            FROM reporting_platform.risk_management WHERE report_id = $1`,
         [prodocId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),

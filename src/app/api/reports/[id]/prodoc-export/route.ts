@@ -68,7 +68,7 @@ export async function GET(
         [projectId]
       ),
       query(
-        `SELECT rm.risk_name, rm.likelihood, rm.impact, rm.approved_mitigation,
+        `SELECT rm.risk_name, rm.risk_description, rm.likelihood, rm.impact, rm.approved_mitigation,
                 COALESCE(
                   (SELECT ARRAY_AGG(rc.category ORDER BY rc.category)
                      FROM reporting_platform.risk_categories rc

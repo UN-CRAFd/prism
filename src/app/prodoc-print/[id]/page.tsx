@@ -47,7 +47,7 @@ interface ProdocData {
   meta: Record<string, unknown>;
   narratives: { narrative_key: string; label: string | null; answer: string }[];
   risks: {
-    risk_name: string; likelihood: number | null; impact: number | null;
+    risk_name: string; risk_description: string | null; likelihood: number | null; impact: number | null;
     approved_mitigation: string | null; categories: string[];
   }[];
   indicators: {
@@ -451,20 +451,33 @@ export default function ProdocPrintPage() {
         {/* ── Risk register ── */}
         {data.risks.length > 0 && (
           <Section title="Risk Management">
-            <div data-block>
-              <Table
-                head={["Risk", "Categories", "Likelihood", "Impact", "Approved mitigation"]}
-                widths={["22%", "16%", "13%", "13%", "36%"]}
-                align={["left", "left", "left", "left", "left"]}
-                rows={data.risks.map((r) => [
-                  r.risk_name,
-                  r.categories.length ? r.categories.join(", ") : "—",
-                  likelihoodLabel(r.likelihood) || "—",
-                  impactLabel(r.impact) || "—",
-                  r.approved_mitigation || "—",
-                ])}
-              />
-            </div>
+            <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <Th align="left" width="28%">Risk</Th>
+                  <Th align="left" width="14%">Categories</Th>
+                  <Th align="left" width="12%">Likelihood</Th>
+                  <Th align="left" width="12%">Impact</Th>
+                  <Th align="left">Mitigation strategy</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.risks.map((r, i) => (
+                  <tr key={i}>
+                    <Td>
+                      <div style={{ fontWeight: 600 }}>{r.risk_name}</div>
+                      {r.risk_description && (
+                        <div style={{ color: MUTED, marginTop: 2 }}>{r.risk_description}</div>
+                      )}
+                    </Td>
+                    <Td>{r.categories.length ? r.categories.join(", ") : "—"}</Td>
+                    <Td>{likelihoodLabel(r.likelihood) || "—"}</Td>
+                    <Td>{impactLabel(r.impact) || "—"}</Td>
+                    <Td>{r.approved_mitigation || "—"}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </Section>
         )}
 

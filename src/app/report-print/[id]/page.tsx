@@ -121,7 +121,7 @@ interface ExpenditureData {
 }
 
 interface RiskRow {
-  id: number; risk_name: string; risk_category: string[];
+  id: number; risk_name: string; risk_description: string | null; risk_category: string[];
   updated_likelihood: number | null; updated_impact: number | null;
   updated_mitigation: string | null;
   project_revision: boolean | null; source_risk_id: number | null;
@@ -956,6 +956,9 @@ export default function ReportPrintPage() {
                     <Td align="center">{idx + 1}</Td>
                     <Td>
                       <div style={{ fontWeight: 600 }}>{r.risk_name}</div>
+                      {r.risk_description && (
+                        <div style={{ color: MUTED, marginTop: 2 }}>{r.risk_description}</div>
+                      )}
                       {r.risk_category?.length > 0 && (
                         <div style={{ fontSize: 9.5, color: MUTED, marginTop: 2 }}>
                           {r.risk_category.join(", ")}

@@ -99,6 +99,7 @@ export function ReportEditor({
   // Risks are report-scoped and can be added here; editing and deleting their
   // core (admin-owned) fields is the ProDoc editor's job.
   const [newRiskName, setNewRiskName] = useState("");
+  const [newRiskDescription, setNewRiskDescription] = useState("");
   const [newRiskCategory, setNewRiskCategory] = useState<string[]>([]);
   const [addingRisk, setAddingRisk] = useState(false);
 
@@ -203,6 +204,7 @@ export function ReportEditor({
       for (const r of data) {
         states[r.id] = {
           risk_name: r.risk_name,
+          risk_description: r.risk_description ?? "",
           risk_category: r.risk_category ?? [],
           updated_likelihood: r.updated_likelihood,
           updated_impact: r.updated_impact,
@@ -419,7 +421,7 @@ export function ReportEditor({
     const dirtySurveys = surveys.filter((s) => rowStates[s.id]?.dirty);
     const surveySnap = new Map(dirtySurveys.map((s) => [s.id, JSON.stringify({ a: rowStates[s.id].assessment, c: rowStates[s.id].context })]));
     const dirtyRisks = risks.filter((r) => riskStates[r.id]?.dirty);
-    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ n: riskStates[r.id].risk_name, c: riskStates[r.id].risk_category, ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
+    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ n: riskStates[r.id].risk_name, d: riskStates[r.id].risk_description, c: riskStates[r.id].risk_category, ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
     const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
     const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify(indicatorStates[r.currentLineId])]));
     const saveOverview = overviewDirty;
@@ -440,7 +442,7 @@ export function ReportEditor({
         ...dirtyRisks.map((r) => {
           const st = riskStates[r.id];
           const patch: Record<string, unknown> = { id: r.id, updated_likelihood: st.updated_likelihood, updated_impact: st.updated_impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision };
-          if (r.source_risk_id === null) { patch.risk_name = st.risk_name; patch.risk_category = st.risk_category; }
+          if (r.source_risk_id === null) { patch.risk_name = st.risk_name; patch.risk_description = st.risk_description || null; patch.risk_category = st.risk_category; }
           return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then(ok);
         }),
         ...dirtyInd.map((r) => {
@@ -470,7 +472,7 @@ export function ReportEditor({
     });
     if (dirtyRisks.length) setRiskStates((prev) => {
       const n = { ...prev };
-      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ n: cur.risk_name, c: cur.risk_category, ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
+      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ n: cur.risk_name, d: cur.risk_description, c: cur.risk_category, ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
       return n;
     });
     if (dirtyInd.length) setIndicatorStates((prev) => {
@@ -518,6 +520,7 @@ export function ReportEditor({
         body: JSON.stringify({
           reportId,
           risk_name: newRiskName,
+          risk_description: newRiskDescription || null,
           risk_category: newRiskCategory,
         }),
       });
@@ -528,6 +531,7 @@ export function ReportEditor({
         ...prev,
         [created.id]: {
           risk_name: created.risk_name,
+          risk_description: created.risk_description ?? "",
           risk_category: created.risk_category ?? [],
           updated_likelihood: created.updated_likelihood,
           updated_impact: created.updated_impact,
@@ -537,6 +541,7 @@ export function ReportEditor({
         },
       }));
       setNewRiskName("");
+      setNewRiskDescription("");
       setNewRiskCategory([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -996,6 +1001,8 @@ export function ReportEditor({
             reportYear={selectedReport?.year ?? 0}
             newRiskName={newRiskName}
             setNewRiskName={setNewRiskName}
+            newRiskDescription={newRiskDescription}
+            setNewRiskDescription={setNewRiskDescription}
             newRiskCategory={newRiskCategory}
             setNewRiskCategory={setNewRiskCategory}
             addingRisk={addingRisk}

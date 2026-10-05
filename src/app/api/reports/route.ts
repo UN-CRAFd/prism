@@ -162,8 +162,8 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
 
   await client.query(
     `INSERT INTO reporting_platform.risk_management
-       (report_id, risk_name, likelihood, impact, approved_mitigation, source_risk_id)
-     SELECT nr.id, rm.risk_name, rm.likelihood, rm.impact, rm.approved_mitigation, rm.id
+       (report_id, risk_name, risk_description, likelihood, impact, approved_mitigation, source_risk_id)
+     SELECT nr.id, rm.risk_name, rm.risk_description, rm.likelihood, rm.impact, rm.approved_mitigation, rm.id
        FROM reporting_platform.reports nr
        JOIN reporting_platform.reports pd
          ON pd.project_id = nr.project_id AND pd.data_type = 'prodoc'

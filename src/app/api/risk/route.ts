@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   const body = await parseBody(req);
   if (!body) return invalidJson();
 
-  const { reportId, risk_name, risk_category, approved_mitigation } = body;
+  const { reportId, risk_name, risk_description, risk_category, approved_mitigation, likelihood, impact } = body;
   if (!reportId || !risk_name) {
     return badRequest("reportId and risk_name required");
   }
@@ -103,14 +103,16 @@ export async function POST(req: NextRequest) {
   if (gate) return gate;
 
   const categories = normalizeCategories(risk_category);
+  const lh = toNumber(likelihood);
+  const imp = toNumber(impact);
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const rows = await client.query<{ id: number }>(
-      `INSERT INTO reporting_platform.risk_management (report_id, risk_name, approved_mitigation)
-       VALUES ($1, $2, $3) RETURNING id`,
-      [reportId, risk_name, (approved_mitigation as string) || null]
+      `INSERT INTO reporting_platform.risk_management (report_id, risk_name, risk_description, likelihood, impact, approved_mitigation)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [reportId, risk_name, (risk_description as string) || null, lh, imp, (approved_mitigation as string) || null]
     );
     const id = rows.rows[0].id;
     await syncCategories(client, id, categories);
@@ -153,7 +155,7 @@ export async function PATCH(req: NextRequest) {
     if (meta.length && meta[0].data_type === "report") {
       const isOld = meta[0].source_risk_id !== null;
       const locked = isOld
-        ? ["risk_name", "risk_category", "approved_mitigation", "likelihood", "impact"]
+        ? ["risk_name", "risk_description", "risk_category", "approved_mitigation", "likelihood", "impact"]
         : ["approved_mitigation", "likelihood", "impact"];
       if (locked.some((f) => f in fields)) {
         return NextResponse.json(
@@ -165,7 +167,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   // risk_category lives in the junction table, not on risk_management.
-  const allowed = ["risk_name", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "updated_likelihood", "updated_impact", "project_revision"] as const;
+  const allowed = ["risk_name", "risk_description", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "updated_likelihood", "updated_impact", "project_revision"] as const;
   const updates: string[] = [];
   const values: unknown[] = [id];
 

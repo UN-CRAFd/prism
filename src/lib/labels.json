@@ -63,7 +63,7 @@
     "signatures": "Sign off on the project document. The partner signs for each project contact; the CRAF'd Secretariat is signed by the administrator. Signatures appear on the exported project document and can be removed if signed in error.",
     "documents": "Upload documents and annexes related to the project — agreements, budgets, logframes, reports and other supporting files. Choose a document type, optionally record the document's date, then select the file to upload.",
     "prodocIndicators": "Define how the project will be measured: attach indicators, then set each one's baseline and target values and years. Later reports track progress against these. Changes save automatically.",
-    "prodocRisk": "Identify the project's risks: name each risk, categorise it, rate its likelihood and impact, and record the approved mitigation. Changes save automatically.",
+    "prodocRisk": "Identify the project's risks: name each risk, add a description, categorise it, rate its likelihood and impact, and record the mitigation strategy. Changes save automatically.",
     "prodocBudgets": "Enter the approved annual budget per category in USD, with a short description of the key outputs it covers. Sub-totals, indirect support costs and the total are calculated automatically. Changes save automatically.",
     "prodocWorkplan": "Set up the baseline workplan: add each activity and mark the quarters it is planned to run in. Later reports record updates against this baseline. Changes save automatically."
   },
@@ -269,7 +269,7 @@
       "likelihood": "Likelihood",
       "impact": "Impact",
       "riskLevel": "Risk level",
-      "approvedMitigation": "Approved mitigation",
+      "approvedMitigation": "Mitigation strategy",
       "updatedMitigation": "Updated mitigation",
       "revision": "Revision",
       "actions": "Actions"
@@ -461,7 +461,8 @@
     "geographicScope": "Describe the geographic scope…",
     "assessmentContext": "Add context or explanation…",
     "updatedMitigation": "Updated Mitigation…",
-    "approvedMitigation": "Approved mitigation…",
+    "approvedMitigation": "Mitigation strategy…",
+    "riskDescription": "Describe this risk…",
     "newSurveyQuestion": "New survey question…",
     "riskName": "Risk name…",
     "riskCategories": "Select categories…",

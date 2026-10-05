@@ -70,9 +70,7 @@ export async function POST(request: NextRequest) {
          FROM reporting_platform.projects p
          LEFT JOIN reporting_platform.project_tranche_cells tc ON tc.project_id = p.id
         WHERE p.id = $1
-        GROUP BY p.project_title, p.grant_size_usd, p.project_start_date,
-                 p.project_duration_months, p.geographic_scope, p.description,
-                 p.indirect_cost_rate`,
+        GROUP BY p.id`,
       [projectId]
     );
     if (fundingRows.length === 0) {

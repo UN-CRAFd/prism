@@ -49,11 +49,13 @@ export function TrancheScheduleEditor({
   onSaveStateChange,
   isAdmin = true,
   readOnly = false,
+  refreshKey,
 }: {
   projectId: number;
   onSaveStateChange?: (s: SaveState) => void;
   isAdmin?: boolean;
   readOnly?: boolean;
+  refreshKey?: number;
 }) {
   void isAdmin; // accepted for API symmetry; not currently gating any field
   const confirm = useConfirm();
@@ -117,6 +119,41 @@ export function TrancheScheduleEditor({
     })();
     return () => { cancelled = true; };
   }, [projectId]);
+
+  // Quiet re-fetch when the parent switches back to the Budgets tab.
+  useEffect(() => {
+    if (!refreshKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [projRes, porgsRes, cellsRes] = await Promise.all([
+          fetch(`/api/projects/${projectId}`),
+          fetch(`/api/project-organizations?project_id=${projectId}`),
+          fetch(`/api/project-tranche-cells?project_id=${projectId}`),
+        ]);
+        if (!projRes.ok || !porgsRes.ok || !cellsRes.ok || cancelled) return;
+        const proj = await projRes.json();
+        const orgRows: (OrgRow & { type: string })[] = await porgsRes.json();
+        const rawCells: { organization_id: number; tranche_number: number; amount: string | number | null; date_description: string | null; release_date: string | null }[] = await cellsRes.json();
+        if (cancelled) return;
+        setGrantSize(proj.grant_size_usd != null ? Number(proj.grant_size_usd) : null);
+        setParticipatingOrgs(orgRows.filter((o) => o.type === "participating").map(({ id, name }) => ({ id, name })));
+        const loadedCells: CellForm[] = rawCells.map((c) => ({
+          organization_id: c.organization_id,
+          tranche_number: c.tranche_number,
+          amount: c.amount != null && Number(c.amount) !== 0 ? String(c.amount) : "",
+          date_description: c.date_description ?? "",
+          release_date: c.release_date ?? "",
+        }));
+        const maxTranche = rawCells.reduce((m, c) => Math.max(m, c.tranche_number), 0);
+        setTrancheCells(loadedCells);
+        setTrancheCount(Math.max(maxTranche, 1));
+        savedCellsRef.current = cellsSnapshot(loadedCells, Math.max(maxTranche, 1));
+      } catch { /* quiet */ }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const flush = useCallback(async () => {
     const curCells = trancheCellsRef.current;

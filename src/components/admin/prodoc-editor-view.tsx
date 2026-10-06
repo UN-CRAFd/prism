@@ -234,6 +234,17 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // Workplan activities for the linked outcome / objective picker on the indicators tab.
   const [activities, setActivities] = useState<ContributorActivity[]>([]);
 
+  // Keep-alive: sections are mounted once and hidden via `hidden` attribute. Only
+  // sections that have been visited (added to visitedRef) get mounted. Background
+  // tabs are pre-mounted one at a time with idle callbacks. setMountTick forces a
+  // re-render so the new visitedRef entries are picked up.
+  const visitedRef = useRef<Set<string>>(new Set([selectedSection]));
+  const [, setMountTick] = useState(0);
+  // Bumped when the user returns to the Budgets tab — signals ExpenditureAdminEditor
+  // and TrancheScheduleEditor to re-fetch their data quietly (no spinner).
+  const [expenditureRefreshKey, setExpenditureRefreshKey] = useState(0);
+  const prevSectionRef = useRef<string>("");
+
   const loadActivities = useCallback(async (prodocId: string) => {
     const projectId = docs.find((d) => String(d.id) === prodocId)?.project_id;
     if (!projectId) return;
@@ -312,15 +323,64 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setLoadingIndicators(false); }
   }, []);
 
+  // Like loadIndicators but skips the loading spinner — used when switching back
+  // to the indicators tab after previously having loaded the data.
+  const loadIndicatorsQuiet = useCallback(async (prodocId: string) => {
+    try {
+      const [linesRes, libRes] = await Promise.all([
+        fetch(`/api/indicator-data?reportId=${prodocId}`),
+        fetch(`/api/indicators`),
+      ]);
+      if (!linesRes.ok || !libRes.ok) return;
+      setIndicatorLines(await linesRes.json());
+      setLibrary(await libRes.json());
+    } catch { /* quiet — stale data stays visible */ }
+  }, []);
+
+  // Load risk + indicator data once per selected prodoc, regardless of which tab
+  // is active. With keep-alive, all tabs may be mounted before the user visits them.
   useEffect(() => {
     if (!selectedProdocId) return;
     setRisks([]); setIndicatorLines([]); setLibrary([]); setActivities([]);
-    if (selectedSection === "risk") loadRisks(selectedProdocId);
-    else if (selectedSection === "indicators") {
-      loadIndicators(selectedProdocId);
-      loadActivities(selectedProdocId);
+    loadRisks(selectedProdocId);
+    loadIndicators(selectedProdocId);
+    loadActivities(selectedProdocId);
+  }, [selectedProdocId, loadRisks, loadIndicators, loadActivities]);
+
+  // Track which sections have been visited; handle quiet refreshes when the user
+  // switches back to expenditure or indicators; pre-mount background tabs one at a
+  // time using idle callbacks so the first tab load stays on the critical path.
+  useEffect(() => {
+    if (!selectedProdocId) return;
+    const prev = prevSectionRef.current;
+    prevSectionRef.current = selectedSection;
+    visitedRef.current.add(selectedSection);
+    if (prev && prev !== selectedSection) {
+      if (selectedSection === "expenditure") setExpenditureRefreshKey((k) => k + 1);
+      if (selectedSection === "indicators") { loadIndicatorsQuiet(selectedProdocId); loadActivities(selectedProdocId); }
     }
-  }, [selectedProdocId, selectedSection, loadRisks, loadIndicators, loadActivities]);
+    const unvisited = SECTIONS
+      .filter((s) => !s.hidden && (!isPartner || !s.adminOnly) && !visitedRef.current.has(s.value))
+      .map((s) => s.value);
+    if (!unvisited.length) return;
+    let i = 0;
+    const scheduleNext = () => {
+      if (i >= unvisited.length) return;
+      const fn = () => {
+        visitedRef.current.add(unvisited[i]);
+        i++;
+        setMountTick((t) => t + 1);
+        scheduleNext();
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(fn, { timeout: 2000 });
+      } else {
+        setTimeout(fn, 50);
+      }
+    };
+    scheduleNext();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSection, selectedProdocId]);
 
   // Status → who can edit (same rule as reports):
   //   Open → admin + partner · Under Review → admin only · Closed → no one
@@ -561,6 +621,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     setSelectedProdocId(val);
     setError(null); setSubmitError(null);
     setRisks([]); setIndicatorLines([]); setLibrary([]);
+    visitedRef.current = new Set(["general"]);
+    setMountTick((t) => t + 1);
     const doc = docs.find((d) => String(d.id) === val);
     if (doc) pushUrl(doc, "general");
   }
@@ -1577,377 +1639,246 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             </div>
           )
 
-        ) : sectionLoading ? (
-          <LoadingState className="py-8" />
-
-        ) : selectedSection === "general" ? (
-          selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} pushCommand={pushCommand} /> : null
-
-        ) : selectedSection === "risk" ? (
-          <div className="space-y-3">
-            {risks.length === 0 && !showAddRiskRow ? (
-              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                {labels.adminEditor.emptyRisks}
+        ) : (
+          <>
+            {visitedRef.current.has("general") && (
+              <div hidden={selectedSection !== "general"}>
+                {selectedDoc ? <GeneralInfoAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} pushCommand={pushCommand} /> : null}
               </div>
-            ) : (
-              <div className="rounded-xl border bg-card overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
-                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT)}>{labels.risk.columns.number}</th>
-                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT)}>{labels.risk.columns.risk}</th>
-                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.likelihood}</th>
-                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.impact}</th>
-                      <th className={cn("text-left px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.riskLevel}</th>
-                      <th className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT)}>{labels.risk.columns.approvedMitigation}</th>
-                      <th className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.actions}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {risks.map((risk, i) => {
-                      const isEditing = editingRiskId === risk.id;
-                      return (
-                        <tr key={risk.id} className="transition-colors hover:bg-muted/20">
-                          <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
-                          {isEditing ? (
-                            <>
-                              <td className="px-4 py-3 align-top">
-                                <div className="flex flex-col gap-2">
-                                  <Input value={editingRiskName} onChange={(e) => { setEditingRiskName(e.target.value); if (editRiskErrors.name) setEditRiskErrors((p) => ({ ...p, name: false })); }} placeholder={labels.placeholders.riskName} className={cn("text-sm", editRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
-                                  <Textarea value={editingRiskDescription} onChange={(e) => { setEditingRiskDescription(e.target.value); if (editRiskErrors.description) setEditRiskErrors((p) => ({ ...p, description: false })); }} placeholder={labels.placeholders.riskDescription} className={cn("text-sm min-h-[60px] resize-y", editRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
-                                  <MultiSelect optionKey="riskCategory" value={editingRiskCategory} onChange={setEditingRiskCategory} placeholder={labels.placeholders.riskCategories} />
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
-                                  <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskDescription(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); setEditRiskErrors({ name: false, description: false }); }}>{labels.common.cancel}</Button>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="px-4 py-3 align-top">
-                                <div className="flex items-start gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium">{risk.risk_name}</p>
-                                    {risk.risk_description && (
-                                      <ClampedText text={risk.risk_description} className="text-xs text-muted-foreground mt-0.5" />
-                                    )}
-                                    {risk.risk_category && risk.risk_category.length > 0 && (
-                                      <div className="mt-1.5 flex flex-wrap gap-1">
-                                        {risk.risk_category.map((cat) => (
-                                          <span key={cat} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                            {cat}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                {risk.approved_mitigation
-                                  ? <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground" />
-                                  : <span className="text-sm text-muted-foreground/40">—</span>}
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskDescription(risk.risk_description ?? ""); setEditingRiskCategory(risk.risk_category ?? []); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); setEditRiskErrors({ name: false, description: false }); }} className="text-muted-foreground hover:text-foreground transition-colors">
-                                    <Pencil className="size-3.5" />
-                                  </button>
-                                  <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
-                                    {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          )}
+            )}
+
+            {visitedRef.current.has("risk") && (
+              <div hidden={selectedSection !== "risk"} className="space-y-3">
+                {loadingRisk && risks.length === 0 ? (
+                  <LoadingState className="py-8" />
+                ) : risks.length === 0 && !showAddRiskRow ? (
+                  <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                    {labels.adminEditor.emptyRisks}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border bg-card overflow-hidden overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT)}>{labels.risk.columns.number}</th>
+                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT)}>{labels.risk.columns.risk}</th>
+                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.likelihood}</th>
+                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.impact}</th>
+                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.riskLevel}</th>
+                          <th className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT)}>{labels.risk.columns.approvedMitigation}</th>
+                          <th className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.actions}</th>
                         </tr>
-                      );
-                    })}
-                    {showAddRiskRow && (
-                      <>
-                        <tr className="bg-muted/10">
-                          <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{risks.length + 1}.</td>
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex flex-col gap-2">
-                              <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => { setNewRiskName(e.target.value); if (newRiskErrors.name) setNewRiskErrors((p) => ({ ...p, name: false })); }} className={cn("text-sm", newRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
-                              <Textarea placeholder={labels.placeholders.riskDescription} value={newRiskDescription} onChange={(e) => { setNewRiskDescription(e.target.value); if (newRiskErrors.description) setNewRiskErrors((p) => ({ ...p, description: false })); }} className={cn("text-sm min-h-[60px] resize-y", newRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
-                              <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className={cn(newRiskErrors.likelihood && "rounded-md ring-1 ring-destructive")}>
-                              <ScaleSelect kind="likelihood" value={newRiskLikelihood} onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className={cn(newRiskErrors.impact && "rounded-md ring-1 ring-destructive")}>
-                              <ScaleSelect kind="impact" value={newRiskImpact} onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <RiskLevelBadge likelihood={newRiskLikelihood} impact={newRiskImpact} />
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <Textarea placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="text-sm min-h-[80px] resize-y" />
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={handleRiskAdd} disabled={addingRisk}>
-                                {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => { setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false }); }}>{labels.common.cancel}</Button>
-                            </div>
-                          </td>
-                        </tr>
-                        {(newRiskErrors.name || newRiskErrors.description || newRiskErrors.likelihood || newRiskErrors.impact) && (
-                          <tr className="bg-muted/10">
-                            <td />
-                            <td colSpan={6} className="px-4 pb-3 pt-0">
-                              <p className="text-xs text-destructive">Add a name, description, likelihood and impact to save this risk.</p>
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {!showAddRiskRow && !readOnly && (
-              <div className="flex justify-end">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowAddRiskRow(true)} className="gap-1">
-                  <Plus className="size-4" />Add risk
-                </Button>
-              </div>
-            )}
-          </div>
-
-        ) : selectedSection === "indicators" ? (
-          <ProdocIndicatorsSection
-            lines={indicatorLines}
-            indicatorItems={indicatorComboItems}
-            onAdd={handleIndicatorSelect}
-            onCreate={handleProdocIndicatorCreate}
-            onEdit={handleProdocIndicatorEdit}
-            onUpdateValues={handleProdocIndicatorValues}
-            onDelete={handleIndicatorDelete}
-            isAdmin={!isPartner}
-            readOnly={readOnly}
-            fillHeight={fillHeight}
-            activities={activities}
-          />
-        ) : selectedSection === "indicators" && false ? (
-          <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
-            <div className="max-w-xl">
-              <Combobox
-                items={indicatorComboItems}
-                placeholder={labels.placeholders.indicatorSearch}
-                onSelect={handleIndicatorSelect}
-                onCreate={handleIndicatorCreate}
-                createLabel={labels.adminEditor.createIndicator}
-                busy={addingIndicator}
-              />
-            </div>
-
-            {/* Create panel — shown only after choosing "create a new one" from the
-                search box. Indicators created here are always custom; name,
-                description and means of verification are required. */}
-            {creatingIndicator && (
-              <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 max-w-3xl">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
-                  <Button variant="ghost" size="sm" onClick={cancelIndicatorCreate} className="h-7 px-2 text-muted-foreground">
-                    <X className="size-4 mr-1" />{labels.adminEditor.cancel ?? "Cancel"}
-                  </Button>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Input required placeholder={labels.placeholders.indicatorName} value={newIndName} onChange={(e) => setNewIndName(e.target.value)} className="flex-[2]" autoFocus />
-                  <Textarea required placeholder={labels.placeholders.indicatorDescription} value={newIndDescription} onChange={(e) => setNewIndDescription(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
-                  <Textarea required placeholder={labels.placeholders.meansOfVerification} value={newIndMeansOfVerification} onChange={(e) => setNewIndMeansOfVerification(e.target.value)} className="flex-[2] text-sm min-h-9 resize-y" />
-                  <Button
-                    onClick={submitIndicatorCreate}
-                    disabled={addingIndicator || !newIndName.trim() || !newIndDescription.trim() || !newIndMeansOfVerification.trim()}
-                    size="sm"
-                    className="shrink-0"
-                  >
-                    {addingIndicator ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {indicatorLines.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-                {labels.adminEditor.emptyIndicators}
-              </div>
-            ) : (
-              <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.number}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.indicator}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.baselineValue}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-24", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.baselineYear}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.targetValue}</th>
-                        <th style={stickyHeadStyle} className={cn("text-left px-4 py-3 text-muted-foreground w-24", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.targetYear}</th>
-                        <th style={stickyHeadStyle} className={cn("text-right px-4 py-3 text-muted-foreground w-16", HEAD_TEXT, stickyHead)}>{labels.indicators.columns.actions}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {indicatorLines.map((line, i) => {
-                            const num = i + 1;
-                            const isEditing = editingIndicatorId === line.indicator_id;
-                            return (
-                              <tr key={line.id} className="transition-colors hover:bg-muted/20 align-top">
-                                <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{num}.</td>
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <div className="flex flex-col gap-1.5">
-                                    <Input value={editingIndName} onChange={(e) => setEditingIndName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="text-sm" autoFocus />
-                                    {/* Prose fields — a single-line input hid all but
-                                        the opening words of a multi-sentence value. */}
-                                    <Textarea value={editingIndDescription} onChange={(e) => setEditingIndDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="text-sm min-h-[64px] resize-y" />
-                                    <Textarea value={editingIndMov} onChange={(e) => setEditingIndMov(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="text-sm min-h-[64px] resize-y" />
-                                  </div>
-                                ) : (
-                                  <div className="flex items-start gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium">
-                                        {line.indicator_name}
-                                        <span className="inline-block align-middle ml-1"><InfoPopover description={line.indicator_description} meansOfVerification={line.means_of_verification} /></span>
-                                      </p>
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {!line.is_standard && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>}
-                                        {line.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                      </thead>
+                      <tbody className="divide-y">
+                        {risks.map((risk, i) => {
+                          const isEditing = editingRiskId === risk.id;
+                          return (
+                            <tr key={risk.id} className="transition-colors hover:bg-muted/20">
+                              <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
+                              {isEditing ? (
+                                <>
+                                  <td className="px-4 py-3 align-top">
+                                    <div className="flex flex-col gap-2">
+                                      <Input value={editingRiskName} onChange={(e) => { setEditingRiskName(e.target.value); if (editRiskErrors.name) setEditRiskErrors((p) => ({ ...p, name: false })); }} placeholder={labels.placeholders.riskName} className={cn("text-sm", editRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
+                                      <Textarea value={editingRiskDescription} onChange={(e) => { setEditingRiskDescription(e.target.value); if (editRiskErrors.description) setEditRiskErrors((p) => ({ ...p, description: false })); }} placeholder={labels.placeholders.riskDescription} className={cn("text-sm min-h-[60px] resize-y", editRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
+                                      <MultiSelect optionKey="riskCategory" value={editingRiskCategory} onChange={setEditingRiskCategory} placeholder={labels.placeholders.riskCategories} />
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <Textarea value={editingRiskApprovedMitigation} onChange={(e) => setEditingRiskApprovedMitigation(e.target.value)} placeholder={labels.placeholders.approvedMitigation} className="text-sm min-h-[80px] resize-y" />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <Button size="sm" variant="outline" onClick={() => handleRiskEditSave(risk.id)}>{labels.adminEditor.save}</Button>
+                                      <Button size="sm" variant="outline" onClick={() => { setEditingRiskId(null); setEditingRiskName(""); setEditingRiskDescription(""); setEditingRiskCategory([]); setEditingRiskApprovedMitigation(""); setEditRiskErrors({ name: false, description: false }); }}>{labels.common.cancel}</Button>
+                                    </div>
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="px-4 py-3 align-top">
+                                    <div className="flex items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium">{risk.risk_name}</p>
+                                        {risk.risk_description && (
+                                          <ClampedText text={risk.risk_description} className="text-xs text-muted-foreground mt-0.5" />
+                                        )}
+                                        {risk.risk_category && risk.risk_category.length > 0 && (
+                                          <div className="mt-1.5 flex flex-wrap gap-1">
+                                            {risk.risk_category.map((cat) => (
+                                              <span key={cat} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                                {cat}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <Input
-                                  value={line.baseline_value ?? ""}
-                                  inputMode="decimal"
-                                  onChange={(e) => updateIndicatorLineLocal(line.id, { baseline_value: numericValue(e.target.value) })}
-                                  onBlur={() => saveIndicatorLine(line.id)}
-                                  placeholder={labels.placeholders.baselineValue}
-                                  className="text-sm h-8"
-                                />
-                              </td>
-                              <td className="px-4 py-3">
-                                <Input
-                                  type="text" inputMode="numeric" value={line.baseline_year ?? ""}
-                                  onChange={(e) => { const y = numericYear(e.target.value); updateIndicatorLineLocal(line.id, { baseline_year: y ? Number(y) : null }); }}
-                                  onBlur={() => saveIndicatorLine(line.id)}
-                                  placeholder={labels.placeholders.year}
-                                  className="text-sm h-8 w-20"
-                                />
-                                {yearErrors[line.id]?.baseline && (
-                                  <p className="text-xs text-destructive mt-1">Year not valid</p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <Input
-                                  value={line.target_value ?? ""}
-                                  inputMode="decimal"
-                                  onChange={(e) => updateIndicatorLineLocal(line.id, { target_value: numericValue(e.target.value) })}
-                                  onBlur={() => saveIndicatorLine(line.id)}
-                                  placeholder={labels.placeholders.targetValue}
-                                  className="text-sm h-8"
-                                />
-                              </td>
-                              <td className="px-4 py-3">
-                                <Input
-                                  type="text" inputMode="numeric" value={line.target_year ?? ""}
-                                  onChange={(e) => { const y = numericYear(e.target.value); updateIndicatorLineLocal(line.id, { target_year: y ? Number(y) : null }); }}
-                                  onBlur={() => saveIndicatorLine(line.id)}
-                                  placeholder={labels.placeholders.year}
-                                  className="text-sm h-8 w-20"
-                                />
-                                {yearErrors[line.id]?.target && (
-                                  <p className="text-xs text-destructive mt-1">Year not valid</p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {isEditing ? (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => handleIndicatorEditSave(line.indicator_id)}>{labels.adminEditor.save}</Button>
-                                    <Button size="sm" variant="outline" onClick={() => setEditingIndicatorId(null)}>{labels.common.cancel}</Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-end gap-2">
-                                    {!readOnly && !line.is_standard && (
-                                      <button onClick={() => { setEditingIndicatorId(line.indicator_id); setEditingIndName(line.indicator_name); setEditingIndDescription(line.indicator_description ?? ""); setEditingIndMov(line.means_of_verification ?? ""); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    {risk.approved_mitigation
+                                      ? <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground" />
+                                      : <span className="text-sm text-muted-foreground/40">—</span>}
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskDescription(risk.risk_description ?? ""); setEditingRiskCategory(risk.risk_category ?? []); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); setEditRiskErrors({ name: false, description: false }); }} className="text-muted-foreground hover:text-foreground transition-colors">
                                         <Pencil className="size-3.5" />
                                       </button>
-                                    )}
-                                    <button onClick={() => handleIndicatorDelete(line.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                                      <Trash2 className="size-3.5" />
-                                    </button>
-                                  </div>
-                                )}
+                                      <button onClick={() => handleRiskDelete(risk.id)} disabled={deletingRiskId === risk.id} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
+                                        {deletingRiskId === risk.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          );
+                        })}
+                        {showAddRiskRow && (
+                          <>
+                            <tr className="bg-muted/10">
+                              <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{risks.length + 1}.</td>
+                              <td className="px-4 py-3 align-top">
+                                <div className="flex flex-col gap-2">
+                                  <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => { setNewRiskName(e.target.value); if (newRiskErrors.name) setNewRiskErrors((p) => ({ ...p, name: false })); }} className={cn("text-sm", newRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
+                                  <Textarea placeholder={labels.placeholders.riskDescription} value={newRiskDescription} onChange={(e) => { setNewRiskDescription(e.target.value); if (newRiskErrors.description) setNewRiskErrors((p) => ({ ...p, description: false })); }} className={cn("text-sm min-h-[60px] resize-y", newRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
+                                  <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <div className={cn(newRiskErrors.likelihood && "rounded-md ring-1 ring-destructive")}>
+                                  <ScaleSelect kind="likelihood" value={newRiskLikelihood} onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <div className={cn(newRiskErrors.impact && "rounded-md ring-1 ring-destructive")}>
+                                  <ScaleSelect kind="impact" value={newRiskImpact} onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <RiskLevelBadge likelihood={newRiskLikelihood} impact={newRiskImpact} />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <Textarea placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="text-sm min-h-[80px] resize-y" />
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button size="sm" variant="outline" onClick={handleRiskAdd} disabled={addingRisk}>
+                                    {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false }); }}>{labels.common.cancel}</Button>
+                                </div>
                               </td>
                             </tr>
-                            );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            {(newRiskErrors.name || newRiskErrors.description || newRiskErrors.likelihood || newRiskErrors.impact) && (
+                              <tr className="bg-muted/10">
+                                <td />
+                                <td colSpan={6} className="px-4 pb-3 pt-0">
+                                  <p className="text-xs text-destructive">Add a name, description, likelihood and impact to save this risk.</p>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {!showAddRiskRow && !readOnly && (
+                  <div className="flex justify-end">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowAddRiskRow(true)} className="gap-1">
+                      <Plus className="size-4" />Add risk
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
 
-        ) : selectedSection === "narratives" ? (
-          selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null
+            {visitedRef.current.has("indicators") && (
+              <div hidden={selectedSection !== "indicators"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                {loadingIndicators && indicatorLines.length === 0 ? (
+                  <LoadingState className="py-8" />
+                ) : (
+                  <ProdocIndicatorsSection
+                    lines={indicatorLines}
+                    indicatorItems={indicatorComboItems}
+                    onAdd={handleIndicatorSelect}
+                    onCreate={handleProdocIndicatorCreate}
+                    onEdit={handleProdocIndicatorEdit}
+                    onUpdateValues={handleProdocIndicatorValues}
+                    onDelete={handleIndicatorDelete}
+                    isAdmin={!isPartner}
+                    readOnly={readOnly}
+                    fillHeight={fillHeight}
+                    activities={activities}
+                  />
+                )}
+              </div>
+            )}
 
-        ) : selectedSection === "sdg" ? (
-          selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null
+            {visitedRef.current.has("narratives") && (
+              <div hidden={selectedSection !== "narratives"}>
+                {selectedDoc ? <NarrativesAdminEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null}
+              </div>
+            )}
 
-        ) : selectedSection === "signatures" && !isPartner ? (
-          selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null
+            {visitedRef.current.has("sdg") && (
+              <div hidden={selectedSection !== "sdg"}>
+                {selectedDoc ? <SdgTargetsEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} readOnly={readOnly} /> : null}
+              </div>
+            )}
 
-        ) : selectedSection === "documents" ? (
-          selectedDoc ? <DocumentsEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null
+            {!isPartner && visitedRef.current.has("signatures") && (
+              <div hidden={selectedSection !== "signatures"}>
+                {selectedDoc ? <SignaturesEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null}
+              </div>
+            )}
 
-        ) : selectedSection === "workplan" ? (
-          // The project document defines only the baseline workplan (planned
-          // activities + quarters). Report-time update windows are managed in the
-          // report editor, not here.
-          selectedDoc ? (
-            <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} pushCommand={pushCommand} />
-          ) : null
-        ) : selectedSection === "expenditure" ? (
-          selectedDoc ? (
-            <div className="space-y-6">
-              <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} onSaveStateChange={handleSaveStateChange} fillHeight={false} />
-              <TrancheScheduleEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} />
-            </div>
-          ) : null
-        ) : null}
+            {visitedRef.current.has("documents") && (
+              <div hidden={selectedSection !== "documents"}>
+                {selectedDoc ? <DocumentsEditor projectId={selectedDoc.project_id} readOnly={readOnly} /> : null}
+              </div>
+            )}
+
+            {visitedRef.current.has("workplan") && (
+              <div hidden={selectedSection !== "workplan"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                {selectedDoc ? (
+                  <WorkplanAdminEditor projectId={selectedDoc.project_id} defaultAgent={selectedDoc.partner_short_name} onSaveStateChange={handleSaveStateChange} fillHeight={fillHeight} pushCommand={pushCommand} />
+                ) : null}
+              </div>
+            )}
+
+            {visitedRef.current.has("expenditure") && (
+              <div hidden={selectedSection !== "expenditure"}>
+                {selectedDoc ? (
+                  <div className="space-y-6">
+                    <ExpenditureAdminEditor projectId={selectedDoc.project_id} isAdmin={!isPartner} onSaveStateChange={handleSaveStateChange} fillHeight={false} refreshKey={expenditureRefreshKey} />
+                    <TrancheScheduleEditor projectId={selectedDoc.project_id} onSaveStateChange={handleSaveStateChange} isAdmin={!isPartner} readOnly={readOnly} refreshKey={expenditureRefreshKey} />
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </>
+        )}
         </div>
         </fieldset>
         </ReadOnlyProvider>

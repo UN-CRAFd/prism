@@ -421,7 +421,7 @@ function FooterYearCells({ approved, exp, strong, past = false }: { approved: nu
 // Admin editor — approved annual budgets per category × year + indirect rate
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight = false, onSaveStateChange }: { projectId: number; isAdmin?: boolean; fillHeight?: boolean; onSaveStateChange?: (s: SaveState) => void }) {
+export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight = false, onSaveStateChange, refreshKey }: { projectId: number; isAdmin?: boolean; fillHeight?: boolean; onSaveStateChange?: (s: SaveState) => void; refreshKey?: number }) {
   const [categories, setCategories] = useState<ExpenditureCategory[]>([]);
   const [years, setYears] = useState<number[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({}); // `${catId}-${year}` → string
@@ -487,6 +487,42 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
   }, [projectId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Quiet re-fetch when the parent switches back to the Budgets tab (refreshKey
+  // increments). No spinner — existing rows stay visible during the background update.
+  useEffect(() => {
+    if (!refreshKey) return;
+    (async () => {
+      try {
+        const [catRes, budRes, projRes] = await Promise.all([
+          fetch("/api/expenditure-categories"),
+          fetch(`/api/expenditure-budgets?projectId=${projectId}`),
+          fetch(`/api/projects/${projectId}`),
+        ]);
+        if (!catRes.ok || !budRes.ok || !projRes.ok) return;
+        const cats: ExpenditureCategory[] = await catRes.json();
+        const bud: { indirectRate: number; years: number[]; budgets: BudgetRow[]; categoryNotes: { category_id: number; description: string | null }[] } = await budRes.json();
+        const proj: { grant_size_usd: number | null } = await projRes.json();
+        setCategories(cats);
+        setYears(bud.years);
+        setRate(bud.indirectRate);
+        setRateInput(String(Math.round(bud.indirectRate * 100 * 100) / 100));
+        setGrantSize(proj.grant_size_usd);
+        const m: Record<string, string> = {};
+        for (const b of bud.budgets) {
+          const key = `${b.category_id}-${b.year}`;
+          if (b.approved_amount != null) m[key] = String(b.approved_amount);
+        }
+        setAmounts(m);
+        const notes: Record<number, string> = {};
+        for (const n of bud.categoryNotes ?? []) {
+          if (n.description) notes[n.category_id] = n.description;
+        }
+        setCategoryNotes(notes);
+      } catch { /* quiet */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const flush = async () => {
     if (savingRef.current) return;

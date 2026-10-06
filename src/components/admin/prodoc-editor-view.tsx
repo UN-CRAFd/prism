@@ -32,6 +32,7 @@ import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
+import { ClampedText } from "@/components/report-editor/clamped-text";
 import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
 import { cycleLabel } from "@/lib/indicators";
 import { reportStatusStyle } from "@/lib/reports";
@@ -1643,7 +1644,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium">{risk.risk_name}</p>
                                     {risk.risk_description && (
-                                      <p className="text-xs text-muted-foreground mt-0.5">{risk.risk_description}</p>
+                                      <ClampedText text={risk.risk_description} className="text-xs text-muted-foreground mt-0.5" />
                                     )}
                                     {risk.risk_category && risk.risk_category.length > 0 && (
                                       <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1668,7 +1669,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className="px-4 py-3 align-top">
                                 {risk.approved_mitigation
-                                  ? <p className="text-sm text-muted-foreground">{risk.approved_mitigation}</p>
+                                  ? <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground" />
                                   : <span className="text-sm text-muted-foreground/40">—</span>}
                               </td>
                               <td className="px-4 py-3 align-top">

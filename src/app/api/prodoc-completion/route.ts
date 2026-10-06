@@ -98,21 +98,11 @@ export async function GET(req: NextRequest) {
         [prodocId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Budgets — every category × project-year cell filled, budget total within
-      // [grant − 1, grant], and tranche total within [grant − 1, grant].
-      // grant_size_usd must be set; if null, expenditure is never complete.
+      // Budgets — grant_size_usd set, budget total within [grant − 1, grant],
+      // tranche total within [grant − 1, grant], and no missing release dates.
       query<Row>(
         `SELECT
                 p.grant_size_usd,
-                (SELECT COUNT(*) FROM reporting_platform.expenditure_categories)::int
-                  * COALESCE(ARRAY_LENGTH(
-                      reporting_platform.project_year_range(p.project_start_date, p.project_duration_months), 1
-                    ), 0)::int AS expected,
-                (SELECT COUNT(*) FROM reporting_platform.expenditure_budgets b
-                  WHERE b.project_id = p.id
-                    AND b.approved_amount IS NOT NULL
-                    AND b.year = ANY (reporting_platform.project_year_range(p.project_start_date, p.project_duration_months))
-                )::int AS filled,
                 ROUND(COALESCE(
                   (SELECT SUM(b.approved_amount)
                    FROM reporting_platform.expenditure_budgets b
@@ -138,7 +128,6 @@ export async function GET(req: NextRequest) {
         const row = r[0];
         if (!row?.grant_size_usd) return false;
         const grant = Number(row.grant_size_usd);
-        const allFilled = n(row.expected) > 0 && n(row.filled) >= n(row.expected);
         const budgetTotal = Number(row.budget_total ?? 0);
         const trancheTotal = Number(row.tranche_total ?? 0);
         const budgetDiffCents = Math.round(grant * 100) - Math.round(budgetTotal * 100);
@@ -146,7 +135,7 @@ export async function GET(req: NextRequest) {
         const trancheDiffCents = Math.round(grant * 100) - Math.round(trancheTotal * 100);
         const trancheOk = trancheDiffCents >= 0 && trancheDiffCents <= 100;
         const releaseDatesOk = n(row.missing_release_dates) === 0;
-        return allFilled && budgetOk && trancheOk && releaseDatesOk;
+        return budgetOk && trancheOk && releaseDatesOk;
       }),
 
       // Workplan — every activity has outcome, objective text and activity text.

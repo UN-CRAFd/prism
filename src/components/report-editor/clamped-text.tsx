@@ -45,12 +45,21 @@ export function ClampedText({ text, className, lines = 3 }: ClampedTextProps) {
         {text}
       </p>
       {isTruncated && (
-        <button
+        <span
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
-          className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              if (e.key === " ") e.preventDefault();
+              setExpanded((prev) => !prev);
+            }
+          }}
+          className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           {expanded ? "Show less" : "Show more"}
-        </button>
+        </span>
       )}
     </div>
   );

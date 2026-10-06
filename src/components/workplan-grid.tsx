@@ -485,13 +485,13 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 <Fragment key={a.id}>
                   {showOutcome && (
                     <tr className="bg-neutral-100 border-y">
-                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700"><span className="mr-1">Outcome {outcomeOrdinal}:</span>{a.outcome}</td>
+                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700"><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
                     </tr>
                   )}
                   {showObjective && (
                     <tr className="bg-blue-50/60 border-y">
                       <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-blue-900">
-                        {a.objective_num ? `Objective ${a.objective_num}: ` : ""}{a.objective_text}
+                        {a.objective_num ? `${a.objective_num}. Objective: ` : ""}{a.objective_text}
                       </td>
                     </tr>
                   )}
@@ -1295,7 +1295,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                         >
                           {collapsedClusters[cluster.clusterId] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                         </button>
-                        <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0">Outcome {ci + 1}</span>
+                        <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0">{ci + 1}. Outcome</span>
                         <Input
                           value={cluster.outcome}
                           onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
@@ -1328,7 +1328,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                         >
                           {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                         </button>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-blue-900 shrink-0">Objective {sec.objective_num}</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-blue-900 shrink-0">{sec.objective_num}. Objective</span>
                         <Input
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}

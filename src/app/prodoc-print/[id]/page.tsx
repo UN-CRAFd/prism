@@ -654,14 +654,14 @@ export default function ProdocPrintPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {outcomeGroups.map(({ outcome, objectives }) => (
+                  {outcomeGroups.map(({ outcome, objectives }, outcomeIdx) => (
                     <Fragment key={outcome}>
                       <tr>
                         <td colSpan={1 + wpQuarters.length} style={{
                           fontWeight: 700, fontSize: 11, color: "#374151", background: SOFT,
                           padding: "5px 8px", borderBottom: `1px solid ${LINE}`, borderTop: `1px solid ${LINE}`,
                         }}>
-                          {outcome}
+                          {outcomeIdx + 1}. Outcome: {outcome}
                         </td>
                       </tr>
                       {objectives.map((obj, oi) => (
@@ -674,7 +674,7 @@ export default function ProdocPrintPage() {
                                 padding: "4px 8px 4px 20px",
                                 borderBottom: `1px solid ${LINE}`,
                               }}>
-                                {obj.num ? `${obj.num} ` : ""}{obj.text || ""}
+                                {obj.num ? `${obj.num}. Objective: ` : ""}{obj.text || ""}
                               </td>
                             </tr>
                           )}
@@ -708,14 +708,14 @@ export default function ProdocPrintPage() {
               </table>
             ) : (
               // No project dates — fall back to a simple activity list.
-              outcomeGroups.map(({ outcome, objectives }) => (
+              outcomeGroups.map(({ outcome, objectives }, outcomeIdx) => (
                 <div key={outcome} data-block style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5, color: "#374151" }}>{outcome}</div>
+                  <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 5, color: "#374151" }}>{outcomeIdx + 1}. Outcome: {outcome}</div>
                   {objectives.map((obj, oi) => (
                     <div key={oi} style={{ marginBottom: 6 }}>
                       {(obj.num || obj.text) && (
                         <div style={{ fontWeight: 600, fontSize: 11.5, color: "#374151", padding: "3px 0 3px 12px", marginBottom: 3 }}>
-                          {obj.num ? `${obj.num} ` : ""}{obj.text || ""}
+                          {obj.num ? `${obj.num}. Objective: ` : ""}{obj.text || ""}
                         </div>
                       )}
                       <Table

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { WikiShell, SectionHeading, GuideToc } from "@/components/partner/wiki/wiki-components";
 import { wikiIcon, numberWikiSections, decorateWikiHeadings } from "@/lib/wiki";
-import { toDisplayHtml } from "@/lib/richtext";
+import { toWikiDisplayHtml } from "@/lib/richtext";
 import labels from "@/lib/labels";
 
 // Deepest heading level listed in the printed table of contents: sections (1)
@@ -78,8 +78,8 @@ export default function WikiRoute() {
     const withNumbers = numberWikiSections(sections);
     const usedIds = new Set(withNumbers.map((s) => s.slug));
     return withNumbers.map((s) => {
-      if (!s.number) return { ...s, html: toDisplayHtml(s.body_html), entries: [] };
-      const { html, entries } = decorateWikiHeadings(toDisplayHtml(s.body_html), {
+      if (!s.number) return { ...s, html: toWikiDisplayHtml(s.body_html), entries: [] };
+      const { html, entries } = decorateWikiHeadings(toWikiDisplayHtml(s.body_html), {
         number: s.number,
         slug: s.slug,
         usedIds,

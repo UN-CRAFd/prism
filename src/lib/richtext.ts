@@ -20,6 +20,11 @@ const ALLOWED_TAGS = [
 ];
 const ALLOWED_ATTR = ["href", "title", "target", "rel"];
 
+// Wiki variant: same allowlist plus <img> restricted to our own served URLs.
+const WIKI_ALLOWED_TAGS = [...ALLOWED_TAGS, "img"];
+const WIKI_ALLOWED_ATTR = [...ALLOWED_ATTR, "src", "alt"];
+const WIKI_IMG_SRC_RE = /^\/api\/wiki-images\/\d+$/;
+
 /**
  * Sanitize stored HTML before it is dropped into the DOM via
  * dangerouslySetInnerHTML. This is defense-in-depth: writes are already
@@ -40,6 +45,33 @@ export function looksLikeHtml(value: string): boolean {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function sanitizeWikiDisplayHtml(html: string): string {
+  if (typeof window === "undefined") return html;
+  const sanitized = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: WIKI_ALLOWED_TAGS,
+    ALLOWED_ATTR: WIKI_ALLOWED_ATTR,
+  });
+  // DOMPurify has no per-tag src restrictions, so strip any <img> whose src
+  // is not our own wiki-images API URL (defense-in-depth on top of DOMPurify).
+  return sanitized.replace(/<img\b[^>]*\/?>/gi, (tag) => {
+    const m = /\bsrc="([^"]*)"/.exec(tag);
+    return m && WIKI_IMG_SRC_RE.test(m[1]) ? tag : "";
+  });
+}
+
+/**
+ * Like toDisplayHtml but additionally preserves <img src="/api/wiki-images/N">.
+ * Use for wiki section bodies; never for ProDoc/report fields.
+ */
+export function toWikiDisplayHtml(value: string | null | undefined): string {
+  if (!value) return "";
+  if (looksLikeHtml(value)) return sanitizeWikiDisplayHtml(value);
+  return escapeHtml(value)
+    .split(/\n{2,}/)
+    .map((para) => `<p>${para.replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
 /**

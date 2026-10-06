@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
-import { sanitizeRichText } from "@/lib/sanitize";
+import { sanitizeWikiHtml } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 
 // The partner Guide (wiki) content. Sections live in wiki_sections and are
@@ -128,7 +128,7 @@ export async function PATCH(req: NextRequest) {
   }
   if (typeof body.body_html === "string") {
     sets.push(`body_html = $${i++}`);
-    values.push(sanitizeRichText(body.body_html) ?? "");
+    values.push(sanitizeWikiHtml(body.body_html) ?? "");
   }
   if (typeof body.sort_order === "number") {
     sets.push(`sort_order = $${i++}`);

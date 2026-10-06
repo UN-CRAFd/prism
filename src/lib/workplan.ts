@@ -137,12 +137,12 @@ export function resultOptions(activities: {
     if (!seenOutcomes.has(n)) {
       seenOutcomes.add(n);
       const text = a.outcome?.trim();
-      out.push({ key: `outcome:${n}`, label: text ? `Outcome ${n}: ${text}` : `Outcome ${n}`, kind: "outcome" });
+      out.push({ key: `outcome:${n}`, label: text ? `${n}. Outcome: ${text}` : `${n}. Outcome`, kind: "outcome" });
     }
     if (!seenObjectives.has(num)) {
       seenObjectives.add(num);
       const text = a.objective_text?.trim();
-      out.push({ key: `objective:${num}`, label: text ? `${num}: ${text}` : num, kind: "objective" });
+      out.push({ key: `objective:${num}`, label: text ? `${num}. Objective: ${text}` : `${num}. Objective`, kind: "objective" });
     }
   }
   return out;

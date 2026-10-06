@@ -42,3 +42,32 @@ export function sanitizeRichText(value: string | null | undefined): string | nul
   if (value === null || value === undefined) return value;
   return sanitizeHtml(value, OPTIONS);
 }
+
+// Pattern that wiki-embedded image srcs must match. Only our own served images
+// are allowed; any other src (external URLs, data: URIs, etc.) are dropped.
+const WIKI_IMG_SRC = /^\/api\/wiki-images\/\d+$/;
+
+const WIKI_OPTIONS: sanitizeHtml.IOptions = {
+  ...OPTIONS,
+  allowedTags: [...(Array.isArray(OPTIONS.allowedTags) ? OPTIONS.allowedTags : []), "img"],
+  allowedAttributes: {
+    ...OPTIONS.allowedAttributes,
+    img: ["src", "alt"],
+  },
+  // Drop any <img> whose src does not point at our own wiki-images API.
+  exclusiveFilter: (frame) => {
+    if (frame.tag === "img") {
+      return !WIKI_IMG_SRC.test(frame.attribs.src ?? "");
+    }
+    return false;
+  },
+};
+
+/**
+ * Like sanitizeRichText but additionally allows <img src="/api/wiki-images/N" alt="…">.
+ * Use only for wiki section body_html; never for ProDoc/report rich-text fields.
+ */
+export function sanitizeWikiHtml(value: string | null | undefined): string | null | undefined {
+  if (value === null || value === undefined) return value;
+  return sanitizeHtml(value, WIKI_OPTIONS);
+}

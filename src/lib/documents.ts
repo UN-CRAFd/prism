@@ -60,6 +60,13 @@ export function formatFileSize(bytes: number): string {
 
 export const ALLOWED_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp"] as const;
 
+// Wiki images additionally allow GIF (used as animated screenshots / diagrams).
+export const ALLOWED_WIKI_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp"] as const;
+
+export function isAllowedWikiImageExtension(name: string): boolean {
+  return (ALLOWED_WIKI_IMAGE_EXTENSIONS as readonly string[]).includes(fileExtension(name));
+}
+
 /** The `accept` attribute for an image <input type="file">. */
 export const IMAGE_ACCEPT = ALLOWED_IMAGE_EXTENSIONS.map((e) => `.${e}`).join(",");
 

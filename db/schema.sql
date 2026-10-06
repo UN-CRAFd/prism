@@ -1075,6 +1075,22 @@ CREATE TRIGGER wiki_sections_updated_at
     BEFORE UPDATE ON wiki_sections
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── Wiki images ──────────────────────────────────────────────────────────────
+-- Screenshots/images embedded in wiki section bodies. Stored as BYTEA and
+-- served from /api/wiki-images/<id>. Created by admins; readable by any logged-in
+-- user (partners see images in the wiki). Images are immutable once uploaded.
+CREATE TABLE IF NOT EXISTS wiki_images (
+    id          SERIAL       PRIMARY KEY,
+    content     BYTEA        NOT NULL,
+    mime_type   TEXT         NOT NULL,
+    file_name   TEXT,
+    size_bytes  INTEGER      NOT NULL,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+GRANT SELECT, INSERT, DELETE ON TABLE wiki_images TO prism_app;
+GRANT USAGE, SELECT ON SEQUENCE wiki_images_id_seq TO prism_app;
+
 -- ── App settings ─────────────────────────────────────────────────────────────
 -- Small key/value store for runtime-editable configuration that must survive a
 -- redeploy (env vars cannot be changed from within the running app). Currently

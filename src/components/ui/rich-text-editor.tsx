@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { Bold, Italic, Underline, List, ListOrdered, Link2, Table as TableIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bold, Italic, Underline, List, ListOrdered, Link2, Table as TableIcon, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadOnly } from "@/components/ui/read-only-context";
-import { toDisplayHtml, richTextLength } from "@/lib/richtext";
+import { toDisplayHtml, toWikiDisplayHtml, richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels";
 
 // ── Rich-text editor ───────────────────────────────────────────────────────────
@@ -51,6 +51,7 @@ export function RichTextEditor({
   className,
   disabled,
   maxChars,
+  onUploadImage,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -61,22 +62,32 @@ export function RichTextEditor({
   // Paste into a selection accounts for the removed characters. Paste truncates;
   // regular typing stops at the boundary. A counter is shown below the editor.
   maxChars?: number;
+  // When provided: enables the "Insert image" toolbar button, paste-from-clipboard,
+  // and file-drop. The callback receives the File and must return a URL string (the
+  // image URL to insert). Without this prop the editor behaves exactly as today.
+  onUploadImage?: (file: File) => Promise<string>;
 }) {
   const readOnly = useReadOnly();
   const ro = disabled ?? readOnly;
   const ref = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // The last HTML we emitted (or initialised with). Guards the sync effect so we
   // don't rewrite innerHTML — and blow away the caret — on our own updates.
   const lastValue = useRef<string>(" ");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (value !== lastValue.current) {
-      el.innerHTML = toDisplayHtml(value);
+      // Use the wiki-aware display function when image upload is enabled so that
+      // images already stored in the content survive re-loading.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      el.innerHTML = onUploadImage ? toWikiDisplayHtml(value) : toDisplayHtml(value);
       lastValue.current = value;
     }
-  }, [value]);
+  }, [value]); // onUploadImage is stable per-render; intentionally omitted
 
   const emit = useCallback(() => {
     const el = ref.current;
@@ -120,6 +131,22 @@ export function RichTextEditor({
     emit();
   };
 
+  const uploadAndInsert = useCallback(async (file: File) => {
+    if (!onUploadImage) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const url = await onUploadImage(file);
+      ref.current?.focus();
+      document.execCommand("insertHTML", false, `<img src="${url}" alt="">`);
+      emit();
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }, [onUploadImage, emit]);
+
   const remaining = maxChars !== undefined ? maxChars - richTextLength(value) : null;
 
   return (
@@ -146,6 +173,33 @@ export function RichTextEditor({
               <b.icon className="size-4" />
             </button>
           ))}
+          {onUploadImage && (
+            <>
+              <span className="mx-0.5 h-4 w-px bg-input" aria-hidden />
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title={uploading ? "Uploading…" : "Insert image"}
+                aria-label="Insert image"
+                className="inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <ImageIcon className="size-4" />}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadAndInsert(file);
+                  e.target.value = "";
+                }}
+              />
+            </>
+          )}
         </div>
       )}
       <div
@@ -157,6 +211,24 @@ export function RichTextEditor({
         data-placeholder={placeholder}
         onInput={emit}
         onBlur={emit}
+        onPaste={(e) => {
+          if (!onUploadImage) return;
+          const items = Array.from(e.clipboardData.items);
+          const imageItem = items.find((item) => item.type.startsWith("image/"));
+          if (!imageItem) return;
+          const file = imageItem.getAsFile();
+          if (!file) return;
+          e.preventDefault();
+          uploadAndInsert(file);
+        }}
+        onDragOver={(e) => { if (onUploadImage) e.preventDefault(); }}
+        onDrop={(e) => {
+          if (!onUploadImage) return;
+          const imageFile = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+          if (!imageFile) return;
+          e.preventDefault();
+          uploadAndInsert(imageFile);
+        }}
         onMouseOver={(e) => {
           if (ro || !(e.target instanceof Element)) return;
           const a = e.target.closest("a[href]") as HTMLAnchorElement | null;
@@ -176,18 +248,23 @@ export function RichTextEditor({
           !ro && "cursor-text"
         )}
       />
-      {remaining !== null && !ro && (
+      {(remaining !== null || uploadError) && !ro && (
         <div className="px-3 pb-2 space-y-0.5 select-none">
-          <p
-            className={cn(
-              "text-[11px] text-right tabular-nums",
-              remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
-            )}
-          >
-            {`${(maxChars! - remaining).toLocaleString()}/${maxChars!.toLocaleString()} char.`}
-          </p>
-          {remaining < 0 && (
+          {remaining !== null && (
+            <p
+              className={cn(
+                "text-[11px] text-right tabular-nums",
+                remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
+              )}
+            >
+              {`${(maxChars! - remaining).toLocaleString()}/${maxChars!.toLocaleString()} char.`}
+            </p>
+          )}
+          {remaining !== null && remaining < 0 && (
             <p className="text-[11px] text-destructive">{labels.common.overLimitHint}</p>
+          )}
+          {uploadError && (
+            <p className="text-[11px] text-destructive">{uploadError}</p>
           )}
         </div>
       )}

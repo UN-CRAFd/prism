@@ -86,6 +86,15 @@ export function GuideEditor() {
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: setSaveState });
 
+  const uploadImage = useCallback(async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/wiki-images", { method: "POST", body: form });
+    const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+    return data.url!;
+  }, []);
+
   // Flush any pending edit on unmount.
   useEffect(() => () => { flushNow(); }, [flushNow]);
 
@@ -276,6 +285,7 @@ export function GuideEditor() {
                 value={s.body_html}
                 onChange={(html) => editField(s.id, { body_html: html })}
                 placeholder={labels.guideEditor.bodyPlaceholder}
+                onUploadImage={uploadImage}
               />
               <div
                 className={cn(

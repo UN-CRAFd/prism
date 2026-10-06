@@ -134,6 +134,12 @@ export function ReportEditor({
   // sections (surveys, overview, risk, indicators) drive the autosave hook below.
   const [childSaveState, setChildSaveState] = useState<SaveState>("idle");
 
+  // Keep-alive: each section mounts once and is hidden via the `hidden` attribute
+  // rather than being unmounted on tab switch. visitedRef tracks which sections have
+  // been mounted at least once. setMountTick forces a re-render after the ref grows.
+  const visitedRef = useRef<Set<string>>(new Set([params.section ?? "overview"]));
+  const [, setMountTick] = useState(0);
+
   const [pendingStatus, setPendingStatus] = useState<Report["status"] | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -299,21 +305,25 @@ export function ReportEditor({
       .finally(() => setLoadingReports(false));
   }, [user, params.project, params.year]);
 
-  // Load section data when reportId or section changes
+  // Load all parent-managed section data once per report (not per section switch).
+  // With keep-alive, all four sections are mounted before the user visits them so
+  // their data must be available up-front. Config-driven list sections and the
+  // transfer/complementary matrices load their own data inside their child components.
   useEffect(() => {
     if (!reportId) return;
     setChildSaveState("idle");
-    if (params.section === "surveys") loadSurveys(reportId);
-    else if (params.section === "overview") loadOverview(reportId);
-    else if (params.section === "risk") loadRisk(reportId);
-    else if (params.section === "indicators") {
-      loadIndicators(reportId);
-      const projectId = reports.find((r) => r.id === reportId)?.project_id;
-      if (projectId) loadActivities(projectId);
-    }
-    // Config-driven list sections + the transfer/complementary matrices load their
-    // own data inside <SectionTableEditor> / <ContributorMatrix>.
-  }, [reportId, params.section, loadSurveys, loadOverview, loadRisk, loadIndicators, loadActivities, reports]);
+    // Reset visited sections for the new report so old-report tab state is discarded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    visitedRef.current = new Set([params.section ?? "overview"]);
+    setMountTick((t) => t + 1);
+    loadSurveys(reportId);
+    loadOverview(reportId);
+    loadRisk(reportId);
+    loadIndicators(reportId);
+    const projectId = reports.find((r) => r.id === reportId)?.project_id;
+    if (projectId) loadActivities(projectId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportId, loadSurveys, loadOverview, loadRisk, loadIndicators, loadActivities, reports]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -327,7 +337,34 @@ export function ReportEditor({
     setAddingRisk(false);
     setNewRiskName("");
     setNewRiskCategory([]);
+    setChildSaveState("idle");
   }, [params.section]);
+
+  // Track visited sections and pre-mount background tabs one at a time so the
+  // first visible section stays on the critical path.
+  useEffect(() => {
+    if (!reportId) return;
+    visitedRef.current.add(params.section);
+    const unvisited = REPORT_SECTIONS.map((s) => s.value).filter((k) => !visitedRef.current.has(k));
+    if (!unvisited.length) return;
+    let i = 0;
+    const scheduleNext = () => {
+      if (i >= unvisited.length) return;
+      const fn = () => {
+        visitedRef.current.add(unvisited[i]);
+        i++;
+        setMountTick((t) => t + 1);
+        scheduleNext();
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(fn, { timeout: 300 });
+      } else {
+        setTimeout(fn, 50);
+      }
+    };
+    scheduleNext();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.section, reportId]);
 
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
@@ -985,114 +1022,151 @@ export function ReportEditor({
             <Loader2 className="size-4 animate-spin" /> {labels.common.loading}
           </div>
 
-        ) : sectionLoading ? (
-          <LoadingState />
-
-        ) : params.section === "surveys" ? (
-          <SurveysSection surveys={surveys} rowStates={rowStates} updateRow={updateRow} />
-
-        ) : params.section === "overview" ? (
-          <OverviewSection overview={overview} updateOverview={updateOverview} />
-
-        ) : params.section === "risk" ? (
-          <RiskSection
-            risks={risks}
-            riskStates={riskStates}
-            reportYear={selectedReport?.year ?? 0}
-            newRiskName={newRiskName}
-            setNewRiskName={setNewRiskName}
-            newRiskDescription={newRiskDescription}
-            setNewRiskDescription={setNewRiskDescription}
-            newRiskCategory={newRiskCategory}
-            setNewRiskCategory={setNewRiskCategory}
-            addingRisk={addingRisk}
-            handleRiskAdd={handleRiskAdd}
-            updateRisk={updateRisk}
-            handleRiskDelete={handleRiskDelete}
-          />
-
-        ) : params.section === "indicators" ? (
-          <IndicatorsSection
-            indicatorRows={indicatorRows}
-            indicatorYears={indicatorYears}
-            indicatorCurrentYear={indicatorCurrentYear}
-            indicatorStates={indicatorStates}
-            updateIndicator={updateIndicator}
-            isAdmin={mode === "admin"}
-            fillHeight={fillHeight}
-            activities={activities}
-          />
-
-        ) : params.section === "transfers" ? (
-          reportId ? (
-            <ContributorMatrix
-              key="transfers"
-              reportId={reportId}
-              projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
-              config={TRANSFERS_MATRIX_CONFIG}
-              pushCommand={pushCommand}
-              onSaveStateChange={handleChildSaveStateChange}
-              onError={setError}
-              fillHeight={fillHeight}
-            />
-          ) : null
-
-        ) : params.section === "complementary" ? (
-          reportId ? (
-            <ContributorMatrix
-              key="complementary"
-              reportId={reportId}
-              projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
-              config={COMPLEMENTARY_MATRIX_CONFIG}
-              pushCommand={pushCommand}
-              onSaveStateChange={handleChildSaveStateChange}
-              onError={setError}
-              fillHeight={fillHeight}
-            />
-          ) : null
-
-        ) : params.section === "testimonials" ? (
-          reportId ? (
-            <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={handleChildSaveStateChange} pushCommand={pushCommand} />
-          ) : null
-
-        ) : params.section in sectionSpecs ? (
-          reportId ? (
-            <SectionTableEditor
-              key={params.section}
-              reportId={reportId}
-              spec={sectionSpecs[params.section]}
-              onSaveStateChange={handleChildSaveStateChange}
-              commentSection={params.section}
-              pushCommand={pushCommand}
-            />
-          ) : null
-
-        ) : params.section === "workplan" ? (
-          reportId && selectedReport ? (
-            <WorkplanPartnerEditor
-              reportId={reportId}
-              onSaveStateChange={handleChildSaveStateChange}
-              fillHeight
-              readOnly={readOnly}
-              pushCommand={pushCommand}
-            />
-          ) : null
-
-        ) : params.section === "expenditure" ? (
-          reportId ? (
-            <ExpenditurePartnerEditor
-              reportId={reportId}
-              onSaveStateChange={handleChildSaveStateChange}
-              fillHeight={fillHeight}
-            />
-          ) : null
-
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
-            <FileQuestion className="size-8 opacity-30" />
-            <p className="text-sm">Section not found.</p>
-          </div>
+          <>
+            {/* Parent-managed: surveys, overview, risk, indicators */}
+            {visitedRef.current.has("surveys") && (
+              <div hidden={params.section !== "surveys"}>
+                {loadingSurveys && surveys.length === 0 ? (
+                  <LoadingState />
+                ) : (
+                  <SurveysSection surveys={surveys} rowStates={rowStates} updateRow={updateRow} />
+                )}
+              </div>
+            )}
+
+            {visitedRef.current.has("overview") && (
+              <div hidden={params.section !== "overview"}>
+                {loadingOverview ? (
+                  <LoadingState />
+                ) : (
+                  <OverviewSection overview={overview} updateOverview={updateOverview} />
+                )}
+              </div>
+            )}
+
+            {visitedRef.current.has("risk") && (
+              <div hidden={params.section !== "risk"}>
+                {loadingRisk && risks.length === 0 ? (
+                  <LoadingState />
+                ) : (
+                  <RiskSection
+                    risks={risks}
+                    riskStates={riskStates}
+                    reportYear={selectedReport?.year ?? 0}
+                    newRiskName={newRiskName}
+                    setNewRiskName={setNewRiskName}
+                    newRiskDescription={newRiskDescription}
+                    setNewRiskDescription={setNewRiskDescription}
+                    newRiskCategory={newRiskCategory}
+                    setNewRiskCategory={setNewRiskCategory}
+                    addingRisk={addingRisk}
+                    handleRiskAdd={handleRiskAdd}
+                    updateRisk={updateRisk}
+                    handleRiskDelete={handleRiskDelete}
+                  />
+                )}
+              </div>
+            )}
+
+            {visitedRef.current.has("indicators") && (
+              <div hidden={params.section !== "indicators"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                {loadingIndicators && indicatorRows.length === 0 ? (
+                  <LoadingState />
+                ) : (
+                  <IndicatorsSection
+                    indicatorRows={indicatorRows}
+                    indicatorYears={indicatorYears}
+                    indicatorCurrentYear={indicatorCurrentYear}
+                    indicatorStates={indicatorStates}
+                    updateIndicator={updateIndicator}
+                    isAdmin={mode === "admin"}
+                    fillHeight={fillHeight}
+                    activities={activities}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Child-managed: transfers, complementary, testimonials, sectionSpecs, workplan, expenditure */}
+            {visitedRef.current.has("transfers") && reportId && (
+              <div hidden={params.section !== "transfers"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                <ContributorMatrix
+                  reportId={reportId}
+                  projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
+                  config={TRANSFERS_MATRIX_CONFIG}
+                  pushCommand={pushCommand}
+                  onSaveStateChange={handleChildSaveStateChange}
+                  onError={setError}
+                  fillHeight={fillHeight}
+                />
+              </div>
+            )}
+
+            {visitedRef.current.has("complementary") && reportId && (
+              <div hidden={params.section !== "complementary"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                <ContributorMatrix
+                  reportId={reportId}
+                  projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
+                  config={COMPLEMENTARY_MATRIX_CONFIG}
+                  pushCommand={pushCommand}
+                  onSaveStateChange={handleChildSaveStateChange}
+                  onError={setError}
+                  fillHeight={fillHeight}
+                />
+              </div>
+            )}
+
+            {visitedRef.current.has("testimonials") && reportId && (
+              <div hidden={params.section !== "testimonials"}>
+                <TestimonialsSection reportId={reportId} readOnly={readOnly} onSaveStateChange={handleChildSaveStateChange} pushCommand={pushCommand} />
+              </div>
+            )}
+
+            {Object.keys(sectionSpecs).map((sectionKey) =>
+              visitedRef.current.has(sectionKey) && reportId ? (
+                <div key={sectionKey} hidden={params.section !== sectionKey}>
+                  <SectionTableEditor
+                    reportId={reportId}
+                    spec={sectionSpecs[sectionKey]}
+                    onSaveStateChange={handleChildSaveStateChange}
+                    commentSection={sectionKey}
+                    pushCommand={pushCommand}
+                  />
+                </div>
+              ) : null
+            )}
+
+            {visitedRef.current.has("workplan") && reportId && selectedReport && (
+              <div hidden={params.section !== "workplan"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                <WorkplanPartnerEditor
+                  reportId={reportId}
+                  onSaveStateChange={handleChildSaveStateChange}
+                  fillHeight
+                  readOnly={readOnly}
+                  pushCommand={pushCommand}
+                />
+              </div>
+            )}
+
+            {visitedRef.current.has("expenditure") && reportId && (
+              <div hidden={params.section !== "expenditure"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                <ExpenditurePartnerEditor
+                  reportId={reportId}
+                  onSaveStateChange={handleChildSaveStateChange}
+                  fillHeight={fillHeight}
+                />
+              </div>
+            )}
+
+            {/* Fallback for unknown sections */}
+            {params.section && !REPORT_SECTIONS.find((s) => s.value === params.section) && !(params.section in sectionSpecs) && (
+              <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+                <FileQuestion className="size-8 opacity-30" />
+                <p className="text-sm">Section not found.</p>
+              </div>
+            )}
+          </>
         )}
         </div>
         </fieldset>

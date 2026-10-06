@@ -276,8 +276,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           const match = list.find((d) => toSlug(d) === params.project);
           if (match) setSelectedProdocId(String(match.id));
         } else if (isPartner && list.length > 0) {
-          // No project in the URL — partners have no dropdown, so open the first.
-          setSelectedProdocId(String(list[0].id));
+          // No project in the URL — navigate to the first so the sidebar highlights correctly.
+          router.replace(`${routeBase}/${toSlug(list[0])}/general`);
         }
       })
       .catch(() => setError("Failed to load project documents"))
@@ -1620,7 +1620,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
               <FileQuestion className="size-10 opacity-30" />
               <p className="text-sm">
-                {loadingDocs
+                {loadingDocs || (isPartner && docs.length > 0)
                   ? labels.common.loading
                   : isPartner
                     ? "No project document is available for your organization yet."

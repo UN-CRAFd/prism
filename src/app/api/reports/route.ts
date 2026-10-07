@@ -172,6 +172,24 @@ async function copyProdocBaseline(client: PoolClient, reportIds: number[]) {
     [reportIds]
   );
 
+  // Copy risks added in prior report years (source_risk_id IS NULL = added during
+  // reporting, not in the ProDoc), once per origin_risk_id, so the new report
+  // opens with the project's full risk history pre-populated.
+  await client.query(
+    `INSERT INTO reporting_platform.risk_management
+       (report_id, risk_name, risk_description, source_risk_id, origin_risk_id)
+     SELECT nr.id, rm.risk_name, rm.risk_description, rm.id, rm.origin_risk_id
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.reports r ON r.project_id = nr.project_id AND r.data_type = 'report'
+       JOIN reporting_platform.risk_management rm ON rm.report_id = r.id
+      WHERE nr.id = ANY($1::int[])
+        AND r.year < nr.year
+        AND rm.source_risk_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM reporting_platform.risk_management x
+                         WHERE x.report_id = nr.id AND x.origin_risk_id = rm.origin_risk_id)`,
+    [reportIds]
+  );
+
   await client.query(
     `INSERT INTO reporting_platform.risk_categories (risk_id, category)
      SELECT rr.id, rc.category

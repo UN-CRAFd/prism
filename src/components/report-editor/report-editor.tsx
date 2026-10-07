@@ -47,6 +47,15 @@ import { IndicatorsSection } from "@/components/report-editor/sections/indicator
 import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
 import { useReportLock } from "@/components/report-editor/use-report-lock";
 
+export interface RiskHistory {
+  prodoc: Record<number, { likelihood: number | null; impact: number | null }>;
+  years: Array<{
+    year: number;
+    shared: boolean;
+    values: Record<number, { likelihood: number | null; impact: number | null }>;
+  }>;
+}
+
 function toSlug(r: Report): string {
   return projectSlug(r.project_short_name, r.project_title);
 }
@@ -95,6 +104,9 @@ export function ReportEditor({
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskStates, setRiskStates] = useState<Record<number, RiskState>>({});
   const [loadingRisk, setLoadingRisk] = useState(false);
+
+  // Past-year risk history (prodoc baseline + updated values per report year).
+  const [riskHistory, setRiskHistory] = useState<RiskHistory | null>(null);
 
   // Risks are report-scoped and can be added here; editing and deleting their
   // core (admin-owned) fields is the ProDoc editor's job.
@@ -227,6 +239,15 @@ export function ReportEditor({
     }
   }, []);
 
+  const loadRiskHistory = useCallback(async (id: number) => {
+    try {
+      const res = await fetch(`/api/risk/history?reportId=${id}`);
+      if (!res.ok) return;
+      const data: RiskHistory = await res.json();
+      setRiskHistory(data);
+    } catch { /* quiet — history is non-blocking */ }
+  }, []);
+
   const loadIndicators = useCallback(async (id: number) => {
     setLoadingIndicators(true);
     setError(null);
@@ -319,11 +340,12 @@ export function ReportEditor({
     loadSurveys(reportId);
     loadOverview(reportId);
     loadRisk(reportId);
+    loadRiskHistory(reportId);
     loadIndicators(reportId);
     const projectId = reports.find((r) => r.id === reportId)?.project_id;
     if (projectId) loadActivities(projectId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportId, loadSurveys, loadOverview, loadRisk, loadIndicators, loadActivities, reports]);
+  }, [reportId, loadSurveys, loadOverview, loadRisk, loadRiskHistory, loadIndicators, loadActivities, reports]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -602,6 +624,20 @@ export function ReportEditor({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
+  }
+
+  async function handleShareYear(year: number, shared: boolean) {
+    if (!reportId || !riskHistory) return;
+    const currentShared = riskHistory.years.filter((y) => y.shared).map((y) => y.year);
+    const next = shared
+      ? [...new Set([...currentShared, year])]
+      : currentShared.filter((y) => y !== year);
+    await fetch(`/api/reports/${reportId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ risk_shared_years: next }),
+    });
+    loadRiskHistory(reportId);
   }
 
   function updateIndicator(id: number, patch: Partial<IndicatorState>) {
@@ -1054,6 +1090,9 @@ export function ReportEditor({
                     risks={risks}
                     riskStates={riskStates}
                     reportYear={selectedReport?.year ?? 0}
+                    riskHistory={riskHistory}
+                    isAdmin={mode === "admin"}
+                    onShareYear={handleShareYear}
                     newRiskName={newRiskName}
                     setNewRiskName={setNewRiskName}
                     newRiskDescription={newRiskDescription}

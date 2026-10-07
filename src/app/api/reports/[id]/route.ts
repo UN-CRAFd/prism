@@ -167,6 +167,59 @@ export async function PUT(
   }
 }
 
+// PATCH /api/reports/[id] — update risk_shared_years (admin only)
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireAdmin();
+  if (gate instanceof NextResponse) return gate;
+
+  const { id } = await params;
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const years = body.risk_shared_years;
+  if (!Array.isArray(years) || !years.every((y) => Number.isInteger(Number(y)))) {
+    return NextResponse.json({ error: "risk_shared_years must be an integer array" }, { status: 400 });
+  }
+  const yearInts = years.map(Number);
+
+  try {
+    const report = await query<{ project_id: number; year: number }>(
+      `SELECT project_id, year FROM reporting_platform.reports WHERE id = $1 AND data_type = 'report'`,
+      [id]
+    );
+    if (!report.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+
+    if (yearInts.length > 0) {
+      const { project_id, year: currentYear } = report[0];
+      const pastYears = await query<{ year: number }>(
+        `SELECT year FROM reporting_platform.reports
+          WHERE project_id = $1 AND data_type = 'report' AND year < $2`,
+        [project_id, currentYear]
+      );
+      const validSet = new Set(pastYears.map((r) => r.year));
+      if (!yearInts.every((y) => validSet.has(y))) {
+        return NextResponse.json({ error: "Some years are not past years of this project" }, { status: 400 });
+      }
+    }
+
+    await query(
+      `UPDATE reporting_platform.reports SET risk_shared_years = $1 WHERE id = $2`,
+      [yearInts, id]
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    logger.error("PATCH /api/reports/[id] error:", err);
+    return NextResponse.json({ error: "Failed to update report" }, { status: 500 });
+  }
+}
+
 // DELETE /api/reports/[id] — delete a report (indicator_data cascade)
 export async function DELETE(
   _request: Request,

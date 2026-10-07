@@ -36,9 +36,20 @@ async function syncCategories(client: PoolClient, riskId: number, categories: st
   }
 }
 
+// origin_year: the year of the report where this risk was first added.
+// NULL when the origin is the ProDoc (not a report year).
+const ORIGIN_YEAR_EXPR = `
+  CASE WHEN orig_r.data_type = 'prodoc' THEN NULL ELSE orig_r.year END AS origin_year`;
+
+const ORIGIN_JOIN = `
+  LEFT JOIN reporting_platform.risk_management orig ON orig.id = rm.origin_risk_id
+  LEFT JOIN reporting_platform.reports orig_r ON orig_r.id = orig.report_id`;
+
 async function fetchRisk(id: number) {
   const rows = await query(
-    `SELECT rm.*, ${CATEGORY_AGG} FROM reporting_platform.risk_management rm WHERE rm.id = $1`,
+    `SELECT rm.*, ${CATEGORY_AGG}, ${ORIGIN_YEAR_EXPR}
+       FROM reporting_platform.risk_management rm ${ORIGIN_JOIN}
+      WHERE rm.id = $1`,
     [id]
   );
   return rows[0];
@@ -54,8 +65,8 @@ export async function GET(req: NextRequest) {
       const gate = await guardReport(session, reportId);
       if (gate) return gate;
       const rows = await query(
-        `SELECT rm.*, ${CATEGORY_AGG}
-           FROM reporting_platform.risk_management rm
+        `SELECT rm.*, ${CATEGORY_AGG}, ${ORIGIN_YEAR_EXPR}
+           FROM reporting_platform.risk_management rm ${ORIGIN_JOIN}
           WHERE rm.report_id = $1
           ORDER BY rm.id`,
         [reportId]

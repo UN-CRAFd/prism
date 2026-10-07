@@ -282,6 +282,7 @@ CREATE TABLE IF NOT EXISTS reports (
     data_type              data_type_enum NOT NULL DEFAULT 'report'::data_type_enum,
     report_type            TEXT,
     mptfo_report_link      TEXT,
+    risk_shared_years      INTEGER[]      NOT NULL DEFAULT '{}',
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, year, data_type)
@@ -517,11 +518,13 @@ CREATE TABLE IF NOT EXISTS risk_management (
     updated_mitigation  TEXT,
     project_revision    BOOLEAN      NOT NULL DEFAULT FALSE,
     source_risk_id      INTEGER      REFERENCES risk_management(id) ON DELETE SET NULL,
+    origin_risk_id      INTEGER,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS risk_management_report_id_idx ON risk_management(report_id);
+CREATE INDEX IF NOT EXISTS risk_management_origin_idx ON risk_management(origin_risk_id);
 
 -- ── Risk categories (normalized from TEXT[] array) ──────────────────────────
 CREATE TABLE IF NOT EXISTS risk_categories (
@@ -544,6 +547,23 @@ DROP TRIGGER IF EXISTS risk_categories_updated_at ON risk_categories;
 CREATE TRIGGER risk_categories_updated_at
     BEFORE UPDATE ON risk_categories
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+CREATE OR REPLACE FUNCTION risk_set_origin() RETURNS trigger AS $$
+BEGIN
+  IF NEW.origin_risk_id IS NULL THEN
+    IF NEW.source_risk_id IS NOT NULL THEN
+      SELECT origin_risk_id INTO NEW.origin_risk_id
+        FROM risk_management WHERE id = NEW.source_risk_id;
+    END IF;
+    NEW.origin_risk_id := COALESCE(NEW.origin_risk_id, NEW.source_risk_id, NEW.id);
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS risk_management_set_origin ON risk_management;
+CREATE TRIGGER risk_management_set_origin
+  BEFORE INSERT ON risk_management
+  FOR EACH ROW EXECUTE FUNCTION risk_set_origin();
 
 -- ── Qualitative list sections (one set of rows per report) ───────────────────
 CREATE TABLE IF NOT EXISTS key_achievements (

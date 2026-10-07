@@ -61,6 +61,8 @@ export interface Risk {
   updated_mitigation: string | null;
   project_revision: boolean;
   source_risk_id: number | null;
+  origin_risk_id: number | null;
+  origin_year: number | null;
 }
 
 export interface RiskState {

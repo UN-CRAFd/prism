@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
 import { numericAmount } from "@/lib/numeric-input";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Wallet } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
@@ -628,7 +628,12 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
 
   const totalBudget = Math.round(totalSub * (1 + rate) * 100) / 100;
   return (
-    <div className={cn("space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
+    <div className={cn("rounded-xl border bg-card p-6 space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
+      <div className="flex items-center gap-2">
+        <Wallet className="size-4 text-muted-foreground" />
+        <h3 className="t-heading-sub">{labels.generalInfo.budget.heading}</h3>
+      </div>
+      <p className="text-xs text-muted-foreground">{labels.generalInfo.budget.description}</p>
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
       {years.length === 0 ? (
@@ -638,7 +643,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
       ) : (
         <>
           <div className={cn("rounded-xl border", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
-            <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Approved annual budget (USD) per category</p>
+            <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Annual budget (USD) per category</p>
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b bg-muted/40">

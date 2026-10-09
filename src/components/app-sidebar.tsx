@@ -317,7 +317,7 @@ export function AppSidebar() {
               href: "/partner",
               label: "Home",
               icon: Home,
-              isActive: (p: string) => p === "/partner" || p.startsWith("/partner/projects/"),
+              isActive: (p: string) => p === "/partner",
             },
             // Project Document / Report Editor appear only once the partner has a
             // prodoc / report (hidden while `=== false`; shown until then to avoid

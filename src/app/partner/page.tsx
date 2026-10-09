@@ -1,28 +1,24 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { cn, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { buildPartnerProjects } from "@/lib/partner-projects";
 import type { FeedbackComment, PartnerProject } from "@/lib/partner-projects";
 import type { Report } from "@/lib/types";
+import { HorizontalTimeline } from "@/components/partner/horizontal-timeline";
+import { ActionRow } from "@/components/partner/project-rows";
 
 export default function PartnerHomePage() {
   const { user } = useAuth();
-  const router = useRouter();
-  const search = useSearchParams();
-  const showAll = search.get("all") === "1";
 
   const [reports, setReports] = useState<Report[]>([]);
   const [prodocs, setProdocs] = useState<Report[]>([]);
   const [comments, setComments] = useState<FeedbackComment[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
-  // Set to true once we've decided NOT to redirect (i.e. safe to render the list).
-  const [redirectChecked, setRedirectChecked] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -52,24 +48,32 @@ export default function PartnerHomePage() {
   const currentProjects = useMemo(() => allProjects.filter((p) => !p.isPast), [allProjects]);
   const pastProjects = useMemo(() => allProjects.filter((p) => p.isPast), [allProjects]);
 
-  // If exactly one current project and no ?all=1, skip the list and go to that project.
-  useEffect(() => {
-    if (!dataLoaded) return;
-    if (showAll) { setRedirectChecked(true); return; }
-    if (currentProjects.length === 1) {
-      router.replace(`/partner/projects/${currentProjects[0].slug}`);
-      // Stay on loading while the navigation settles.
-    } else {
-      setRedirectChecked(true);
-    }
-  }, [dataLoaded, currentProjects, showAll, router]);
-
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
     if (h < 18) return "Good afternoon";
     return "Good evening";
   }, []);
+
+  const [openBoxes, setOpenBoxes] = useState<Set<number>>(new Set());
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!dataLoaded || initializedRef.current) return;
+    initializedRef.current = true;
+    if (currentProjects.length === 1) {
+      setOpenBoxes(new Set([currentProjects[0].project_id]));
+    }
+  }, [dataLoaded, currentProjects]);
+
+  function toggleBox(id: number) {
+    setOpenBoxes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const [pastExpanded, setPastExpanded] = useState(false);
 
@@ -83,11 +87,11 @@ export default function PartnerHomePage() {
             ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}`
             : " "}
         </h1>
-        <p className="text-neutral-400 text-sm mt-2">Partner Dashboard</p>
+        <p className="text-neutral-400 text-sm mt-2">{labels.partnerHome.pageTitle}</p>
       </div>
 
       <div className="flex-1 px-8 py-8">
-        {!redirectChecked ? (
+        {!dataLoaded ? (
           <LoadingState className="py-16" />
         ) : allProjects.length === 0 ? (
           <div className="text-center py-16 text-sm text-muted-foreground">
@@ -103,10 +107,11 @@ export default function PartnerHomePage() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {currentProjects.map((p) => (
-                    <ProjectCard
+                    <ProjectBox
                       key={p.project_id}
                       project={p}
-                      onClick={() => router.push(`/partner/projects/${p.slug}`)}
+                      open={openBoxes.has(p.project_id)}
+                      onToggle={() => toggleBox(p.project_id)}
                     />
                   ))}
                 </div>
@@ -128,10 +133,11 @@ export default function PartnerHomePage() {
                 {pastExpanded && (
                   <div className="flex flex-col gap-3">
                     {pastProjects.map((p) => (
-                      <ProjectCard
+                      <ProjectBox
                         key={p.project_id}
                         project={p}
-                        onClick={() => router.push(`/partner/projects/${p.slug}`)}
+                        open={openBoxes.has(p.project_id)}
+                        onToggle={() => toggleBox(p.project_id)}
                       />
                     ))}
                   </div>
@@ -145,57 +151,78 @@ export default function PartnerHomePage() {
   );
 }
 
-function ProjectCard({
+function ProjectBox({
   project,
-  onClick,
+  open,
+  onToggle,
 }: {
   project: PartnerProject;
-  onClick: () => void;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const actionCount = project.actions.length;
-  const commentCount = project.unansweredComments.length;
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-xl border bg-card px-5 py-5 hover:bg-accent/40 transition-colors group flex flex-col sm:flex-row sm:items-center gap-3"
-    >
-      {/* Left: title + lead org + role badge */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[17px] font-semibold leading-snug">{project.title}</p>
-        <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
-        <span
-          className={cn(
-            "mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium",
-            project.role === "lead"
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "bg-violet-50 text-violet-700 border border-violet-200"
-          )}
-        >
-          {project.role === "lead"
-            ? labels.partnerHome.roleLead
-            : labels.partnerHome.roleImpl}
-        </span>
-      </div>
+    <div className="rounded-xl border bg-card">
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-5 py-5 flex flex-col sm:flex-row sm:items-center gap-3"
+      >
+        {/* Left: title + lead org + role badge */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[17px] font-semibold leading-snug">{project.title}</p>
+          <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
+          <span
+            className={cn(
+              "mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium",
+              project.role === "lead"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "bg-violet-50 text-violet-700 border border-violet-200"
+            )}
+          >
+            {project.role === "lead" ? labels.partnerHome.roleLead : labels.partnerHome.roleImpl}
+          </span>
+        </div>
 
-      {/* Right: status chips + arrow */}
-      <div className="flex items-center gap-2 flex-wrap shrink-0">
-        {project.hasOverdue && (
-          <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 text-[13px] font-medium px-2.5 py-0.5">
-            {labels.partnerHome.overdue}
-          </span>
-        )}
-        {actionCount > 0 && (
-          <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[13px] font-medium px-2.5 py-0.5">
-            {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
-          </span>
-        )}
-        {commentCount > 0 && (
-          <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-[13px] font-medium px-2.5 py-0.5">
-            {commentCount} {commentCount === 1 ? labels.partnerHome.comment : labels.partnerHome.comments}
-          </span>
-        )}
-        <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 ml-1" />
-      </div>
-    </button>
+        {/* Right: status chips + chevron */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          {project.hasOverdue && (
+            <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 text-[13px] font-medium px-2.5 py-0.5">
+              {labels.partnerHome.overdue}
+            </span>
+          )}
+          {actionCount > 0 && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[13px] font-medium px-2.5 py-0.5">
+              {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
+            </span>
+          )}
+          {open
+            ? <ChevronDown className="size-4 text-muted-foreground shrink-0 ml-1" />
+            : <ChevronRight className="size-4 text-muted-foreground shrink-0 ml-1" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t px-5 py-5 space-y-4">
+          {project.timeline.length > 0 && (
+            <HorizontalTimeline events={project.timeline} />
+          )}
+          <div>
+            <h3 className="t-heading-sub mb-3">{labels.partnerProject.needsAction}</h3>
+            {project.actions.length === 0 ? (
+              <div className="flex items-center gap-3 px-2 py-4 justify-center">
+                <CheckCircle2 className="size-4 text-green-500 shrink-0" />
+                <p className="text-sm text-muted-foreground">{labels.partnerProject.nothingNeeded}</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border overflow-hidden divide-y">
+                {project.actions.map((action, i) => (
+                  <ActionRow key={i} action={action} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -28,6 +28,7 @@ export interface ProjectAction {
   dueSoon: boolean;       // due within 30 days, not yet overdue
   // Prodoc actions
   prodocStatus: string | null;
+  commentCount: number;
 }
 
 export type TimelineEventType = "start" | "prodoc" | "deadline" | "end" | "now";
@@ -56,7 +57,6 @@ export interface PartnerProject {
   prodoc: Report;
   reports: Report[];
   actions: ProjectAction[];
-  unansweredComments: FeedbackComment[];
   timeline: TimelineEvent[];
   isPast: boolean;
   hasOverdue: boolean;    // any report action is past its due date
@@ -128,7 +128,7 @@ export function buildPartnerProjects(
     const projectReports = (reportsByProject.get(prodoc.project_id) ?? [])
       .sort((a, b) => a.year - b.year);
     const projectComments = commentsByProject.get(prodoc.project_id) ?? [];
-    const unansweredComments = projectComments.filter((c) => !c.partner_addressed);
+    const openComments = projectComments.filter((c) => !c.partner_addressed && !c.resolved);
 
     // Actions: Open reports + Open prodoc
     const actions: ProjectAction[] = [];
@@ -145,6 +145,7 @@ export function buildPartnerProjects(
           overdue,
           dueSoon,
           prodocStatus: null,
+          commentCount: openComments.filter((c) => c.data_type === "report" && c.year === r.year).length,
         });
       }
     }
@@ -157,19 +158,20 @@ export function buildPartnerProjects(
         overdue: false,
         dueSoon: false,
         prodocStatus: prodoc.status,
+        commentCount: openComments.filter((c) => c.data_type === "prodoc").length,
       });
     }
 
     const hasOverdue = actions.some((a) => a.overdue);
     const timeline = buildProjectTimeline(prodoc, projectReports);
 
-    // isPast: end date before today AND no actions AND no unanswered comments
+    // isPast: end date before today AND no actions
     let isPast = false;
     if (prodoc.project_start_date && prodoc.project_duration_months) {
       const start = new Date(prodoc.project_start_date);
       const end = new Date(start);
       end.setMonth(end.getMonth() + prodoc.project_duration_months);
-      isPast = end < today && actions.length === 0 && unansweredComments.length === 0;
+      isPast = end < today && actions.length === 0;
     }
 
     result.push({
@@ -182,7 +184,6 @@ export function buildPartnerProjects(
       prodoc,
       reports: projectReports,
       actions,
-      unansweredComments,
       timeline,
       isPast,
       hasOverdue,

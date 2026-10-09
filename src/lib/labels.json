@@ -583,6 +583,7 @@
     "tocTitle": "Contents"
   },
   "partnerHome": {
+    "pageTitle": "Home",
     "yourProjects": "Your projects",
     "pastProjects": "Past projects",
     "noProjects": "No projects found — contact your CRAF'd programme manager.",
@@ -593,7 +594,9 @@
     "todos": "to-dos",
     "comment": "comment",
     "comments": "comments",
-    "overdue": "Overdue"
+    "overdue": "Overdue",
+    "commentToAddress": "comment to address",
+    "commentsToAddress": "comments to address"
   },
   "partnerProject": {
     "allProjects": "All projects",

@@ -12,11 +12,17 @@ import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
-import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel } from "@/lib/risk";
+import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel, computeRiskLevelKey, riskLevelLabel, RISK_LEVEL_COLORS } from "@/lib/risk";
 import { FilterChip } from "@/components/report-editor/past-year-chips";
 import { useStickySet } from "@/components/report-editor/sticky-filter";
 import type { Risk, RiskState } from "@/components/report-editor/types";
 import type { RiskHistory } from "@/components/report-editor/report-editor";
+
+function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
+  const key = computeRiskLevelKey(likelihood, impact);
+  if (!key) return <span className="text-muted-foreground text-sm">—</span>;
+  return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
+}
 
 // Column layout (base + 2 extra columns per selected comparison chip):
 //   #(48) | Risk(280) | [chip: L(80)+I(80) each] | Upd.L(100)+Upd.I(100)+Upd.Mit.(230) | Revision(90) | Actions(80)
@@ -237,8 +243,8 @@ export function RiskSection({
                   </th>
                 ))}
 
-                {/* Current-year group: Likelihood + Impact + Mitigation */}
-                <th colSpan={3} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", CURRENT_YEAR_HEAD)}>
+                {/* Current-year group: Likelihood + Impact + [Risk Level (admin)] + Mitigation */}
+                <th colSpan={isAdmin ? 4 : 3} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", CURRENT_YEAR_HEAD)}>
                   {reportYear}
                 </th>
 
@@ -263,6 +269,7 @@ export function RiskSection({
                 ])}
                 <th className={cn(curSubHead, "border-l")} style={{ width: 100, minWidth: 100 }}>Likelihood</th>
                 <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>Impact</th>
+                {isAdmin && <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>{labels.risk.columns.riskLevel}</th>}
                 <th className={curSubHead} style={{ width: 230, minWidth: 230 }}>Mitigation</th>
               </tr>
             </thead>
@@ -368,6 +375,13 @@ export function RiskSection({
                         onValueChange={(v) => updateRisk(risk.id, { updated_impact: v })}
                       />
                     </td>
+
+                    {/* Risk level (admin only) */}
+                    {isAdmin && (
+                      <td className="px-3 py-3 border-t">
+                        <RiskLevelBadge likelihood={state.updated_likelihood} impact={state.updated_impact} />
+                      </td>
+                    )}
 
                     {/* Updated mitigation */}
                     <td className="px-3 py-3 border-t">

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { Roboto } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
@@ -8,19 +7,9 @@ import { applyLabelOverrides } from "@/lib/labels";
 import { getOptionOverrides } from "@/lib/option-settings";
 import { applyOptionOverrides } from "@/lib/options";
 
-const qanelas = localFont({
-  src: [
-    { path: "../../public/fonts/QanelasHeavy.otf", weight: "700" },
-    { path: "../../public/fonts/QanelasExtraBold.otf", weight: "800" },
-    { path: "../../public/fonts/QanelasBlack.otf", weight: "900" },
-  ],
-  variable: "--font-qanelas",
-  display: "swap",
-});
-
 const roboto = Roboto({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-roboto",
   display: "swap",
 });
@@ -54,7 +43,7 @@ export default async function RootLayout({
   const hasOptionOverrides = Object.keys(optionOverrides).length > 0;
 
   return (
-    <html lang="en" className={`${qanelas.variable} ${roboto.variable}`}>
+    <html lang="en" className={`${roboto.variable}`}>
       <body className="antialiased font-roboto">
         {hasLabelOverrides && (
           <script

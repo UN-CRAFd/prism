@@ -247,7 +247,7 @@ export default function AdminHomePage() {
                       <p className="text-xs mt-0.5 opacity-70">{description}</p>
                     </div>
                     {display != null && (
-                      <p className="text-2xl font-bold font-qanelas leading-none shrink-0 tabular-nums">
+                      <p className="text-2xl font-bold leading-none shrink-0 tabular-nums">
                         {loading ? <span className="inline-block w-6 h-6 bg-current opacity-10 animate-pulse rounded" /> : display}
                       </p>
                     )}

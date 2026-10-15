@@ -441,7 +441,7 @@ export default function ReportPrintPage() {
               <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600, marginTop: 4 }}>
                 Complex Risk Analytics Fund (CRAF'd) · Annual Report {report.year}
               </div>
-              <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 28, lineHeight: 1.1, margin: "10px 0 8px" }}>
+              <h1 style={{ fontFamily: "var(--font-roboto)", fontWeight: 700, fontSize: 28, lineHeight: 1.1, margin: "10px 0 8px" }}>
                 {report.project_title}
               </h1>
               <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.2, margin: "0 0 6px" }}>
@@ -1061,7 +1061,7 @@ function Section({
       <h2
         data-block
         style={{
-          fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 17, margin: "0 0 10px",
+          fontFamily: "var(--font-roboto)", fontWeight: 700, fontSize: 17, margin: "0 0 10px",
           paddingBottom: 6, borderBottom: `2px solid ${BRAND}`,
         }}
       >

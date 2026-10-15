@@ -10,15 +10,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Custom font declarations */
-@font-face {
-  font-family: "Qanelas";
-  src: url("/fonts/QanelasBlack.otf") format("opentype");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* LiquidityWarning slide-in animation */
 @keyframes slide-in-down {
   from {
@@ -32,22 +23,6 @@
 }
 .animate-slide-in-down {
   animation: slide-in-down 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@font-face {
-  font-family: "Qanelas";
-  src: url("/fonts/QanelasExtraBold.otf") format("opentype");
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Qanelas";
-  src: url("/fonts/QanelasHeavy.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
 }
 
 /**
@@ -87,7 +62,6 @@
   --color-crafd-yellow: #f1b434;
 
   /* Custom Fonts */
-  --font-qanelas: var(--font-qanelas), "Qanelas", sans-serif;
   --font-roboto: var(--font-roboto), "Roboto", sans-serif;
 
   /* shadcn */
@@ -189,13 +163,13 @@
 /* line-height goes through --tw-leading, exactly as Tailwind's own text-*
    utilities do, so adding a `leading-*` class to a heading still overrides. */
 @utility t-title-banner {
-  font-family: var(--font-qanelas), "Qanelas", sans-serif;
+  font-family: var(--font-roboto), "Roboto", sans-serif;
   font-size: var(--text-3xl);
   line-height: var(--tw-leading, var(--text-3xl--line-height));
   font-weight: 700;
 }
 @utility t-title-page {
-  font-family: var(--font-qanelas), "Qanelas", sans-serif;
+  font-family: var(--font-roboto), "Roboto", sans-serif;
   font-size: var(--text-2xl);
   line-height: var(--tw-leading, var(--text-2xl--line-height));
   font-weight: 700;
@@ -455,7 +429,7 @@ h6:hover > .wiki-anchor,
   }
   body.guide-print .guide-toc-title {
     margin: 0 0 0.75rem;
-    font-family: var(--font-qanelas), sans-serif;
+    font-family: var(--font-roboto), sans-serif;
     font-size: 1.4rem;
     font-weight: 700;
     color: #000;

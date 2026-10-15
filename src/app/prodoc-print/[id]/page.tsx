@@ -11,7 +11,7 @@ import { toDisplayHtml } from "@/lib/richtext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project Document print view. Renders the full prodoc as a styled A4 document
-// using the real brand fonts (Qanelas headings, Roboto body). PDF output is via
+// using the real brand fonts (Roboto throughout). PDF output is via
 // the browser's native print (window.print → "Save as PDF"), so the text stays
 // real/vector — selectable and searchable — and the browser handles pagination
 // (page breaks controlled by the @media print rules in PRINT_CSS).
@@ -294,7 +294,7 @@ export default function ProdocPrintPage() {
               <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: MUTED, fontWeight: 600, marginTop: 4 }}>
                 Complex Risk Analytics Fund (CRAF'd) Project Document
               </div>
-              <h1 style={{ fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 30, lineHeight: 1.1, margin: "10px 0 8px" }}>
+              <h1 style={{ fontFamily: "var(--font-roboto)", fontWeight: 700, fontSize: 30, lineHeight: 1.1, margin: "10px 0 8px" }}>
                 {m.project_title as string}
               </h1>
               <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.2, margin: "0 0 10px" }}>
@@ -783,7 +783,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         data-block
         data-keep="1"
         style={{
-          fontFamily: "var(--font-qanelas)", fontWeight: 700, fontSize: 17, margin: "0 0 10px",
+          fontFamily: "var(--font-roboto)", fontWeight: 700, fontSize: 17, margin: "0 0 10px",
           paddingBottom: 6, borderBottom: `2px solid ${BRAND}`,
         }}
       >

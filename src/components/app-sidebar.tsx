@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
+import { partnerProdocSections } from "@/lib/prodoc-sections";
 import { numberWikiSections } from "@/lib/wiki";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ const dataLinks = [
 interface SidebarReport {
   id: number;
   year: number;
+  project_id: number;
   report_type: "annual" | "final" | null;
   project_title: string;
   project_short_name: string | null;
@@ -261,6 +263,7 @@ export function AppSidebar() {
   // Refetched when the section path changes so a check appears once a section is
   // filled out and the user navigates on.
   const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
+  const [prodocSectionComplete, setProdocSectionComplete] = useState<Record<string, boolean>>({});
   const [reportSectionsCollapsed, setReportSectionsCollapsed] = useState(false);
   const prodocItems = Array.from(
     new Map(prodocs.map((p) => [reportSlug(p), p])).values()
@@ -269,6 +272,7 @@ export function AppSidebar() {
   const inProdoc = isPartner && pathname.startsWith("/partner/prodoc-editor/");
   const openProdocSlug = inProdoc ? prodocParts[2] ?? null : null;
   const openProdocSection = (inProdoc ? prodocParts[3] : null) ?? "general";
+  const openProdocRow = prodocItems.find((p) => projectSlug(p.project_short_name, p.project_title) === openProdocSlug) ?? null;
 
   const openReport = isPartner ? parseReportPath(pathname) : null;
   const activeReportId = openReport
@@ -289,6 +293,14 @@ export function AppSidebar() {
       .then((d) => setSectionComplete(d.sections ?? {}))
       .catch(() => {});
   }, [activeReportId, pathname]);
+
+  useEffect(() => {
+    if (openProdocRow == null) { setProdocSectionComplete({}); return; }
+    fetch(`/api/prodoc-completion?projectId=${openProdocRow.project_id}`)
+      .then((r) => r.json())
+      .then((d) => setProdocSectionComplete(d.sections ?? {}))
+      .catch(() => {});
+  }, [openProdocRow?.project_id, pathname]);
 
   return (
     // `no-print` only bites under body.guide-print (see globals.css), so printing
@@ -428,20 +440,45 @@ export function AppSidebar() {
                       const slug = projectSlug(p.project_short_name, p.project_title);
                       const pActive = openProdocSlug === slug;
                       return (
-                        <Link
-                          key={slug}
-                          href={`/partner/prodoc-editor/${slug}/${openProdocSection}`}
-                          className={cn(
-                            "flex flex-col rounded-md px-3 py-1.5 transition-colors",
-                            pActive
-                              ? NAV_ACTIVE
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        <div key={slug}>
+                          <Link
+                            href={`/partner/prodoc-editor/${slug}/${openProdocSection}`}
+                            className={cn(
+                              "flex flex-col rounded-md px-3 py-1.5 transition-colors",
+                              pActive
+                                ? NAV_ACTIVE
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            )}
+                          >
+                            <span className="truncate text-xs font-medium">
+                              {p.project_title}
+                            </span>
+                          </Link>
+                          {pActive && (
+                            <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+                              {partnerProdocSections().map((s) => {
+                                const secActive = openProdocSection === s.value;
+                                return (
+                                  <Link
+                                    key={s.value}
+                                    href={`/partner/prodoc-editor/${slug}/${s.value}`}
+                                    className={cn(
+                                      "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                                      secActive
+                                        ? `${NAV_ACTIVE} font-medium`
+                                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    )}
+                                  >
+                                    <span className="flex-1 truncate">{s.label}</span>
+                                    {prodocSectionComplete[s.value] && (
+                                      <Check className="size-3.5 shrink-0 text-green-600" />
+                                    )}
+                                  </Link>
+                                );
+                              })}
+                            </div>
                           )}
-                        >
-                          <span className="truncate text-xs font-medium">
-                            {p.project_title}
-                          </span>
-                        </Link>
+                        </div>
                       );
                     })}
                   </div>

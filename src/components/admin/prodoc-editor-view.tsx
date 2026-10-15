@@ -15,6 +15,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
+import { PRODOC_SECTIONS } from "@/lib/prodoc-sections";
 import { numericYear, isValidYear } from "@/lib/numeric-input";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
 import { ExpenditureAdminEditor } from "@/components/expenditure-grid";
@@ -129,19 +130,6 @@ function numericValue(v: string): string {
   return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "");
 }
 
-const SECTIONS: { value: string; label: string; muted?: boolean; adminOnly?: boolean; hidden?: boolean }[] = [
-  { value: "general", get label() { return labels.sections.general; } },
-  { value: "narratives", get label() { return labels.sections.narratives; } },
-  { value: "sdg", get label() { return labels.sections.sdg; }, hidden: true }, // hidden for now
-  { value: "workplan", get label() { return labels.sections.workplan; } },
-  { value: "indicators", get label() { return labels.sections.indicators; } },
-  { value: "risk", get label() { return labels.sections.risk; } },
-  // "Budgets" is the prodoc-editor label for the expenditure section (the report
-  // editor keeps "Expenditure"); it sits after the workplan tab here.
-  { value: "expenditure", label: "Budgets" },
-  { value: "signatures", get label() { return labels.sections.signatures; }, adminOnly: true },
-  { value: "documents", get label() { return labels.sections.documents; } },
-];
 
 type LockPhase = "idle" | "acquiring" | "held" | "blocked" | "available" | "warning" | "timed-out" | "lock-error";
 
@@ -166,7 +154,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const routeBase = isPartner ? "/partner/prodoc-editor" : "/admin/prodoc-editor";
   // Partners never see admin-only tabs; `hidden` tabs are shelved for everyone
   // (their render branch stays, so they can be re-enabled by dropping the flag).
-  const sections = SECTIONS.filter((s) => !s.hidden && (!isPartner || !s.adminOnly));
+  const sections = PRODOC_SECTIONS.filter((s) => !s.hidden && (!isPartner || !s.adminOnly));
 
   const confirm = useConfirm();
   const [docs, setDocs] = useState<Prodoc[]>([]);
@@ -360,7 +348,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       if (selectedSection === "expenditure") setExpenditureRefreshKey((k) => k + 1);
       if (selectedSection === "indicators") { loadIndicatorsQuiet(selectedProdocId); loadActivities(selectedProdocId); }
     }
-    const unvisited = SECTIONS
+    const unvisited = PRODOC_SECTIONS
       .filter((s) => !s.hidden && (!isPartner || !s.adminOnly) && !visitedRef.current.has(s.value))
       .map((s) => s.value);
     if (!unvisited.length) return;
@@ -972,7 +960,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     sectionComplete !== null
       ? Object.entries(sectionComplete)
           .filter(([, done]) => done === false)
-          .map(([value]) => SECTIONS.find((s) => s.value === value)?.label ?? value)
+          .map(([value]) => PRODOC_SECTIONS.find((s) => s.value === value)?.label ?? value)
       : [];
 
   const submitBlockers: string[] = [];
@@ -1452,8 +1440,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </div>
       </div>
 
-      {/* Section tabs */}
-      <div className="border-b px-8 flex gap-1 shrink-0">
+      {/* Section tabs — admin only; partners navigate sections via the sidebar */}
+      {!isPartner && <div className="border-b px-8 flex gap-1 shrink-0">
         {sections.map((sec) => {
           const active = selectedSection === sec.value;
           return (
@@ -1478,7 +1466,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* Content — quant tables fill the leftover height and scroll inside their
           own box (single scroller, frozen header); every other section scrolls here. */}

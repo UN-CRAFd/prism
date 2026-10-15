@@ -161,10 +161,10 @@ function ProjectBox({
 }) {
   const actionCount = project.actions.length;
   return (
-    <div className="rounded-xl border bg-card">
+    <div className={cn("rounded-xl border overflow-hidden", project.hasOverdue ? "border-red-200 bg-red-50" : "bg-card")}>
       <button
         onClick={onToggle}
-        className="w-full text-left px-5 py-5 flex flex-col sm:flex-row sm:items-center gap-3"
+        className={cn("w-full text-left px-5 py-5 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer transition-colors", project.hasOverdue ? "hover:bg-red-100" : "hover:bg-muted/60")}
       >
         {/* Left: title + lead org + role badge */}
         <div className="flex-1 min-w-0">
@@ -195,13 +195,13 @@ function ProjectBox({
             </span>
           )}
           {open
-            ? <ChevronDown className="size-4 text-muted-foreground shrink-0 ml-1" />
-            : <ChevronRight className="size-4 text-muted-foreground shrink-0 ml-1" />}
+            ? <ChevronDown className="size-5 text-foreground/70 shrink-0 ml-1" />
+            : <ChevronRight className="size-5 text-foreground/70 shrink-0 ml-1" />}
         </div>
       </button>
 
       {open && (
-        <div className="border-t px-5 py-5 space-y-4">
+        <div className={cn("border-t px-5 py-5 space-y-4 bg-card", project.hasOverdue && "border-red-200")}>
           {project.timeline.length > 0 && (
             <HorizontalTimeline events={project.timeline} />
           )}

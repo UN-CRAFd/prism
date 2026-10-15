@@ -32,7 +32,7 @@ export function ActionRow({ action }: { action: ProjectAction }) {
   return (
     <button
       onClick={() => router.push(action.href)}
-      className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 group"
+      className={cn("w-full flex items-start gap-3 px-4 py-3 text-left transition-colors group cursor-pointer", action.overdue ? "bg-red-50 hover:bg-red-100" : "hover:bg-accent/60")}
     >
       <AlertCircle
         className={cn(
@@ -54,7 +54,7 @@ export function ActionRow({ action }: { action: ProjectAction }) {
           </p>
         )}
       </div>
-      <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+      <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground group-hover:text-foreground transition-colors" />
     </button>
   );
 }

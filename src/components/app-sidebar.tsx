@@ -263,8 +263,9 @@ export function AppSidebar() {
   // Refetched when the section path changes so a check appears once a section is
   // filled out and the user navigates on.
   const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
-  const [prodocSectionComplete, setProdocSectionComplete] = useState<Record<string, boolean>>({});
+  const [prodocSectionComplete, setProdocSectionComplete] = useState<{ projectId: number; sections: Record<string, boolean> } | null>(null);
   const [reportSectionsCollapsed, setReportSectionsCollapsed] = useState(false);
+  const [prodocSectionsCollapsed, setProdocSectionsCollapsed] = useState(false);
   const prodocItems = Array.from(
     new Map(prodocs.map((p) => [reportSlug(p), p])).values()
   );
@@ -295,10 +296,11 @@ export function AppSidebar() {
   }, [activeReportId, pathname]);
 
   useEffect(() => {
-    if (openProdocRow == null) { setProdocSectionComplete({}); return; }
-    fetch(`/api/prodoc-completion?projectId=${openProdocRow.project_id}`)
+    if (openProdocRow == null) { setProdocSectionComplete(null); return; }
+    const projectId = openProdocRow.project_id;
+    fetch(`/api/prodoc-completion?projectId=${projectId}`)
       .then((r) => r.json())
-      .then((d) => setProdocSectionComplete(d.sections ?? {}))
+      .then((d) => setProdocSectionComplete({ projectId, sections: d.sections ?? {} }))
       .catch(() => {});
   }, [openProdocRow?.project_id, pathname]);
 
@@ -449,12 +451,27 @@ export function AppSidebar() {
                                 ? NAV_ACTIVE
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
+                            onClick={(e) => {
+                              if (pActive) {
+                                e.preventDefault();
+                                setProdocSectionsCollapsed((v) => !v);
+                              } else {
+                                setProdocSectionsCollapsed(false);
+                              }
+                            }}
                           >
-                            <span className="truncate text-xs font-medium">
-                              {p.project_title}
+                            <span className="flex items-center gap-1">
+                              <span className="truncate text-xs font-medium">
+                                {p.project_title}
+                              </span>
+                              {pActive && (
+                                prodocSectionsCollapsed
+                                  ? <ChevronRight className="size-3 shrink-0" />
+                                  : <ChevronDown className="size-3 shrink-0" />
+                              )}
                             </span>
                           </Link>
-                          {pActive && (
+                          {pActive && !prodocSectionsCollapsed && (
                             <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                               {partnerProdocSections().map((s) => {
                                 const secActive = openProdocSection === s.value;
@@ -470,7 +487,7 @@ export function AppSidebar() {
                                     )}
                                   >
                                     <span className="flex-1 truncate">{s.label}</span>
-                                    {prodocSectionComplete[s.value] && (
+                                    {prodocSectionComplete?.projectId === openProdocRow?.project_id && prodocSectionComplete?.sections[s.value] && (
                                       <Check className="size-3.5 shrink-0 text-green-600" />
                                     )}
                                   </Link>

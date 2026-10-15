@@ -1,7 +1,7 @@
-import { ProdocEditorView } from "@/components/admin/prodoc-editor-view";
+import { ProdocList } from "@/components/partner/prodoc-list";
 
 export const dynamic = "force-dynamic";
 
 export default function PartnerProdocEditorPage() {
-  return <ProdocEditorView mode="partner" />;
+  return <ProdocList />;
 }

@@ -623,5 +623,11 @@
       "under": "{amount} remains to be scheduled. The project document can be submitted once the tranche release schedule matches the requested funding amount.",
       "over": "The tranche release schedule exceeds the requested funding amount by {amount}. The project document can be submitted once the tranche release schedule matches the requested funding amount."
     }
+  },
+  "prodocList": {
+    "title": "Your Project Documents",
+    "loading": "Loading project documents…",
+    "empty": "No project documents found for your organization.",
+    "open": "Open project document"
   }
 }

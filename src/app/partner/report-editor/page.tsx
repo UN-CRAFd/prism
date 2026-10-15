@@ -90,7 +90,7 @@ export default function ReportEditorPage() {
           <div className="flex flex-col gap-10 pt-8">
             {years.map((year) => (
               <section key={year}>
-                <h2 className="t-heading-section mb-3">{year}</h2>
+                <h2 className="text-xl font-bold mb-3">{year}</h2>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {byYear[year].map((report) => {
                     const { completed, totalSections } = completion[report.id] ?? { completed: 0, totalSections: 0 };
@@ -102,7 +102,7 @@ export default function ReportEditorPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <p className="text-sm font-medium truncate">{report.project_title}</p>
+                            <p className="text-base font-semibold truncate">{report.project_title}</p>
                             <StatusPill status={report.status} />
                           </div>
                           <div className="flex items-center gap-2">

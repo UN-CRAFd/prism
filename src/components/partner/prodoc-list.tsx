@@ -102,7 +102,7 @@ export function ProdocList() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <p className="text-sm font-medium truncate">{row.project_title}</p>
+                        <p className="text-base font-semibold truncate">{row.project_title}</p>
                         <StatusPill status={row.status} />
                       </div>
                       <div className="flex items-center gap-2">

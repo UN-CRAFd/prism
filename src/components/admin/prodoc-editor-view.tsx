@@ -1344,6 +1344,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       {/* Header */}
       <div className="on-dark bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-12 shrink-0">
         <div className="min-w-0 flex-1">
+          {(() => {
+            const section = PRODOC_SECTIONS.find((s) => s.value === selectedSection);
+            return (
+              <p className="text-neutral-400 text-sm mb-1">
+                {labels.partnerProject.projectDocument}
+                {section && <><span className="mx-1">›</span><span className="text-neutral-200">{section.label}</span></>}
+              </p>
+            );
+          })()}
           <div className="flex items-center gap-3 min-w-0">
             {selectedDoc ? (
               <Tooltip>

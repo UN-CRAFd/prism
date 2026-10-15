@@ -530,7 +530,7 @@
     "save": "Save"
   },
   "dashboard": {
-    "title": "Reporting",
+    "title": "Your Project Reports",
     "subtitle": "CRAF'd Annual Reporting Platform",
     "loading": "Loading reports…",
     "empty": "No reports found for your organization.",

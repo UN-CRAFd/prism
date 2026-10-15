@@ -86,7 +86,6 @@ export default function PartnerHomePage() {
             ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}`
             : " "}
         </h1>
-        <p className="text-neutral-400 text-sm mt-2">{labels.partnerHome.pageTitle}</p>
       </div>
 
       <div className="flex-1 px-8 py-8">

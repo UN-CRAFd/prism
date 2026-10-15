@@ -85,12 +85,6 @@ export default function ReportEditorPage() {
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <h1 className="t-title-banner">{labels.dashboard.title}</h1>
-        {mounted && (
-          <p className="text-neutral-400 text-sm mt-2">
-            {labels.dashboard.subtitle} &middot;{" "}
-            {user?.organization ?? user?.name}
-          </p>
-        )}
       </div>
 
       <div className="flex-1 px-8 py-8">

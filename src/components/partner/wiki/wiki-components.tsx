@@ -21,7 +21,7 @@ export function WikiShell({ children }: { children: React.ReactNode }) {
           // Native print → the browser's own "Save as PDF" also works, and text
           // stays selectable/searchable (same approach as the prodoc print view).
           onClick={() => window.print()}
-          className="no-print absolute right-8 top-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-md bg-crafd-yellow px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-crafd-yellow/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crafd-yellow"
+          className="no-print absolute right-8 top-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           <Printer className="size-4" />
           {labels.wiki.print}

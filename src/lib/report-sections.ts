@@ -28,12 +28,12 @@ export interface GroupStyle {
 
 export const GROUP_STYLES: Record<ReportSectionGroup, GroupStyle> = {
   Qualitative: {
-    sidebarActive: "bg-crafd-yellow/10 text-crafd-yellow",
+    sidebarActive: "bg-crafd-yellow-light text-black",
     tabActive: "border-crafd-yellow text-crafd-yellow",
     header: "text-crafd-yellow",
   },
   Quantitative: {
-    sidebarActive: "bg-sky-500/10 text-sky-600",
+    sidebarActive: "bg-crafd-yellow-light text-black",
     tabActive: "border-sky-500 text-sky-600",
     header: "text-sky-600",
   },

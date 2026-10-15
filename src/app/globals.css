@@ -60,6 +60,8 @@
 
   /* CRAF'd Custom Brand Colors */
   --color-crafd-yellow: #f1b434;
+  --color-crafd-yellow-light: #f8da9a; /* brand yellow at ~50% on white: active nav items */
+  --color-crafd-yellow-pale: #fbeccc; /* brand yellow at ~25% on white: warning banners */
 
   /* Custom Fonts */
   --font-roboto: var(--font-roboto), "Roboto", sans-serif;

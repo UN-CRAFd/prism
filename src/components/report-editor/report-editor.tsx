@@ -953,7 +953,7 @@ export function ReportEditor({
         )}
 
         {statusReadOnly && !sectionLoading && !notFound && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mb-6 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-3 text-sm text-black">
             <Lock className="size-4 shrink-0" />
             <span>
               This report is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
@@ -971,13 +971,13 @@ export function ReportEditor({
 
         {/* Editing session ended due to inactivity */}
         {!statusReadOnly && reportId && phase === "timed-out" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
             <div className="flex items-center gap-2">
               <Lock className="size-3.5 shrink-0" />
               <span>Your editing session ended due to inactivity.</span>
             </div>
             <button
-              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-crafd-yellow/60 bg-white hover:bg-crafd-yellow/20 text-black"
               onClick={startEditing}
             >
               Start editing
@@ -987,7 +987,7 @@ export function ReportEditor({
 
         {/* Another session holds the lock */}
         {!statusReadOnly && reportId && phase === "blocked" && holder && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
             <Lock className="size-3.5 shrink-0" />
             <span><b>{holder.name}</b> currently has this report open.</span>
           </div>

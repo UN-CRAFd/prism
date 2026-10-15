@@ -1491,7 +1491,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         )}
 
         {statusReadOnly && selectedProdocId && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
             <Lock className="size-3.5 shrink-0" />
             <span>
               This project document is <b>{selectedDoc?.status}</b> and is view-only
@@ -1510,7 +1510,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         {/* Editing session ended due to inactivity */}
         {!statusReadOnly && selectedProdocId && lockPhase === "timed-out" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
             <div className="flex items-center gap-2">
               <Lock className="size-3.5 shrink-0" />
               <span>Your editing session ended due to inactivity.</span>
@@ -1518,7 +1518,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 h-7 text-xs border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+              className="shrink-0 h-7 text-xs border-crafd-yellow/60 bg-white hover:bg-crafd-yellow/20 text-black"
               onClick={handleStartEditing}
             >
               Start editing
@@ -1528,7 +1528,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         {/* Another session holds the lock */}
         {!statusReadOnly && selectedProdocId && lockPhase === "blocked" && lockHolder && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
             <div className="flex items-center gap-2">
               <Lock className="size-3.5 shrink-0" />
               <span><b>{lockHolder.name}</b> currently has this document open.</span>

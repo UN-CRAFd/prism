@@ -39,6 +39,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// Active nav item style, shared by every level of the partner and admin sidebars.
+const NAV_ACTIVE = "bg-crafd-yellow-light text-black";
+
 // The guide is a single long page; sub-links scroll to section anchors on it.
 // The section list is DB-driven (wiki_sections, editable at /admin/guide) — the
 // sidebar fetches it so nav stays in sync as admins add/reorder/hide/rename.
@@ -369,7 +372,7 @@ export function AppSidebar() {
                     // identically. Keep these in step if either side changes.
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-crafd-yellow/10 text-crafd-yellow"
+                      ? NAV_ACTIVE
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
@@ -403,7 +406,7 @@ export function AppSidebar() {
                           className={cn(
                             "flex items-center rounded-md px-3 py-1.5 text-xs transition-colors",
                             subActive
-                              ? "bg-crafd-yellow/10 text-crafd-yellow font-medium"
+                              ? `${NAV_ACTIVE} font-medium`
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
                           )}
                         >
@@ -431,7 +434,7 @@ export function AppSidebar() {
                           className={cn(
                             "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                             pActive
-                              ? "bg-crafd-yellow/10 text-crafd-yellow"
+                              ? NAV_ACTIVE
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
                           )}
                         >
@@ -474,7 +477,7 @@ export function AppSidebar() {
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
-                                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                                ? NAV_ACTIVE
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                             onClick={(e) => {
@@ -550,7 +553,7 @@ export function AppSidebar() {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mb-2",
               pathname === "/admin"
-                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                ? NAV_ACTIVE
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
@@ -570,7 +573,7 @@ export function AppSidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-crafd-yellow/10 text-crafd-yellow"
+                    ? NAV_ACTIVE
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
@@ -600,7 +603,7 @@ export function AppSidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-crafd-yellow/10 text-crafd-yellow"
+                    ? NAV_ACTIVE
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
@@ -622,7 +625,7 @@ export function AppSidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-crafd-yellow/10 text-crafd-yellow"
+                    ? NAV_ACTIVE
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
@@ -640,7 +643,7 @@ export function AppSidebar() {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               pathname.startsWith("/admin/settings")
-                ? "bg-crafd-yellow/10 text-crafd-yellow"
+                ? NAV_ACTIVE
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >

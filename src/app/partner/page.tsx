@@ -99,7 +99,7 @@ export default function PartnerHomePage() {
           <div className="space-y-8">
             {/* Current projects */}
             <div>
-              <h2 className="t-heading-section mb-4">{labels.partnerHome.yourProjects}</h2>
+              <h2 className="text-xl font-bold mb-4">{labels.partnerHome.yourProjects}</h2>
               {currentProjects.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{labels.partnerHome.noCurrent}</p>
               ) : (
@@ -167,7 +167,7 @@ function ProjectBox({
       >
         {/* Left: title + lead org + role badge */}
         <div className="flex-1 min-w-0">
-          <p className="text-[17px] font-semibold leading-snug">{project.title}</p>
+          <p className="text-base font-semibold leading-snug">{project.title}</p>
           <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
           <span
             className={cn(

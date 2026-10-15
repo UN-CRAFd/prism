@@ -169,15 +169,12 @@
  *
  * Admin and partner share one shell, one font stack and (for the prodoc/report
  * editors) the same components, so headings must not be re-specified per page.
- * Each tier below fixes font-family / size / weight / line-height ONLY —
+ * Each utility fixes font-family / size / weight / line-height ONLY —
  * never colour, margin or layout. Call sites keep their own layout utilities:
  *
  *   <h1 className="t-title-banner truncate">      ← type from here, truncate local
  *
- * The two title tiers encode a deliberate distinction, not drift:
- *   t-title-banner  landing pages (dashboards, pickers, the guide)
- *   t-title-page    working pages (list/management screens and the editors)
- * Pick the tier that matches the page's role; don't invent a new size.
+ * Every page header title uses t-title-banner (text-3xl / 700).
  */
 /* line-height goes through --tw-leading, exactly as Tailwind's own text-*
    utilities do, so adding a `leading-*` class to a heading still overrides. */
@@ -185,12 +182,6 @@
   font-family: var(--font-roboto), "Roboto", sans-serif;
   font-size: var(--text-3xl);
   line-height: var(--tw-leading, var(--text-3xl--line-height));
-  font-weight: 700;
-}
-@utility t-title-page {
-  font-family: var(--font-roboto), "Roboto", sans-serif;
-  font-size: var(--text-2xl);
-  line-height: var(--tw-leading, var(--text-2xl--line-height));
   font-weight: 700;
 }
 /* Section and group headings: the "icon + heading + count" rows on dashboards

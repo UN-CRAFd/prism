@@ -81,7 +81,6 @@ export default function PartnerHomePage() {
     <div className="flex flex-col min-h-full bg-background">
       {/* Header banner */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
-        <p className="text-neutral-400 text-sm mb-1">{labels.app.nameVersion}</p>
         <h1 className="t-title-banner">
           {mounted
             ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}`

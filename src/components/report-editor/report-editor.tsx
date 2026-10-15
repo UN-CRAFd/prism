@@ -771,7 +771,7 @@ export function ReportEditor({
           {selectedReport ? (
             <>
               <div className="flex items-center gap-3">
-                <h1 className="t-title-page capitalize">
+                <h1 className="t-title-banner capitalize">
                   {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
                 </h1>
                 {mode === "admin" ? (
@@ -804,7 +804,7 @@ export function ReportEditor({
               <p className="text-neutral-400 text-sm mt-0.5 truncate" title={selectedReport.project_title}>{selectedReport.project_title}</p>
             </>
           ) : (
-            <h1 className="t-title-page">{labels.partnerEditor.title}</h1>
+            <h1 className="t-title-banner">{labels.partnerEditor.title}</h1>
           )}
         </div>
 

@@ -67,7 +67,6 @@ export default function AdminSettingsPage() {
   return (
     <div className="flex flex-col min-h-full bg-background">
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
-        <p className="text-neutral-400 text-sm mb-1">Administration</p>
         <h1 className="t-title-banner">Settings</h1>
         <p className="text-neutral-400 text-sm mt-2">
           Manage the CRAF&apos;d Secretariat admin account

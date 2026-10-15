@@ -608,7 +608,7 @@ function ExportPanel() {
 export default function UploadDownloadPage() {
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-8 h-32 flex flex-col justify-center shrink-0">
+      <div className="on-dark bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center shrink-0">
         <h1 className="t-title-banner">Import / Export</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Bulk import section data or export all reports as CSV files

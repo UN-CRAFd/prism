@@ -25,6 +25,7 @@ import { SdgTargetsEditor } from "@/components/admin/sdg-targets-editor";
 import { SignaturesEditor } from "@/components/admin/signatures-editor";
 import { DocumentsEditor } from "@/components/admin/documents-editor";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { LoadingState } from "@/components/admin/shared";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -1353,25 +1354,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     <div className="flex flex-col h-full">
 
       {/* Header */}
-      <div className="border-b px-8 h-32 flex items-center justify-between gap-4 shrink-0">
+      <div className="on-dark bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-12 shrink-0">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 min-w-0">
-            <h1 className="t-title-banner truncate min-w-0" title={selectedDoc?.project_title}>{selectedDoc ? selectedDoc.project_title : "Project Document"}</h1>
-            {/* Partners edit two kinds of prodocs: their own projects (they're the
-                project lead) and ones they were granted editor rights on (owned by a
-                different org — see [[project-editors-prodoc-rights]]). This badge tells
-                the two apart at a glance by comparing the owner org to the login. */}
-            {isPartner && selectedDoc && user?.partner_id != null && (
-              <span
-                className={cn(
-                  "shrink-0 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap",
-                  selectedDoc.owner_partner_id === user.partner_id
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-violet-50 text-violet-700 border-violet-200"
-                )}
-              >
-                {selectedDoc.owner_partner_id === user.partner_id ? "Project Lead" : "Implementing Partner"}
-              </span>
+            {selectedDoc ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h1 className="t-title-banner truncate min-w-0 cursor-default">{selectedDoc.project_title}</h1>
+                </TooltipTrigger>
+                <TooltipContent>{selectedDoc.project_title}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <h1 className="t-title-banner truncate min-w-0 cursor-default">Project Document</h1>
             )}
             {!isPartner && selectedDoc && (
               <Select value={selectedDoc.status ?? "Open"} onValueChange={handleStatusChange}>
@@ -1388,8 +1382,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             )}
           </div>
           {isPartner ? (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedDoc ? (selectedDoc.project_short_name || "Project Document") : "Your project document baseline."}
+            /* Partners edit two kinds of prodocs: their own projects (they're the
+               project lead) and ones they were granted editor rights on (owned by a
+               different org — see [[project-editors-prodoc-rights]]). The role is
+               shown inline after a separator so the two apart at a glance. */
+            <p className="text-sm text-muted-foreground mt-0.5 truncate">
+              {selectedDoc
+                ? `${selectedDoc.project_short_name || "Project Document"}${user?.partner_id != null ? ` · ${selectedDoc.owner_partner_id === user.partner_id ? "Project Lead" : "Implementing Partner"}` : ""}`
+                : "Your project document baseline."}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground mt-0.5">Project Document Editor</p>
@@ -1401,12 +1401,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
               autosave editors report via the callback prop; the risk/indicator
               inline saves call handleSaveStateChange around their fetches. */}
           {selectedProdocId && ["general", "narratives", "sdg", "indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
-            <AutosaveIndicator state={editorSaveState} />
+            <AutosaveIndicator state={editorSaveState} tone="dark" />
           )}
 
           {selectedProdocId && (
             <Button
-              variant="outline"
               size="sm"
               className="h-9 shrink-0"
               onClick={() => window.open(`/prodoc-print/${selectedProdocId}?auto=1`, "_blank")}

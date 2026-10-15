@@ -549,7 +549,7 @@ export default function AdminFullDataPage() {
     <div className="flex flex-col h-full">
 
       {/* Header */}
-      <div className="border-b px-8 h-32 flex items-center shrink-0">
+      <div className="on-dark bg-neutral-950 text-white px-8 h-32 flex items-center shrink-0">
         <div>
           <h1 className="t-title-banner">Full Report Data</h1>
           <p className="text-sm text-muted-foreground mt-0.5">

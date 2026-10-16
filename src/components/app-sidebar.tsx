@@ -33,7 +33,8 @@ import {
   FilePen,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
+import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
+import { documentTitle, firstUnlockedSection } from "@/lib/project-updates";
 import { partnerProdocSections } from "@/lib/prodoc-sections";
 import { numberWikiSections } from "@/lib/wiki";
 import { cn, projectSlug, shortName } from "@/lib/utils";
@@ -85,6 +86,15 @@ interface SidebarReport {
   project_short_name: string | null;
   partner_short_name: string;
   partner_long_name: string | null;
+}
+
+interface UpdateSidebarReport {
+  id: number;
+  year: number;
+  data_type: string;
+  project_title: string;
+  project_short_name: string | null;
+  unlocked_sections: string[];
 }
 
 export function AppSidebar() {
@@ -235,6 +245,25 @@ export function AppSidebar() {
       .catch(() => {});
   }, [mounted, isPartner, user]);
 
+  // Partner project updates drive the project-updates sub-menu. Separate fetch so
+  // the report sub-menu is unaffected.
+  useEffect(() => {
+    if (!mounted || !isPartner || !user) return;
+    fetch("/api/reports?data_type=update")
+      .then((r) => r.json())
+      .then((all: UpdateSidebarReport[]) => {
+        const items = Array.isArray(all) ? [...all] : [];
+        items.sort(
+          (a, b) =>
+            (a.project_short_name ?? a.project_title).localeCompare(b.project_short_name ?? b.project_title) ||
+            b.year - a.year
+        );
+        setUpdates(items);
+        setHasUpdates(items.length > 0);
+      })
+      .catch(() => {});
+  }, [mounted, isPartner, user]);
+
   // Editor nav visibility: the "Report Editor" / "Project Document" entries only
   // appear once at least one report / prodoc exists in the viewer's scope. The
   // reports API is session-scoped server-side, so a partner sees only their own.
@@ -268,6 +297,10 @@ export function AppSidebar() {
   const [prodocSectionComplete, setProdocSectionComplete] = useState<{ projectId: number; sections: Record<string, boolean> } | null>(null);
   const [reportSectionsCollapsed, setReportSectionsCollapsed] = useState(false);
   const [prodocSectionsCollapsed, setProdocSectionsCollapsed] = useState(false);
+  const [updates, setUpdates] = useState<UpdateSidebarReport[]>([]);
+  const [hasUpdates, setHasUpdates] = useState<boolean | null>(null);
+  const [updateSectionComplete, setUpdateSectionComplete] = useState<Record<string, boolean>>({});
+  const [updateSectionsCollapsed, setUpdateSectionsCollapsed] = useState(false);
   const prodocItems = Array.from(
     new Map(prodocs.map((p) => [reportSlug(p), p])).values()
   );
@@ -282,6 +315,11 @@ export function AppSidebar() {
     ? reports.find((r) => reportSlug(r) === openReport.project && String(r.year) === openReport.year)?.id ?? null
     : null;
   const activeReportRow = activeReportId ? reports.find((r) => r.id === activeReportId) ?? null : null;
+
+  const openUpdate = isPartner ? parseUpdatePath(pathname) : null;
+  const activeUpdateId = openUpdate
+    ? updates.find((u) => projectSlug(u.project_short_name, u.project_title) === openUpdate.project && String(u.year) === openUpdate.year)?.id ?? null
+    : null;
   const matchingProdoc = activeReportRow
     ? prodocItems.find((p) => p.project_title === activeReportRow.project_title) ?? null
     : null;
@@ -305,6 +343,14 @@ export function AppSidebar() {
       .then((d) => setProdocSectionComplete({ projectId, sections: d.sections ?? {} }))
       .catch(() => {});
   }, [openProdocRow?.project_id, pathname]);
+
+  useEffect(() => {
+    if (activeUpdateId == null) { setUpdateSectionComplete({}); return; }
+    fetch(`/api/report-completion?reportId=${activeUpdateId}`)
+      .then((r) => r.json())
+      .then((d) => setUpdateSectionComplete(d.sections ?? {}))
+      .catch(() => {});
+  }, [activeUpdateId, pathname]);
 
   return (
     // `no-print` only bites under body.guide-print (see globals.css), so printing
@@ -357,6 +403,14 @@ export function AppSidebar() {
                   isActive: (p: string) => p.startsWith("/partner/report-editor"),
                 }]
               : []),
+            ...(hasUpdates !== false
+              ? [{
+                  href: "/partner/project-updates",
+                  label: "Project Update",
+                  icon: FilePen,
+                  isActive: (p: string) => p.startsWith("/partner/project-updates"),
+                }]
+              : []),
             {
               href: "/partner/contacts",
               label: "Contact Information",
@@ -373,11 +427,13 @@ export function AppSidebar() {
             const active = isActive(pathname);
             const isEditor = href === "/partner/report-editor";
             const isProdocEditor = href === "/partner/prodoc-editor";
+            const isUpdateEditor = href === "/partner/project-updates";
             const isWiki = href === "/partner/wiki";
             const showWikiSubs = isWiki && pathname.startsWith("/partner/wiki");
             const report = isEditor ? parseReportPath(pathname) : null;
             const showReports = isEditor && (!!report || pathname.startsWith("/partner/report-editor"));
             const showProdocs = isProdocEditor && prodocItems.length > 0 && pathname.startsWith("/partner/prodoc-editor");
+            const showUpdates = isUpdateEditor && updates.length > 0 && (!!openUpdate || pathname.startsWith("/partner/project-updates"));
             return (
               <div key={href}>
                 <Link
@@ -593,6 +649,86 @@ export function AppSidebar() {
                               ))}
                             </div>
                           )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {showUpdates && (() => {
+                  const currentSection = openUpdate?.section;
+                  const items = updates.map((u) => {
+                    const slug = projectSlug(u.project_short_name, u.project_title);
+                    const unlocked = u.unlocked_sections ?? [];
+                    const isActive = !!openUpdate && slug === openUpdate.project && String(u.year) === openUpdate.year;
+                    const sectionForLink =
+                      currentSection && unlocked.includes(currentSection)
+                        ? currentSection
+                        : firstUnlockedSection(unlocked);
+                    return { slug, year: u.year, primary: documentTitle(u), secondary: u.project_title, isActive, unlocked, sectionForLink };
+                  });
+
+                  if (items.length === 0) return null;
+
+                  return (
+                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                      {items.map((it) => (
+                        <div key={`${it.slug}-${it.year}`}>
+                          <Link
+                            href={`/partner/project-updates/${it.slug}/${it.year}/${it.sectionForLink}`}
+                            className={cn(
+                              "flex flex-col rounded-md px-3 py-1.5 transition-colors",
+                              it.isActive
+                                ? NAV_ACTIVE
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            )}
+                            onClick={(e) => {
+                              if (it.isActive) {
+                                e.preventDefault();
+                                setUpdateSectionsCollapsed((v) => !v);
+                              } else {
+                                setUpdateSectionsCollapsed(false);
+                              }
+                            }}
+                          >
+                            <span className="flex items-center gap-1">
+                              <span className="truncate text-xs font-medium">{it.primary}</span>
+                              {it.isActive && (
+                                updateSectionsCollapsed
+                                  ? <ChevronRight className="size-3 shrink-0" />
+                                  : <ChevronDown className="size-3 shrink-0" />
+                              )}
+                            </span>
+                            <span className="truncate text-[10px] opacity-70">{it.secondary}</span>
+                          </Link>
+
+                          {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {
+                            const flatSections = REPORT_SECTIONS.filter((s) => it.unlocked.includes(s.value));
+                            return (
+                              <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+                                {flatSections.map((s) => {
+                                  const secActive = openUpdate.section === s.value;
+                                  return (
+                                    <Link
+                                      key={s.value}
+                                      href={`/partner/project-updates/${it.slug}/${it.year}/${s.value}`}
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                                        secActive
+                                          ? cn(GROUP_STYLES[s.group].sidebarActive, "font-medium")
+                                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                      )}
+                                    >
+                                      <span className="flex-1 truncate">{s.label}</span>
+                                      {updateSectionComplete[s.value] && (
+                                        <Check className="size-3.5 shrink-0 text-green-600" />
+                                      )}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>

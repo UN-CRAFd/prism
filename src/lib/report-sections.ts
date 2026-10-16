@@ -76,3 +76,12 @@ export function parseReportPath(pathname: string): { project: string; year: stri
   if (!/^\d{4}$/.test(parts[3])) return null;
   return { project: parts[2], year: parts[3], section: parts[4] };
 }
+
+// Given a pathname, return the update context when the user is inside the
+// project-updates editor (/partner/project-updates/{project}/{year}/{section}), else null.
+export function parseUpdatePath(pathname: string): { project: string; year: string; section: string } | null {
+  const parts = pathname.split("/").filter(Boolean); // ["partner", "project-updates", project, year, section]
+  if (parts[0] !== "partner" || parts[1] !== "project-updates" || parts.length < 5) return null;
+  if (!/^\d{4}$/.test(parts[3])) return null;
+  return { project: parts[2], year: parts[3], section: parts[4] };
+}

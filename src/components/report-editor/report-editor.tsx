@@ -915,6 +915,26 @@ export function ReportEditor({
           expanded into its tabs; the other group collapses to a clickable label
           (click jumps to its first section, expanding it). */}
       {showSectionTabs && selectedReport && (() => {
+        if (dataType === "update") {
+          return (
+            <div className="border-b px-8 flex items-center gap-1 shrink-0">
+              {sections.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => handleSectionChange(s.value)}
+                  className={cn(
+                    "px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                    params.section === s.value
+                      ? GROUP_STYLES[s.group].tabActive
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          );
+        }
         const activeGroup =
           sectionGroups.find((g) => g.sections.some((s) => s.value === params.section))?.label
           ?? sectionGroups[0]?.label;

@@ -32,6 +32,7 @@ import {
   CreateReportForm,
 } from "@/components/admin/report-components";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
+import { firstUnlockedSection } from "@/lib/project-updates";
 import type { Report } from "@/lib/types";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
@@ -133,8 +134,7 @@ export default function ProjectUpdatesPage() {
 
   function navigateToUpdate(r: UpdateRow) {
     const slug = projectSlug(r.project_short_name, r.project_title);
-    const firstSection = r.unlocked_sections?.[0] ?? "workplan";
-    router.push(`/admin/project-updates/${slug}/${r.year}/${firstSection}`);
+    router.push(`/admin/project-updates/${slug}/${r.year}/${firstUnlockedSection(r.unlocked_sections)}`);
   }
 
   return (

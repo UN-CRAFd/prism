@@ -38,6 +38,7 @@ DO $$ BEGIN
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+-- Note: the reports table no longer uses data_type_enum; it uses TEXT with a CHECK constraint instead.
 
 -- Reusable trigger function: keeps updated_at current on every UPDATE.
 -- Single source of truth: derive project year range from start_date + duration_months.
@@ -280,14 +281,15 @@ CREATE TABLE IF NOT EXISTS reports (
     authorized             BOOLEAN        NOT NULL DEFAULT FALSE,
     submitted_at           TIMESTAMPTZ,                            -- when the partner formally submitted
     status                 TEXT           NOT NULL DEFAULT 'Open',
-    data_type              data_type_enum NOT NULL DEFAULT 'report'::data_type_enum,
+    data_type              TEXT           NOT NULL DEFAULT 'report',
     report_type            TEXT,
     mptfo_report_link      TEXT,
     risk_shared_years      INTEGER[]      NOT NULL DEFAULT '{}',
     unlocked_sections      TEXT[]         NOT NULL DEFAULT '{}',  -- tabs an admin has unlocked: workplan, risk, expenditure
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
-    UNIQUE (project_id, year, data_type)
+    UNIQUE (project_id, year, data_type),
+    CONSTRAINT reports_data_type_check CHECK (data_type = ANY (ARRAY['report', 'prodoc', 'update']))
 );
 
 CREATE INDEX IF NOT EXISTS reports_project_id_idx ON reports(project_id);

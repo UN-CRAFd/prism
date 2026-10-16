@@ -6,7 +6,7 @@ import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
-import { isValidUpdateSections } from "@/lib/project-updates";
+import { isValidUpdateSections, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
 import { workplanTypeCodeSql } from "@/lib/workplan";
 
 const MIN_YEAR = 2020;
@@ -426,7 +426,7 @@ export async function POST(request: Request) {
          VALUES ($1, $2, $3, 'update', NULL, $4)
          ON CONFLICT (project_id, year, data_type) DO NOTHING
          RETURNING *`,
-        [projectId, year, submissionDate, body.unlocked_sections]
+        [projectId, year, submissionDate, PROJECT_UPDATE_SECTIONS.filter((k) => (body.unlocked_sections as string[]).includes(k))]
       );
 
       if (inserted.rows.length === 0) {

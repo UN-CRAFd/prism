@@ -40,6 +40,8 @@ import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
+import { PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
+import { REPORT_SECTIONS } from "@/lib/report-sections";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 
 const YEARS = [2023, 2024, 2025, 2026];
@@ -311,7 +313,7 @@ export function CreateReportForm({
   open: boolean;
   onClose: () => void;
   projects: Project[];
-  dataType: "report" | "prodoc";
+  dataType: "report" | "prodoc" | "update";
   onRefresh: () => void;
   title: string;
 }) {
@@ -324,6 +326,7 @@ export function CreateReportForm({
   const [reportType, setReportType] = useState<string>(() => optionValues("reportType")[0] ?? "annual");
   const [projectYears, setProjectYears] = useState<number[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
+  const [unlockedSections, setUnlockedSections] = useState<string[]>([...PROJECT_UPDATE_SECTIONS]);
 
   // Fetch available years when project is selected
   useEffect(() => {
@@ -356,6 +359,7 @@ export function CreateReportForm({
     setProjectYears([]);
     setSubmissionDate("");
     setReportType(optionValues("reportType")[0] ?? "annual");
+    setUnlockedSections([...PROJECT_UPDATE_SECTIONS]);
     setFormError(null);
   }
 
@@ -368,16 +372,17 @@ export function CreateReportForm({
     setFormError(null);
     if (!projectId) { setFormError("Please select a project"); return; }
     if (!year) { setFormError("Year is required"); return; }
+    if (dataType === "update" && unlockedSections.length === 0) {
+      setFormError("Select at least one section to unlock");
+      return;
+    }
 
     setSaving(true);
     try {
-      const body = {
-        project_id: Number(projectId),
-        year: Number(year),
-        report_submission_date: submissionDate || null,
-        data_type: dataType,
-        report_type: reportType,
-      };
+      const body: Record<string, unknown> =
+        dataType === "update"
+          ? { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: "update", unlocked_sections: unlockedSections }
+          : { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType };
 
       const res = await fetch("/api/reports", {
         method: "POST",
@@ -453,8 +458,8 @@ export function CreateReportForm({
             </Select>
           </Field>
 
-          {dataType === "report" && (
-            <Field label="Submission date">
+          {(dataType === "report" || dataType === "update") && (
+            <Field label={dataType === "update" ? "Due date" : "Submission date"}>
               <DateInput
                 className="w-full"
                 value={submissionDate}
@@ -463,6 +468,32 @@ export function CreateReportForm({
             </Field>
           )}
         </div>
+
+        {dataType === "update" && (
+          <Field label="Sections to unlock" required>
+            <div className="flex flex-wrap gap-4 pt-1">
+              {PROJECT_UPDATE_SECTIONS.map((key) => {
+                const label = REPORT_SECTIONS.find((s) => s.value === key)?.label ?? key;
+                const checked = unlockedSections.includes(key);
+                return (
+                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="accent-primary"
+                      checked={checked}
+                      onChange={(e) => {
+                        setUnlockedSections((prev) =>
+                          e.target.checked ? [...prev, key] : prev.filter((s) => s !== key)
+                        );
+                      }}
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+          </Field>
+        )}
       </div>
     </FormShell>
   );

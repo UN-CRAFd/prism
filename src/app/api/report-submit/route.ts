@@ -45,17 +45,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (report.authorized !== true) {
+    if (report.data_type !== "update" && report.authorized !== true) {
       return NextResponse.json(
         { error: "Please tick the authorization checkbox in the Overview tab before submitting this report." },
         { status: 422 }
       );
     }
 
-    const reportType = report.report_type;
-    const entityLabel = reportType
-      ? `${reportType.charAt(0).toUpperCase()}${reportType.slice(1)} Report ${report.year}`
-      : `Annual Report ${report.year}`;
+    const entityLabel =
+      report.data_type === "update"
+        ? `Project Update ${report.year}`
+        : report.report_type
+          ? `${report.report_type.charAt(0).toUpperCase()}${report.report_type.slice(1)} Report ${report.year}`
+          : `Annual Report ${report.year}`;
 
     const client = await pool.connect();
     try {

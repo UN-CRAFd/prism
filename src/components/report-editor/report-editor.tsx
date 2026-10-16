@@ -29,6 +29,7 @@ import { CommentsProvider, ItemComments } from "@/components/report-editor/comme
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
+import { documentTitle } from "@/lib/project-updates";
 import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG, type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import {
   EMPTY_OVERVIEW,
@@ -72,6 +73,7 @@ export interface ReportEditorProps {
   forceReadOnly?: boolean;
   showSectionTabs?: boolean;
   basePath?: string;
+  dataType?: "report" | "update";
 }
 
 export function ReportEditor({
@@ -79,6 +81,7 @@ export function ReportEditor({
   forceReadOnly = false,
   showSectionTabs = false,
   basePath = "/partner",
+  dataType = "report",
 }: ReportEditorProps = {}) {
   const { user } = useAuth();
   const params = useParams<{ project: string; year: string; section: string }>();
@@ -146,10 +149,29 @@ export function ReportEditor({
   // sections (surveys, overview, risk, indicators) drive the autosave hook below.
   const [childSaveState, setChildSaveState] = useState<SaveState>("idle");
 
+  // For updates: the sections and groups are derived from the selected document's
+  // unlocked_sections. For reports: use the full REPORT_SECTIONS and REPORT_SECTION_GROUPS.
+  const sections = useMemo(() => {
+    if (dataType !== "update") return REPORT_SECTIONS;
+    const unlocked = reports.find(
+      (r) => toSlug(r) === params.project && String(r.year) === params.year
+    )?.unlocked_sections ?? [];
+    return REPORT_SECTIONS.filter((s) => unlocked.includes(s.value));
+  }, [dataType, reports, params.project, params.year]);
+
+  const sectionGroups = useMemo(() => {
+    if (dataType !== "update") return REPORT_SECTION_GROUPS;
+    return REPORT_SECTION_GROUPS
+      .map((g) => ({ ...g, sections: g.sections.filter((s) => sections.includes(s)) }))
+      .filter((g) => g.sections.length > 0);
+  }, [dataType, sections]);
+
+  const defaultSection = sections[0]?.value ?? "overview";
+
   // Keep-alive: each section mounts once and is hidden via the `hidden` attribute
   // rather than being unmounted on tab switch. visitedRef tracks which sections have
   // been mounted at least once. setMountTick forces a re-render after the ref grows.
-  const visitedRef = useRef<Set<string>>(new Set([params.section ?? "overview"]));
+  const visitedRef = useRef<Set<string>>(new Set([params.section ?? defaultSection]));
   const [, setMountTick] = useState(0);
 
   const [pendingStatus, setPendingStatus] = useState<Report["status"] | null>(null);
@@ -296,7 +318,7 @@ export function ReportEditor({
     if (!user) return;
     setLoadingReports(true);
     setReportId(null);
-    fetch("/api/reports?data_type=report")
+    fetch(`/api/reports?data_type=${dataType}`)
       .then((r) => r.json())
       .then((all: Report[]) => {
         const list = Array.isArray(all) ? all : [];
@@ -367,7 +389,7 @@ export function ReportEditor({
   useEffect(() => {
     if (!reportId) return;
     visitedRef.current.add(params.section);
-    const unvisited = REPORT_SECTIONS.map((s) => s.value).filter((k) => !visitedRef.current.has(k));
+    const unvisited = sections.map((s) => s.value).filter((k) => !visitedRef.current.has(k));
     if (!unvisited.length) return;
     let i = 0;
     const scheduleNext = () => {
@@ -391,9 +413,10 @@ export function ReportEditor({
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
     if (!report) return;
-    // Preserve the current section when switching reports, but default to
-    // overview when there is no section yet (e.g. opening from the landing page).
-    router.push(`${basePath}/${toSlug(report)}/${report.year}/${params.section ?? "overview"}`);
+    // Preserve the current section when switching reports, but default to the
+    // first available section when there is none yet.
+    const targetSection = params.section ?? defaultSection;
+    router.push(`${basePath}/${toSlug(report)}/${report.year}/${targetSection}`);
   }
 
   function handleSectionChange(section: string) {
@@ -667,6 +690,16 @@ export function ReportEditor({
   const selectedReport = reports.find(
     (r) => toSlug(r) === params.project && String(r.year) === params.year
   );
+
+  // Redirect to the first unlocked section if the current section isn't available for updates.
+  useEffect(() => {
+    if (dataType !== "update" || !selectedReport || sections.length === 0) return;
+    if (params.section && !sections.find((s) => s.value === params.section)) {
+      router.replace(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${sections[0].value}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataType, selectedReport, sections, params.section]);
+
   // Status → who can edit:
   //   Open          → admin + partner
   //   Under Review  → admin only (partner is read-only)
@@ -693,7 +726,7 @@ export function ReportEditor({
 
   const incompleteSections =
     sectionCompletion !== null
-      ? REPORT_SECTIONS.filter(
+      ? sections.filter(
           (s) => s.value !== "overview" && sectionCompletion[s.value] === false
         )
       : [];
@@ -701,7 +734,7 @@ export function ReportEditor({
   const submitBlockers: string[] = [];
   const authorizedComplete =
     sectionCompletion !== null ? sectionCompletion["overview"] : overview.authorized;
-  if (!authorizedComplete)
+  if (dataType !== "update" && !authorizedComplete)
     submitBlockers.push("Tick the authorization checkbox in the Overview tab before submitting.");
   if (incompleteSections.length > 0)
     submitBlockers.push(
@@ -738,13 +771,13 @@ export function ReportEditor({
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
 
   const nextSection = (() => {
-    const i = REPORT_SECTIONS.findIndex((s) => s.value === params.section);
-    return i >= 0 && i < REPORT_SECTIONS.length - 1 ? REPORT_SECTIONS[i + 1] : null;
+    const i = sections.findIndex((s) => s.value === params.section);
+    return i >= 0 && i < sections.length - 1 ? sections[i + 1] : null;
   })();
 
   const prevSection = (() => {
-    const i = REPORT_SECTIONS.findIndex((s) => s.value === params.section);
-    return i > 0 ? REPORT_SECTIONS[i - 1] : null;
+    const i = sections.findIndex((s) => s.value === params.section);
+    return i > 0 ? sections[i - 1] : null;
   })();
 
   const canSubmit =
@@ -762,7 +795,7 @@ export function ReportEditor({
           <p className="text-neutral-400 text-sm mb-1">
             {labels.partnerEditor.title}
             {(() => {
-              const section = REPORT_SECTIONS.find((s) => s.value === params.section);
+              const section = sections.find((s) => s.value === params.section);
               return section ? (
                 <><span className="mx-1">›</span><span className="text-neutral-200">{section.label}</span></>
               ) : null;
@@ -772,7 +805,7 @@ export function ReportEditor({
             <>
               <div className="flex items-center gap-3">
                 <h1 className="t-title-banner capitalize">
-                  {selectedReport.report_type ?? "annual"} Report {selectedReport.year}
+                  {documentTitle(selectedReport)}
                 </h1>
                 {mode === "admin" ? (
                   <Select value={selectedReport.status} onValueChange={(v) => handleReportStatusChange(v as Report["status"])}>
@@ -832,7 +865,7 @@ export function ReportEditor({
                 </span>
               ) : selectedReport ? (
                 <span className="truncate capitalize">
-                  {selectedReport.report_type ?? "annual"} Report {selectedReport.year} · {selectedReport.project_short_name || selectedReport.project_title}
+                  {documentTitle(selectedReport)} · {selectedReport.project_short_name || selectedReport.project_title}
                 </span>
               ) : (
                 <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
@@ -856,7 +889,7 @@ export function ReportEditor({
                       .sort((a, b) => b.year - a.year)
                       .map((r) => (
                         <SelectItem key={r.id} value={String(r.id)}>
-                          <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
+                          <span className="capitalize">{documentTitle(r)}</span>
                         </SelectItem>
                       ))}
                   </SelectGroup>
@@ -865,7 +898,7 @@ export function ReportEditor({
                 reports.map((r) => (
                   <SelectItem key={r.id} value={String(r.id)}>
                     <div className="flex flex-col">
-                      <span className="capitalize">{r.report_type ?? "annual"} Report {r.year}</span>
+                      <span className="capitalize">{documentTitle(r)}</span>
                       <span className="text-xs text-muted-foreground">{r.project_short_name || r.project_title}</span>
                     </div>
                   </SelectItem>
@@ -883,11 +916,11 @@ export function ReportEditor({
           (click jumps to its first section, expanding it). */}
       {showSectionTabs && selectedReport && (() => {
         const activeGroup =
-          REPORT_SECTION_GROUPS.find((g) => g.sections.some((s) => s.value === params.section))?.label
-          ?? REPORT_SECTION_GROUPS[0].label;
+          sectionGroups.find((g) => g.sections.some((s) => s.value === params.section))?.label
+          ?? sectionGroups[0]?.label;
         return (
           <div className="border-b px-8 flex items-center gap-1 shrink-0">
-            {REPORT_SECTION_GROUPS.map((grp, i) => {
+            {sectionGroups.map((grp, i) => {
               const expanded = grp.label === activeGroup;
               return (
                 <div key={grp.label} className="flex items-center gap-1">
@@ -1199,7 +1232,7 @@ export function ReportEditor({
             )}
 
             {/* Fallback for unknown sections */}
-            {params.section && !REPORT_SECTIONS.find((s) => s.value === params.section) && !(params.section in sectionSpecs) && (
+            {params.section && !sections.find((s) => s.value === params.section) && !(params.section in sectionSpecs) && (
               <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
                 <FileQuestion className="size-8 opacity-30" />
                 <p className="text-sm">Section not found.</p>

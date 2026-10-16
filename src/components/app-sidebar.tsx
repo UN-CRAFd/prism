@@ -30,6 +30,7 @@ import {
   FolderPen,
   ClipboardPen,
   History,
+  FilePen,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath } from "@/lib/report-sections";
@@ -54,6 +55,7 @@ const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/reports", label: "Reports", icon: ClipboardList },
+  { href: "/admin/project-updates", label: "Project Updates", icon: FilePen },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },
 ];
 

@@ -1,0 +1,14 @@
+export const PROJECT_UPDATE_SECTIONS = ["workplan", "risk", "expenditure"] as const;
+export type ProjectUpdateSection = (typeof PROJECT_UPDATE_SECTIONS)[number];
+
+export function isValidUpdateSections(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string") return false;
+    if (!(PROJECT_UPDATE_SECTIONS as readonly string[]).includes(item)) return false;
+    if (seen.has(item)) return false;
+    seen.add(item);
+  }
+  return true;
+}

@@ -33,7 +33,8 @@ SET search_path TO reporting_platform;
 DO $$ BEGIN
     CREATE TYPE data_type_enum AS ENUM (
         'report',
-        'prodoc'
+        'prodoc',
+        'update'
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -283,6 +284,7 @@ CREATE TABLE IF NOT EXISTS reports (
     report_type            TEXT,
     mptfo_report_link      TEXT,
     risk_shared_years      INTEGER[]      NOT NULL DEFAULT '{}',
+    unlocked_sections      TEXT[]         NOT NULL DEFAULT '{}',  -- tabs an admin has unlocked: workplan, risk, expenditure
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, year, data_type)

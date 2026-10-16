@@ -164,12 +164,12 @@ export async function DELETE(
   const client = await pool.connect();
   try {
     const realReports = await client.query(
-      `SELECT id FROM reporting_platform.reports WHERE project_id = $1 AND data_type = 'report' LIMIT 1`,
+      `SELECT id FROM reporting_platform.reports WHERE project_id = $1 AND data_type IN ('report', 'update') LIMIT 1`,
       [id]
     );
     if (realReports.rows.length > 0) {
       return NextResponse.json(
-        { error: "Cannot delete project with existing reports. Remove reports first." },
+        { error: "Cannot delete project with existing reports or project updates. Remove them first." },
         { status: 409 }
       );
     }

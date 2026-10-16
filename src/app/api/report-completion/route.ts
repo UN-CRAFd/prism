@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { workplanTypeCodeSql } from "@/lib/workplan";
 
 // Report completion, per section.
 //
@@ -133,7 +134,7 @@ export async function GET(req: NextRequest) {
                    JOIN reporting_platform.reports r ON r.id = $2
                   WHERE a.project_id = $1
                     AND wu.year = r.year
-                    AND wu.type_code = CASE r.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END
+                    AND wu.type_code = ${workplanTypeCodeSql("r")}
                     AND e.status IS NOT NULL)::int AS done`,
         [projectId, reportId]
       ).then((r) => n(r[0]?.activities) > 0 && n(r[0]?.done) === n(r[0]?.activities)),

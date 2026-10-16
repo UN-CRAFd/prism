@@ -6,6 +6,8 @@ import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
+import { isValidUpdateSections } from "@/lib/project-updates";
+import { workplanTypeCodeSql } from "@/lib/workplan";
 
 const MIN_YEAR = 2020;
 const MAX_YEAR = 2050;
@@ -83,7 +85,11 @@ export async function GET(request: Request) {
     const scoped = session.role !== "admin";
     const conditions: string[] = [];
     const values: unknown[] = [];
-    if (dataType) conditions.push(`r.data_type = '${dataType === "prodoc" ? "prodoc" : "report"}'`);
+    if (dataType) {
+      const allowed = ["report", "prodoc", "update"];
+      const dt = allowed.includes(dataType) ? dataType : "report";
+      conditions.push(`r.data_type = '${dt}'`);
+    }
     if (scoped) {
       // A partner sees reports their org owns PLUS all reports (any data_type)
       // for projects they were granted access to via project_editors.
@@ -115,6 +121,7 @@ export async function GET(request: Request) {
         r.updated_at,
         r.data_type,
         r.report_type,
+        r.unlocked_sections,
         pr.project_title,
         pr.short_name                                   AS project_short_name,
         pr.mptfo_project_number,
@@ -300,7 +307,7 @@ async function populateExpenditureEntries(client: PoolClient, reportIds: number[
        FROM reporting_platform.reports nr
        CROSS JOIN reporting_platform.expenditure_categories ec
       WHERE nr.id = ANY($1::int[])
-        AND nr.data_type = 'report'
+        AND nr.data_type IN ('report', 'update')
       ON CONFLICT (report_id, category_id) DO NOTHING`,
     [reportIds]
   );
@@ -320,22 +327,23 @@ async function populateExpenditureEntries(client: PoolClient, reportIds: number[
 async function seedWorkplanUpdateWindows(client: PoolClient, reportIds: number[]) {
   if (reportIds.length === 0) return;
 
+  const typeCodeExpr = workplanTypeCodeSql("nr");
   await client.query<{ id: number; project_id: number }>(
     `INSERT INTO reporting_platform.workplan_updates (project_id, year, type_code, sort_order)
      SELECT nr.project_id, nr.year,
-            CASE nr.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END AS type_code,
+            ${typeCodeExpr} AS type_code,
             COALESCE(
               (SELECT MAX(wu.sort_order) FROM reporting_platform.workplan_updates wu
                 WHERE wu.project_id = nr.project_id), 0)
               + ROW_NUMBER() OVER (PARTITION BY nr.project_id ORDER BY nr.year, nr.id) AS sort_order
        FROM reporting_platform.reports nr
       WHERE nr.id = ANY($1::int[])
-        AND nr.data_type = 'report'
+        AND nr.data_type IN ('report', 'update')
         AND NOT EXISTS (
           SELECT 1 FROM reporting_platform.workplan_updates wu
            WHERE wu.project_id = nr.project_id
              AND wu.year = nr.year
-             AND wu.type_code = CASE nr.report_type::text WHEN 'final' THEN 'FR' ELSE 'AR' END
+             AND wu.type_code = ${typeCodeExpr}
         )`,
     [reportIds]
   );
@@ -364,7 +372,7 @@ export async function POST(request: Request) {
     );
   }
   const submissionDate = (body.report_submission_date as string) || null;
-  const dataType = body.data_type === "prodoc" ? "prodoc" : "report";
+  const dataType = body.data_type === "prodoc" ? "prodoc" : body.data_type === "update" ? "update" : "report";
   // Report types are admin-editable (Settings → Dropdown options). Accept any
   // configured value for a single report; fall back to "annual" (or the first
   // configured type) when unspecified/unknown. The annual batch below always
@@ -385,6 +393,63 @@ export async function POST(request: Request) {
       { error: "Project documents are created automatically with their project." },
       { status: 400 }
     );
+  }
+
+  // ── Project update ──
+  if (dataType === "update") {
+    if (body.annual) {
+      return NextResponse.json(
+        { error: "annual mode is not supported for project updates" },
+        { status: 400 }
+      );
+    }
+    const projectId = Number(body.project_id);
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      return NextResponse.json(
+        { error: "project_id is required for a project update" },
+        { status: 400 }
+      );
+    }
+    if (!isValidUpdateSections(body.unlocked_sections)) {
+      return NextResponse.json(
+        { error: "unlocked_sections must be a non-empty array of valid section keys (workplan, risk, expenditure) with no duplicates" },
+        { status: 400 }
+      );
+    }
+
+    const updateClient = await pool.connect();
+    try {
+      await updateClient.query("BEGIN");
+
+      const inserted = await updateClient.query<{ id: number }>(
+        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type, unlocked_sections)
+         VALUES ($1, $2, $3, 'update', NULL, $4)
+         ON CONFLICT (project_id, year, data_type) DO NOTHING
+         RETURNING *`,
+        [projectId, year, submissionDate, body.unlocked_sections]
+      );
+
+      if (inserted.rows.length === 0) {
+        await updateClient.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "A project update already exists for this project and year" },
+          { status: 409 }
+        );
+      }
+
+      await copyProdocBaseline(updateClient, [inserted.rows[0].id]);
+      await populateExpenditureEntries(updateClient, [inserted.rows[0].id]);
+      await seedWorkplanUpdateWindows(updateClient, [inserted.rows[0].id]);
+
+      await updateClient.query("COMMIT");
+      return NextResponse.json(inserted.rows[0], { status: 201 });
+    } catch (err) {
+      await updateClient.query("ROLLBACK").catch(() => {});
+      logger.error("POST /api/reports (update) error:", err);
+      return NextResponse.json({ error: "Failed to create project update" }, { status: 500 });
+    } finally {
+      updateClient.release();
+    }
   }
 
   const client = await pool.connect();

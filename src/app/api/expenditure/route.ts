@@ -56,15 +56,15 @@ export async function GET(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    const meta = await query<{ project_id: number; year: number; indirect_cost_rate: string }>(
-      `SELECT r.project_id, r.year, p.indirect_cost_rate
+    const meta = await query<{ project_id: number; year: number; data_type: string; indirect_cost_rate: string }>(
+      `SELECT r.project_id, r.year, r.data_type, p.indirect_cost_rate
          FROM reporting_platform.reports r
          JOIN reporting_platform.projects p ON p.id = r.project_id
         WHERE r.id = $1`,
       [reportId]
     );
     if (!meta.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    const { project_id, year, indirect_cost_rate } = meta[0];
+    const { project_id, year, data_type: reportDataType, indirect_cost_rate } = meta[0];
 
     const categories = await query(
       `SELECT id, name, sort_order FROM reporting_platform.expenditure_categories
@@ -91,21 +91,33 @@ export async function GET(req: NextRequest) {
       [project_id]
     );
     const reportYears = reportYearRows.map((r) => r.year);
+    // For updates, ensure their own year appears in reportYears so the expenditure
+    // column is shown (the update owns that year's entries).
+    if (reportDataType === "update" && !reportYears.includes(year)) {
+      reportYears.push(year);
+    }
     const budgets = await query<{ category_id: number; year: number; approved_amount: string | null; description: string | null }>(
       `SELECT category_id, year, approved_amount, description
          FROM reporting_platform.expenditure_budgets WHERE project_id = $1`,
       [project_id]
     );
-    // Expenditure across all of the project's reports (for the per-year + Total columns).
+    // Expenditure across all relevant reports. For an update: past years use the
+    // report's entries; the update's own year uses the update's own entries.
     const expenditure = await query<{
       category_id: number; year: number; annual_expenditure: string | null; comment: string | null;
     }>(
-      `SELECT e.category_id, r.year, e.annual_expenditure, e.comment
-         FROM reporting_platform.expenditure_entries e
-         JOIN reporting_platform.reports r ON r.id = e.report_id
-        WHERE r.project_id = $1
-          AND r.data_type = 'report'`,
-      [project_id]
+      reportDataType === "update"
+        ? `SELECT e.category_id, r.year, e.annual_expenditure, e.comment
+             FROM reporting_platform.expenditure_entries e
+             JOIN reporting_platform.reports r ON r.id = e.report_id
+            WHERE r.project_id = $1
+              AND ((r.data_type = 'report' AND r.year <> $2) OR r.id = $3)`
+        : `SELECT e.category_id, r.year, e.annual_expenditure, e.comment
+             FROM reporting_platform.expenditure_entries e
+             JOIN reporting_platform.reports r ON r.id = e.report_id
+            WHERE r.project_id = $1
+              AND r.data_type = 'report'`,
+      reportDataType === "update" ? [project_id, year, reportId] : [project_id]
     );
 
     return NextResponse.json({

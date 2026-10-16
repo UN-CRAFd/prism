@@ -163,7 +163,7 @@ export async function PATCH(req: NextRequest) {
         WHERE rm.id = $1`,
       [id]
     );
-    if (meta.length && meta[0].data_type === "report") {
+    if (meta.length && meta[0].data_type !== "prodoc") {
       const isOld = meta[0].source_risk_id !== null;
       const locked = isOld
         ? ["risk_name", "risk_description", "risk_category", "approved_mitigation", "likelihood", "impact"]
@@ -238,7 +238,7 @@ export async function DELETE(req: NextRequest) {
         WHERE rm.id = $1`,
       [id]
     );
-    if (meta.length && meta[0].data_type === "report" && meta[0].source_risk_id !== null) {
+    if (meta.length && meta[0].data_type !== "prodoc" && meta[0].source_risk_id !== null) {
       return NextResponse.json(
         { error: "This risk comes from the project document and can't be changed here." },
         { status: 403 }

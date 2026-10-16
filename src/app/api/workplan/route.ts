@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { quarterFromDate } from "@/lib/workplan";
+import { quarterFromDate, workplanTypeCode } from "@/lib/workplan";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
@@ -65,11 +65,12 @@ export async function GET(req: NextRequest) {
     const projRows = await query<{
       project_id: number;
       year: number;
+      data_type: string;
       report_type: string | null;
       start_date: string | null;
       end_date: string | null;
     }>(
-      `SELECT p.id AS project_id, r.year, r.report_type,
+      `SELECT p.id AS project_id, r.year, r.data_type, r.report_type,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
               TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS end_date
          FROM reporting_platform.reports r
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
     );
     if (!projRows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
-    const { project_id, year: reportYear, report_type, start_date, end_date } = projRows[0];
+    const { project_id, year: reportYear, data_type: reportDataType, report_type, start_date, end_date } = projRows[0];
 
     // Project structure + baseline (admin-owned; read-only to partners).
     const activities = await query<Record<string, unknown> & { id: number }>(
@@ -99,8 +100,9 @@ export async function GET(req: NextRequest) {
       [project_id]
     );
 
-    // Update windows for this report — AR/FR type only, up to and including this
-    // report's year. Partners and admins see the same set.
+    // Update windows for this report. Updates also include PU windows; reports
+    // use AR/FR only. Load up to and including this report's year.
+    const typeCodes = reportDataType === "update" ? `('AR', 'FR', 'PU')` : `('AR', 'FR')`;
     const updates = await query<{
       id: number;
       year: number;
@@ -113,12 +115,12 @@ export async function GET(req: NextRequest) {
          FROM reporting_platform.workplan_updates
         WHERE project_id = $1
           AND year <= $2
-          AND type_code IN ('AR', 'FR')
+          AND type_code IN ${typeCodes}
         ORDER BY sort_order, year, id`,
       [project_id, reportYear]
     );
-    // The report's own window is the AR or FR row matching this report's year/type.
-    const ownTypeCode = report_type === "final" ? "FR" : "AR";
+    // The report's own window matches by year and type code.
+    const ownTypeCode = workplanTypeCode(reportDataType, report_type);
     const activeUpdateId = updates.find((u) => u.year === reportYear && u.type_code === ownTypeCode)?.id ?? null;
 
     // Every window's progress entry, pivoted per activity/window.
@@ -186,11 +188,12 @@ export async function PATCH(req: NextRequest) {
       report_status: string;
       report_project: number;
       report_year: number;
+      data_type: string;
       report_type: string | null;
     }>(
       `SELECT wu.project_id AS window_project, wu.year, wu.type_code,
               r.status AS report_status, r.project_id AS report_project,
-              r.year AS report_year, r.report_type
+              r.year AS report_year, r.data_type, r.report_type
          FROM reporting_platform.workplan_updates wu
          CROSS JOIN reporting_platform.reports r
         WHERE wu.id = $1 AND r.id = $2`,
@@ -200,7 +203,7 @@ export async function PATCH(req: NextRequest) {
     const c = ctx[0];
 
     if (session.role !== "admin") {
-      const expectedTypeCode = c.report_type === "final" ? "FR" : "AR";
+      const expectedTypeCode = workplanTypeCode(c.data_type, c.report_type);
       const isOwnWindow = c.year === c.report_year && c.type_code === expectedTypeCode;
       const allowed =
         isOwnWindow && c.report_status === "Open" &&

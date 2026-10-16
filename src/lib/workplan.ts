@@ -155,3 +155,15 @@ export function resultLabel(
 ): string {
   return resultOptions(activities).find((o) => o.key === key)?.label ?? key;
 }
+
+// Derive the workplan window type code for a given report.
+export function workplanTypeCode(dataType: string, reportType: string | null): string {
+  if (dataType === "update") return "PU";
+  if (reportType === "final") return "FR";
+  return "AR";
+}
+
+// SQL CASE expression returning the type code for a given table alias.
+export function workplanTypeCodeSql(alias: string): string {
+  return `CASE WHEN ${alias}.data_type::text = 'update' THEN 'PU' WHEN ${alias}.report_type::text = 'final' THEN 'FR' ELSE 'AR' END`;
+}

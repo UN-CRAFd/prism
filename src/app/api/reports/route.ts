@@ -331,6 +331,60 @@ async function seedReportSurveys(client: PoolClient, reportIds: number[]) {
   );
 }
 
+// Seed a project update's survey questions.
+//
+// A project update that stands in for an annual (or final) report has to ask the
+// same survey questions that report would, so the page is identical rather than
+// merely present. The annual path keys off reports.report_type, which is NULL on
+// an update, so the template type is passed in explicitly instead — derived from
+// the update's selected types.
+//
+// Same flow-forward rule as seedReportSurveys: copy the project's most recent
+// report of that type so edits to one year's survey carry over, and fall back to
+// the admin-authored standard questions when there is no earlier report. The
+// NOT EXISTS guard makes the two arms mutually exclusive.
+async function seedUpdateSurveys(
+  client: PoolClient,
+  reportIds: number[],
+  templateType: "annual" | "final"
+) {
+  if (reportIds.length === 0) return;
+
+  await client.query(
+    `INSERT INTO reporting_platform.surveys (report_id, question, category)
+     SELECT nr.id, s.question, s.category
+       FROM reporting_platform.reports nr
+       JOIN LATERAL (
+         SELECT pr.id
+           FROM reporting_platform.reports pr
+          WHERE pr.project_id = nr.project_id
+            AND pr.data_type = 'report'
+            AND pr.report_type::text = $2
+            AND pr.year <= nr.year
+          ORDER BY pr.year DESC, pr.id DESC
+          LIMIT 1
+       ) prev ON TRUE
+       JOIN reporting_platform.surveys s ON s.report_id = prev.id
+      WHERE nr.id = ANY($1::int[])
+      ORDER BY nr.id, s.id`,
+    [reportIds, templateType]
+  );
+
+  await client.query(
+    `INSERT INTO reporting_platform.surveys (report_id, question, category)
+     SELECT nr.id, sq.question, sq.category
+       FROM reporting_platform.reports nr
+       JOIN reporting_platform.standard_survey_questions sq
+         ON sq.report_type::text = $2
+      WHERE nr.id = ANY($1::int[])
+        AND NOT EXISTS (
+          SELECT 1 FROM reporting_platform.surveys x WHERE x.report_id = nr.id
+        )
+      ORDER BY nr.id, sq.sort_order, sq.id`,
+    [reportIds, templateType]
+  );
+}
+
 // Populate expenditure entries for the report.
 // Creates one row per category. approved_amount is GENERATED — it derives both the
 // project and the year from the entry's report (report_id → reports), so budget
@@ -541,6 +595,15 @@ export async function POST(request: Request) {
       await copyProdocBaseline(updateClient, [inserted.rows[0].id]);
       await populateExpenditureEntries(updateClient, [inserted.rows[0].id]);
       await seedWorkplanUpdateWindows(updateClient, [inserted.rows[0].id]);
+      // Only when the update actually carries the Surveys page — seeding one that
+      // has no survey tab would leave orphan questions nobody can answer.
+      if (unlockedSections.includes("surveys")) {
+        await seedUpdateSurveys(
+          updateClient,
+          [inserted.rows[0].id],
+          updateTypes.includes("final_report") ? "final" : "annual"
+        );
+      }
 
       await updateClient.query("COMMIT");
       return NextResponse.json(inserted.rows[0], { status: 201 });

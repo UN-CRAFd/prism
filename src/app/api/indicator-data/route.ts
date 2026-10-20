@@ -45,9 +45,13 @@ function validateYear(v: unknown, fieldName: string): NextResponse | null {
   return null;
 }
 
-// Keep existing annual reports in sync when a project-document indicator is
-// added after those reports were created. The unique constraint makes this safe
-// to call repeatedly while loading an annual report.
+// Keep existing annual reports AND project updates in sync when a
+// project-document indicator is added after they were created. The unique
+// constraint makes this safe to call repeatedly while loading a document.
+//
+// Updates are included because an update that carries the Indicators page must
+// show exactly what an annual report would — without this it would be stuck with
+// whatever the prodoc held on the day it was created.
 async function syncAnnualIndicators(projectId: number) {
   await query(
     `INSERT INTO reporting_platform.indicator_data
@@ -59,7 +63,7 @@ async function syncAnnualIndicators(projectId: number) {
          ON prodoc.project_id = annual.project_id AND prodoc.data_type = 'prodoc'
        JOIN reporting_platform.indicator_data pd ON pd.report_id = prodoc.id
       WHERE annual.project_id = $1
-        AND annual.data_type = 'report'
+        AND annual.data_type IN ('report', 'update')
      ON CONFLICT (report_id, indicator_id) DO NOTHING`,
     [projectId]
   );
@@ -109,7 +113,11 @@ export async function GET(req: NextRequest) {
     [reportId]
   );
   const isAnnualReport = reportMeta[0]?.data_type === "report";
-  if (isAnnualReport && reportMeta[0]) {
+  // Project updates sync too, so their Indicators page picks up prodoc
+  // indicators added after the update was created — same as a report. The sync
+  // is project-scoped, so loading either document keeps both current.
+  const syncsFromProdoc = isAnnualReport || reportMeta[0]?.data_type === "update";
+  if (syncsFromProdoc && reportMeta[0]) {
     await syncAnnualIndicators(reportMeta[0].project_id);
   }
 
@@ -340,7 +348,7 @@ export async function POST(req: NextRequest) {
          SELECT annual.id, $1, $2, $3, $4, $5, $6, $7
            FROM reporting_platform.reports annual
           WHERE annual.project_id = $8
-            AND annual.data_type = 'report'
+            AND annual.data_type IN ('report', 'update')
          ON CONFLICT (report_id, indicator_id) DO NOTHING`,
         [
           indicator_id,                                                        // $1

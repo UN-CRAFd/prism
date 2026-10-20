@@ -419,18 +419,12 @@ export function CreateReportForm({
     setFormError(null);
     if (!projectId) { setFormError("Please select a project"); return; }
     if (!year) { setFormError("Year is required"); return; }
-    // Editor tabs follow from the chosen modules. Justification and HACT have no
-    // tab of their own yet, so a selection of only those would unlock nothing.
+    // The partner's pages follow from the chosen modules: each module group maps
+    // to one page, and the add-ons under it pick which version that page renders.
     const derivedSections = modulesToSections(updateModules);
     if (dataType === "update") {
       if (updateModules.length === 0) {
         setFormError("Select at least one module for this update");
-        return;
-      }
-      if (derivedSections.length === 0) {
-        setFormError(
-          "Justification and HACT Recommendations have no editor section yet — also select a Work Plan, Expenditure or Risk module"
-        );
         return;
       }
       // A second update for a year has to be distinguishable from the first.

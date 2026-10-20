@@ -1,7 +1,8 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { ShieldCheck } from "lucide-react";
+import { Layers, ShieldCheck } from "lucide-react";
+import { combinedUpdateNote } from "@/lib/update-justifications";
 import { formatDate, formatUsd } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { ItemComments } from "@/components/report-editor/comments-context";
@@ -28,11 +29,47 @@ function ReadField({ label, value }: { label: string; value: ReactNode }) {
 export interface OverviewSectionProps {
   overview: OverviewData;
   updateOverview: (patch: Partial<OverviewData>) => void;
+  /** What this document is — "Annual Report 2027", "Project Update 2027 (2)". */
+  documentName?: string;
+  /** Project updates only: the update types this one document covers. */
+  updateTypes?: string[] | null;
 }
 
-export function OverviewSection({ overview, updateOverview }: OverviewSectionProps) {
+export function OverviewSection({
+  overview,
+  updateOverview,
+  documentName,
+  updateTypes,
+}: OverviewSectionProps) {
+  const combinedNote = combinedUpdateNote(updateTypes);
   return (
     <div className="space-y-5">
+      {/* Say what is being filled out, before anything else on the page. For an
+          update that stands in for several submissions, the second line spells
+          out that this one document is the whole job. */}
+      {(documentName || combinedNote) && (
+        <div className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-5 py-4">
+          <Layers className="mt-0.5 size-4 shrink-0 text-orange-700" />
+          <div className="space-y-1">
+            {documentName && (
+              <p className="text-sm font-medium text-orange-900">
+                You are filling out the {documentName}.
+              </p>
+            )}
+            {combinedNote && (
+              <p className="text-sm text-orange-900/90">
+                {combinedNote}{" "}
+                <span className="text-orange-900/70">
+                  {(updateTypes?.length ?? 0) > 1
+                    ? "Fill it out once — you do not need to submit them separately."
+                    : "Everything needed for it is in this one document."}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs text-muted-foreground">

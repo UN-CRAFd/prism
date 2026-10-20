@@ -7,7 +7,7 @@ import { projectSlug } from "@/lib/utils";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
-import { documentTitle, firstUnlockedSection } from "@/lib/project-updates";
+import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
 
 type UpdateReport = Report & { unlocked_sections?: string[] };
 
@@ -121,7 +121,7 @@ export default function ProjectUpdatesPage() {
                         <button
                           onClick={() =>
                             router.push(
-                              `/partner/project-updates/${projectSlug(update.project_short_name, update.project_title)}/${update.year}/${firstSection}`
+                              documentPath("/partner/project-updates", { ...update, data_type: "update" }, projectSlug(update.project_short_name, update.project_title), firstSection)
                             )
                           }
                           className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-3 py-1.5 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"

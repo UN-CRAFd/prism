@@ -27,6 +27,8 @@
     "overview": "Overview",
     "surveys": "Survey",
     "risk": "Risk Management",
+    "justification": "Justification",
+    "hact": "HACT Recommendations",
     "keyAchievements": "Key Achievements",
     "partnerships": "Partnerships",
     "results": "Results",
@@ -213,15 +215,42 @@
   },
   "narratives": {
     "questions": [
-      { "key": "background_relevance", "label": "Background & Relevance" },
-      { "key": "theory_of_change", "label": "Theory of Change" },
-      { "key": "crafd_principles", "label": "Alignment with and Commitment to CRAF'd Principles" },
-      { "key": "methodology", "label": "Methodology" },
-      { "key": "ecosystem_impact", "label": "CRAF'd Data Ecosystem Impact & Use Cases" },
-      { "key": "sustainability", "label": "Sustainability" },
-      { "key": "scalability", "label": "Scalability" },
-      { "key": "innovation", "label": "Innovation" },
-      { "key": "cost_effectiveness", "label": "Cost Effectiveness" }
+      {
+        "key": "background_relevance",
+        "label": "Background & Relevance"
+      },
+      {
+        "key": "theory_of_change",
+        "label": "Theory of Change"
+      },
+      {
+        "key": "crafd_principles",
+        "label": "Alignment with and Commitment to CRAF'd Principles"
+      },
+      {
+        "key": "methodology",
+        "label": "Methodology"
+      },
+      {
+        "key": "ecosystem_impact",
+        "label": "CRAF'd Data Ecosystem Impact & Use Cases"
+      },
+      {
+        "key": "sustainability",
+        "label": "Sustainability"
+      },
+      {
+        "key": "scalability",
+        "label": "Scalability"
+      },
+      {
+        "key": "innovation",
+        "label": "Innovation"
+      },
+      {
+        "key": "cost_effectiveness",
+        "label": "Cost Effectiveness"
+      }
     ],
     "placeholder": "Enter the narrative text…",
     "answerLabel": "Narrative",
@@ -382,8 +411,8 @@
     },
     "remarks": {
       "partnerOrganization": "List the organizations that contributed as an implementing, counterpart, or ecosystem partner to the project.",
-            "result": "Describe what changed because of the partnership, including concrete outputs (e.g. better data, wider access, shared standards). For example: The organization collaborated with two additional data partners on multi-sectoral needs assessments, aligning data collection approaches and improving consistency.",
-            "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
+      "result": "Describe what changed because of the partnership, including concrete outputs (e.g. better data, wider access, shared standards). For example: The organization collaborated with two additional data partners on multi-sectoral needs assessments, aligning data collection approaches and improving consistency.",
+      "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
     }
   },
   "indicators": {

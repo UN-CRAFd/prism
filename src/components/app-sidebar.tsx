@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Database,
   LogOut,
@@ -34,7 +34,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
-import { documentTitle, firstUnlockedSection } from "@/lib/project-updates";
+import { UPDATE_SECTIONS } from "@/lib/update-sections";
+import { DOC_ID_PARAM, documentPath, documentTitle, firstUnlockedSection, resolveDocument } from "@/lib/project-updates";
 import { partnerProdocSections } from "@/lib/prodoc-sections";
 import { numberWikiSections } from "@/lib/wiki";
 import { cn, projectSlug, shortName } from "@/lib/utils";
@@ -63,6 +64,7 @@ const administrationLinks = [
 const editorLinks = [
   { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: FolderPen },
   { href: "/admin/report-editor", label: "Project Report Editor", icon: ClipboardPen },
+  { href: "/admin/project-update-editor", label: "Project Update Editor", icon: FilePen },
   { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
   { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
@@ -92,6 +94,8 @@ interface UpdateSidebarReport {
   id: number;
   year: number;
   data_type: string;
+  /** Distinguishes several updates in one year — see lib/project-updates. */
+  update_index?: string | null;
   project_title: string;
   project_short_name: string | null;
   unlocked_sections: string[];
@@ -100,6 +104,7 @@ interface UpdateSidebarReport {
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   // Tracks the guide anchor currently in the URL so the matching sub-link stays
@@ -117,6 +122,9 @@ export function AppSidebar() {
   // `null` = not yet loaded, so we don't flash-hide before the fetch resolves.
   const [hasProdocs, setHasProdocs] = useState<boolean | null>(null);
   const [hasReports, setHasReports] = useState<boolean | null>(null);
+  // Set from the partner update list below for partners, and from the admin
+  // count fetch for admins — whichever role is viewing.
+  const [hasUpdates, setHasUpdates] = useState<boolean | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -277,6 +285,12 @@ export function AppSidebar() {
         .then((r) => (r.ok ? r.json() : []))
         .then((rows) => setHasReports(Array.isArray(rows) && rows.length > 0))
         .catch(() => {});
+      // Partners reach their updates through the Project Updates nav entry, which
+      // already loads the list; only the admin editor entry needs this count.
+      fetch("/api/reports?data_type=update")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows) => setHasUpdates(Array.isArray(rows) && rows.length > 0))
+        .catch(() => {});
     }
     fetch("/api/reports?data_type=prodoc")
       .then((r) => (r.ok ? r.json() : []))
@@ -298,7 +312,6 @@ export function AppSidebar() {
   const [reportSectionsCollapsed, setReportSectionsCollapsed] = useState(false);
   const [prodocSectionsCollapsed, setProdocSectionsCollapsed] = useState(false);
   const [updates, setUpdates] = useState<UpdateSidebarReport[]>([]);
-  const [hasUpdates, setHasUpdates] = useState<boolean | null>(null);
   const [updateSectionComplete, setUpdateSectionComplete] = useState<Record<string, boolean>>({});
   const [updateSectionsCollapsed, setUpdateSectionsCollapsed] = useState(false);
   const prodocItems = Array.from(
@@ -317,8 +330,17 @@ export function AppSidebar() {
   const activeReportRow = activeReportId ? reports.find((r) => r.id === activeReportId) ?? null : null;
 
   const openUpdate = isPartner ? parseUpdatePath(pathname) : null;
+  // Pinned by ?u=<id>: a year can hold several updates, so project+year alone
+  // would pick a sibling — and this id drives the completion ticks below.
   const activeUpdateId = openUpdate
-    ? updates.find((u) => projectSlug(u.project_short_name, u.project_title) === openUpdate.project && String(u.year) === openUpdate.year)?.id ?? null
+    ? resolveDocument(
+        updates.filter(
+          (u) =>
+            projectSlug(u.project_short_name, u.project_title) === openUpdate.project &&
+            String(u.year) === openUpdate.year
+        ),
+        Number(searchParams.get(DOC_ID_PARAM))
+      )?.id ?? null
     : null;
   const matchingProdoc = activeReportRow
     ? prodocItems.find((p) => p.project_title === activeReportRow.project_title) ?? null
@@ -564,17 +586,22 @@ export function AppSidebar() {
                   // sections of the report currently open (if any). Fall back to a
                   // synthetic entry from the URL until the report list loads.
                   const targetSection = report?.section ?? "overview";
-                  const items: { slug: string; year: number; primary: string; secondary: string; isActive: boolean }[] =
+                  // `id` keys the list: a project can hold an annual AND a final
+                  // report in one year, so slug+year is not unique either.
+                  const items: { id: number; slug: string; year: number; primary: string; secondary: string; isActive: boolean }[] =
                     (reports.length > 0
                       ? reports.map((r) => ({
+                          id: r.id,
                           slug: reportSlug(r),
                           year: r.year,
                           primary: `${r.report_type ?? "annual"} Report ${r.year}`,
                           secondary: r.project_short_name || r.project_title,
                           isActive: !!report && reportSlug(r) === report.project && String(r.year) === report.year,
                         }))
+                      // Synthetic placeholder from the URL while the list loads;
+                      // it is the only row, so any stable key will do.
                       : report
-                      ? [{ slug: report.project, year: Number(report.year), primary: `Report ${report.year}`, secondary: report.project, isActive: true }]
+                      ? [{ id: -1, slug: report.project, year: Number(report.year), primary: `Report ${report.year}`, secondary: report.project, isActive: true }]
                       : []);
 
                   if (items.length === 0) return null;
@@ -582,7 +609,7 @@ export function AppSidebar() {
                   return (
                     <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
                       {items.map((it) => (
-                        <div key={`${it.slug}-${it.year}`}>
+                        <div key={it.id}>
                           {/* Level 1: report — click to open (keeps the current section) */}
                           <Link
                             href={`/partner/report-editor/${it.slug}/${it.year}/${targetSection}`}
@@ -657,15 +684,18 @@ export function AppSidebar() {
 
                 {showUpdates && (() => {
                   const currentSection = openUpdate?.section;
+                  // activeUpdateId is resolved once above (pinned by ?u=<id>) and
+                  // reused here, so the highlight and the completion ticks can
+                  // never disagree about which update is open.
                   const items = updates.map((u) => {
                     const slug = projectSlug(u.project_short_name, u.project_title);
                     const unlocked = u.unlocked_sections ?? [];
-                    const isActive = !!openUpdate && slug === openUpdate.project && String(u.year) === openUpdate.year;
+                    const isActive = u.id === activeUpdateId;
                     const sectionForLink =
                       currentSection && unlocked.includes(currentSection)
                         ? currentSection
                         : firstUnlockedSection(unlocked);
-                    return { slug, year: u.year, primary: documentTitle(u), secondary: u.project_title, isActive, unlocked, sectionForLink };
+                    return { id: u.id, slug, year: u.year, primary: documentTitle(u), secondary: u.project_title, isActive, unlocked, sectionForLink };
                   });
 
                   if (items.length === 0) return null;
@@ -673,9 +703,9 @@ export function AppSidebar() {
                   return (
                     <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
                       {items.map((it) => (
-                        <div key={`${it.slug}-${it.year}`}>
+                        <div key={it.id}>
                           <Link
-                            href={`/partner/project-updates/${it.slug}/${it.year}/${it.sectionForLink}`}
+                            href={documentPath("/partner/project-updates", { id: it.id, data_type: "update", year: it.year }, it.slug, it.sectionForLink)}
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
@@ -703,7 +733,9 @@ export function AppSidebar() {
                           </Link>
 
                           {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {
-                            const flatSections = REPORT_SECTIONS.filter((s) => it.unlocked.includes(s.value));
+                            // Updates draw on UPDATE_SECTIONS, not REPORT_SECTIONS —
+                            // Justification and HACT exist only here.
+                            const flatSections = UPDATE_SECTIONS.filter((s) => it.unlocked.includes(s.value));
                             return (
                               <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                                 {flatSections.map((s) => {
@@ -711,11 +743,11 @@ export function AppSidebar() {
                                   return (
                                     <Link
                                       key={s.value}
-                                      href={`/partner/project-updates/${it.slug}/${it.year}/${s.value}`}
+                                      href={documentPath("/partner/project-updates", { id: it.id, data_type: "update", year: it.year }, it.slug, s.value)}
                                       className={cn(
                                         "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
                                         secActive
-                                          ? cn(GROUP_STYLES[s.group].sidebarActive, "font-medium")
+                                          ? "bg-crafd-yellow-light text-black font-medium"
                                           : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                       )}
                                     >
@@ -779,11 +811,13 @@ export function AppSidebar() {
             Editor
           </p>
           {editorLinks
-            // Hide the Project Document / Report editors until at least one prodoc
-            // / report exists (kept visible while the count is still loading).
+            // Hide the Project Document / Report / Update editors until at least
+            // one prodoc / report / update exists (kept visible while the count is
+            // still loading).
             .filter((link) =>
               link.href === "/admin/prodoc-editor" ? hasProdocs !== false
               : link.href === "/admin/report-editor" ? hasReports !== false
+              : link.href === "/admin/project-update-editor" ? hasUpdates !== false
               : true
             )
             .map((link) => {

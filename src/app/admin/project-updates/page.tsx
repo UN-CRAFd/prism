@@ -32,7 +32,7 @@ import {
   CreateReportForm,
 } from "@/components/admin/report-components";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
-import { firstUnlockedSection } from "@/lib/project-updates";
+import { documentPath, firstUnlockedSection } from "@/lib/project-updates";
 import { moduleLabel, updateTypeLabel } from "@/lib/update-modules";
 import type { Report } from "@/lib/types";
 
@@ -144,7 +144,15 @@ export default function ProjectUpdatesPage() {
 
   function navigateToUpdate(r: UpdateRow) {
     const slug = projectSlug(r.project_short_name, r.project_title);
-    router.push(`/admin/project-updates/${slug}/${r.year}/${firstUnlockedSection(r.unlocked_sections)}`);
+    // Pinned by id: several updates can share this project and year.
+    router.push(
+      documentPath(
+        "/admin/project-updates",
+        { ...r, data_type: "update" },
+        slug,
+        firstUnlockedSection(r.unlocked_sections)
+      )
+    );
   }
 
   return (

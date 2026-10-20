@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,11 @@ import { CommentsProvider, ItemComments } from "@/components/report-editor/comme
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
-import { documentTitle } from "@/lib/project-updates";
+import { DOC_ID_PARAM, documentPath, documentTitle, resolveDocument } from "@/lib/project-updates";
+import { UPDATE_SECTIONS, sectionVariant } from "@/lib/update-sections";
+import { JustificationSection } from "@/components/report-editor/sections/justification-section";
+import { HactSection } from "@/components/report-editor/sections/hact-section";
+import { UpdateVariantBanner } from "@/components/report-editor/sections/section-placeholder";
 import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG, type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import {
   EMPTY_OVERVIEW,
@@ -85,6 +89,7 @@ export function ReportEditor({
 }: ReportEditorProps = {}) {
   const { user } = useAuth();
   const params = useParams<{ project: string; year: string; section: string }>();
+  const searchParams = useSearchParams();
   const confirm = useConfirm();
   const router = useRouter();
 
@@ -149,22 +154,52 @@ export function ReportEditor({
   // sections (surveys, overview, risk, indicators) drive the autosave hook below.
   const [childSaveState, setChildSaveState] = useState<SaveState>("idle");
 
-  // For updates: the sections and groups are derived from the selected document's
-  // unlocked_sections. For reports: use the full REPORT_SECTIONS and REPORT_SECTION_GROUPS.
+  // ── Which document is open ────────────────────────────────────────────────
+  //
+  // `?u=<id>` pins it exactly. Several updates can share a project and year, so
+  // the path {project}/{year} alone is ambiguous and would resolve to whichever
+  // row the API happened to return first.
+  //
+  // The id is honoured ONLY when it belongs to this project+year, so a stale or
+  // hand-edited id can never silently open someone else's document — it falls
+  // through to the path match. The fallback is sorted, not "first found", so an
+  // un-pinned URL always lands on the year's original (un-indexed) update rather
+  // than varying with row order.
+  const candidates = useMemo(
+    () => reports.filter((r) => toSlug(r) === params.project && String(r.year) === params.year),
+    [reports, params.project, params.year]
+  );
+  const pinnedId = Number(searchParams.get(DOC_ID_PARAM));
+  const selectedReport = useMemo(
+    () => resolveDocument(candidates, pinnedId),
+    [candidates, pinnedId]
+  );
+
+  // The update this editor is showing, if any — its selected modules decide both
+  // which pages exist and which version each one renders.
+  const activeUpdate = dataType === "update" ? selectedReport : undefined;
+
+  // For updates: pages come from UPDATE_SECTIONS (which includes the update-only
+  // Justification and HACT pages), narrowed to the ones this update unlocked.
+  // For reports: the full REPORT_SECTIONS and REPORT_SECTION_GROUPS.
   const sections = useMemo(() => {
     if (dataType !== "update") return REPORT_SECTIONS;
-    const unlocked = reports.find(
-      (r) => toSlug(r) === params.project && String(r.year) === params.year
-    )?.unlocked_sections ?? [];
-    return REPORT_SECTIONS.filter((s) => unlocked.includes(s.value));
-  }, [dataType, reports, params.project, params.year]);
+    const unlocked = activeUpdate?.unlocked_sections ?? [];
+    return UPDATE_SECTIONS.filter((s) => unlocked.includes(s.value));
+  }, [dataType, activeUpdate]);
 
+  // Updates show a flat tab bar — their pages do not split into the
+  // Qualitative / Quantitative groups an annual report uses.
   const sectionGroups = useMemo(() => {
     if (dataType !== "update") return REPORT_SECTION_GROUPS;
-    return REPORT_SECTION_GROUPS
-      .map((g) => ({ ...g, sections: g.sections.filter((s) => sections.includes(s)) }))
-      .filter((g) => g.sections.length > 0);
-  }, [dataType, sections]);
+    return [];
+  }, [dataType]);
+
+  /** Which version of a page this update calls for (its selected add-ons). */
+  const variantFor = useCallback(
+    (section: string) => sectionVariant(section, activeUpdate?.update_modules ?? []),
+    [activeUpdate]
+  );
 
   const defaultSection = sections[0]?.value ?? "overview";
 
@@ -323,8 +358,12 @@ export function ReportEditor({
       .then((all: Report[]) => {
         const list = Array.isArray(all) ? all : [];
         setReports(list);
-        const match = list.find(
-          (r) => toSlug(r) === params.project && String(r.year) === params.year
+        // Same resolver the rest of the editor uses. This one decides `reportId`,
+        // which every section's data fetch keys off — matching on project+year
+        // here would load a sibling update's content behind the right tabs.
+        const match = resolveDocument(
+          list.filter((r) => toSlug(r) === params.project && String(r.year) === params.year),
+          Number(searchParams.get(DOC_ID_PARAM))
         );
         if (match) {
           setReportId(match.id);
@@ -346,7 +385,10 @@ export function ReportEditor({
       })
       .catch(() => {})
       .finally(() => setLoadingReports(false));
-  }, [user, params.project, params.year]);
+  // Re-resolves when the pin changes too, so switching between two updates of
+  // the same year actually reloads the content rather than just the tabs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, params.project, params.year, searchParams.get(DOC_ID_PARAM)]);
 
   // Load all parent-managed section data once per report (not per section switch).
   // With keep-alive, all four sections are mounted before the user visits them so
@@ -416,12 +458,12 @@ export function ReportEditor({
     // Preserve the current section when switching reports, but default to the
     // first available section when there is none yet.
     const targetSection = params.section ?? defaultSection;
-    router.push(`${basePath}/${toSlug(report)}/${report.year}/${targetSection}`);
+    router.push(documentPath(basePath, report, toSlug(report), targetSection));
   }
 
   function handleSectionChange(section: string) {
     if (!selectedReport || section === params.section) return;
-    router.push(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${section}`);
+    router.push(documentPath(basePath, selectedReport, toSlug(selectedReport), section));
   }
 
   // Change the report's status from the top bar (admin only). Opens the
@@ -687,15 +729,23 @@ export function ReportEditor({
     parentAutosave.schedule();
   }
 
-  const selectedReport = reports.find(
-    (r) => toSlug(r) === params.project && String(r.year) === params.year
-  );
+  // Put the id in the URL whenever it is missing or wrong, so sharing, reloading
+  // and the back button all land on the document actually being shown. Only for
+  // documents that need pinning — report and prodoc URLs stay as they are.
+  useEffect(() => {
+    if (!selectedReport || selectedReport.data_type !== "update" || !params.section) return;
+    if (selectedReport.id === pinnedId) return;
+    router.replace(
+      documentPath(basePath, selectedReport, toSlug(selectedReport), params.section)
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReport?.id, pinnedId, params.section]);
 
   // Redirect to the first unlocked section if the current section isn't available for updates.
   useEffect(() => {
     if (dataType !== "update" || !selectedReport || sections.length === 0) return;
     if (params.section && !sections.find((s) => s.value === params.section)) {
-      router.replace(`${basePath}/${toSlug(selectedReport)}/${selectedReport.year}/${sections[0].value}`);
+      router.replace(documentPath(basePath, selectedReport, toSlug(selectedReport), sections[0].value));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataType, selectedReport, sections, params.section]);
@@ -924,8 +974,10 @@ export function ReportEditor({
                   onClick={() => handleSectionChange(s.value)}
                   className={cn(
                     "px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                    // Update tabs are a flat row of pages, not the annual report's
+                    // Qualitative / Quantitative split, so they share one accent.
                     params.section === s.value
-                      ? GROUP_STYLES[s.group].tabActive
+                      ? "border-sky-500 text-sky-600"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -1129,7 +1181,12 @@ export function ReportEditor({
                 {loadingOverview ? (
                   <LoadingState />
                 ) : (
-                  <OverviewSection overview={overview} updateOverview={updateOverview} />
+                  <OverviewSection
+                    overview={overview}
+                    updateOverview={updateOverview}
+                    documentName={selectedReport ? documentTitle(selectedReport) : undefined}
+                    updateTypes={activeUpdate?.update_types}
+                  />
                 )}
               </div>
             )}
@@ -1231,6 +1288,15 @@ export function ReportEditor({
 
             {visitedRef.current.has("workplan") && reportId && selectedReport && (
               <div hidden={params.section !== "workplan"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                {/* The banner names the version this update calls for. The extra
+                    columns an NCE needs are not built yet — when they are, they
+                    come from this same variant. */}
+                {dataType === "update" && (
+                  <UpdateVariantBanner
+                    variant={variantFor("workplan")}
+                    months={activeUpdate?.update_months}
+                  />
+                )}
                 <WorkplanPartnerEditor
                   reportId={reportId}
                   onSaveStateChange={handleChildSaveStateChange}
@@ -1243,10 +1309,39 @@ export function ReportEditor({
 
             {visitedRef.current.has("expenditure") && reportId && (
               <div hidden={params.section !== "expenditure"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
+                {dataType === "update" && (
+                  <UpdateVariantBanner
+                    variant={variantFor("expenditure")}
+                    months={activeUpdate?.update_months}
+                  />
+                )}
                 <ExpenditurePartnerEditor
                   reportId={reportId}
                   onSaveStateChange={handleChildSaveStateChange}
                   fillHeight={fillHeight}
+                />
+              </div>
+            )}
+
+            {/* Update-only pages. Structure in place, fields still to build. */}
+            {visitedRef.current.has("justification") && reportId && (
+              <div hidden={params.section !== "justification"}>
+                <JustificationSection
+                  reportId={reportId}
+                  updateTypes={activeUpdate?.update_types}
+                  readOnly={readOnly}
+                  onSaveStateChange={handleChildSaveStateChange}
+                />
+              </div>
+            )}
+
+            {visitedRef.current.has("hact") && reportId && (
+              <div hidden={params.section !== "hact"}>
+                <HactSection
+                  reportId={reportId}
+                  variant={variantFor("hact")}
+                  months={activeUpdate?.update_months}
+                  readOnly={readOnly}
                 />
               </div>
             )}

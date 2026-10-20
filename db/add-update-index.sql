@@ -31,8 +31,10 @@ BEGIN
    WHERE ns.nspname  = 'reporting_platform'
      AND rel.relname = 'reports'
      AND con.contype = 'u'
+     -- attname is `name`, and there is no name[] = text[] operator, so cast the
+     -- aggregate to text[] before comparing.
      AND (
-       SELECT array_agg(att.attname ORDER BY att.attname)
+       SELECT array_agg(att.attname::text ORDER BY att.attname::text)
          FROM unnest(con.conkey) AS k
          JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = k
      ) = ARRAY['data_type', 'project_id', 'year']

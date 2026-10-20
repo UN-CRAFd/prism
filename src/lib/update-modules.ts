@@ -1,4 +1,4 @@
-import { PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
+import { ALWAYS_UPDATE_SECTIONS, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The project-update module matrix.
@@ -15,7 +15,8 @@ import { PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
 //
 // Modules map onto report-editor sections so the existing editor/sidebar keeps
 // working unchanged — `unlocked_sections` is DERIVED from the chosen modules
-// (see modulesToSections). Modules with `section: null` have no editor tab yet.
+// (see modulesToSections). Every module now maps to a page; `section: null` is
+// still allowed for a module added before its page exists.
 //
 // BASE ROWS AND ADD-ONS. Work Plan and Expenditure each have sub-categories, and
 // those are ADDITIVE: they are extras layered on the base row, not alternatives
@@ -62,12 +63,49 @@ export interface UpdateModuleGroup {
   modules: UpdateModule[];
 }
 
+// Rows follow the annual report's tab order, so an update assembled from these
+// reads in the same sequence a reporter already knows. The two update-only
+// groups are slotted in: Justification leads, HACT Recommendations sits with
+// Risk Management, which it accompanies on a tranche release.
+//
+// `overview` has no row — it carries the project details and the authorization
+// and is on every update unconditionally (see ALWAYS_UPDATE_SECTIONS).
 export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
   {
     label: "Justification",
     modules: [
-      { value: "justification", label: "Justification", section: null },
+      { value: "justification", label: "Justification", section: "justification" },
     ],
+  },
+  {
+    label: "Surveys",
+    modules: [{ value: "surveys", label: "Surveys", section: "surveys" }],
+  },
+  {
+    label: "Key Achievements",
+    modules: [{ value: "achievements", label: "Key Achievements", section: "achievements" }],
+  },
+  {
+    label: "Partnerships",
+    modules: [{ value: "partnerships", label: "Partnerships", section: "partnerships" }],
+  },
+  {
+    label: "Results",
+    modules: [{ value: "results", label: "Results", section: "results" }],
+  },
+  {
+    label: "Lessons Learned",
+    modules: [{ value: "lessons", label: "Lessons Learned", section: "lessons" }],
+  },
+  {
+    label: "External Coverage",
+    modules: [
+      { value: "external_coverage", label: "External Coverage", section: "external-coverage" },
+    ],
+  },
+  {
+    label: "Testimonials",
+    modules: [{ value: "testimonials", label: "Testimonials", section: "testimonials" }],
   },
   {
     label: "Work Plan",
@@ -75,6 +113,10 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
       { value: "workplan",        label: "Work Plan",                            section: "workplan" },
       { value: "workplan_months", label: "+ extended time frame by {months} months",   section: "workplan" },
     ],
+  },
+  {
+    label: "Indicators",
+    modules: [{ value: "indicators", label: "Indicators", section: "indicators" }],
   },
   {
     label: "Expenditure",
@@ -87,13 +129,23 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
   {
     label: "HACT Recommendations",
     modules: [
-      { value: "hact", label: "HACT Recommendations", section: null },
+      { value: "hact", label: "HACT Recommendations", section: "hact" },
     ],
   },
   {
     label: "Risk Management",
     modules: [
       { value: "risk_management", label: "Risk management", section: "risk" },
+    ],
+  },
+  {
+    label: "Transfers",
+    modules: [{ value: "transfers", label: "Transfers", section: "transfers" }],
+  },
+  {
+    label: "Complementary Funding",
+    modules: [
+      { value: "complementary", label: "Complementary Funding", section: "complementary" },
     ],
   },
 ];
@@ -111,13 +163,23 @@ export type UpdateRequirements = Record<string, string[]>;
 // Revision adds the proposed new budget, No Cost Extension the extended time
 // frame. Selecting both columns therefore ticks both add-ons alongside the
 // general rows, rather than one of them replacing the other.
+//
+// The Annual Report and Final Report columns tick the full set of report
+// sections, since an update standing in for one of those carries everything a
+// report would. The narrower types tick only what they need.
+const FULL_REPORT_MODULES = [
+  "surveys", "achievements", "partnerships", "results", "lessons",
+  "external_coverage", "testimonials", "workplan", "indicators",
+  "expenditure", "risk_management", "transfers", "complementary",
+];
+
 export const DEFAULT_UPDATE_REQUIREMENTS: UpdateRequirements = {
   budget_revision: ["justification", "workplan", "expenditure", "expenditure_budget"],
   nce:             ["justification", "workplan", "workplan_months", "expenditure", "expenditure_months"],
   tranche_release: ["justification", "workplan", "expenditure", "hact", "risk_management"],
   reprogramming:   ["justification", "workplan", "expenditure"],
-  annual_report:   ["workplan", "expenditure"],
-  final_report:    ["workplan", "expenditure"],
+  annual_report:   [...FULL_REPORT_MODULES],
+  final_report:    [...FULL_REPORT_MODULES],
 };
 
 // ── Extension length ────────────────────────────────────────────────────────
@@ -195,6 +257,9 @@ export function modulesToSections(modules: string[]): string[] {
       .map((key) => UPDATE_MODULES.find((m) => m.value === key)?.section)
       .filter((s): s is (typeof PROJECT_UPDATE_SECTIONS)[number] => Boolean(s))
   );
+  // Overview is on every update whatever was ticked: it carries the project
+  // details and the authorization, so there is no row for it in the matrix.
+  for (const always of ALWAYS_UPDATE_SECTIONS) wanted.add(always);
   return PROJECT_UPDATE_SECTIONS.filter((s) => wanted.has(s));
 }
 

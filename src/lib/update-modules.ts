@@ -192,6 +192,7 @@ export const DEFAULT_UPDATE_REQUIREMENTS: UpdateRequirements = {
 export const MONTHS_TOKEN = "{months}";
 export const MIN_EXTENSION_MONTHS = 1;
 export const MAX_EXTENSION_MONTHS = 120;
+export const MONTHS_PER_QUARTER = 3;
 
 /** True when this row's label carries the inline months field. */
 export function hasMonthsField(key: string): boolean {
@@ -208,6 +209,31 @@ export function normaliseMonths(value: unknown): number | null {
   const n = typeof value === "string" ? Number(value.trim()) : value;
   if (typeof n !== "number" || !Number.isInteger(n)) return null;
   return n >= MIN_EXTENSION_MONTHS && n <= MAX_EXTENSION_MONTHS ? n : null;
+}
+
+/** How many quarter columns an extension of `months` adds to a timeline. A part
+ *  quarter counts as a whole one — 1–3 months → +1 quarter, 4–6 → +2, and so on
+ *  — because a quarter is the smallest unit the work plan can show. 0 for a
+ *  missing or non-positive figure. */
+export function monthsToQuarters(months?: number | null): number {
+  const n = normaliseMonths(months);
+  return n === null ? 0 : Math.ceil(n / MONTHS_PER_QUARTER);
+}
+
+/** The quarters the update's extended-time-frame add-on adds to one page's
+ *  timeline — the Work Plan grid and (later) the Expenditure table each ask for
+ *  their own section. 0 unless that page's months add-on is selected, so the
+ *  general version of a page is never extended by accident. */
+export function sectionExtensionQuarters(
+  section: string,
+  modules: string[] | null | undefined,
+  months?: number | null
+): number {
+  const selected = new Set(normaliseModules(modules));
+  const extended = UPDATE_MODULES.some(
+    (m) => m.section === section && hasMonthsField(m.value) && selected.has(m.value)
+  );
+  return extended ? monthsToQuarters(months) : 0;
 }
 
 /** The group a module belongs to, or undefined for an unknown key. */

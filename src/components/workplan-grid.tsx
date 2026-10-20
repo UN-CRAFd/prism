@@ -36,6 +36,7 @@ import {
   workplanStatusColor,
   workplanStatusDescription,
   quarterRange,
+  quartersAfter,
   groupQuartersByYear,
   workplanUpdateWindowLabel,
   type WorkplanStatus,
@@ -133,9 +134,18 @@ function QuarterCell({
   );
 }
 
-// Two-row year/quarter header shared by both grids.
-function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; leadCols: ReactNode; trailCols: ReactNode }) {
+// Quarters added by an extended time frame are tinted across both header rows
+// and down the body, so the proposed extra time is never mistaken for the
+// project's approved timeline.
+const EXTENSION_HEAD = "bg-amber-100/80 text-amber-900";
+const EXTENSION_CELL = "bg-amber-50/60";
+
+// Two-row year/quarter header shared by both grids. `extension` holds the
+// quarter keys that fall beyond the project's approved end date; a year is
+// marked as extension only when every one of its quarters is.
+function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters: string[]; leadCols: ReactNode; trailCols: ReactNode; extension?: Set<string> }) {
   const groups = groupQuartersByYear(quarters);
+  const isExtension = (key: string) => extension?.has(key) ?? false;
   // Sticky two-row header pinned to the page's scroll container: the year row at
   // the top, the quarter row just below (top-8 = the year row's fixed h-8).
   // Opaque bg + cell-level borders so body rows never bleed through on scroll.
@@ -144,7 +154,16 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
       <tr>
         {leadCols}
         {groups.map((g) => (
-          <th key={g.year} colSpan={g.quarters.length} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 h-8 bg-muted px-1 py-2 text-center", HEAD_TEXT)}>
+          <th
+            key={g.year}
+            colSpan={g.quarters.length}
+            style={{ boxShadow: HEAD_SHADOW_L }}
+            className={cn(
+              "sticky top-0 z-20 h-8 px-1 py-2 text-center",
+              g.quarters.every((q) => isExtension(q.key)) ? EXTENSION_HEAD : "bg-muted",
+              HEAD_TEXT
+            )}
+          >
             {g.year}
           </th>
         ))}
@@ -153,7 +172,15 @@ function QuarterHeader({ quarters, leadCols, trailCols }: { quarters: string[]; 
       <tr>
         {groups.map((g) =>
           g.quarters.map((q, i) => (
-            <th key={q.key} style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW }} className={cn("sticky top-8 z-20 bg-muted px-1 py-1 text-center text-muted-foreground w-9", SUBHEAD_TEXT)}>
+            <th
+              key={q.key}
+              style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW }}
+              className={cn(
+                "sticky top-8 z-20 px-1 py-1 text-center w-9",
+                isExtension(q.key) ? EXTENSION_HEAD : "bg-muted text-muted-foreground",
+                SUBHEAD_TEXT
+              )}
+            >
               {q.q}
             </th>
           ))
@@ -208,8 +235,19 @@ interface MatrixActivity {
   byUpdate: Record<number, WindowEntry | undefined>;
 }
 
+// Quarters added beyond the project's approved end date, for an update whose
+// Work Plan carries the "+ extended time frame" module. `quarters` is already
+// derived from the months figure by the API (1–3 months → 1 quarter, 4–6 → 2, …);
+// `months` is carried only so the page can name the extension. An annual report,
+// and any update without the add-on, gets 0 — the general version of the grid.
+interface WorkplanExtension {
+  months: number | null;
+  quarters: number;
+}
+
 interface WorkplanMatrix {
   range: Range;
+  extension?: WorkplanExtension;
   updates: UpdateWindow[];
   activeUpdateId: number | null;
   activities: MatrixActivity[];
@@ -337,7 +375,22 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     updateProgress(activityId, { updated_quarters: cur.includes(q) ? cur.filter((x) => x !== q) : [...cur, q] });
   }
 
-  const quarters = useMemo(() => quarterRange(data?.range.start ?? null, data?.range.end ?? null), [data]);
+  // THE TWO VERSIONS OF THIS GRID. The general one runs over the project's own
+  // quarters — exactly the annual report's table. The extended-time-frame one
+  // adds the quarters the requested extension buys, continuing the sequence past
+  // the project's end so the partner can plan activities into the new time.
+  // Everything else about the table is identical, which is the point: one grid,
+  // one extra block of columns.
+  const baseQuarters = useMemo(
+    () => quarterRange(data?.range.start ?? null, data?.range.end ?? null),
+    [data]
+  );
+  const extraQuarters = useMemo(
+    () => quartersAfter(baseQuarters[baseQuarters.length - 1], data?.extension?.quarters ?? 0),
+    [baseQuarters, data]
+  );
+  const quarters = useMemo(() => [...baseQuarters, ...extraQuarters], [baseQuarters, extraQuarters]);
+  const extensionKeys = useMemo(() => new Set(extraQuarters), [extraQuarters]);
 
   // Row filters: chips that show/hide per-activity lines. Baseline has a chip
   // and is shown by default; BASELINE_HIDDEN_KEY present in the set hides it.
@@ -421,6 +474,19 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
           );
         })}
       </div>
+      {extraQuarters.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <span className="font-medium">
+            Extended time frame{data.extension?.months ? `: +${data.extension.months} months` : ""}
+          </span>
+          <span>
+            — {extraQuarters.length === 1 ? "one quarter has" : `${extraQuarters.length} quarters have`} been added
+            after the project&apos;s current end ({extraQuarters[0]}
+            {extraQuarters.length > 1 ? `–${extraQuarters[extraQuarters.length - 1]}` : ""}).
+            Tick the activity timeline in the shaded columns to show the work the extension covers.
+          </span>
+        </div>
+      )}
       {activeUpdateId == null && (
         <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           No active update window has been set for this project. Ask your administrator to add and activate one before entering progress.
@@ -430,6 +496,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
         <table className="w-full text-sm border-collapse">
           <QuarterHeader
             quarters={quarters}
+            extension={extensionKeys}
             leadCols={
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-3 py-2 text-muted-foreground min-w-[280px] align-bottom", HEAD_TEXT)}>Activity</th>
@@ -507,7 +574,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                           {first && activityCell}
                           <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">{labels.common.baseline}</td>
                           {quarters.map((q, i) => (
-                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l", extensionKeys.has(q) && EXTENSION_CELL)}>
                               <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
                             </td>
                           ))}
@@ -537,7 +604,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                           <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
                         </td>
                         {quarters.map((q, i) => (
-                          <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                          <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l", extensionKeys.has(q) && EXTENSION_CELL)}>
                             <QuarterCell
                               checked={checks.includes(q)}
                               variant={editable ? "editable" : "baseline"}

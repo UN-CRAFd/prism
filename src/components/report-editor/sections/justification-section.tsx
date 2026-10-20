@@ -6,14 +6,14 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import {
   GENERAL_JUSTIFICATION_KEY,
-  justificationFields,
+  appliedTypes,
   justificationPrompt,
   updateTypeList,
 } from "@/lib/update-justifications";
 
-// Justification — why the partner is applying for each update type this
-// document covers. One open field per type, so a combined Annual Report + NCE
-// update explains the extension on its own terms rather than in one shared box.
+// Justification — why the partner is applying for this update. ONE open field,
+// whatever the document covers: a combined Budget Revision + Reprogramming is a
+// single request, so the question names both and is answered once.
 export function JustificationSection({
   reportId,
   updateTypes,
@@ -25,17 +25,13 @@ export function JustificationSection({
   readOnly?: boolean;
   onSaveStateChange?: (s: SaveState) => void;
 }) {
-  const fields = justificationFields(updateTypes);
-
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [value, setValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Only dirty fields are written back, so an autosave never clobbers a field
-  // the partner has not touched with a stale value.
-  const dirtyRef = useRef<Set<string>>(new Set());
-  const valuesRef = useRef(values);
-  valuesRef.current = values;
+  const dirtyRef = useRef(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   useEffect(() => {
     let cancelled = false;
@@ -44,12 +40,10 @@ export function JustificationSection({
       setError(null);
       try {
         const res = await fetch(`/api/update-justifications?reportId=${reportId}`);
-        if (!res.ok) throw new Error("Failed to load justifications");
+        if (!res.ok) throw new Error("Failed to load justification");
         const rows: { update_type: string; justification: string }[] = await res.json();
         if (cancelled) return;
-        const next: Record<string, string> = {};
-        for (const r of rows) next[r.update_type] = r.justification ?? "";
-        setValues(next);
+        setValue(mergeJustifications(rows));
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -60,22 +54,20 @@ export function JustificationSection({
   }, [reportId]);
 
   const flush = useCallback(async () => {
-    const pending = [...dirtyRef.current];
-    dirtyRef.current = new Set();
-    for (const key of pending) {
-      const res = await fetch("/api/update-justifications", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId,
-          update_type: key,
-          justification: valuesRef.current[key] ?? "",
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save justification");
-      }
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    const res = await fetch("/api/update-justifications", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reportId,
+        update_type: GENERAL_JUSTIFICATION_KEY,
+        justification: valueRef.current,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to save justification");
     }
   }, [reportId]);
 
@@ -84,13 +76,14 @@ export function JustificationSection({
   // Save anything still pending when the partner navigates away.
   useEffect(() => () => { void flushNow(); }, [flushNow]);
 
-  function edit(key: string, value: string) {
-    setValues((prev) => ({ ...prev, [key]: value }));
-    dirtyRef.current.add(key);
+  function edit(next: string) {
+    setValue(next);
+    dirtyRef.current = true;
     schedule();
   }
 
   const list = updateTypeList(updateTypes);
+  const applying = appliedTypes(updateTypes).length > 0;
 
   return (
     <div className="space-y-5">
@@ -98,7 +91,7 @@ export function JustificationSection({
         <h2 className="t-heading-section">Justification</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {list
-            ? `Explain why you are applying for ${list}. Each one is justified separately.`
+            ? `Explain why you are submitting this ${list}.`
             : "Explain why this project update is being submitted."}
         </p>
       </div>
@@ -114,31 +107,40 @@ export function JustificationSection({
           <div className="h-24 animate-pulse rounded-md bg-muted" />
         </div>
       ) : (
-        <div className="space-y-4">
-          {fields.map((key) => (
-            <div key={key} className="rounded-xl border bg-card p-6 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <label htmlFor={`justification-${key}`} className="text-sm font-medium">
-                  {justificationPrompt(key)}
-                </label>
-                <ItemComments section="justification" itemId={null} />
-              </div>
-              <Textarea
-                id={`justification-${key}`}
-                value={values[key] ?? ""}
-                onChange={(e) => edit(key, e.target.value)}
-                disabled={readOnly}
-                rows={6}
-                placeholder={
-                  key === GENERAL_JUSTIFICATION_KEY
-                    ? "Describe the reason for this update…"
-                    : "Set out the reason, what changed, and why it is needed…"
-                }
-              />
-            </div>
-          ))}
+        <div className="rounded-xl border bg-card p-6 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <label htmlFor="justification" className="text-sm font-medium">
+              {justificationPrompt(updateTypes)}
+            </label>
+            <ItemComments section="justification" itemId={null} />
+          </div>
+          <Textarea
+            id="justification"
+            value={value}
+            onChange={(e) => edit(e.target.value)}
+            disabled={readOnly}
+            rows={10}
+            placeholder={
+              applying
+                ? "Set out the reason, what changed, and why it is needed…"
+                : "Describe the reason for this update…"
+            }
+          />
         </div>
       )}
     </div>
   );
+}
+
+/** The stored answer for the one field. Normally that is the general row; an
+ *  update justified on the earlier one-box-per-type page has its per-type
+ *  answers folded in instead, so nothing already typed disappears. */
+function mergeJustifications(rows: { update_type: string; justification: string }[]): string {
+  const general = rows.find((r) => r.update_type === GENERAL_JUSTIFICATION_KEY)?.justification ?? "";
+  if (general.trim()) return general;
+  return rows
+    .filter((r) => r.update_type !== GENERAL_JUSTIFICATION_KEY)
+    .map((r) => r.justification?.trim())
+    .filter(Boolean)
+    .join("\n\n");
 }

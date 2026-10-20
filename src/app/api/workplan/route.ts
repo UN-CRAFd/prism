@@ -3,6 +3,8 @@ import { query } from "@/lib/db";
 import { quarterFromDate, workplanTypeCode } from "@/lib/workplan";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { hasUpdateModuleColumns } from "@/lib/update-columns";
+import { sectionExtensionQuarters } from "@/lib/update-modules";
 
 // ── Workplan progress, keyed by admin-managed update windows ─────────────────
 //
@@ -61,7 +63,9 @@ export async function GET(req: NextRequest) {
 
   try {
     // Resolve the project + current year + derive the quarter range from
-    // start + duration.
+    // start + duration. A project update carrying the Work Plan "+ extended time
+    // frame" module also brings its length, which sizes the extra columns.
+    const moduleCols = await hasUpdateModuleColumns();
     const projRows = await query<{
       project_id: number;
       year: number;
@@ -69,10 +73,13 @@ export async function GET(req: NextRequest) {
       report_type: string | null;
       start_date: string | null;
       end_date: string | null;
+      update_modules: string[] | null;
+      update_months: number | null;
     }>(
       `SELECT p.id AS project_id, r.year, r.data_type, r.report_type,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
-              TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS end_date
+              TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS end_date,
+              ${moduleCols ? "r.update_modules, r.update_months" : "NULL::text[] AS update_modules, NULL::integer AS update_months"}
          FROM reporting_platform.reports r
          JOIN reporting_platform.projects p ON p.id = r.project_id
         WHERE r.id = $1`,
@@ -80,7 +87,18 @@ export async function GET(req: NextRequest) {
     );
     if (!projRows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
-    const { project_id, year: reportYear, data_type: reportDataType, report_type, start_date, end_date } = projRows[0];
+    const {
+      project_id, year: reportYear, data_type: reportDataType, report_type,
+      start_date, end_date, update_modules, update_months,
+    } = projRows[0];
+
+    // How far past the project's own end the grid runs. An annual report (and
+    // an update without the add-on) gets 0 — the general version of the page is
+    // the project timeline exactly as it stands.
+    const extensionQuarters =
+      reportDataType === "update"
+        ? sectionExtensionQuarters("workplan", update_modules, update_months)
+        : 0;
 
     // Project structure + baseline (admin-owned; read-only to partners).
     const activities = await query<Record<string, unknown> & { id: number }>(
@@ -147,6 +165,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       range: { start: quarterFromDate(start_date), end: quarterFromDate(end_date) },
+      // The extended-time-frame version of the page: `quarters` columns hung off
+      // the end of `range`, `months` only so the page can say what they are.
+      extension: { months: extensionQuarters > 0 ? update_months : null, quarters: extensionQuarters },
       updates,
       activeUpdateId,
       activities: activities.map((a) => ({ ...a, byUpdate: byActivity.get(a.id) ?? {} })),

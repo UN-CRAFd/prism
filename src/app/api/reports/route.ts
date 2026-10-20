@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
 import { isValidUpdateSections, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
 import { hasUpdateIndex, normaliseUpdateIndex, reportConflictTarget } from "@/lib/report-conflict";
+import { hasUpdateModuleColumns } from "@/lib/update-columns";
 import {
   MAX_EXTENSION_MONTHS,
   MIN_EXTENSION_MONTHS,
@@ -81,27 +82,8 @@ async function getLastEditedExpr(): Promise<string> {
   return lastEditedExprCache;
 }
 
-// The project-update module matrix (update_types / update_modules / update_months) ships in
-// db/add-update-modules.sql. Same schema-drift guard as getLastEditedExpr above:
-// a DB that has not had the migration applied yet keeps working — the columns are
-// simply left out of the SELECT and the INSERT, and an update falls back to its
-// derived `unlocked_sections` alone. Cached module-side; only a migration changes it.
-let hasModuleColumnsCache: boolean | null = null;
-
-async function hasModuleColumns(): Promise<boolean> {
-  if (hasModuleColumnsCache !== null) return hasModuleColumnsCache;
-  const present = await query<{ column_name: string }>(
-    `SELECT column_name
-       FROM information_schema.columns
-      WHERE table_schema = 'reporting_platform'
-        AND table_name   = 'reports'
-        AND column_name  = ANY($1::text[])`,
-    [["update_types", "update_modules", "update_months"]]
-  );
-  hasModuleColumnsCache = present.length === 3;
-  return hasModuleColumnsCache;
-}
-
+// The module-matrix columns are guarded the same way as getLastEditedExpr above
+// — see lib/update-columns.ts, shared with the other routes that read them.
 
 // GET /api/reports — list all reports with project + partner info
 // Optional query param: ?data_type=report|prodoc
@@ -142,7 +124,7 @@ export async function GET(request: Request) {
     const lastEditedExpr = await getLastEditedExpr();
     // Project-update columns, each behind its own migration guard (see above).
     const updateCols = [
-      ...((await hasModuleColumns()) ? ["r.update_types", "r.update_modules", "r.update_months"] : []),
+      ...((await hasUpdateModuleColumns()) ? ["r.update_types", "r.update_modules", "r.update_months"] : []),
       ...((await hasUpdateIndex()) ? ["r.update_index"] : []),
     ];
     const moduleCols = updateCols.length ? `${updateCols.join(",\n        ")},` : "";
@@ -552,7 +534,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const withModuleCols = await hasModuleColumns();
+    const withModuleCols = await hasUpdateModuleColumns();
     const conflictTarget = await reportConflictTarget();
     const updateCols = [
       ...(withModuleCols ? ["update_types", "update_modules", "update_months"] : []),

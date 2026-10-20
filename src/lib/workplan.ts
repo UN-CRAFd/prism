@@ -85,6 +85,23 @@ export function quarterRange(start?: string | null, end?: string | null): string
   return out;
 }
 
+// The `count` quarter keys that follow `last` — "2027-Q3" + 2 → ["2027-Q4",
+// "2028-Q1"]. Used to hang an extended time frame off the end of a project's
+// own range, so the extra columns continue the sequence rather than restarting
+// it. Capped at 40 like quarterRange; [] for missing/invalid input.
+export function quartersAfter(last: string | null | undefined, count: number): string[] {
+  if (!last || count <= 0) return [];
+  const q = parseQuarter(last);
+  if (!q) return [];
+  const out: string[] = [];
+  const first = q.year * 4 + (q.q - 1) + 1;
+  for (let i = 0; i < Math.min(count, 40); i++) {
+    const idx = first + i;
+    out.push(formatQuarterKey(Math.floor(idx / 4), (idx % 4) + 1));
+  }
+  return out;
+}
+
 // Group an ordered quarter-key list by year, preserving order.
 export function groupQuartersByYear(keys: string[]): { year: number; quarters: Quarter[] }[] {
   const groups: { year: number; quarters: Quarter[] }[] = [];

@@ -1288,9 +1288,10 @@ export function ReportEditor({
 
             {visitedRef.current.has("workplan") && reportId && selectedReport && (
               <div hidden={params.section !== "workplan"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
-                {/* The banner names the version this update calls for. The extra
-                    columns an NCE needs are not built yet — when they are, they
-                    come from this same variant. */}
+                {/* The banner names the version this update calls for. The grid
+                    itself renders that version: with the "+ extended time frame"
+                    module it carries the extra quarter columns the extension
+                    buys, sized from `update_months` by /api/workplan. */}
                 {dataType === "update" && (
                   <UpdateVariantBanner
                     variant={variantFor("workplan")}

@@ -6,7 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import { formatDate, shortName, formatUsd } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { statusLabel } from "@/lib/indicators";
-import { resultLabel, quarterRange, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
+import { resultLabel, quarterRange, quartersAfter, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Annual Report print view. Renders all report sections as a styled A4 document.
@@ -93,6 +93,7 @@ interface WorkplanActivity {
 
 interface WorkplanData {
   range: { start: string | null; end: string | null };
+  extension?: { months: number | null; quarters: number };
   updates: { id: number; year: number; type_code: string }[];
   activeUpdateId: number | null;
   activities: WorkplanActivity[];
@@ -336,7 +337,14 @@ export default function ReportPrintPage() {
   const wpActivities = workplan?.activities ?? [];
   const activeUpdateId = workplan?.activeUpdateId ?? null;
   const wpRange = workplan?.range ?? { start: null, end: null };
-  const wpQuarters = quarterRange(wpRange.start, wpRange.end);
+  // An update whose work plan carries the "+ extended time frame" module prints
+  // the extended version of the table: the project's quarters plus the ones the
+  // extension buys. Everything else prints identically (see workplan-grid.tsx).
+  const wpBaseQuarters = quarterRange(wpRange.start, wpRange.end);
+  const wpQuarters = [
+    ...wpBaseQuarters,
+    ...quartersAfter(wpBaseQuarters[wpBaseQuarters.length - 1], workplan?.extension?.quarters ?? 0),
+  ];
   const wpYearGroups = groupQuartersByYear(wpQuarters);
 
   // Group activities by outcome → objective

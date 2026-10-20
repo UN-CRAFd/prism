@@ -22,6 +22,15 @@ export interface Report {
   authorized?: boolean;
   data_type?: "report" | "prodoc" | "update";
   unlocked_sections?: string[];
+  /** Project update only: the update categories it covers (matrix columns). */
+  update_types?: string[];
+  /** Project update only: the modules it contains (matrix rows). */
+  update_modules?: string[];
+  /** Project update only: extension length, when it includes a months module. */
+  update_months?: number | null;
+  /** Project update only: free-text tag telling apart several updates in one
+   *  year ("Project Update 2027 (2)"). Empty for the year's first update. */
+  update_index?: string | null;
   last_edited?: string | null;
   partner_long_name?: string | null;
   indicator_count?: number;

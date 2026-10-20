@@ -285,10 +285,16 @@ CREATE TABLE IF NOT EXISTS reports (
     report_type            TEXT,
     mptfo_report_link      TEXT,
     risk_shared_years      INTEGER[]      NOT NULL DEFAULT '{}',
-    unlocked_sections      TEXT[]         NOT NULL DEFAULT '{}',  -- tabs an admin has unlocked: workplan, risk, expenditure
+    unlocked_sections      TEXT[]         NOT NULL DEFAULT '{}',  -- tabs an admin has unlocked: workplan, risk, expenditure (derived from update_modules)
+    update_types           TEXT[]         NOT NULL DEFAULT '{}',  -- project update: categories covered (budget_revision, tranche_release, …)
+    update_modules         TEXT[]         NOT NULL DEFAULT '{}',  -- project update: modules included (justification, workplan_months, expenditure_budget, …)
+    update_months          INTEGER,                               -- project update: length of the extension, when an "+ extended time frame" module is included
+    update_index           TEXT           NOT NULL DEFAULT '',    -- project update: free-text tag telling apart several updates in one year ("Project Update 2027 (2)"); always '' for reports and prodocs
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
-    UNIQUE (project_id, year, data_type),
+    -- update_index is '' for reports and prodocs, so they stay one per
+    -- project/year/type; project updates use it to allow several in one year.
+    UNIQUE (project_id, year, data_type, update_index),
     CONSTRAINT reports_data_type_check CHECK (data_type = ANY (ARRAY['report', 'prodoc', 'update']))
 );
 

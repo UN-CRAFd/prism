@@ -7,6 +7,16 @@ import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
 import { isValidUpdateSections, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
+import { hasUpdateIndex, normaliseUpdateIndex, reportConflictTarget } from "@/lib/report-conflict";
+import {
+  MAX_EXTENSION_MONTHS,
+  MIN_EXTENSION_MONTHS,
+  modulesToSections,
+  needsMonths,
+  normaliseModules,
+  normaliseMonths,
+  normaliseTypes,
+} from "@/lib/update-modules";
 import { workplanTypeCodeSql } from "@/lib/workplan";
 
 const MIN_YEAR = 2020;
@@ -71,6 +81,28 @@ async function getLastEditedExpr(): Promise<string> {
   return lastEditedExprCache;
 }
 
+// The project-update module matrix (update_types / update_modules / update_months) ships in
+// db/add-update-modules.sql. Same schema-drift guard as getLastEditedExpr above:
+// a DB that has not had the migration applied yet keeps working — the columns are
+// simply left out of the SELECT and the INSERT, and an update falls back to its
+// derived `unlocked_sections` alone. Cached module-side; only a migration changes it.
+let hasModuleColumnsCache: boolean | null = null;
+
+async function hasModuleColumns(): Promise<boolean> {
+  if (hasModuleColumnsCache !== null) return hasModuleColumnsCache;
+  const present = await query<{ column_name: string }>(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'reporting_platform'
+        AND table_name   = 'reports'
+        AND column_name  = ANY($1::text[])`,
+    [["update_types", "update_modules", "update_months"]]
+  );
+  hasModuleColumnsCache = present.length === 3;
+  return hasModuleColumnsCache;
+}
+
+
 // GET /api/reports — list all reports with project + partner info
 // Optional query param: ?data_type=report|prodoc
 export async function GET(request: Request) {
@@ -108,6 +140,12 @@ export async function GET(request: Request) {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const lastEditedExpr = await getLastEditedExpr();
+    // Project-update columns, each behind its own migration guard (see above).
+    const updateCols = [
+      ...((await hasModuleColumns()) ? ["r.update_types", "r.update_modules", "r.update_months"] : []),
+      ...((await hasUpdateIndex()) ? ["r.update_index"] : []),
+    ];
+    const moduleCols = updateCols.length ? `${updateCols.join(",\n        ")},` : "";
     const rows = await query(
       `SELECT
         r.id,
@@ -122,6 +160,7 @@ export async function GET(request: Request) {
         r.data_type,
         r.report_type,
         r.unlocked_sections,
+        ${moduleCols}
         pr.project_title,
         pr.short_name                                   AS project_short_name,
         pr.mptfo_project_number,
@@ -410,29 +449,91 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (!isValidUpdateSections(body.unlocked_sections)) {
+    // Preferred path: the client sends the module-matrix selection and the editor
+    // tabs are DERIVED here, so `unlocked_sections` can never disagree with the
+    // modules. Older clients that still post `unlocked_sections` directly keep
+    // working through the fallback arm.
+    const updateModules = normaliseModules(body.update_modules);
+    const updateTypes = normaliseTypes(body.update_types);
+    let unlockedSections: string[];
+
+    if (updateModules.length > 0) {
+      unlockedSections = modulesToSections(updateModules);
+      if (unlockedSections.length === 0) {
+        return NextResponse.json(
+          { error: "The selected modules unlock no editor section — include a Work Plan, Expenditure or Risk module" },
+          { status: 400 }
+        );
+      }
+    } else if (isValidUpdateSections(body.unlocked_sections)) {
+      unlockedSections = PROJECT_UPDATE_SECTIONS.filter((k) =>
+        (body.unlocked_sections as string[]).includes(k)
+      );
+    } else {
       return NextResponse.json(
-        { error: "unlocked_sections must be a non-empty array of valid section keys (workplan, risk, expenditure) with no duplicates" },
+        { error: "update_modules must be a non-empty array of valid module keys" },
         { status: 400 }
       );
     }
 
+    // The extension length only means anything alongside a months module, and a
+    // months module without it would read "by XX months" in the editor.
+    const updateMonths = normaliseMonths(body.update_months);
+    if (needsMonths(updateModules) && updateMonths === null) {
+      return NextResponse.json(
+        { error: `update_months must be a whole number between ${MIN_EXTENSION_MONTHS} and ${MAX_EXTENSION_MONTHS} when an extended-time-frame module is selected` },
+        { status: 400 }
+      );
+    }
+
+    // An index tells apart several updates in the same year. Rejected outright
+    // when the database has not been widened yet, rather than silently dropping
+    // it and colliding with the year's existing update.
+    const withUpdateIndex = await hasUpdateIndex();
+    const updateIndex = normaliseUpdateIndex(body.update_index);
+    if (updateIndex && !withUpdateIndex) {
+      return NextResponse.json(
+        { error: "This database allows only one project update per year — run db/add-update-index.sql to enable indexed updates" },
+        { status: 400 }
+      );
+    }
+
+    const withModuleCols = await hasModuleColumns();
+    const conflictTarget = await reportConflictTarget();
+    const updateCols = [
+      ...(withModuleCols ? ["update_types", "update_modules", "update_months"] : []),
+      ...(withUpdateIndex ? ["update_index"] : []),
+    ];
+    const updateValues: unknown[] = [
+      ...(withModuleCols
+        ? [updateTypes, updateModules, needsMonths(updateModules) ? updateMonths : null]
+        : []),
+      ...(withUpdateIndex ? [updateIndex] : []),
+    ];
     const updateClient = await pool.connect();
     try {
       await updateClient.query("BEGIN");
 
       const inserted = await updateClient.query<{ id: number }>(
-        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type, unlocked_sections)
-         VALUES ($1, $2, $3, 'update', NULL, $4)
-         ON CONFLICT (project_id, year, data_type) DO NOTHING
+        `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type, unlocked_sections${
+          updateCols.map((c) => `, ${c}`).join("")
+        })
+         VALUES ($1, $2, $3, 'update', NULL, $4${
+           updateValues.map((_, i) => `, $${i + 5}`).join("")
+         })
+         ON CONFLICT ${conflictTarget} DO NOTHING
          RETURNING *`,
-        [projectId, year, submissionDate, PROJECT_UPDATE_SECTIONS.filter((k) => (body.unlocked_sections as string[]).includes(k))]
+        [projectId, year, submissionDate, unlockedSections, ...updateValues]
       );
 
       if (inserted.rows.length === 0) {
         await updateClient.query("ROLLBACK");
         return NextResponse.json(
-          { error: "A project update already exists for this project and year" },
+          {
+            error: updateIndex
+              ? `A project update already exists for this project and year with the index "${updateIndex}"`
+              : "A project update already exists for this project and year — give this one an index to tell them apart",
+          },
           { status: 409 }
         );
       }
@@ -461,7 +562,7 @@ export async function POST(request: Request) {
       const inserted = await client.query<{ id: number }>(
         `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type)
          SELECT pr.id, $1, $2, $3, $4 FROM reporting_platform.projects pr
-         ON CONFLICT (project_id, year, data_type) DO NOTHING
+         ON CONFLICT ${await reportConflictTarget()} DO NOTHING
          RETURNING id`,
         [year, submissionDate, dataType, "annual"]
       );
@@ -498,7 +599,7 @@ export async function POST(request: Request) {
     const inserted = await client.query<{ id: number }>(
       `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (project_id, year, data_type) DO NOTHING
+       ON CONFLICT ${await reportConflictTarget()} DO NOTHING
        RETURNING *`,
       [projectId, year, submissionDate, dataType, reportType]
     );

@@ -1,8 +1,20 @@
 export const PROJECT_UPDATE_SECTIONS = ["workplan", "expenditure", "risk"] as const;
 export type ProjectUpdateSection = (typeof PROJECT_UPDATE_SECTIONS)[number];
 
-export function documentTitle(r: { data_type?: string; report_type?: string | null; year: number }): string {
-  if (r.data_type === "update") return `Project Update ${r.year}`;
+// A project may carry more than one update for the same year. The extra ones are
+// told apart by `update_index` — free text, shown in brackets after the year, so
+// the second 2027 update reads "Project Update 2027 (2)". The first update of a
+// year has an empty index and reads as it always did.
+export function documentTitle(r: {
+  data_type?: string;
+  report_type?: string | null;
+  year: number;
+  update_index?: string | null;
+}): string {
+  if (r.data_type === "update") {
+    const index = r.update_index?.trim();
+    return index ? `Project Update ${r.year} (${index})` : `Project Update ${r.year}`;
+  }
   return `${r.report_type ?? "annual"} Report ${r.year}`;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -40,8 +40,13 @@ import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
-import { PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
-import { REPORT_SECTIONS } from "@/lib/report-sections";
+import {
+  MAX_EXTENSION_MONTHS,
+  MIN_EXTENSION_MONTHS,
+  modulesToSections,
+  needsMonths,
+} from "@/lib/update-modules";
+import { UpdateModuleMatrix } from "@/components/admin/update-module-matrix";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 
 const YEARS = [2023, 2024, 2025, 2026];
@@ -309,6 +314,7 @@ export function CreateReportForm({
   dataType,
   onRefresh,
   title,
+  existing = [],
 }: {
   open: boolean;
   onClose: () => void;
@@ -316,6 +322,9 @@ export function CreateReportForm({
   dataType: "report" | "prodoc" | "update";
   onRefresh: () => void;
   title: string;
+  /** Documents of this type that already exist, so the form can spot a clash on
+   *  (project, year) and ask for an index instead of failing on submit. */
+  existing?: Pick<Report, "project_id" | "year" | "update_index">[];
 }) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -326,7 +335,17 @@ export function CreateReportForm({
   const [reportType, setReportType] = useState<string>(() => optionValues("reportType")[0] ?? "annual");
   const [projectYears, setProjectYears] = useState<number[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
-  const [unlockedSections, setUnlockedSections] = useState<string[]>([...PROJECT_UPDATE_SECTIONS]);
+  // A project update is assembled from the module matrix: the update types the
+  // admin ticked (columns) and the modules the update covers (rows). The editor
+  // tabs (`unlocked_sections`) are derived from the modules at submit time.
+  const [updateTypes, setUpdateTypes] = useState<string[]>([]);
+  const [updateModules, setUpdateModules] = useState<string[]>([]);
+  // One extension length for the whole update, shared by every row that shows a
+  // months field — so the Work Plan and Expenditure figures cannot disagree.
+  const [updateMonths, setUpdateMonths] = useState<number | null>(null);
+  // Free-text tag separating a second update for a year from the first. Only
+  // editable once a clash is detected — see `clash` below.
+  const [updateIndex, setUpdateIndex] = useState<string>("");
 
   // Fetch available years when project is selected
   useEffect(() => {
@@ -353,13 +372,41 @@ export function CreateReportForm({
     loadYears();
   }, [projectId]);
 
+  // Documents are not always filed inside the project's own time frame — a final
+  // report can land after it closes, an update can look back before it opened.
+  // So the picker offers YEAR_PADDING years either side of the project's range
+  // (the range itself comes from project_year_range in the database).
+  const YEAR_PADDING = 5;
+  const yearOptions = useMemo(() => {
+    const now = new Date().getFullYear();
+    const first = projectYears.length ? Math.min(...projectYears) : now;
+    const last = projectYears.length ? Math.max(...projectYears) : now;
+    const from = first - YEAR_PADDING;
+    const to = last + YEAR_PADDING;
+    return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  }, [projectYears]);
+
+  const withinProject = (y: number) => projectYears.includes(y);
+
+  // Updates already filed for this project and year. The first one owns the
+  // empty index, so any further update needs one of its own.
+  const clash = useMemo(() => {
+    if (dataType !== "update" || !projectId || !year) return [];
+    return existing.filter(
+      (r) => r.project_id === Number(projectId) && r.year === Number(year)
+    );
+  }, [existing, dataType, projectId, year]);
+
   function reset() {
     setProjectId("");
     setYear("");
     setProjectYears([]);
     setSubmissionDate("");
     setReportType(optionValues("reportType")[0] ?? "annual");
-    setUnlockedSections([...PROJECT_UPDATE_SECTIONS]);
+    setUpdateTypes([]);
+    setUpdateModules([]);
+    setUpdateMonths(null);
+    setUpdateIndex("");
     setFormError(null);
   }
 
@@ -372,16 +419,50 @@ export function CreateReportForm({
     setFormError(null);
     if (!projectId) { setFormError("Please select a project"); return; }
     if (!year) { setFormError("Year is required"); return; }
-    if (dataType === "update" && unlockedSections.length === 0) {
-      setFormError("Select at least one section to unlock");
-      return;
+    // Editor tabs follow from the chosen modules. Justification and HACT have no
+    // tab of their own yet, so a selection of only those would unlock nothing.
+    const derivedSections = modulesToSections(updateModules);
+    if (dataType === "update") {
+      if (updateModules.length === 0) {
+        setFormError("Select at least one module for this update");
+        return;
+      }
+      if (derivedSections.length === 0) {
+        setFormError(
+          "Justification and HACT Recommendations have no editor section yet — also select a Work Plan, Expenditure or Risk module"
+        );
+        return;
+      }
+      // A second update for a year has to be distinguishable from the first.
+      const index = updateIndex.trim();
+      if (clash.length > 0 && !index) {
+        setFormError(`A project update already exists for ${year} — give this one an index`);
+        return;
+      }
+      if (clash.some((r) => (r.update_index ?? "").trim() === index)) {
+        setFormError(`A project update for ${year} already uses the index "${index}"`);
+        return;
+      }
+      // An extended-time-frame row without a figure would read "by XX months".
+      if (
+        needsMonths(updateModules) &&
+        (updateMonths === null ||
+          !Number.isInteger(updateMonths) ||
+          updateMonths < MIN_EXTENSION_MONTHS ||
+          updateMonths > MAX_EXTENSION_MONTHS)
+      ) {
+        setFormError(
+          `Enter the length of the extension (${MIN_EXTENSION_MONTHS}–${MAX_EXTENSION_MONTHS} months)`
+        );
+        return;
+      }
     }
 
     setSaving(true);
     try {
       const body: Record<string, unknown> =
         dataType === "update"
-          ? { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: "update", unlocked_sections: unlockedSections }
+          ? { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: "update", unlocked_sections: derivedSections, update_types: updateTypes, update_modules: updateModules, update_months: needsMonths(updateModules) ? updateMonths : null, update_index: updateIndex.trim() }
           : { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType };
 
       const res = await fetch("/api/reports", {
@@ -418,7 +499,7 @@ export function CreateReportForm({
       onSubmit={handleSubmit}
     >
       <div className="space-y-4">
-        <div className={`grid w-full gap-4 ${dataType === "report" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
+        <div className={`grid w-full gap-4 ${dataType === "prodoc" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"}`}>
           <Field label="Project" required>
             <Select value={projectId} onValueChange={setProjectId}>
               <SelectTrigger className="w-full [&>span]:truncate [&>span]:block">
@@ -449,14 +530,42 @@ export function CreateReportForm({
 
           <Field label="Year" required>
             <Select value={year} onValueChange={setYear} disabled={!projectId || loadingYears}>
-              <SelectTrigger className="w-full"><SelectValue placeholder={loadingYears ? "Loading..." : projectYears.length === 0 && projectId ? "No years available" : "Select a year"} /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={loadingYears ? "Loading..." : "Select a year"} /></SelectTrigger>
               <SelectContent>
-                {projectYears.map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                {yearOptions.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {/* Years outside the project's own range stay selectable but
+                        are marked, so picking one is always deliberate. */}
+                    {withinProject(y) ? y : `${y} · outside project`}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
+
+          {dataType === "update" && (
+            <Field
+              label="Index"
+              hint="Only needed when a project already has an update for the chosen year. Anything that tells them apart — a number, a word — shown after the year, e.g. Project Update 2027 (2)."
+            >
+              <Input
+                className="w-full"
+                value={updateIndex}
+                onChange={(e) => setUpdateIndex(e.target.value)}
+                disabled={clash.length === 0}
+                maxLength={40}
+                placeholder={clash.length === 0 ? "Not needed" : "e.g. 2"}
+              />
+              {clash.length > 0 && (
+                <p className="text-xs text-amber-700">
+                  {clash.length === 1
+                    ? `A project update already exists for ${year}.`
+                    : `${clash.length} project updates already exist for ${year}.`}{" "}
+                  Give this one an index to tell them apart.
+                </p>
+              )}
+            </Field>
+          )}
 
           {(dataType === "report" || dataType === "update") && (
             <Field label={dataType === "update" ? "Due date" : "Submission date"}>
@@ -470,28 +579,19 @@ export function CreateReportForm({
         </div>
 
         {dataType === "update" && (
-          <Field label="Sections to unlock" required>
-            <div className="flex flex-wrap gap-4 pt-1">
-              {PROJECT_UPDATE_SECTIONS.map((key) => {
-                const label = REPORT_SECTIONS.find((s) => s.value === key)?.label ?? key;
-                const checked = unlockedSections.includes(key);
-                return (
-                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="accent-primary"
-                      checked={checked}
-                      onChange={(e) => {
-                        setUnlockedSections((prev) =>
-                          e.target.checked ? [...prev, key] : prev.filter((s) => s !== key)
-                        );
-                      }}
-                    />
-                    {label}
-                  </label>
-                );
-              })}
-            </div>
+          <Field
+            label="Sections to unlock"
+            required
+            hint="Tick the update types this document covers, then adjust the modules it should contain. Several types can be combined into one modular update."
+          >
+            <UpdateModuleMatrix
+              months={updateMonths}
+              onMonthsChange={setUpdateMonths}
+              selectedTypes={updateTypes}
+              onTypesChange={setUpdateTypes}
+              selectedModules={updateModules}
+              onModulesChange={setUpdateModules}
+            />
           </Field>
         )}
       </div>

@@ -33,15 +33,25 @@ import {
 } from "@/components/admin/report-components";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
 import { firstUnlockedSection } from "@/lib/project-updates";
+import { moduleLabel, updateTypeLabel } from "@/lib/update-modules";
 import type { Report } from "@/lib/types";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
 
-function sectionLabels(keys: string[] | undefined): string {
-  if (!keys || keys.length === 0) return "—";
-  return keys
-    .map((k) => REPORT_SECTIONS.find((s) => s.value === k)?.label ?? k)
-    .join(", ");
+// What the update covers, most meaningful first: the categories the admin ticked
+// in the module matrix, else its modules, else — for updates created before the
+// matrix existed — the editor tabs it unlocked.
+function updateSummary(r: UpdateRow): string {
+  if (r.update_types?.length) return r.update_types.map(updateTypeLabel).join(", ");
+  if (r.update_modules?.length) {
+    return r.update_modules.map((k) => moduleLabel(k, r.update_months)).join(", ");
+  }
+  if (r.unlocked_sections?.length) {
+    return r.unlocked_sections
+      .map((k) => REPORT_SECTIONS.find((s) => s.value === k)?.label ?? k)
+      .join(", ");
+  }
+  return "—";
 }
 
 export default function ProjectUpdatesPage() {
@@ -206,6 +216,9 @@ export default function ProjectUpdatesPage() {
           dataType="update"
           onRefresh={loadData}
           title="New project update"
+          // Unfiltered: the form matches on project + year itself, and filters
+          // here must not hide a clash the database would still reject.
+          existing={reports}
         />
 
         {loading ? (
@@ -254,7 +267,7 @@ export default function ProjectUpdatesPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {sectionLabels(r.unlocked_sections)}
+                    {updateSummary(r)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}
@@ -312,7 +325,7 @@ export default function ProjectUpdatesPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold leading-snug">{r.project_title}</p>
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          {sectionLabels(r.unlocked_sections)}
+                          {updateSummary(r)}
                         </p>
                         {r.last_edited && (
                           <p className="mt-0.5 text-[11px] text-muted-foreground" title={`Last edited ${formatDate(r.last_edited)}`}>

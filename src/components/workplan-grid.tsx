@@ -377,10 +377,12 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
 
   // THE TWO VERSIONS OF THIS GRID. The general one runs over the project's own
   // quarters — exactly the annual report's table. The extended-time-frame one
-  // adds the quarters the requested extension buys, continuing the sequence past
-  // the project's end so the partner can plan activities into the new time.
-  // Everything else about the table is identical, which is the point: one grid,
-  // one extra block of columns.
+  // adds the quarters that separate the project's end from its new one (the API
+  // measures that against the real dates), continuing the sequence so the
+  // partner can plan activities into the new time. Everything else about the
+  // table is identical, which is the point: one grid, one extra block of
+  // columns — and no extra column at all when the added months stay inside the
+  // final quarter.
   const baseQuarters = useMemo(
     () => quarterRange(data?.range.start ?? null, data?.range.end ?? null),
     [data]
@@ -474,17 +476,25 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
           );
         })}
       </div>
-      {extraQuarters.length > 0 && (
+      {/* The extension is measured on the calendar, so months and columns do not
+          move together: extra time that lands inside the project's final quarter
+          adds none, and this says so rather than looking like nothing happened. */}
+      {(data.extension?.months ?? 0) > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
-          <span className="font-medium">
-            Extended time frame{data.extension?.months ? `: +${data.extension.months} months` : ""}
-          </span>
-          <span>
-            — {extraQuarters.length === 1 ? "one quarter has" : `${extraQuarters.length} quarters have`} been added
-            after the project&apos;s current end ({extraQuarters[0]}
-            {extraQuarters.length > 1 ? `–${extraQuarters[extraQuarters.length - 1]}` : ""}).
-            Tick the activity timeline in the shaded columns to show the work the extension covers.
-          </span>
+          <span className="font-medium">Extended time frame: +{data.extension?.months} months</span>
+          {extraQuarters.length > 0 ? (
+            <span>
+              — {extraQuarters.length === 1 ? "one quarter has" : `${extraQuarters.length} quarters have`} been added
+              after the project&apos;s current end ({extraQuarters[0]}
+              {extraQuarters.length > 1 ? `–${extraQuarters[extraQuarters.length - 1]}` : ""}).
+              Tick the activity timeline in the shaded columns to show the work the extension covers.
+            </span>
+          ) : (
+            <span>
+              — the project&apos;s new end date stays inside {quarters[quarters.length - 1]}, the last quarter the
+              work plan already covers, so no column has been added.
+            </span>
+          )}
         </div>
       )}
       {activeUpdateId == null && (

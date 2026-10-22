@@ -36,7 +36,7 @@ import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-inpu
 // admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
 // is keyed by the known values, with a neutral fallback for any added value.
 const PRODOC_STATUS_ICONS: Record<string, ReactNode> = {
-  Open:           <CircleDot className="size-3 shrink-0 text-blue-700" />,
+  Open:           <CircleDot className="size-3 shrink-0 text-emerald-700" />,
   "Under Review": <Clock className="size-3 shrink-0 text-amber-700" />,
   Closed:         <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
 };

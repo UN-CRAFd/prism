@@ -108,7 +108,7 @@ export function ProdocList() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-crafd-yellow rounded-full transition-all duration-300"
+                            className={`h-full ${pct === 100 ? "bg-emerald-500" : "bg-crafd-yellow"} rounded-full transition-all duration-300`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>

@@ -44,71 +44,73 @@ export default function LoginPage() {
       />
 
       {/* Left panel — logo + form */}
-      <div className="relative z-10 flex w-full max-w-md flex-col justify-center px-10 py-12 min-h-screen bg-black/40 backdrop-blur-md border-r border-white/10">
-        <div className="mb-10">
-          <Image
-            src="/images/crafd-logo-full-white.svg"
-            alt="CRAF'd"
-            width={200}
-            height={132}
-            priority
-          />
+      <div className="relative z-10 flex w-full max-w-md flex-col px-10 py-12 min-h-screen bg-black/40 backdrop-blur-md border-r border-white/10">
+        <Image
+          src="/images/crafd-logo-full-white.svg"
+          alt="CRAF'd"
+          width={72}
+          height={48}
+          priority
+          className="shrink-0"
+        />
+
+        <div className="flex flex-1 flex-col justify-center">
+          <h1 className="text-2xl text-crafd-yellow mb-0">
+            <span className="font-bold">PRISM</span>{" "}
+            <span className="font-normal font-roboto text-xl">Administration Platform</span>
+          </h1>
+          <p className="text-white text-sm mb-0">
+            <span className="font-bold">P</span>roject{" "}
+            <span className="font-bold">R</span>eporting,{" "}
+            <span className="font-bold">I</span>nformation{" "}
+            <span className="font-bold">S</span>haring{" "}
+            &{" "}
+            <span className="font-bold">M</span>anagement
+          </p>
+
+          <p className="text-sm text-neutral-400 mt-16 mb-8">
+            <span className="font-semibold text-white">Sign in with your credentials to continue.</span>{" "}
+            If you don&apos;t have an account, please contact the CRAF&apos;d Secretariat.
+          </p>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="username" className="text-white text-sm">
+                Username
+              </Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                className="border-transparent bg-white text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-crafd-yellow"
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password" className="text-white text-sm">
+                Password
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="border-transparent bg-white text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-crafd-yellow"
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-red-400">{error}</p>
+            )}
+            <Button
+              type="submit"
+              className="mt-2 bg-crafd-yellow text-black font-semibold hover:bg-crafd-yellow/90"
+            >
+              Sign in
+            </Button>
+          </form>
         </div>
-
-       <h1 className="text-2xl text-white mb-0">
-  <span className="font-bold">PRISM</span>{" "}
-  <span className="font-normal font-roboto">Administration Platform</span>
-</h1>
-        <p className="text-white text-sm mb-12">
-          <span className="font-bold">P</span>roject{" "}
-          <span className="font-bold">R</span>eporting,{" "}
-          <span className="font-bold">I</span>nformation{" "}
-          <span className="font-bold">S</span>haring{" "}
-          &{" "}
-          <span className="font-bold">M</span>anagement
-        </p>
-
-        <p className="text-neutral-400 text-sm mb-8">
-          Sign in with your credentials to continue. If you don&apos;t have an account, please contact the CRAF'd Secretariat.
-        </p>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="username" className="text-neutral-300 text-sm">
-              Username
-            </Label>
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              className="border-white/10 bg-white/10 text-white placeholder:text-neutral-500 focus-visible:ring-crafd-yellow"
-              autoFocus
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password" className="text-neutral-300 text-sm">
-              Password
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              className="border-white/10 bg-white/10 text-white placeholder:text-neutral-500 focus-visible:ring-crafd-yellow"
-            />
-          </div>
-          {error && (
-            <p className="text-sm text-red-400">{error}</p>
-          )}
-          <Button
-            type="submit"
-            className="mt-2 bg-crafd-yellow text-black font-semibold hover:bg-crafd-yellow/90"
-          >
-            Sign In
-          </Button>
-        </form>
       </div>
     </div>
   );

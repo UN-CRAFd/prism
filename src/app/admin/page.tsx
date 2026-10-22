@@ -72,8 +72,6 @@ const quickLinks = [
     label: "Partners",
     description: "Manage partner organizations",
     icon: Building2,
-    card: "bg-amber-50 border-amber-200 text-amber-700",
-    iconClass: "text-amber-500",
     countKey: "totalPartners" as const,
   },
   {
@@ -81,8 +79,6 @@ const quickLinks = [
     label: "Projects",
     description: "Manage project entries",
     icon: FolderKanban,
-    card: "bg-amber-50 border-amber-200 text-amber-700",
-    iconClass: "text-amber-500",
     countKey: "totalProjects" as const,
   },
   {
@@ -90,17 +86,13 @@ const quickLinks = [
     label: "Reports",
     description: "Manage reporting periods",
     icon: ClipboardList,
-    card: "bg-amber-50 border-amber-200 text-amber-700",
-    iconClass: "text-amber-500",
     countKey: "totalReports" as const,
   },
   {
     href: "/admin/comments",
     label: "Comments",
-    description: "Manage resolve Comments",
+    description: "Manage and resolve comments",
     icon: MessageSquare,
-    card: "bg-amber-50 border-amber-200 text-amber-700",
-    iconClass: "text-amber-500",
     countKey: null,
     // Shows resolved/total rather than a plain count.
     ratioKeys: ["resolvedComments", "totalComments"] as const,
@@ -110,8 +102,6 @@ const quickLinks = [
     label: "Contacts",
     description: "Manage partner contacts",
     icon: Contact,
-    card: "bg-amber-50 border-amber-200 text-amber-700",
-    iconClass: "text-amber-500",
     countKey: "totalContacts" as const,
   },
 ];
@@ -228,7 +218,7 @@ export default function AdminHomePage() {
         <div>
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
             {quickLinks.map((link) => {
-              const { href, label, description, icon: Icon, card, iconClass, countKey } = link;
+              const { href, label, description, icon: Icon, countKey } = link;
               const ratioKeys = "ratioKeys" in link ? link.ratioKeys : null;
               const count = countKey && stats ? stats[countKey] : null;
               const ratio = ratioKeys && stats ? `${stats[ratioKeys[0]]}/${stats[ratioKeys[1]]}` : null;
@@ -237,20 +227,18 @@ export default function AdminHomePage() {
                 <button
                   key={href}
                   onClick={() => router.push(href)}
-                  className={`group rounded-xl border p-4 text-left transition-colors hover:bg-opacity-80 cursor-pointer ${card}`}
+                  className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/70 p-5 text-left transition-shadow hover:shadow-md cursor-pointer text-neutral-900"
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`size-6 shrink-0 ${iconClass}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{label}</p>
-                      <p className="text-xs mt-0.5 opacity-70">{description}</p>
-                    </div>
-                    {display != null && (
-                      <p className="text-2xl font-bold leading-none shrink-0 tabular-nums">
-                        {loading ? <span className="inline-block w-6 h-6 bg-current opacity-10 animate-pulse rounded" /> : display}
-                      </p>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <Icon className="size-5 shrink-0 text-amber-500" />
+                    <p className="text-sm font-bold uppercase tracking-wide">{label}</p>
                   </div>
+                  {display != null && (
+                    <p className="mt-3 text-4xl font-bold leading-none tabular-nums">
+                      {loading ? <span className="inline-block w-8 h-8 bg-current opacity-10 animate-pulse rounded" /> : display}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-neutral-600">{description}</p>
                 </button>
               );
             })}
@@ -260,97 +248,7 @@ export default function AdminHomePage() {
         {/* Two or three columns: recent activity · submitted prodocs · comments to review */}
         <div className={`grid grid-cols-1 ${underReviewProdocs.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"} gap-6`}>
 
-          {/* ── Left: reports by most recent partner edit ── */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="t-heading-section flex items-center gap-2">
-                <TrendingUp className="size-4 text-muted-foreground" />
-                Recently Edited
-              </h2>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push("/admin/reports")}>
-                View all <ArrowRight className="size-3 ml-1" />
-              </Button>
-            </div>
-
-            {loading ? (
-              <div className="rounded-xl border bg-card divide-y">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="px-5 py-3.5 flex items-center gap-4">
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3.5 w-48 bg-muted animate-pulse rounded" />
-                      <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : recentActivity.length === 0 ? (
-              <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-                No reports yet.
-              </div>
-            ) : (
-              <div className="rounded-xl border bg-card divide-y overflow-hidden">
-                {recentActivity.map((r) => {
-                  const slug = projectSlug(r.project_short_name, r.project_title);
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/overview`)}
-                      className="group w-full px-5 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{r.project_title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {shortName(r.partner_short_name)} &middot; {r.year}
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
-                        {mounted ? timeAgo(r.last_activity) : ""}
-                      </span>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>
-                        {r.status}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* ── Middle: project documents submitted by partners (Under Review) ── */}
-          {underReviewProdocs.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="t-heading-section flex items-center gap-2">
-                  <FileText className="size-4 text-muted-foreground" />
-                  Submitted ProDocs
-                </h2>
-              </div>
-              <div className="rounded-xl border bg-card divide-y overflow-hidden">
-                {underReviewProdocs.map((p) => {
-                  const slug = projectSlug(p.project_short_name, p.project_title);
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => router.push(`/admin/prodoc-editor/${slug}/general`)}
-                      className="group w-full px-5 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{p.project_title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {shortName(p.partner_short_name)}
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
-                        {mounted ? timeAgo(p.updated_at) : ""}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── Right: comments the partner addressed, awaiting CRAF'd review ── */}
+          {/* ── Left: comments the partner addressed, awaiting CRAF'd review ── */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="t-heading-section flex items-center gap-2">
@@ -403,6 +301,96 @@ export default function AdminHomePage() {
                           className="!gap-1 mt-1.5"
                         />
                       </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── Middle: project documents submitted by partners (Under Review) ── */}
+          {underReviewProdocs.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="t-heading-section flex items-center gap-2">
+                  <FileText className="size-4 text-muted-foreground" />
+                  Submitted ProDocs
+                </h2>
+              </div>
+              <div className="rounded-xl border bg-card divide-y overflow-hidden">
+                {underReviewProdocs.map((p) => {
+                  const slug = projectSlug(p.project_short_name, p.project_title);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => router.push(`/admin/prodoc-editor/${slug}/general`)}
+                      className="group w-full px-5 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{p.project_title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {shortName(p.partner_short_name)}
+                        </p>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                        {mounted ? timeAgo(p.updated_at) : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Right: reports by most recent partner edit ── */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="t-heading-section flex items-center gap-2">
+                <TrendingUp className="size-4 text-muted-foreground" />
+                Recently Edited
+              </h2>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push("/admin/reports")}>
+                View all <ArrowRight className="size-3 ml-1" />
+              </Button>
+            </div>
+
+            {loading ? (
+              <div className="rounded-xl border bg-card divide-y">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="px-5 py-3.5 flex items-center gap-4">
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3.5 w-48 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+                No reports yet.
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-card divide-y overflow-hidden">
+                {recentActivity.map((r) => {
+                  const slug = projectSlug(r.project_short_name, r.project_title);
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => router.push(`/admin/report-editor/${slug}/${r.year}/overview`)}
+                      className="group w-full px-5 py-3.5 flex items-center gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{r.project_title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {shortName(r.partner_short_name)} &middot; {r.year}
+                        </p>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                        {mounted ? timeAgo(r.last_activity) : ""}
+                      </span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>
+                        {r.status}
+                      </span>
                     </button>
                   );
                 })}

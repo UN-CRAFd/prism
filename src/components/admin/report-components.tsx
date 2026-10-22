@@ -146,7 +146,7 @@ export const GROUP_COLORS = [
 ];
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  Open:            <CircleDot className="size-3 shrink-0 text-blue-700" />,
+  Open:            <CircleDot className="size-3 shrink-0 text-emerald-700" />,
   "Under Review":  <Clock className="size-3 shrink-0 text-amber-700" />,
   Closed:          <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
 };

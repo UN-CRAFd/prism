@@ -169,14 +169,7 @@ function ProjectBox({
         <div className="flex-1 min-w-0">
           <p className="text-base font-semibold leading-snug">{project.title}</p>
           <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
-          <span
-            className={cn(
-              "mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium",
-              project.role === "lead"
-                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                : "bg-violet-50 text-violet-700 border border-violet-200"
-            )}
-          >
+          <span className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
             {project.role === "lead" ? labels.partnerHome.roleLead : labels.partnerHome.roleImpl}
           </span>
         </div>
@@ -200,19 +193,21 @@ function ProjectBox({
       </button>
 
       {open && (
-        <div className={cn("border-t px-5 py-5 space-y-4 bg-card", project.hasOverdue && "border-red-200")}>
+        <div className={cn("border-t px-5 py-5 space-y-6 bg-card", project.hasOverdue && "border-red-200")}>
           {project.timeline.length > 0 && (
             <HorizontalTimeline events={project.timeline} />
           )}
-          <div>
-            <h3 className="t-heading-sub mb-3">{labels.partnerProject.needsAction}</h3>
+          <div className="rounded-lg border overflow-hidden">
+            <div className="px-4 py-3 border-b bg-muted/50">
+              <h2 className="t-heading-section">{labels.partnerProject.needsAction}</h2>
+            </div>
             {project.actions.length === 0 ? (
               <div className="flex items-center gap-3 px-2 py-4 justify-center">
                 <CheckCircle2 className="size-4 text-green-500 shrink-0" />
                 <p className="text-sm text-muted-foreground">{labels.partnerProject.nothingNeeded}</p>
               </div>
             ) : (
-              <div className="rounded-lg border overflow-hidden divide-y">
+              <div className="divide-y">
                 {project.actions.map((action, i) => (
                   <ActionRow key={i} action={action} />
                 ))}

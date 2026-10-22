@@ -276,6 +276,11 @@ export function updateTypeLabel(key: string): string {
   return UPDATE_TYPES.find((t) => t.value === key)?.label ?? key;
 }
 
+/** The abbreviation ("BR", "NCE", …) for places that list types as badges. */
+export function updateTypeShort(key: string): string {
+  return UPDATE_TYPES.find((t) => t.value === key)?.short ?? key;
+}
+
 /** The report-editor sections unlocked by a set of modules, in canonical tab
  *  order and de-duplicated. Modules with no section contribute nothing. Add-ons
  *  share their base row's section, so a group never yields a second tab. */

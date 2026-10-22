@@ -24,16 +24,15 @@ import { SectionTableEditor, buildSectionSpecs } from "@/components/section-tabl
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { LoadingState } from "@/components/admin/shared";
-import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS } from "@/lib/report-sections";
+import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS, type ReportSectionGroup } from "@/lib/report-sections";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { reportStatusStyle } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { DOC_ID_PARAM, documentPath, documentTitle, resolveDocument } from "@/lib/project-updates";
-import { UPDATE_SECTIONS, sectionVariant } from "@/lib/update-sections";
+import { UPDATE_SECTIONS, updateSectionGroups, type UpdateSection } from "@/lib/update-sections";
 import { JustificationSection } from "@/components/report-editor/sections/justification-section";
 import { HactSection } from "@/components/report-editor/sections/hact-section";
-import { UpdateVariantBanner } from "@/components/report-editor/sections/section-placeholder";
 import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG, type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import {
   EMPTY_OVERVIEW,
@@ -188,18 +187,25 @@ export function ReportEditor({
     return UPDATE_SECTIONS.filter((s) => unlocked.includes(s.value));
   }, [dataType, activeUpdate]);
 
-  // Updates show a flat tab bar — their pages do not split into the
-  // Qualitative / Quantitative groups an annual report uses.
-  const sectionGroups = useMemo(() => {
-    if (dataType !== "update") return REPORT_SECTION_GROUPS;
-    return [];
-  }, [dataType]);
+  // Updates split into the same Qualitative / Quantitative halves an annual
+  // report uses — narrowed to the pages this update actually has, so a half
+  // nothing was unlocked in simply does not appear.
+  const sectionGroups: { label: ReportSectionGroup; sections: { value: string; label: string }[] }[] =
+    useMemo(() => {
+      if (dataType !== "update") return REPORT_SECTION_GROUPS;
+      return updateSectionGroups(sections as UpdateSection[]);
+    }, [dataType, sections]);
 
-  /** Which version of a page this update calls for (its selected add-ons). */
-  const variantFor = useCallback(
-    (section: string) => sectionVariant(section, activeUpdate?.update_modules ?? []),
-    [activeUpdate]
-  );
+  // ── What this document is called ───────────────────────────────────────────
+  // The editor serves reports and project updates from the same component, so
+  // every line that names the document reads it from here rather than saying
+  // "report" regardless. Reports keep their exact wording: substituting
+  // `docNoun` back in reproduces the original strings character for character.
+  const isUpdateDoc = dataType === "update";
+  const docNoun = isUpdateDoc ? "update" : "report";
+  const docNounCap = isUpdateDoc ? "Update" : "Report";
+  const docNounArticle = isUpdateDoc ? "an update" : "a report";
+  const bannerTitle = isUpdateDoc ? labels.partnerEditor.updateTitle : labels.partnerEditor.title;
 
   const defaultSection = sections[0]?.value ?? "overview";
 
@@ -493,9 +499,9 @@ export function ReportEditor({
   async function handleSubmit() {
     if (!selectedReport || !reportId) return;
     const ok = await confirm({
-      title: "Submit report?",
+      title: `Submit ${docNoun}?`,
       message:
-        "Once submitted, this report will be locked for editing and CRAF'd will be notified to begin their review.",
+        `Once submitted, this ${docNoun} will be locked for editing and CRAF'd will be notified to begin their review.`,
       confirmLabel: "Submit",
       cancelLabel: "Cancel",
       variant: "default",
@@ -512,21 +518,21 @@ export function ReportEditor({
       });
       const data = await res.json() as { error?: string };
       if (!res.ok) {
-        setSubmitError(data.error ?? "Failed to submit report.");
+        setSubmitError(data.error ?? `Failed to submit ${docNoun}.`);
       } else {
         setReports((prev) =>
           prev.map((r) => (r.id === reportId ? { ...r, status: "Under Review" } : r))
         );
         await confirm({
           acknowledgement: true,
-          title: "Report submitted",
+          title: `${docNounCap} submitted`,
           message:
-            "Your report is now locked for editing. Please email crafd@un.org to let CRAF'd know it's ready for review.",
+            `Your ${docNoun} is now locked for editing. Please email crafd@un.org to let CRAF'd know it's ready for review.`,
           confirmLabel: "OK",
         });
       }
     } catch {
-      setSubmitError("Failed to submit report. Please try again.");
+      setSubmitError(`Failed to submit ${docNoun}. Please try again.`);
     } finally {
       setSubmitLoading(false);
     }
@@ -843,7 +849,7 @@ export function ReportEditor({
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-4 shrink-0">
         <div className="min-w-0 flex-1">
           <p className="text-neutral-400 text-sm mb-1">
-            {labels.partnerEditor.title}
+            {bannerTitle}
             {(() => {
               const section = sections.find((s) => s.value === params.section);
               return section ? (
@@ -887,7 +893,7 @@ export function ReportEditor({
               <p className="text-neutral-400 text-sm mt-0.5 truncate" title={selectedReport.project_title}>{selectedReport.project_title}</p>
             </>
           ) : (
-            <h1 className="t-title-banner">{labels.partnerEditor.title}</h1>
+            <h1 className="t-title-banner">{bannerTitle}</h1>
           )}
         </div>
 
@@ -918,7 +924,7 @@ export function ReportEditor({
                   {documentTitle(selectedReport)} · {selectedReport.project_short_name || selectedReport.project_title}
                 </span>
               ) : (
-                <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
+                <span className="text-neutral-400">{isUpdateDoc ? labels.partnerEditor.updateSelect : labels.partnerEditor.selectReport}</span>
               )}
             </SelectTrigger>
             <SelectContent>
@@ -965,28 +971,6 @@ export function ReportEditor({
           expanded into its tabs; the other group collapses to a clickable label
           (click jumps to its first section, expanding it). */}
       {showSectionTabs && selectedReport && (() => {
-        if (dataType === "update") {
-          return (
-            <div className="border-b px-8 flex items-center gap-1 shrink-0">
-              {sections.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => handleSectionChange(s.value)}
-                  className={cn(
-                    "px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-                    // Update tabs are a flat row of pages, not the annual report's
-                    // Qualitative / Quantitative split, so they share one accent.
-                    params.section === s.value
-                      ? "border-sky-500 text-sky-600"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          );
-        }
         const activeGroup =
           sectionGroups.find((g) => g.sections.some((s) => s.value === params.section))?.label
           ?? sectionGroups[0]?.label;
@@ -1061,7 +1045,7 @@ export function ReportEditor({
           <div className="mb-6 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-3 text-sm text-black">
             <Lock className="size-4 shrink-0" />
             <span>
-              This report is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
+              This {docNoun} is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
             </span>
           </div>
         )}
@@ -1094,14 +1078,14 @@ export function ReportEditor({
         {!statusReadOnly && reportId && phase === "blocked" && holder && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
             <Lock className="size-3.5 shrink-0" />
-            <span><b>{holder.name}</b> currently has this report open.</span>
+            <span><b>{holder.name}</b> currently has this {docNoun} open.</span>
           </div>
         )}
 
         {/* Lock just freed — user must click to claim it */}
         {!statusReadOnly && reportId && phase === "available" && (
           <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-900">
-            <span>This report is now available.</span>
+            <span>This {docNoun} is now available.</span>
             <button
               className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-green-300 bg-green-50 hover:bg-green-100 text-green-900"
               onClick={startEditing}
@@ -1156,7 +1140,7 @@ export function ReportEditor({
         {notFound ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
             <FileQuestion className="size-10 opacity-30" />
-            <p className="text-sm">{params.project ? labels.partnerEditor.notFound : "Select a report above to view it."}</p>
+            <p className="text-sm">{params.project ? (isUpdateDoc ? labels.partnerEditor.updateNotFound : labels.partnerEditor.notFound) : `Select ${docNounArticle} above to view it.`}</p>
           </div>
         ) : loadingReports ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
@@ -1288,16 +1272,9 @@ export function ReportEditor({
 
             {visitedRef.current.has("workplan") && reportId && selectedReport && (
               <div hidden={params.section !== "workplan"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
-                {/* The banner names the version this update calls for. The grid
-                    itself renders that version: with the "+ extended time frame"
-                    module it carries the extra quarter columns the extension
-                    buys, sized from `update_months` by /api/workplan. */}
-                {dataType === "update" && (
-                  <UpdateVariantBanner
-                    variant={variantFor("workplan")}
-                    months={activeUpdate?.update_months}
-                  />
-                )}
+                {/* No version banner: the grid shows which version it is by
+                    being it — with the "+ extended time frame" module it simply
+                    carries the extra quarter columns the extension buys. */}
                 <WorkplanPartnerEditor
                   reportId={reportId}
                   onSaveStateChange={handleChildSaveStateChange}
@@ -1310,12 +1287,6 @@ export function ReportEditor({
 
             {visitedRef.current.has("expenditure") && reportId && (
               <div hidden={params.section !== "expenditure"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
-                {dataType === "update" && (
-                  <UpdateVariantBanner
-                    variant={variantFor("expenditure")}
-                    months={activeUpdate?.update_months}
-                  />
-                )}
                 <ExpenditurePartnerEditor
                   reportId={reportId}
                   onSaveStateChange={handleChildSaveStateChange}
@@ -1340,8 +1311,6 @@ export function ReportEditor({
               <div hidden={params.section !== "hact"}>
                 <HactSection
                   reportId={reportId}
-                  variant={variantFor("hact")}
-                  months={activeUpdate?.update_months}
                   readOnly={readOnly}
                 />
               </div>

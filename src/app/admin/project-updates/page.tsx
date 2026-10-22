@@ -16,10 +16,11 @@ import {
   Building2,
   Layers,
   Plus,
+  CheckCircle2,
+  Clock,
   Trash2,
   CircleDot,
   FolderKanban,
-  RefreshCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
@@ -29,29 +30,21 @@ import {
   type ReportRow,
   type Project,
   type GroupMode,
+  ReportCard,
   CreateReportForm,
 } from "@/components/admin/report-components";
-import { REPORT_SECTIONS } from "@/lib/report-sections";
 import { documentPath, firstUnlockedSection } from "@/lib/project-updates";
-import { moduleLabel, updateTypeLabel } from "@/lib/update-modules";
-import type { Report } from "@/lib/types";
+import { updateTypeLabel, updateTypeShort } from "@/lib/update-modules";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
 
-// What the update covers, most meaningful first: the categories the admin ticked
-// in the module matrix, else its modules, else — for updates created before the
-// matrix existed — the editor tabs it unlocked.
-function updateSummary(r: UpdateRow): string {
-  if (r.update_types?.length) return r.update_types.map(updateTypeLabel).join(", ");
-  if (r.update_modules?.length) {
-    return r.update_modules.map((k) => moduleLabel(k, r.update_months)).join(", ");
-  }
-  if (r.unlocked_sections?.length) {
-    return r.unlocked_sections
-      .map((k) => REPORT_SECTIONS.find((s) => s.value === k)?.label ?? k)
-      .join(", ");
-  }
-  return "—";
+// What the update covers, as the badges a report shows its type in: one per
+// category the admin ticked in the module matrix, abbreviated ("BR", "NCE", …)
+// with the full name on hover. An update created before the matrix existed has
+// no types to show and simply reads "Update".
+function typeBadges(r: UpdateRow): { text: string; title?: string }[] {
+  if (!r.update_types?.length) return [{ text: "Update" }];
+  return r.update_types.map((t) => ({ text: updateTypeShort(t), title: updateTypeLabel(t) }));
 }
 
 export default function ProjectUpdatesPage() {
@@ -142,17 +135,20 @@ export default function ProjectUpdatesPage() {
     else setError("Failed to delete project update");
   }
 
-  function navigateToUpdate(r: UpdateRow) {
-    const slug = projectSlug(r.project_short_name, r.project_title);
-    // Pinned by id: several updates can share this project and year.
-    router.push(
-      documentPath(
-        "/admin/project-updates",
-        { ...r, data_type: "update" },
-        slug,
-        firstUnlockedSection(r.unlocked_sections)
-      )
+  // This page lists and creates; the editing happens in the editor, exactly as
+  // the Reports page hands off to the report editor. Pinned by id, since several
+  // updates can share a project and year.
+  function updateHref(r: UpdateRow): string {
+    return documentPath(
+      "/admin/project-update-editor",
+      { ...r, data_type: "update" },
+      projectSlug(r.project_short_name, r.project_title),
+      firstUnlockedSection(r.unlocked_sections)
     );
+  }
+
+  function navigateToUpdate(r: UpdateRow) {
+    router.push(updateHref(r));
   }
 
   return (
@@ -246,10 +242,11 @@ export default function ProjectUpdatesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Partner</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Year</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Sections</TableHead>
+                <TableHead>Auth</TableHead>
                 <TableHead>Due date</TableHead>
                 <TableHead>Last edited</TableHead>
                 <TableHead className="w-20" />
@@ -267,6 +264,15 @@ export default function ProjectUpdatesPage() {
                       {shortName(r.partner_short_name)}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {typeBadges(r).map((b) => (
+                        <Badge key={b.text} variant="secondary" className="text-xs font-semibold" title={b.title}>
+                          {b.text}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
                   <TableCell>
@@ -274,8 +280,16 @@ export default function ProjectUpdatesPage() {
                       {r.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {updateSummary(r)}
+                  <TableCell>
+                    {r.authorized ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                        <CheckCircle2 className="size-3" /> Authorized
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="size-3" /> Pending
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}
@@ -315,45 +329,15 @@ export default function ProjectUpdatesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                   {rows.map((r) => (
-                    <div
+                    <ReportCard
                       key={r.id}
-                      onClick={() => navigateToUpdate(r)}
-                      className="group relative flex flex-col gap-3 p-4 cursor-pointer rounded-lg border bg-card transition-all hover:bg-muted/30"
-                    >
-                      <div className="flex items-center gap-2 pr-2">
-                        <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
-                          {groupMode === "organization" ? r.year : shortName(r.partner_short_name)}
-                        </Badge>
-                        {r.report_submission_date && (
-                          <span className="text-[11px] text-muted-foreground ml-auto">
-                            due {formatDate(r.report_submission_date)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-snug">{r.project_title}</p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {updateSummary(r)}
-                        </p>
-                        {r.last_edited && (
-                          <p className="mt-0.5 text-[11px] text-muted-foreground" title={`Last edited ${formatDate(r.last_edited)}`}>
-                            edited {timeAgo(r.last_edited)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
-                        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${reportStatusStyle(r.status)}`}>
-                          {r.status}
-                        </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(r); }}
-                          className="ml-auto rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="size-3" />
-                        </button>
-                      </div>
-                    </div>
+                      report={r}
+                      groupMode={groupMode}
+                      typeBadges={typeBadges(r)}
+                      href={updateHref(r)}
+                      openLabel="Open update"
+                      onDelete={() => handleDelete(r)}
+                    />
                   ))}
                 </div>
               </div>

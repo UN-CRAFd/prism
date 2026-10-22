@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
-import { UPDATE_SECTIONS } from "@/lib/update-sections";
+import { UPDATE_SECTIONS, updateSectionGroups } from "@/lib/update-sections";
 import { DOC_ID_PARAM, documentPath, documentTitle, firstUnlockedSection, resolveDocument } from "@/lib/project-updates";
 import { partnerProdocSections } from "@/lib/prodoc-sections";
 import { numberWikiSections } from "@/lib/wiki";
@@ -734,30 +734,44 @@ export function AppSidebar() {
 
                           {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {
                             // Updates draw on UPDATE_SECTIONS, not REPORT_SECTIONS —
-                            // Justification and HACT exist only here.
-                            const flatSections = UPDATE_SECTIONS.filter((s) => it.unlocked.includes(s.value));
+                            // Justification and HACT exist only here — and split into
+                            // the same Qualitative / Quantitative halves a report does,
+                            // narrowed to the pages this update unlocked.
+                            const groups = updateSectionGroups(
+                              UPDATE_SECTIONS.filter((s) => it.unlocked.includes(s.value))
+                            );
                             return (
                               <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                                {flatSections.map((s) => {
-                                  const secActive = openUpdate.section === s.value;
-                                  return (
-                                    <Link
-                                      key={s.value}
-                                      href={documentPath("/partner/project-updates", { id: it.id, data_type: "update", year: it.year }, it.slug, s.value)}
-                                      className={cn(
-                                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
-                                        secActive
-                                          ? "bg-crafd-yellow-light text-black font-medium"
-                                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                                      )}
-                                    >
-                                      <span className="flex-1 truncate">{s.label}</span>
-                                      {updateSectionComplete[s.value] && (
-                                        <Check className="size-3.5 shrink-0 text-green-600" />
-                                      )}
-                                    </Link>
-                                  );
-                                })}
+                                {groups.map((grp) => (
+                                  <div key={grp.label} className="flex flex-col gap-0.5">
+                                    <p className={cn(
+                                      "px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                                      GROUP_STYLES[grp.label].header
+                                    )}>
+                                      {grp.label}
+                                    </p>
+                                    {grp.sections.map((s) => {
+                                      const secActive = openUpdate.section === s.value;
+                                      return (
+                                        <Link
+                                          key={s.value}
+                                          href={documentPath("/partner/project-updates", { id: it.id, data_type: "update", year: it.year }, it.slug, s.value)}
+                                          className={cn(
+                                            "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                                            secActive
+                                              ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
+                                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                          )}
+                                        >
+                                          <span className="flex-1 truncate">{s.label}</span>
+                                          {updateSectionComplete[s.value] && (
+                                            <Check className="size-3.5 shrink-0 text-green-600" />
+                                          )}
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                ))}
                               </div>
                             );
                           })()}

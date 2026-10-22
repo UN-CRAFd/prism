@@ -130,7 +130,7 @@ export function IndicatorsSection({
             <tr>
               <td colSpan={emptyColSpan} className="border-t px-4 py-8 text-center text-sm text-muted-foreground">
                 {tableType === "standard"
-                  ? "No CRAFd standard indicators are attached to this report yet."
+                  ? "No CRAFd standard indicators are attached yet."
                   : "No project indicators added yet."}
               </td>
             </tr>

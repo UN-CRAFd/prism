@@ -15,7 +15,7 @@ import { numericAmount } from "@/lib/numeric-input";
 import { Loader2, CheckCircle2, Wallet, AlertTriangle } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { FundingSummary } from "@/components/funding-summary";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
@@ -167,6 +167,26 @@ export function ExpenditurePartnerEditor({
   useEffect(() => { iscRef.current = iscExp; }, [iscExp]);
   const iscDirtyRef = useRef(false);
 
+  // The two header rows are both sticky, so the second has to be pinned exactly
+  // one first-row down. That height was hard-coded at 32px, which held only
+  // while every cell in the top row was a single short line — a wrapped year
+  // label ("2029 · extension") made the row taller and the second row then
+  // overlapped it as soon as the table scrolled. Measured instead, and kept in
+  // step by a ResizeObserver, so the two can never come apart.
+  const headRowRef = useRef<HTMLTableRowElement>(null);
+  const [headRowHeight, setHeadRowHeight] = useState(32);
+  useEffect(() => {
+    const el = headRowRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeadRowHeight(el.getBoundingClientRect().height || 32);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // `data` is the dependency that matters: the header only exists once it has
+    // loaded. After that the observer keeps the figure current by itself.
+  }, [data]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -301,7 +321,6 @@ export function ExpenditurePartnerEditor({
   const isUpdate = data.isUpdate === true;
   const toDate = data.currentYearToDate === true;
   const showProposed = data.proposedBudget === true;
-  const extensionMonths = data.extension?.months ?? 0;
   const extensionYears = data.extension?.years ?? [];
   const extensionSet = new Set(extensionYears);
   const L = frozenLayout(showProposed);
@@ -484,23 +503,8 @@ export function ExpenditurePartnerEditor({
           <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
         </div>
       )}
-      {/* Extended time frame. The extra months only grow the table when they
-          reach into a year the project did not already cover — when they do
-          not, this says so rather than leaving the partner wondering. */}
-      {extensionMonths > 0 && (
-        <div className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
-          <span className="font-medium">Extended time frame: +{extensionMonths} months</span>
-          {extensionYears.length > 0 ? (
-            <>
-              {" "}— the project period now runs to {data.extension?.endDate ? formatDate(data.extension.endDate) : "its new end date"},
-              so {extensionYears.join(", ")} {extensionYears.length === 1 ? "has" : "have"} been added to the table.
-              No annual budget is approved for the added time yet.
-            </>
-          ) : (
-            <> — the extension stays inside the project&apos;s final year, so the table needs no further year column.</>
-          )}
-        </div>
-      )}
+      {/* No banner for the extended time frame: the added years announce
+          themselves as tinted "· extension" columns in the table. */}
       {budgetMismatch && (
         <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm text-red-900">
           <span className="font-medium">The new requested total budget must still add up to the approved budget.</span>{" "}
@@ -542,7 +546,7 @@ export function ExpenditurePartnerEditor({
     <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
       <table className="text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
-          <tr className="text-xs">
+          <tr className="text-xs" ref={headRowRef}>
             <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 text-muted-foreground border-r border-b bg-neutral-100 align-bottom", HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
             <th colSpan={showProposed ? 5 : 3} style={fillHeight ? { position: "sticky", left: L.left("app"), top: 0, zIndex: 40 } : { position: "sticky", left: L.left("app"), zIndex: 30 }} className={cn("px-2 py-2 text-center text-muted-foreground border-r border-b bg-neutral-100", HEAD_TEXT, fillHeight && "h-8")}>Total</th>
             <th
@@ -555,8 +559,10 @@ export function ExpenditurePartnerEditor({
             >
               Description
             </th>
+            {/* nowrap: a year label that wrapped would make this row taller
+                than the row below expects, and the two would overlap. */}
             {columnYears.map((y) => (
-              <th key={y} colSpan={hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : extensionSet.has(y) ? EXTENSION_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>
+              <th key={y} colSpan={hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b whitespace-nowrap", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : extensionSet.has(y) ? EXTENSION_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>
                 {y}
                 {/* The year being reported is only part of a year unless this
                     update is also the annual report. */}
@@ -566,23 +572,23 @@ export function ExpenditurePartnerEditor({
             ))}
           </tr>
           <tr className="text-muted-foreground">
-            <th style={fillHeight ? { ...L.fz("app", 40), top: 32 } : L.fz("app", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Approved total budget</th>
-            <th style={fillHeight ? { ...L.fz("exp", 40), top: 32 } : L.fz("exp", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Total expenditure</th>
+            <th style={fillHeight ? { ...L.fz("app", 40), top: headRowHeight } : L.fz("app", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Approved total budget</th>
+            <th style={fillHeight ? { ...L.fz("exp", 40), top: headRowHeight } : L.fz("exp", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Total expenditure</th>
             {/* "Difference" only needs qualifying once there is a second one to
                 tell it apart from — the plain page keeps the shorter header. */}
-            <th style={fillHeight ? { ...L.fz("diff", 40), top: 32 } : L.fz("diff", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", !showProposed && "border-r", SUBHEAD_TEXT, fillHeight && "sticky")}>
+            <th style={fillHeight ? { ...L.fz("diff", 40), top: headRowHeight } : L.fz("diff", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", !showProposed && "border-r", SUBHEAD_TEXT, fillHeight && "sticky")}>
               {showProposed ? "Difference to total approved budget" : "Difference"}
             </th>
             {showProposed && (
               <>
-                <th style={fillHeight ? { ...L.fz("prop", 40), top: 32 } : L.fz("prop", 30)} className={cn("px-2 py-1.5 text-right border-l border-b bg-crafd-yellow/15", SUBHEAD_TEXT, fillHeight && "sticky")}>New requested total budget</th>
-                <th style={fillHeight ? { ...L.fz("pdiff", 40), top: 32 } : L.fz("pdiff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Difference in new budget</th>
+                <th style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)} className={cn("px-2 py-1.5 text-right border-l border-b bg-crafd-yellow/15", SUBHEAD_TEXT, fillHeight && "sticky")}>New requested total budget</th>
+                <th style={fillHeight ? { ...L.fz("pdiff", 40), top: headRowHeight } : L.fz("pdiff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Difference in new budget</th>
               </>
             )}
             {columnYears.map((y) =>
               hasReport(y)
-                ? <FragmentYearHead key={y} current={y === currentYear} toDate={y === currentYear && toDate} fillHeight={fillHeight} />
-                : <ApprovedOnlyHead key={y} fillHeight={fillHeight} extension={extensionSet.has(y)} />
+                ? <FragmentYearHead key={y} current={y === currentYear} toDate={y === currentYear && toDate} fillHeight={fillHeight} top={headRowHeight} />
+                : <ApprovedOnlyHead key={y} fillHeight={fillHeight} extension={extensionSet.has(y)} top={headRowHeight} />
             )}
           </tr>
         </thead>
@@ -727,14 +733,17 @@ export function ExpenditurePartnerEditor({
 // `toDate` marks a year still running — a project update that is not also the
 // annual report asks for the spending so far, not a closed annual figure. The
 // difference is this year's approved annual budget less this year's spending.
-function FragmentYearHead({ current, toDate = false, fillHeight = false }: { current: boolean; toDate?: boolean; fillHeight?: boolean }) {
-  const sticky = fillHeight && "sticky top-8 z-30";
+// `top` is the measured height of the row above, so this row pins directly
+// under it however tall it turns out to be.
+function FragmentYearHead({ current, toDate = false, fillHeight = false, top }: { current: boolean; toDate?: boolean; fillHeight?: boolean; top: number }) {
+  const sticky = fillHeight && "sticky z-30";
+  const style = fillHeight ? { position: "sticky" as const, top } : undefined;
   const bg = current ? CURRENT_YEAR_HEAD : "bg-neutral-50";
   return (
     <>
-      <th className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, bg, sticky)}>Approved annual budget</th>
-      <th className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", SUBHEAD_TEXT, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}</th>
-      <th className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", SUBHEAD_TEXT, bg, sticky)}>Difference</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, bg, sticky)}>Approved annual budget</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", SUBHEAD_TEXT, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", SUBHEAD_TEXT, bg, sticky)}>Difference</th>
     </>
   );
 }
@@ -743,10 +752,10 @@ function FragmentYearHead({ current, toDate = false, fillHeight = false }: { cur
 // shown (partners can't enter expenditure/comments for years that aren't their
 // current report year). A year the extension adds is tinted and has no approved
 // budget to show — the time is proposed, not granted.
-function ApprovedOnlyHead({ fillHeight = false, extension = false }: { fillHeight?: boolean; extension?: boolean }) {
-  const sticky = fillHeight && "sticky top-8 z-30";
+function ApprovedOnlyHead({ fillHeight = false, extension = false, top }: { fillHeight?: boolean; extension?: boolean; top: number }) {
+  const sticky = fillHeight && "sticky z-30";
   return (
-    <th className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, extension ? EXTENSION_HEAD : "bg-neutral-50", sticky)}>Approved annual budget</th>
+    <th style={fillHeight ? { position: "sticky", top } : undefined} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, extension ? EXTENSION_HEAD : "bg-neutral-50", sticky)}>Approved annual budget</th>
   );
 }
 

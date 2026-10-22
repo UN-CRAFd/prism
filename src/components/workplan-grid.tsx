@@ -146,12 +146,30 @@ const EXTENSION_CELL = "bg-amber-50/60";
 function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters: string[]; leadCols: ReactNode; trailCols: ReactNode; extension?: Set<string> }) {
   const groups = groupQuartersByYear(quarters);
   const isExtension = (key: string) => extension?.has(key) ?? false;
+
   // Sticky two-row header pinned to the page's scroll container: the year row at
-  // the top, the quarter row just below (top-8 = the year row's fixed h-8).
+  // the top, the quarter row directly below it. That offset used to be a fixed
+  // 32px (`top-8`), which held only while the year row was exactly one short
+  // line tall — the row-spanning columns beside it ("Project partner",
+  // "Progress update") can wrap and push it taller, and the quarter numbers
+  // then stuck too high and slid under the years while scrolling. Measured
+  // instead, and kept in step by a ResizeObserver.
+  const yearRowRef = useRef<HTMLTableRowElement>(null);
+  const [yearRowHeight, setYearRowHeight] = useState(32);
+  useEffect(() => {
+    const el = yearRowRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setYearRowHeight(el.getBoundingClientRect().height || 32);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [quarters.length]);
+
   // Opaque bg + cell-level borders so body rows never bleed through on scroll.
   return (
     <thead>
-      <tr>
+      <tr ref={yearRowRef}>
         {leadCols}
         {groups.map((g) => (
           <th
@@ -174,9 +192,9 @@ function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters:
           g.quarters.map((q, i) => (
             <th
               key={q.key}
-              style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW }}
+              style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW, top: yearRowHeight }}
               className={cn(
-                "sticky top-8 z-20 px-1 py-1 text-center w-9",
+                "sticky z-20 px-1 py-1 text-center w-9",
                 isExtension(q.key) ? EXTENSION_HEAD : "bg-muted text-muted-foreground",
                 SUBHEAD_TEXT
               )}
@@ -476,33 +494,19 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
           );
         })}
       </div>
-      {/* The extension is measured on the calendar, so months and columns do not
-          move together: extra time that lands inside the project's final quarter
-          adds none, and this says so rather than looking like nothing happened. */}
-      {(data.extension?.months ?? 0) > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
-          <span className="font-medium">Extended time frame: +{data.extension?.months} months</span>
-          {extraQuarters.length > 0 ? (
-            <span>
-              — {extraQuarters.length === 1 ? "one quarter has" : `${extraQuarters.length} quarters have`} been added
-              after the project&apos;s current end ({extraQuarters[0]}
-              {extraQuarters.length > 1 ? `–${extraQuarters[extraQuarters.length - 1]}` : ""}).
-              Tick the activity timeline in the shaded columns to show the work the extension covers.
-            </span>
-          ) : (
-            <span>
-              — the project&apos;s new end date stays inside {quarters[quarters.length - 1]}, the last quarter the
-              work plan already covers, so no column has been added.
-            </span>
-          )}
-        </div>
-      )}
+      {/* No banner for the extended time frame: the added quarters announce
+          themselves as the tinted columns past the project's own end. */}
       {activeUpdateId == null && (
         <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           No active update window has been set for this project. Ask your administrator to add and activate one before entering progress.
         </div>
       )}
-      <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+      {/* The box is sized by its rows, not by the window: `min-h-0` without
+          `flex-1` means it takes its content's height when the activities are
+          few — so the border closes under the last row instead of running to
+          the bottom of the page — and flex-shrinks to the space available, with
+          its own scrollbar, once they outgrow it. */}
+      <div className={cn("rounded-xl border bg-card", fillHeight ? "min-h-0 overflow-auto" : "overflow-x-auto")}>
         <table className="w-full text-sm border-collapse">
           <QuarterHeader
             quarters={quarters}

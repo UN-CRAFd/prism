@@ -464,7 +464,7 @@ export function AppSidebar() {
                     // Top-level nav links mirror the admin nav below exactly —
                     // same type, icon size and gap — so the two sidebars read
                     // identically. Keep these in step if either side changes.
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
                     active
                       ? NAV_ACTIVE
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -498,7 +498,7 @@ export function AppSidebar() {
                             }
                           }}
                           className={cn(
-                            "flex items-center rounded-md px-3 py-1.5 text-xs transition-colors",
+                            "flex items-center rounded-md px-3 py-1.5 text-sm transition-colors",
                             subActive
                               ? `${NAV_ACTIVE} font-medium`
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -541,7 +541,7 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-xs font-medium">
+                              <span className="truncate text-sm font-medium">
                                 {p.project_title}
                               </span>
                               {pActive && (
@@ -560,7 +560,7 @@ export function AppSidebar() {
                                     key={s.value}
                                     href={`/partner/prodoc-editor/${slug}/${s.value}`}
                                     className={cn(
-                                      "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                                      "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                                       secActive
                                         ? `${NAV_ACTIVE} font-medium`
                                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -629,7 +629,7 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-xs font-medium capitalize">{it.primary}</span>
+                              <span className="truncate text-sm font-medium capitalize">{it.primary}</span>
                               {it.isActive && (
                                 reportSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
@@ -658,7 +658,7 @@ export function AppSidebar() {
                                         key={s.value}
                                         href={`/partner/report-editor/${it.slug}/${it.year}/${s.value}`}
                                         className={cn(
-                                          "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                                          "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                                           secActive
                                             ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
                                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -722,7 +722,7 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-xs font-medium">{it.primary}</span>
+                              <span className="truncate text-sm font-medium">{it.primary}</span>
                               {it.isActive && (
                                 updateSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
@@ -745,7 +745,7 @@ export function AppSidebar() {
                                       key={s.value}
                                       href={documentPath("/partner/project-updates", { id: it.id, data_type: "update", year: it.year }, it.slug, s.value)}
                                       className={cn(
-                                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                                         secActive
                                           ? "bg-crafd-yellow-light text-black font-medium"
                                           : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -775,7 +775,7 @@ export function AppSidebar() {
           <Link
             href="/admin"
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mb-2",
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors mb-2",
               pathname === "/admin"
                 ? NAV_ACTIVE
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -795,7 +795,7 @@ export function AppSidebar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
                   isActive
                     ? NAV_ACTIVE
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -827,7 +827,7 @@ export function AppSidebar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
                   isActive
                     ? NAV_ACTIVE
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -849,7 +849,7 @@ export function AppSidebar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
                   isActive
                     ? NAV_ACTIVE
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -867,7 +867,7 @@ export function AppSidebar() {
           <Link
             href="/admin/settings"
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
               pathname.startsWith("/admin/settings")
                 ? NAV_ACTIVE
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"

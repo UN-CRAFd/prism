@@ -1001,7 +1001,7 @@ export function ReportEditor({
                   {expanded ? (
                     <>
                       <span className={cn(
-                        "px-1 text-[10px] font-semibold uppercase tracking-wider",
+                        "px-1 text-xs font-semibold uppercase tracking-wider",
                         GROUP_STYLES[grp.label].header
                       )}>
                         {grp.label}
@@ -1027,7 +1027,7 @@ export function ReportEditor({
                       onClick={() => handleSectionChange(grp.sections[0].value)}
                       title={`Go to ${grp.label}`}
                       className={cn(
-                        "px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-opacity hover:opacity-70",
+                        "px-2 py-2.5 text-xs font-semibold uppercase tracking-wider transition-opacity hover:opacity-70",
                         GROUP_STYLES[grp.label].header
                       )}
                     >

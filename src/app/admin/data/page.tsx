@@ -128,7 +128,7 @@ function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {
       {truncatable && (
         <button
           onClick={onToggle}
-          className="mt-1 flex items-center gap-0.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          className="mt-1 flex items-center gap-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
         >
           {expanded
             ? <><ChevronUp className="size-3" /> collapse</>

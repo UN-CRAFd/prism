@@ -253,7 +253,7 @@ export function RichTextEditor({
           {remaining !== null && (
             <p
               className={cn(
-                "text-[11px] text-right tabular-nums",
+                "text-xs text-right tabular-nums",
                 remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
               )}
             >
@@ -261,10 +261,10 @@ export function RichTextEditor({
             </p>
           )}
           {remaining !== null && remaining < 0 && (
-            <p className="text-[11px] text-destructive">{labels.common.overLimitHint}</p>
+            <p className="text-xs text-destructive">{labels.common.overLimitHint}</p>
           )}
           {uploadError && (
-            <p className="text-[11px] text-destructive">{uploadError}</p>
+            <p className="text-xs text-destructive">{uploadError}</p>
           )}
         </div>
       )}

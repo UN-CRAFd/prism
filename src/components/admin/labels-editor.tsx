@@ -208,9 +208,9 @@ export function LabelsEditor() {
                       return (
                         <div key={leaf.path} className={cn("px-4 py-3", modified && "bg-amber-50/40")}>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <code className="text-[11px] text-muted-foreground break-all">{leaf.path}</code>
+                            <code className="text-xs text-muted-foreground break-all">{leaf.path}</code>
                             {leaf.kind === "array" && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/80">
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/80">
                                 <Type className="size-3" /> list (one per line)
                               </span>
                             )}
@@ -218,7 +218,7 @@ export function LabelsEditor() {
                               <button
                                 type="button"
                                 onClick={() => resetOne(leaf.path)}
-                                className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                                className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                               >
                                 <RotateCcw className="size-3" /> Reset
                               </button>

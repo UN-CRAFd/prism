@@ -636,7 +636,7 @@ export function AppSidebar() {
                                   : <ChevronDown className="size-3 shrink-0" />
                               )}
                             </span>
-                            <span className="truncate text-[10px] opacity-70">{it.secondary}</span>
+                            <span className="truncate text-xs opacity-70">{it.secondary}</span>
                           </Link>
 
                           {/* Level 2: sections of the open report, split into
@@ -646,7 +646,7 @@ export function AppSidebar() {
                               {REPORT_SECTION_GROUPS.map((grp) => (
                                 <div key={grp.label} className="flex flex-col gap-0.5">
                                   <p className={cn(
-                                    "px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                                    "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
                                     GROUP_STYLES[grp.label].header
                                   )}>
                                     {grp.label}
@@ -729,7 +729,7 @@ export function AppSidebar() {
                                   : <ChevronDown className="size-3 shrink-0" />
                               )}
                             </span>
-                            <span className="truncate text-[10px] opacity-70">{it.secondary}</span>
+                            <span className="truncate text-xs opacity-70">{it.secondary}</span>
                           </Link>
 
                           {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {

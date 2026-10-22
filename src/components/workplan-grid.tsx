@@ -505,7 +505,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                       return (
                         <tr key="baseline" className="border-t">
                           {first && activityCell}
-                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">{labels.common.baseline}</td>
+                          <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">{labels.common.baseline}</td>
                           {quarters.map((q, i) => (
                             <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
                               <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
@@ -533,7 +533,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     return (
                       <tr key={u.id} className={cn("border-t", isActive ? "bg-crafd-yellow/5" : "opacity-60")}>
                         {first && activityCell}
-                        <td className="px-2 py-2 text-[11px] font-medium whitespace-nowrap">
+                        <td className="px-2 py-2 text-xs font-medium whitespace-nowrap">
                           <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
                         </td>
                         {quarters.map((q, i) => (
@@ -1482,7 +1482,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                       <Fragment key={row.key}>
                         <tr className={cn("border-t", row.dirty && "bg-amber-50/30")}>
                           {activityCell}
-                          <td className="px-2 py-2 text-[11px] text-muted-foreground whitespace-nowrap">Baseline</td>
+                          <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">Baseline</td>
                           {quarters.map((q, i) => (
                             <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
                               <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
@@ -1518,7 +1518,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           {deleteCell}
                         </tr>
                         <tr className={cn("border-b", row.dirty && "bg-amber-50/30")}>
-                          <td className="px-2 py-2 text-[11px] font-medium text-neutral-700 whitespace-nowrap">Updated</td>
+                          <td className="px-2 py-2 text-xs font-medium text-neutral-700 whitespace-nowrap">Updated</td>
                           {quarters.map((q, i) => (
                             <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
                               <QuarterCell

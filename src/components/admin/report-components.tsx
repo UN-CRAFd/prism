@@ -247,14 +247,14 @@ export function ReportCard({
 
       {/* Top line: badges + due date */}
       <div className="flex items-center gap-2 pr-8">
-        <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
+        <Badge variant="outline" className="text-xs font-semibold tabular-nums">
           {groupMode === "organization" ? report.year : shortName(report.partner_short_name)}
         </Badge>
-        <Badge variant="secondary" className="text-[11px] font-semibold capitalize">
+        <Badge variant="secondary" className="text-xs font-semibold capitalize">
           {report.report_type ?? "annual"}
         </Badge>
         {submissionDate && (
-          <span className="text-[11px] text-muted-foreground ml-auto">
+          <span className="text-xs text-muted-foreground ml-auto">
             due {formatDate(submissionDate)}
           </span>
         )}
@@ -266,7 +266,7 @@ export function ReportCard({
           {report.project_title}
         </p>
         {report.last_edited && (
-          <p className="mt-1 text-[11px] text-muted-foreground" title={`Last edited ${formatDate(report.last_edited)}`}>
+          <p className="mt-1 text-xs text-muted-foreground" title={`Last edited ${formatDate(report.last_edited)}`}>
             edited {timeAgo(report.last_edited)}
           </p>
         )}
@@ -274,13 +274,13 @@ export function ReportCard({
 
       {/* Bottom: status badge + open */}
       <div className="flex items-center gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
-        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${reportStatusStyle(status)}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${reportStatusStyle(status)}`}>
           {STATUS_ICONS[status]}
           {status}
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); router.push(`/admin/report-editor/${slug}/${report.year}/overview`); }}
-          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Open report"
         >
           Open report

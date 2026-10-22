@@ -332,7 +332,7 @@ export default function AdminHomePage() {
                           {shortName(p.partner_short_name)}
                         </p>
                       </div>
-                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                      <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                         {mounted ? timeAgo(p.updated_at) : ""}
                       </span>
                     </button>
@@ -385,7 +385,7 @@ export default function AdminHomePage() {
                           {shortName(r.partner_short_name)} &middot; {r.year}
                         </p>
                       </div>
-                      <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                      <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                         {mounted ? timeAgo(r.last_activity) : ""}
                       </span>
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>

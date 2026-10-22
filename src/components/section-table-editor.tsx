@@ -246,12 +246,12 @@ function PhotoField({
             onChange={(e) => pick(e.target.files?.[0] ?? null)}
             className="flex h-9 w-full rounded-md border border-input bg-transparent text-sm outline-none cursor-pointer file:cursor-pointer file:mr-3 file:h-full file:border-0 file:bg-muted file:px-3 file:text-xs file:font-medium disabled:opacity-50"
           />
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {busy ? <span className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> …</span> : p.hint.replace("{mb}", String(MAX_PHOTO_MB))}
           </p>
         </div>
       )}
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -551,16 +551,16 @@ function TestimonialPhotosField({
                 onChange={(e) => uploadPhoto(e.target.files?.[0] ?? null)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent text-sm outline-none cursor-pointer file:cursor-pointer file:mr-3 file:h-full file:border-0 file:bg-muted file:px-3 file:text-xs file:font-medium disabled:opacity-50"
               />
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {addBusy ? <span className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> …</span> : p.hint.replace("{mb}", String(MAX_PHOTO_MB))}
               </p>
             </div>
           )}
-          {addError && <p className="text-[11px] text-destructive">{addError}</p>}
+          {addError && <p className="text-xs text-destructive">{addError}</p>}
         </div>
       )}
 
-      {fieldError && <p className="text-[11px] text-destructive">{fieldError}</p>}
+      {fieldError && <p className="text-xs text-destructive">{fieldError}</p>}
     </div>
   );
 }
@@ -882,7 +882,7 @@ export function SectionTableEditor({
             <tr className="border-b bg-background">
               <td />
               {fields.map((f) => (
-                <td key={f.key} className="px-4 py-1 text-[11px] text-muted-foreground leading-tight align-top">
+                <td key={f.key} className="px-4 py-1 text-xs text-muted-foreground leading-tight align-top">
                   {f.remark}
                 </td>
               ))}
@@ -903,7 +903,7 @@ export function SectionTableEditor({
                       <AutoTextarea value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} />
                       {f.maxWords && (
                         <div className={cn(
-                          "text-[11px] text-right",
+                          "text-xs text-right",
                           countWords(row.values[f.key]) > f.maxWords
                             ? "text-destructive font-medium"
                             : "text-muted-foreground"

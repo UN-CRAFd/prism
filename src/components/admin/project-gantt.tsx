@@ -170,7 +170,7 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
                 style={{ left: `${todayPct}%` }}
                 className="absolute top-0 bottom-0 z-20 border-l-2 border-red-500"
               >
-                <span className="absolute top-0 left-1 text-[10px] font-semibold text-red-500">today</span>
+                <span className="absolute top-0 left-1 text-xs font-semibold text-red-500">today</span>
               </div>
             )}
 
@@ -185,7 +185,7 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
                     className="absolute top-1.5 h-6 rounded-md flex items-center px-2 overflow-hidden z-10 shadow-sm ring-1 ring-black/5"
                     title={`${d.short_name || d.project_title}\n${shortName(d.partner_short_name)}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`}
                   >
-                    <span className="truncate text-[11px] font-semibold text-white/95">
+                    <span className="truncate text-xs font-semibold text-white/95">
                       {d.project_duration_months} mo
                     </span>
                   </div>

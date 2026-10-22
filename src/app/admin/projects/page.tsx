@@ -524,7 +524,7 @@ export default function ProjectsPage() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-600 hover:underline"
+              className="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline"
               title="Open on MPTF Office Gateway"
             >
               MPTFO
@@ -591,7 +591,7 @@ export default function ProjectsPage() {
 
       {/* Project status badge — read-only; change via the ⋯ menu */}
       <div>
-        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
           {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
           {p.status}
         </span>
@@ -610,7 +610,7 @@ export default function ProjectsPage() {
             {durationLabel(p.project_duration_months)}
             {p.extension_count > 0 && (
               <span
-                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700"
+                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-semibold text-blue-700"
                 title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
               >
                 <CalendarPlus className="size-2.5" />
@@ -624,9 +624,9 @@ export default function ProjectsPage() {
       {/* ── Project Document ── status badge + open */}
       <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1.5 flex items-baseline justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
           {pd?.last_edited && (
-            <span className="text-[11px] text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
+            <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
               edited {timeAgo(pd.last_edited)}
             </span>
           )}
@@ -635,7 +635,7 @@ export default function ProjectsPage() {
           {pd && (
             <span
               title="Project document status"
-              className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${reportStatusStyle(pd.status)}`}
+              className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${reportStatusStyle(pd.status)}`}
             >
               {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
               {pd.status}
@@ -643,7 +643,7 @@ export default function ProjectsPage() {
           )}
           <button
             onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
-            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Open the project document"
           >
             Open project document
@@ -835,7 +835,7 @@ export default function ProjectsPage() {
                   <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
                   <TableCell>
                     <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-                      <SelectTrigger className={`!h-7 w-full px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+                      <SelectTrigger className={`!h-7 w-full px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
                         <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
                           {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
                           <SelectValue />
@@ -858,7 +858,7 @@ export default function ProjectsPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
                         disabled={printingId === p.id || !prodocByProject[p.id]}
-                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                         title="Print the project document to PDF"
                       >
                         {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
@@ -866,7 +866,7 @@ export default function ProjectsPage() {
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
-                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         title="Open the project document"
                       >
                         Open
@@ -879,7 +879,7 @@ export default function ProjectsPage() {
                         >
                           <SelectTrigger
                             title="Project document status"
-                            className={`!h-7 w-fit shrink-0 px-2 text-[11px] font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(prodocByProject[p.id]!.status)}`}
+                            className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(prodocByProject[p.id]!.status)}`}
                           >
                             <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
                               {PRODOC_STATUS_ICONS[prodocByProject[p.id]!.status] ?? PRODOC_STATUS_FALLBACK_ICON}
@@ -893,7 +893,7 @@ export default function ProjectsPage() {
                       )}
                     </div>
                     {prodocByProject[p.id]?.last_edited && (
-                      <span className="text-[11px] text-muted-foreground" title={`Last edited ${formatDate(prodocByProject[p.id]!.last_edited!)}`}>
+                      <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(prodocByProject[p.id]!.last_edited!)}`}>
                         edited {timeAgo(prodocByProject[p.id]!.last_edited!)}
                       </span>
                     )}
@@ -959,7 +959,7 @@ export default function ProjectsPage() {
 
                 {nceHistory.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                       Previous extensions
                     </p>
                     <ul className="space-y-1">
@@ -1033,7 +1033,7 @@ export default function ProjectsPage() {
 
               {revHistory.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                     Previous revisions
                   </p>
                   <ul className="space-y-1">

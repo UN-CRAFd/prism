@@ -225,7 +225,7 @@ export function GuideEditor() {
                     className="font-medium"
                   />
                 </div>
-                <p className="text-[11px] text-muted-foreground font-mono">#{s.slug}</p>
+                <p className="text-xs text-muted-foreground font-mono">#{s.slug}</p>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -289,7 +289,7 @@ export function GuideEditor() {
               />
               <div
                 className={cn(
-                  "text-[11px] text-right tabular-nums",
+                  "text-xs text-right tabular-nums",
                   len >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
                 )}
               >

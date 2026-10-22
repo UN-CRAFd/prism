@@ -44,13 +44,13 @@ interface Indicator {
 
 function UsageBadges({ usage }: { usage: IndicatorUsage[] }) {
   if (usage.length === 0) {
-    return <span className="text-[11px] italic text-muted-foreground">No longer used in any report</span>;
+    return <span className="text-xs italic text-muted-foreground">No longer used in any report</span>;
   }
   return (
     <div className="flex flex-wrap items-center gap-1">
-      <span className="text-[11px] text-muted-foreground">Still used in:</span>
+      <span className="text-xs text-muted-foreground">Still used in:</span>
       {usage.map((u, i) => (
-        <Badge key={`${u.report_id ?? i}-${u.project_short_name ?? u.project_title}`} variant="outline" className="text-[10px] font-normal">
+        <Badge key={`${u.report_id ?? i}-${u.project_short_name ?? u.project_title}`} variant="outline" className="text-xs font-normal">
           {(u.project_short_name || u.project_title)} · {u.year}
         </Badge>
       ))}
@@ -294,15 +294,15 @@ export default function IndicatorsPage() {
                     <TableCell className="font-medium align-top">
                       {ind.name}
                       {kindFilter === "all" && (
-                        <Badge variant={ind.is_standard ? "secondary" : "outline"} className="ml-2 text-[10px]">
+                        <Badge variant={ind.is_standard ? "secondary" : "outline"} className="ml-2 text-xs">
                           {ind.is_standard ? "Standard" : "Custom"}
                         </Badge>
                       )}
                       {!ind.is_standard && (ind.usage_project_count ?? 0) > 0 && (() => {
                         const n = ind.usage_project_count ?? 0;
-                        return <span className="ml-1 text-[10px] text-muted-foreground">· {n} project{n === 1 ? "" : "s"}</span>;
+                        return <span className="ml-1 text-xs text-muted-foreground">· {n} project{n === 1 ? "" : "s"}</span>;
                       })()}
-                      {ind.archived_at && <Badge variant="outline" className="ml-2 text-[10px]">Archived</Badge>}
+                      {ind.archived_at && <Badge variant="outline" className="ml-2 text-xs">Archived</Badge>}
                       {/* TableCell defaults to whitespace-nowrap, so the description
                           needs whitespace-normal to wrap onto further lines at all. */}
                       {ind.description && <p className="text-xs text-muted-foreground font-normal mt-0.5 whitespace-normal [overflow-wrap:anywhere]">{ind.description}</p>}

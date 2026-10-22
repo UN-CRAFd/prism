@@ -14,7 +14,7 @@ export const MATRIX_TABLE = "w-full text-sm border-separate border-spacing-0";
 // Unified column-header typography for every quant table (report + prodoc).
 // HEAD_TEXT: primary column headers (row labels, year groups, single-row heads).
 // SUBHEAD_TEXT: the second header row (year → sub-columns / quarters).
-// Both bold, one step larger than the old text-xs/text-[11px] headers.
+// Both bold, one step larger than the old text-xs/text-xs headers.
 export const HEAD_TEXT = "text-sm font-bold";
 export const SUBHEAD_TEXT = "text-xs font-bold";
 
@@ -144,7 +144,7 @@ export function MatrixTableShell({
             ))}
           </tr>
           {/* Sub-column header */}
-          <tr className="text-[11px] text-muted-foreground">
+          <tr className="text-xs text-muted-foreground">
             {years.map((year) => {
               const bg = year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-50";
               const cols = (year !== currentYear && pastSubCols) ? pastSubCols : subCols;

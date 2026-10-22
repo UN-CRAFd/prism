@@ -315,10 +315,10 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit(c.id); }}
                           />
                           <div className="flex items-center justify-between">
-                            <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" onClick={() => setEditingId(null)}>
+                            <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setEditingId(null)}>
                               Cancel
                             </button>
-                            <Button size="sm" className="h-6 text-[10px]" onClick={() => saveEdit(c.id)} disabled={editBusy || !editDraft.trim()}>
+                            <Button size="sm" className="h-6 text-xs" onClick={() => saveEdit(c.id)} disabled={editBusy || !editDraft.trim()}>
                               {editBusy ? <Loader2 className="size-3 animate-spin" /> : "Save"}
                             </Button>
                           </div>
@@ -326,18 +326,18 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                       ) : (
                         <>
                                                     <p className="whitespace-pre-wrap break-words">{c.body}</p>
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>
                               {formatDate(c.created_at)}
                               {c.partner_addressed && ` · resolved by ${c.partner_long_name ?? c.partner_short_name ?? "partner"}`}
                             </span>
                             {role === "partner" ? (
                               c.partner_addressed ? (
-                                <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-[10px]" onClick={() => setAddressed(c.id, false)}>
+                                <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-xs" onClick={() => setAddressed(c.id, false)}>
                                   <RotateCcw className="size-3" /> Undo
                                 </Button>
                               ) : (
-                                <Button size="sm" className="h-5 px-1.5 gap-1 text-[10px]" onClick={() => setAddressed(c.id, true)}>
+                                <Button size="sm" className="h-5 px-1.5 gap-1 text-xs" onClick={() => setAddressed(c.id, true)}>
                                   <Check className="size-3" /> Resolve
                                 </Button>
                               )
@@ -348,7 +348,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                     Edit
                                   </button>
                                 )}
-                                <Button size="sm" variant="outline" className="h-5 px-1.5 text-[10px]" onClick={() => setResolved(c.id, true)} disabled={readOnly}>
+                                <Button size="sm" variant="outline" className="h-5 px-1.5 text-xs" onClick={() => setResolved(c.id, true)} disabled={readOnly}>
                                   Archive
                                 </Button>
                                 <button type="button" onClick={() => remove(c.id)} title="Delete" disabled={readOnly} className="hover:text-destructive transition-colors disabled:opacity-40">
@@ -374,18 +374,18 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                     onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit(r.id); }}
                                   />
                                   <div className="flex items-center justify-between">
-                                    <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" onClick={() => setEditingId(null)}>
+                                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setEditingId(null)}>
                                       Cancel
                                     </button>
-                                    <Button size="sm" className="h-6 text-[10px]" onClick={() => saveEdit(r.id)} disabled={editBusy || !editDraft.trim()}>
+                                    <Button size="sm" className="h-6 text-xs" onClick={() => saveEdit(r.id)} disabled={editBusy || !editDraft.trim()}>
                                       {editBusy ? <Loader2 className="size-3 animate-spin" /> : "Save"}
                                     </Button>
                                   </div>
                                 </div>
                               ) : (
                                 <>
-                                  <p className="whitespace-pre-wrap break-words text-[11px]">{r.body}</p>
-                                  <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                                  <p className="whitespace-pre-wrap break-words text-xs">{r.body}</p>
+                                  <div className="mt-0.5 flex items-center justify-between text-xs text-muted-foreground">
                                     <span>{r.author_role === "admin" ? "CRAF'd" : (r.author ?? "Partner")} · {formatDate(r.created_at)}</span>
                                     {((role === "partner" && r.author_role === "partner") || (role === "admin" && r.author_role === "admin" && !readOnly)) && !c.partner_addressed && (
                                       <span className="flex items-center gap-1.5">
@@ -420,12 +420,12 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                               <div className="flex items-center justify-between">
                                 <button
                                   type="button"
-                                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                                   onClick={() => { setOpenReplyId(null); setReplyDraft(""); }}
                                 >
                                   Cancel
                                 </button>
-                                <Button size="sm" className="h-6 text-[10px]" onClick={() => submitReply(c.id)} disabled={replyBusy || !replyDraft.trim()}>
+                                <Button size="sm" className="h-6 text-xs" onClick={() => submitReply(c.id)} disabled={replyBusy || !replyDraft.trim()}>
                                   {replyBusy ? <Loader2 className="size-3 animate-spin" /> : "Reply"}
                                 </Button>
                               </div>
@@ -433,7 +433,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                           ) : (
                             <button
                               type="button"
-                              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                               onClick={() => { setOpenReplyId(c.id); setReplyDraft(""); }}
                             >
                               Reply
@@ -450,7 +450,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                   <button
                     type="button"
                     onClick={() => setArchivedOpen((o) => !o)}
-                    className="w-full text-left text-[10px] text-muted-foreground hover:text-foreground transition-colors px-0.5 py-0.5"
+                    className="w-full text-left text-xs text-muted-foreground hover:text-foreground transition-colors px-0.5 py-0.5"
                   >
                     {archivedOpen ? "▾" : "▸"} Archived ({archivedList.length})
                   </button>
@@ -459,9 +459,9 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                       {archivedList.map((c) => (
                         <div key={c.id} className="rounded-md border px-2.5 py-2 text-xs bg-muted/40 opacity-70">
                           <p className="whitespace-pre-wrap break-words text-muted-foreground">{c.body}</p>
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>{formatDate(c.created_at)}</span>
-                            <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-[10px]" onClick={() => setResolved(c.id, false)} disabled={readOnly}>
+                            <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-xs" onClick={() => setResolved(c.id, false)} disabled={readOnly}>
                               <RotateCcw className="size-3" /> Unarchive
                             </Button>
                           </div>

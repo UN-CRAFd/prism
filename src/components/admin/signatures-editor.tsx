@@ -158,7 +158,7 @@ export function SignaturesEditor({
       )}
 
       {!readOnly && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
           {labels.tabInstructions.signatures}
         </div>
       )}
@@ -219,7 +219,7 @@ export function SignaturesEditor({
                           <p className={cn("text-sm font-medium truncate", !nameDisplay && "text-muted-foreground italic")}>
                             {nameDisplay ?? s.nameNotSet}
                           </p>
-                          <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                             {s.standaloneTag}
                           </span>
                         </>
@@ -229,7 +229,7 @@ export function SignaturesEditor({
                       <p className="text-xs text-muted-foreground truncate">{subtext}</p>
                     )}
                     {allEmpty && (
-                      <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         {s.standaloneTag}
                       </span>
                     )}

@@ -1001,7 +1001,7 @@ export function ReportEditor({
                   {expanded ? (
                     <>
                       <span className={cn(
-                        "px-1 text-[10px] font-semibold uppercase tracking-wider",
+                        "px-1 text-xs font-semibold uppercase tracking-wider",
                         GROUP_STYLES[grp.label].header
                       )}>
                         {grp.label}
@@ -1027,7 +1027,7 @@ export function ReportEditor({
                       onClick={() => handleSectionChange(grp.sections[0].value)}
                       title={`Go to ${grp.label}`}
                       className={cn(
-                        "px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-opacity hover:opacity-70",
+                        "px-2 py-2.5 text-xs font-semibold uppercase tracking-wider transition-opacity hover:opacity-70",
                         GROUP_STYLES[grp.label].header
                       )}
                     >
@@ -1046,7 +1046,7 @@ export function ReportEditor({
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {/* Tab instructions — only while the report is editable */}
         {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
             {labels.tabInstructions[params.section as keyof typeof labels.tabInstructions] || ""}
           </div>
         )}

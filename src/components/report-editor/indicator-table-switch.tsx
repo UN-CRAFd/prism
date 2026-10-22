@@ -64,7 +64,7 @@ export function IndicatorTableSwitch({
             {opt.label}
             <span
               className={cn(
-                "rounded-full px-1.5 py-0.5 text-[11px] tabular-nums",
+                "rounded-full px-1.5 py-0.5 text-xs tabular-nums",
                 active ? "bg-white/20" : "bg-muted"
               )}
             >

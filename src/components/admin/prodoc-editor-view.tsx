@@ -1583,7 +1583,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             inline here. Hidden when view-only, like the General Information box. */}
         {selectedProdocId && !readOnly &&
           ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
-          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
             {selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
               : selectedSection === "risk" ? labels.tabInstructions.prodocRisk
               : selectedSection === "expenditure" ? labels.tabInstructions.prodocBudgets

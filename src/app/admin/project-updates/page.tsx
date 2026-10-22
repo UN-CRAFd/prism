@@ -270,7 +270,7 @@ export default function ProjectUpdatesPage() {
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${reportStatusStyle(r.status)}`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold border ${reportStatusStyle(r.status)}`}>
                       {r.status}
                     </span>
                   </TableCell>
@@ -321,28 +321,28 @@ export default function ProjectUpdatesPage() {
                       className="group relative flex flex-col gap-3 p-4 cursor-pointer rounded-lg border bg-card transition-all hover:bg-muted/30"
                     >
                       <div className="flex items-center gap-2 pr-2">
-                        <Badge variant="outline" className="text-[11px] font-semibold tabular-nums">
+                        <Badge variant="outline" className="text-xs font-semibold tabular-nums">
                           {groupMode === "organization" ? r.year : shortName(r.partner_short_name)}
                         </Badge>
                         {r.report_submission_date && (
-                          <span className="text-[11px] text-muted-foreground ml-auto">
+                          <span className="text-xs text-muted-foreground ml-auto">
                             due {formatDate(r.report_submission_date)}
                           </span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold leading-snug">{r.project_title}</p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {updateSummary(r)}
                         </p>
                         {r.last_edited && (
-                          <p className="mt-0.5 text-[11px] text-muted-foreground" title={`Last edited ${formatDate(r.last_edited)}`}>
+                          <p className="mt-0.5 text-xs text-muted-foreground" title={`Last edited ${formatDate(r.last_edited)}`}>
                             edited {timeAgo(r.last_edited)}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
-                        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${reportStatusStyle(r.status)}`}>
+                        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${reportStatusStyle(r.status)}`}>
                           {r.status}
                         </span>
                         <button

@@ -251,7 +251,7 @@ export default function ReportsPage() {
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${reportStatusStyle(r.status)}`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold border ${reportStatusStyle(r.status)}`}>
                       {r.status}
                     </span>
                   </TableCell>

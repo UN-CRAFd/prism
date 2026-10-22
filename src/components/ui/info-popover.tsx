@@ -103,13 +103,13 @@ export function InfoPopover({
           >
             {description && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{descriptionHeading}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{descriptionHeading}</p>
                 <p className="text-sm leading-snug">{description}</p>
               </div>
             )}
             {meansOfVerification && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">How it&apos;s verified</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">How it&apos;s verified</p>
                 <p className="text-sm leading-snug">{meansOfVerification}</p>
               </div>
             )}

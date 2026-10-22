@@ -53,11 +53,11 @@ export function SectionPlaceholder({
           </ul>
         )}
         {readOnly && (
-          <p className="mt-4 text-[11px] text-muted-foreground">This update is read-only.</p>
+          <p className="mt-4 text-xs text-muted-foreground">This update is read-only.</p>
         )}
       </div>
 
-      <p className="text-[11px] text-muted-foreground">Report #{reportId}</p>
+      <p className="text-xs text-muted-foreground">Report #{reportId}</p>
     </div>
   );
 }
@@ -80,7 +80,7 @@ export function UpdateVariantBanner({
       {variant.addOns.length > 0 && (
         <span className="ml-auto flex flex-wrap gap-1">
           {variant.addOns.map((key) => (
-            <Badge key={key} variant="secondary" className="text-[11px] font-medium">
+            <Badge key={key} variant="secondary" className="text-xs font-medium">
               {key}
             </Badge>
           ))}

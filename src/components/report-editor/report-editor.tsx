@@ -1046,7 +1046,7 @@ export function ReportEditor({
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {/* Tab instructions — only while the report is editable */}
         {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
             {labels.tabInstructions[params.section as keyof typeof labels.tabInstructions] || ""}
           </div>
         )}

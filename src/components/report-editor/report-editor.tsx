@@ -903,29 +903,29 @@ export function ReportEditor({
             </Button>
           )}
 
-          <Select
-            value={selectedReport ? String(selectedReport.id) : ""}
-            onValueChange={handleReportChange}
-            disabled={loadingReports}
-          >
-            <SelectTrigger className="w-[300px] max-w-[45vw] h-9 bg-neutral-900 border-neutral-700 text-white">
-              {loadingReports ? (
-                <span className="flex items-center gap-2 text-neutral-400">
-                  <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
-                </span>
-              ) : selectedReport ? (
-                <span className="truncate capitalize">
-                  {documentTitle(selectedReport)} · {selectedReport.project_short_name || selectedReport.project_title}
-                </span>
-              ) : (
-                <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              {mode === "admin" ? (
-                // Reports classified underneath the partner & project (same grouping
-                // logic as the prodoc editor's project dropdown).
-                Object.entries(
+          {mode === "admin" && (
+            <Select
+              value={selectedReport ? String(selectedReport.id) : ""}
+              onValueChange={handleReportChange}
+              disabled={loadingReports}
+            >
+              <SelectTrigger className="w-[300px] max-w-[45vw] h-9 bg-neutral-900 border-neutral-700 text-white">
+                {loadingReports ? (
+                  <span className="flex items-center gap-2 text-neutral-400">
+                    <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
+                  </span>
+                ) : selectedReport ? (
+                  <span className="truncate capitalize">
+                    {documentTitle(selectedReport)} · {selectedReport.project_short_name || selectedReport.project_title}
+                  </span>
+                ) : (
+                  <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {/* Reports classified underneath the partner & project (same grouping
+                    logic as the prodoc editor's project dropdown). */}
+                {Object.entries(
                   reports.reduce((acc, r) => {
                     const key = `${shortName(r.partner_short_name)} · ${r.project_short_name || r.project_title}`;
                     (acc[key] ??= []).push(r);
@@ -943,19 +943,10 @@ export function ReportEditor({
                         </SelectItem>
                       ))}
                   </SelectGroup>
-                ))
-              ) : (
-                reports.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    <div className="flex flex-col">
-                      <span className="capitalize">{documentTitle(r)}</span>
-                      <span className="text-xs text-muted-foreground">{r.project_short_name || r.project_title}</span>
-                    </div>
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
         </div>
       </div>

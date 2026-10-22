@@ -193,19 +193,21 @@ function ProjectBox({
       </button>
 
       {open && (
-        <div className={cn("border-t px-5 py-5 space-y-4 bg-card", project.hasOverdue && "border-red-200")}>
+        <div className={cn("border-t px-5 py-5 space-y-6 bg-card", project.hasOverdue && "border-red-200")}>
           {project.timeline.length > 0 && (
             <HorizontalTimeline events={project.timeline} />
           )}
-          <div>
-            <h3 className="t-heading-sub mb-3">{labels.partnerProject.needsAction}</h3>
+          <div className="rounded-lg border overflow-hidden">
+            <div className="px-4 py-3 border-b bg-muted/50">
+              <h2 className="t-heading-section">{labels.partnerProject.needsAction}</h2>
+            </div>
             {project.actions.length === 0 ? (
               <div className="flex items-center gap-3 px-2 py-4 justify-center">
                 <CheckCircle2 className="size-4 text-green-500 shrink-0" />
                 <p className="text-sm text-muted-foreground">{labels.partnerProject.nothingNeeded}</p>
               </div>
             ) : (
-              <div className="rounded-lg border overflow-hidden divide-y">
+              <div className="divide-y">
                 {project.actions.map((action, i) => (
                   <ActionRow key={i} action={action} />
                 ))}

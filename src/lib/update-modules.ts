@@ -210,6 +210,34 @@ export function normaliseMonths(value: unknown): number | null {
   return n >= MIN_EXTENSION_MONTHS && n <= MAX_EXTENSION_MONTHS ? n : null;
 }
 
+/** The months the update's extended-time-frame add-on adds to one page — the
+ *  Work Plan grid and the Expenditure table each ask for their own section. 0
+ *  unless that page's months add-on is selected, so the general version of a
+ *  page is never extended by accident.
+ *
+ *  Months are as far as this module goes. What those months DO to a timeline is
+ *  a calendar question — which quarter the new end date falls in, which years
+ *  the longer project now covers — and is answered against the project's own
+ *  dates by the DB helpers (see PROJECT_DATE_CALCULATION_STANDARD.md), never by
+ *  dividing the figure here. */
+export function sectionExtensionMonths(
+  section: string,
+  modules: string[] | null | undefined,
+  months?: number | null
+): number {
+  const selected = new Set(normaliseModules(modules));
+  const extended = UPDATE_MODULES.some(
+    (m) => m.section === section && hasMonthsField(m.value) && selected.has(m.value)
+  );
+  return extended ? (normaliseMonths(months) ?? 0) : 0;
+}
+
+/** True when `modules` selects `moduleKey` (after normalisation, so an add-on
+ *  pulls in its base row). Used to resolve which version of a page to render. */
+export function hasModule(modules: string[] | null | undefined, moduleKey: string): boolean {
+  return normaliseModules(modules).includes(moduleKey);
+}
+
 /** The group a module belongs to, or undefined for an unknown key. */
 export function moduleGroupOf(key: string): UpdateModuleGroup | undefined {
   return UPDATE_MODULE_GROUPS.find((g) => g.modules.some((m) => m.value === key));
@@ -246,6 +274,11 @@ export function moduleLabel(key: string, months?: number | null): string {
 
 export function updateTypeLabel(key: string): string {
   return UPDATE_TYPES.find((t) => t.value === key)?.label ?? key;
+}
+
+/** The abbreviation ("BR", "NCE", …) for places that list types as badges. */
+export function updateTypeShort(key: string): string {
+  return UPDATE_TYPES.find((t) => t.value === key)?.short ?? key;
 }
 
 /** The report-editor sections unlocked by a set of modules, in canonical tab

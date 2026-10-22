@@ -6,9 +6,9 @@ import { ReportEditor } from "@/components/report-editor/report-editor";
 // on `update` documents — so its tabs come from each update's unlocked sections
 // (see lib/update-sections.ts) rather than the full annual-report set.
 //
-// This is the Editor-group entry point, reached from the sidebar and listing
-// every update the admin can open. The identical editor is also mounted under
-// /admin/project-updates/... when an update is opened from that list page.
+// The one place an update is edited, reached from the sidebar's Editor group or
+// by opening an update from the Project Updates list — which, like the Reports
+// list, only creates and selects documents and then hands off to here.
 export function ProjectUpdateEditorView() {
   return (
     <ReportEditor

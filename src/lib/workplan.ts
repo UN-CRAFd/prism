@@ -85,6 +85,39 @@ export function quarterRange(start?: string | null, end?: string | null): string
   return out;
 }
 
+// How many quarters lie between two quarter keys — "2027-Q1" → "2027-Q3" is 2.
+// 0 when they are the same quarter, when `to` is earlier, or on invalid input.
+//
+// This is how an extended time frame is sized: the extension is measured on the
+// calendar, by asking which quarter the project's new end date falls in, not by
+// dividing its length by three. A project ending mid-quarter that is extended by
+// two months ends in the SAME quarter and so gains no column at all, while the
+// same two months on a project ending at a quarter boundary gain one.
+export function quartersBetween(from: string | null | undefined, to: string | null | undefined): number {
+  if (!from || !to) return 0;
+  const a = parseQuarter(from);
+  const b = parseQuarter(to);
+  if (!a || !b) return 0;
+  return Math.max(0, (b.year * 4 + (b.q - 1)) - (a.year * 4 + (a.q - 1)));
+}
+
+// The `count` quarter keys that follow `last` — "2027-Q3" + 2 → ["2027-Q4",
+// "2028-Q1"]. Used to hang an extended time frame off the end of a project's
+// own range, so the extra columns continue the sequence rather than restarting
+// it. Capped at 40 like quarterRange; [] for missing/invalid input.
+export function quartersAfter(last: string | null | undefined, count: number): string[] {
+  if (!last || count <= 0) return [];
+  const q = parseQuarter(last);
+  if (!q) return [];
+  const out: string[] = [];
+  const first = q.year * 4 + (q.q - 1) + 1;
+  for (let i = 0; i < Math.min(count, 40); i++) {
+    const idx = first + i;
+    out.push(formatQuarterKey(Math.floor(idx / 4), (idx % 4) + 1));
+  }
+  return out;
+}
+
 // Group an ordered quarter-key list by year, preserving order.
 export function groupQuartersByYear(keys: string[]): { year: number; quarters: Quarter[] }[] {
   const groups: { year: number; quarters: Quarter[] }[] = [];

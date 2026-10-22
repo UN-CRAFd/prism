@@ -152,14 +152,26 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
 };
 
 
+// The card used by the Reports grid and, with the three optional props below,
+// by the Project Updates grid: an update is the same object with its own type
+// badges, its own editor and its own wording. Left alone, every prop keeps the
+// report behaviour it had before, so the Reports page is untouched.
 export function ReportCard({
   report,
   onDelete,
   groupMode = "year",
+  typeBadges,
+  href,
+  openLabel = "Open report",
 }: {
   report: ReportRow;
   onDelete: () => void;
   groupMode?: GroupMode;
+  /** Badges shown beside the partner/year one. Defaults to the report type. */
+  typeBadges?: { text: string; title?: string }[];
+  /** Where the card opens. Defaults to this report's editor. */
+  href?: string;
+  openLabel?: string;
 }) {
   const router = useRouter();
   // The /api/reports/[id]/pdf endpoint still exists but its output is not presentable
@@ -205,11 +217,13 @@ export function ReportCard({
   }
 
   const slug = projectSlug(report.project_short_name, report.project_title);
+  const target = href ?? `/admin/report-editor/${slug}/${report.year}/overview`;
+  const badges = typeBadges ?? [{ text: report.report_type ?? "annual" }];
 
   return (
     <>
     <Card
-      onClick={() => router.push(`/admin/report-editor/${slug}/${report.year}/overview`)}
+      onClick={() => router.push(target)}
       className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
     >
       {/* ⋯ menu — top right, always visible */}
@@ -250,9 +264,11 @@ export function ReportCard({
         <Badge variant="outline" className="text-xs font-semibold tabular-nums">
           {groupMode === "organization" ? report.year : shortName(report.partner_short_name)}
         </Badge>
-        <Badge variant="secondary" className="text-xs font-semibold capitalize">
-          {report.report_type ?? "annual"}
-        </Badge>
+        {badges.map((b) => (
+          <Badge key={b.text} variant="secondary" className="text-xs font-semibold capitalize" title={b.title}>
+            {b.text}
+          </Badge>
+        ))}
         {submissionDate && (
           <span className="text-xs text-muted-foreground ml-auto">
             due {formatDate(submissionDate)}
@@ -279,11 +295,11 @@ export function ReportCard({
           {status}
         </span>
         <button
-          onClick={(e) => { e.stopPropagation(); router.push(`/admin/report-editor/${slug}/${report.year}/overview`); }}
+          onClick={(e) => { e.stopPropagation(); router.push(target); }}
           className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Open report"
+          title={openLabel}
         >
-          Open report
+          {openLabel}
           <ArrowRight className="size-3" />
         </button>
       </div>

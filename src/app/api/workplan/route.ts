@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { quarterFromDate, workplanTypeCode } from "@/lib/workplan";
+import { quarterFromDate, quartersBetween, workplanTypeCode } from "@/lib/workplan";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { hasUpdateModuleColumns } from "@/lib/update-columns";
+import { sectionExtensionMonths } from "@/lib/update-modules";
 
 // ── Workplan progress, keyed by admin-managed update windows ─────────────────
 //
@@ -61,7 +63,10 @@ export async function GET(req: NextRequest) {
 
   try {
     // Resolve the project + current year + derive the quarter range from
-    // start + duration.
+    // start + duration. An update carrying the Work Plan "+ extended time frame"
+    // module gets a second end date out of the same helper — the project as it
+    // would run with the extra months — and the two are compared below.
+    const moduleCols = await hasUpdateModuleColumns();
     const projRows = await query<{
       project_id: number;
       year: number;
@@ -69,10 +74,21 @@ export async function GET(req: NextRequest) {
       report_type: string | null;
       start_date: string | null;
       end_date: string | null;
+      extended_end: string | null;
+      update_modules: string[] | null;
+      update_months: number | null;
     }>(
       `SELECT p.id AS project_id, r.year, r.data_type, r.report_type,
               TO_CHAR(p.project_start_date, 'YYYY-MM-DD') AS start_date,
-              TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS end_date
+              TO_CHAR(reporting_platform.project_end_date(p.project_start_date, p.project_duration_months), 'YYYY-MM-DD') AS end_date,
+              ${moduleCols
+                ? `TO_CHAR(reporting_platform.project_end_date(
+                     p.project_start_date,
+                     COALESCE(p.project_duration_months, 12) + COALESCE(r.update_months, 0)
+                   ), 'YYYY-MM-DD') AS extended_end,
+                   r.update_modules, r.update_months`
+                : `NULL::text AS extended_end,
+                   NULL::text[] AS update_modules, NULL::integer AS update_months`}
          FROM reporting_platform.reports r
          JOIN reporting_platform.projects p ON p.id = r.project_id
         WHERE r.id = $1`,
@@ -80,7 +96,27 @@ export async function GET(req: NextRequest) {
     );
     if (!projRows.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
-    const { project_id, year: reportYear, data_type: reportDataType, report_type, start_date, end_date } = projRows[0];
+    const {
+      project_id, year: reportYear, data_type: reportDataType, report_type,
+      start_date, end_date, extended_end, update_modules, update_months,
+    } = projRows[0];
+
+    // How far past the project's own end the grid runs, MEASURED ON THE CALENDAR:
+    // the extension is a longer project (the same project_end_date helper, asked
+    // for duration + the extra months), and the grid grows by however many
+    // quarters separate the old end quarter from the new one. So extra months
+    // that land inside the project's final quarter add no column, and the number
+    // of columns never depends on rounding a month count. An annual report (and
+    // an update without the add-on) gets 0 — the page's general version is the
+    // project timeline exactly as it stands.
+    const extensionMonths =
+      reportDataType === "update"
+        ? sectionExtensionMonths("workplan", update_modules, update_months)
+        : 0;
+    const extensionQuarters =
+      extensionMonths > 0
+        ? quartersBetween(quarterFromDate(end_date), quarterFromDate(extended_end))
+        : 0;
 
     // Project structure + baseline (admin-owned; read-only to partners).
     const activities = await query<Record<string, unknown> & { id: number }>(
@@ -147,6 +183,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       range: { start: quarterFromDate(start_date), end: quarterFromDate(end_date) },
+      // The extended-time-frame version of the page: `quarters` columns hung off
+      // the end of `range`. `months` is the extension as applied for, which can
+      // be non-zero with no column to show for it when the extra time stays
+      // inside the project's final quarter.
+      extension: { months: extensionMonths > 0 ? extensionMonths : null, quarters: extensionQuarters },
       updates,
       activeUpdateId,
       activities: activities.map((a) => ({ ...a, byUpdate: byActivity.get(a.id) ?? {} })),

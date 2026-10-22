@@ -290,6 +290,8 @@ CREATE TABLE IF NOT EXISTS reports (
     update_modules         TEXT[]         NOT NULL DEFAULT '{}',  -- project update: modules included (justification, workplan_months, expenditure_budget, …)
     update_months          INTEGER,                               -- project update: length of the extension, when an "+ extended time frame" module is included
     update_index           TEXT           NOT NULL DEFAULT '',    -- project update: free-text tag telling apart several updates in one year ("Project Update 2027 (2)"); always '' for reports and prodocs
+    indirect_expenditure   NUMERIC(15,2)  CHECK (indirect_expenditure IS NULL OR indirect_expenditure >= 0),
+                                                                  -- project update: indirect support costs actually spent in the year this document reports. One figure per document, so it sits here rather than in expenditure_entries (which is keyed by budget category, and ISC is not one). See db/add-expenditure-indirect.sql.
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     -- update_index is '' for reports and prodocs, so they stay one per
@@ -836,6 +838,10 @@ CREATE TABLE IF NOT EXISTS expenditure_entries (
     -- report_id / category_id / annual_expenditure / comment only). See
     -- db/archive/db-incremental/016_drop_expenditure_entries_year.sql.
     annual_expenditure NUMERIC(15,2) CHECK (annual_expenditure IS NULL OR annual_expenditure >= 0),
+    -- Project updates carrying a budget revision: the partner's proposed new
+    -- budget for this category over the whole project period. NULL on an annual
+    -- report, which has no budget to propose. See db/add-expenditure-proposed.sql.
+    proposed_amount    NUMERIC(15,2) CHECK (proposed_amount IS NULL OR proposed_amount >= 0),
     comment            TEXT,
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

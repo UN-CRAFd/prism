@@ -1,11 +1,9 @@
 import labels from "@/lib/labels";
-import { REPORT_SECTIONS } from "@/lib/report-sections";
+import { REPORT_SECTIONS, type ReportSectionGroup } from "@/lib/report-sections";
 import { PROJECT_UPDATE_SECTIONS, type ProjectUpdateSection } from "@/lib/project-updates";
 import {
   UPDATE_MODULE_GROUPS,
   UPDATE_MODULES,
-  isAddOn,
-  moduleLabel,
   type UpdateModule,
 } from "@/lib/update-modules";
 
@@ -20,9 +18,11 @@ import {
 // VARIANTS. A page is not always the same page. The add-on rows under a group
 // (Work Plan "+ extended time frame", Expenditure "+ proposed new budget", …)
 // select a VERSION of that single page: with an NCE in the mix the work plan
-// needs its extra months columns, with a budget revision the expenditure page
-// needs the proposed-new-budget columns. `sectionVariant` resolves which add-ons
-// are live for a page so the page can render the right version of itself.
+// carries extra quarter columns, with a budget revision the expenditure page
+// carries the new-requested-budget columns. Each page resolves its own version
+// server-side — /api/workplan and /api/expenditure read the update's modules
+// and hand the page what it needs — so there is nothing to resolve here, and
+// no banner announcing it: the page shows its version by being it.
 //
 // Sections render from this list rather than REPORT_SECTIONS because two of them
 // — Justification and HACT Recommendations — exist only on updates.
@@ -35,12 +35,32 @@ export interface UpdateSection {
   readonly label: string;
   /** The matrix group that produces this page. */
   group: string;
+  /** Qualitative or Quantitative — the halves an annual report splits into, and
+   *  which an update now splits into as well. */
+  kind: ReportSectionGroup;
   /** Every module that maps here, base row first. */
   modules: UpdateModule[];
 }
 
 function groupFor(section: ProjectUpdateSection) {
   return UPDATE_MODULE_GROUPS.find((g) => g.modules.some((m) => m.section === section));
+}
+
+// Most update pages ARE annual-report sections, so they take their half from
+// there and can never drift from it. The two update-only pages are placed by
+// hand: Justification is the narrative reason for the update, and HACT
+// Recommendations belongs with Risk Management, which it accompanies.
+const UPDATE_ONLY_KIND: Record<string, ReportSectionGroup> = {
+  justification: "Qualitative",
+  hact: "Quantitative",
+};
+
+function kindFor(section: ProjectUpdateSection): ReportSectionGroup {
+  return (
+    REPORT_SECTIONS.find((s) => s.value === section)?.group ??
+    UPDATE_ONLY_KIND[section] ??
+    "Quantitative"
+  );
 }
 
 export const UPDATE_SECTIONS: UpdateSection[] = PROJECT_UPDATE_SECTIONS.map((value) => {
@@ -60,6 +80,7 @@ export const UPDATE_SECTIONS: UpdateSection[] = PROJECT_UPDATE_SECTIONS.map((val
       );
     },
     group: group?.label ?? value,
+    kind: kindFor(value),
     modules: UPDATE_MODULES.filter((m) => m.section === value),
   };
 });
@@ -68,40 +89,15 @@ export function updateSection(value: string): UpdateSection | undefined {
   return UPDATE_SECTIONS.find((s) => s.value === value);
 }
 
-/** Which version of a page to render, given the update's selected modules. */
-export interface UpdateSectionVariant {
-  section: string;
-  /** Selected modules that map to this page, base row first. */
-  modules: string[];
-  /** The selected add-ons only — what makes this version differ from the plain one. */
-  addOns: string[];
-  /** True when that module is selected for this update. */
-  has: (moduleKey: string) => boolean;
-  /** Human-readable version name, e.g. "Work Plan + extended time frame by 6 months". */
-  describe: (months?: number | null) => string;
-}
-
-/** Resolve the variant of `section` for an update carrying `selectedModules`. */
-export function sectionVariant(section: string, selectedModules: string[]): UpdateSectionVariant {
-  const chosen = new Set(selectedModules);
-  const modules = UPDATE_MODULES.filter((m) => m.section === section && chosen.has(m.value)).map(
-    (m) => m.value
-  );
-  const addOns = modules.filter(isAddOn);
-  return {
-    section,
-    modules,
-    addOns,
-    has: (moduleKey) => modules.includes(moduleKey),
-    describe: (months) => {
-      const base = updateSection(section)?.group ?? section;
-      if (addOns.length === 0) return base;
-      // moduleLabel already qualifies an add-on with its group and fills in the
-      // months figure, so strip the repeated group name off the extras.
-      const extras = addOns.map((key) =>
-        moduleLabel(key, months).replace(`${base} `, "")
-      );
-      return `${base} ${extras.join(" ")}`;
-    },
-  };
+/** The given update pages split into their Qualitative / Quantitative halves,
+ *  in that order, for the editor's tab bar and the partner sidebar. Pass the
+ *  pages this update actually has: a half with nothing in it is dropped, so an
+ *  update of purely quantitative pages shows one group rather than an empty
+ *  heading. */
+export function updateSectionGroups(
+  sections: UpdateSection[]
+): { label: ReportSectionGroup; sections: UpdateSection[] }[] {
+  return (["Qualitative", "Quantitative"] as const)
+    .map((label) => ({ label, sections: sections.filter((s) => s.kind === label) }))
+    .filter((g) => g.sections.length > 0);
 }

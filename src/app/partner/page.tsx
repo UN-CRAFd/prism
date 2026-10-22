@@ -169,14 +169,7 @@ function ProjectBox({
         <div className="flex-1 min-w-0">
           <p className="text-base font-semibold leading-snug">{project.title}</p>
           <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
-          <span
-            className={cn(
-              "mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium",
-              project.role === "lead"
-                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                : "bg-violet-50 text-violet-700 border border-violet-200"
-            )}
-          >
+          <span className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
             {project.role === "lead" ? labels.partnerHome.roleLead : labels.partnerHome.roleImpl}
           </span>
         </div>

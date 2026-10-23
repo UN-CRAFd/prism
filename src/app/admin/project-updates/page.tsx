@@ -153,7 +153,7 @@ export default function ProjectUpdatesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Project Updates" description="Create and manage mid-year project updates">
+      <PageHeader title="Branch Test" description="Create and manage mid-year project updates">
         <ViewToggle view={view} onChange={setView} />
         {!showForm && (
           <Button size="sm" onClick={() => setShowForm(true)}>

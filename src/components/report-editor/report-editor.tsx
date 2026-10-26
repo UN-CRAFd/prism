@@ -1302,7 +1302,9 @@ export function ReportEditor({
               <div hidden={params.section !== "hact"}>
                 <HactSection
                   reportId={reportId}
+                  isAdmin={mode === "admin"}
                   readOnly={readOnly}
+                  onSaveStateChange={handleChildSaveStateChange}
                 />
               </div>
             )}

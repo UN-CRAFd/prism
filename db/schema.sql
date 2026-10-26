@@ -855,6 +855,28 @@ CREATE TRIGGER expenditure_entries_updated_at
     BEFORE UPDATE ON expenditure_entries
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- ── HACT recommendations (project updates) ──────────────────────────────────
+-- One row per finding, added and maintained by CRAF'd; the partner writes only
+-- partner_comment (enforced in /api/hact-recommendations). See
+-- db/add-hact-recommendations.sql.
+CREATE TABLE IF NOT EXISTS hact_recommendations (
+    id              SERIAL       PRIMARY KEY,
+    report_id       INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    number          TEXT         NOT NULL DEFAULT '',
+    finding         TEXT         NOT NULL DEFAULT '',
+    recommendation  TEXT         NOT NULL DEFAULT '',
+    partner_comment TEXT         NOT NULL DEFAULT '',
+    status          TEXT,
+    sort_order      INTEGER      NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS hact_recommendations_report_idx ON hact_recommendations(report_id);
+DROP TRIGGER IF EXISTS hact_recommendations_updated_at ON hact_recommendations;
+CREATE TRIGGER hact_recommendations_updated_at
+    BEFORE UPDATE ON hact_recommendations
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ── Transfers to implementing partners ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS transfer_partners (
     id                SERIAL       PRIMARY KEY,

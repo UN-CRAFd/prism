@@ -91,6 +91,17 @@
       { "value": "Suspended", "label": "Suspended", "description": "Activity halted." }
     ]
   },
+  "hactStatus": {
+    "label": "HACT recommendation status",
+    "description": "Status of a HACT recommendation on a project update. Set by CRAF'd.",
+    "kind": "flat",
+    "items": [
+      { "value": "Open", "label": "Open" },
+      { "value": "In Progress", "label": "In Progress" },
+      { "value": "Implemented", "label": "Implemented" },
+      { "value": "Closed", "label": "Closed" }
+    ]
+  },
   "workplanUpdateType": {
     "label": "Workplan update types",
     "description": "Update-window types. The value is a short code (e.g. TR) shown in row labels; the label is the full name.",

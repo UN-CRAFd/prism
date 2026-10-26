@@ -32,6 +32,7 @@ export const REPORT_SCOPED_TABLES = [
   "expenditure_entries",
   "transfer_data",
   "complementary_data",
+  "hact_recommendations",
 ] as const;
 
 export const PRODOC_PROJECT_SCOPED_TABLES = [

@@ -52,6 +52,9 @@ const SECTION_ITEM_LABEL_SQL: Record<string, string> = {
   partnerships:
     `SELECT id, concat_ws(' · ', NULLIF(partner_organization, ''), NULLIF(result, '')) AS label
        FROM reporting_platform.partnerships WHERE id = ANY($1)`,
+  hact:
+    `SELECT id, concat_ws(' · ', 'No. ' || NULLIF(number, ''), NULLIF(finding, '')) AS label
+       FROM reporting_platform.hact_recommendations WHERE id = ANY($1)`,
   results:
     `SELECT id, concat_ws(' · ', NULLIF(context, ''), NULLIF(data_driven_decision, ''), NULLIF(resulting_impact, '')) AS label
        FROM reporting_platform.results WHERE id = ANY($1)`,

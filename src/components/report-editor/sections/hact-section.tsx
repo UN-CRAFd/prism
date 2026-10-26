@@ -137,7 +137,7 @@ export function HactSection({
   async function deleteRow(row: HactRow) {
     if (!await confirm({
       title: `Delete recommendation ${row.number || ""}?`.replace(" ?", "?"),
-      message: "This removes the finding, the recommendation and the partner's description. It cannot be undone.",
+      message: "This removes the finding, the recommendation and the partner's comment. It cannot be undone.",
       variant: "destructive",
     })) return;
     dirtyRef.current.delete(row.id);
@@ -157,8 +157,8 @@ export function HactSection({
         <h2 className="t-heading-section">HACT Recommendations</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {isAdmin
-            ? "Add one row per finding. The partner can respond in the Description column only."
-            : "The findings and recommendations from CRAF'd's assurance activities. Respond to each one in the Description column."}
+            ? "Add one row per finding. The partner can respond in the Partner comment column only."
+            : "The findings and recommendations from CRAF'd's assurance activities. Respond to each one in the Partner comment column."}
         </p>
       </div>
 
@@ -178,7 +178,7 @@ export function HactSection({
                 <th className={cn("px-3 py-2 w-20", HEAD_TEXT)}>No.</th>
                 <th className={cn("px-3 py-2 min-w-[220px]", HEAD_TEXT)}>Description of finding</th>
                 <th className={cn("px-3 py-2 min-w-[220px]", HEAD_TEXT)}>Recommendation</th>
-                <th className={cn("px-3 py-2 min-w-[220px] bg-crafd-yellow/15", HEAD_TEXT)}>Description</th>
+                <th className={cn("px-3 py-2 min-w-[220px] bg-crafd-yellow/15", HEAD_TEXT)}>Partner comment</th>
                 <th className={cn("px-3 py-2 w-44", HEAD_TEXT)}>Status</th>
                 {canEditAll && <th className="w-10" />}
               </tr>
@@ -230,7 +230,7 @@ export function HactSection({
                             value={r.partner_comment}
                             editable={canEditComment}
                             onChange={(v) => edit(r.id, "partner_comment", v)}
-                            label="Description"
+                            label="Partner comment"
                             placeholder="Describe the action taken…"
                           />
                         </div>

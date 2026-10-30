@@ -45,6 +45,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // Active nav item style, shared by every level of the partner and admin sidebars.
 const NAV_ACTIVE = "bg-crafd-yellow-light text-black";
+// A parent row whose nested row is the active one: bold, no fill, so only the
+// deepest active item carries the yellow background.
+const NAV_PARENT_ACTIVE = "text-black font-semibold";
 
 // The guide is a single long page; sub-links scroll to section anchors on it.
 // The section list is DB-driven (wiki_sections, editable at /admin/guide) — the
@@ -456,6 +459,13 @@ export function AppSidebar() {
             const showReports = isEditor && (!!report || pathname.startsWith("/partner/report-editor"));
             const showProdocs = isProdocEditor && prodocItems.length > 0 && pathname.startsWith("/partner/prodoc-editor");
             const showUpdates = isUpdateEditor && updates.length > 0 && (!!openUpdate || pathname.startsWith("/partner/project-updates"));
+            // Active top-level link with one of its own nested rows (project,
+            // report or update) active too: that row takes the fill instead.
+            const hasActiveNested =
+              active &&
+              ((showProdocs && prodocItems.some((p) => openProdocSlug === projectSlug(p.project_short_name, p.project_title))) ||
+                (showReports && !!report) ||
+                (showUpdates && updates.some((u) => u.id === activeUpdateId)));
             return (
               <div key={href}>
                 <Link
@@ -466,7 +476,7 @@ export function AppSidebar() {
                     // identically. Keep these in step if either side changes.
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
                     active
-                      ? NAV_ACTIVE
+                      ? hasActiveNested ? NAV_PARENT_ACTIVE : NAV_ACTIVE
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
@@ -528,7 +538,7 @@ export function AppSidebar() {
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               pActive
-                                ? NAV_ACTIVE
+                                ? NAV_PARENT_ACTIVE
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                             onClick={(e) => {
@@ -541,7 +551,7 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-sm font-medium">
+                              <span className="truncate text-sm font-medium" title={p.project_title}>
                                 {p.project_title}
                               </span>
                               {pActive && (
@@ -566,7 +576,7 @@ export function AppSidebar() {
                                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                     )}
                                   >
-                                    <span className="flex-1 truncate">{s.label}</span>
+                                    <span className="flex-1 truncate" title={s.label}>{s.label}</span>
                                     {prodocSectionComplete?.projectId === openProdocRow?.project_id && prodocSectionComplete?.sections[s.value] && (
                                       <Check className="size-3.5 shrink-0 text-green-600" />
                                     )}
@@ -616,7 +626,7 @@ export function AppSidebar() {
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
-                                ? NAV_ACTIVE
+                                ? NAV_PARENT_ACTIVE
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                             onClick={(e) => {
@@ -629,24 +639,25 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-sm font-medium capitalize">{it.primary}</span>
+                              <span className="truncate text-sm font-medium capitalize" title={it.primary}>{it.primary}</span>
                               {it.isActive && (
                                 reportSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
                                   : <ChevronDown className="size-3 shrink-0" />
                               )}
                             </span>
-                            <span className="truncate text-xs opacity-70">{it.secondary}</span>
+                            <span className="truncate text-xs opacity-70" title={it.secondary}>{it.secondary}</span>
                           </Link>
 
                           {/* Level 2: sections of the open report, split into
                               Qualitative / Quantitative groups. */}
                           {it.isActive && report && !reportSectionsCollapsed && (
                             <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                              {REPORT_SECTION_GROUPS.map((grp) => (
+                              {REPORT_SECTION_GROUPS.map((grp, gi) => (
                                 <div key={grp.label} className="flex flex-col gap-0.5">
                                   <p className={cn(
                                     "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
+                                    gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
                                     GROUP_STYLES[grp.label].header
                                   )}>
                                     {grp.label}
@@ -664,7 +675,7 @@ export function AppSidebar() {
                                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                         )}
                                       >
-                                        <span className="flex-1 truncate">{s.label}</span>
+                                        <span className="flex-1 truncate" title={s.label}>{s.label}</span>
                                         {sectionComplete[s.value] && (
                                           <Check className="size-3.5 shrink-0 text-green-600" />
                                         )}
@@ -709,7 +720,7 @@ export function AppSidebar() {
                             className={cn(
                               "flex flex-col rounded-md px-3 py-1.5 transition-colors",
                               it.isActive
-                                ? NAV_ACTIVE
+                                ? NAV_PARENT_ACTIVE
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                             onClick={(e) => {
@@ -722,14 +733,14 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-sm font-medium">{it.primary}</span>
+                              <span className="truncate text-sm font-medium" title={it.primary}>{it.primary}</span>
                               {it.isActive && (
                                 updateSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
                                   : <ChevronDown className="size-3 shrink-0" />
                               )}
                             </span>
-                            <span className="truncate text-xs opacity-70">{it.secondary}</span>
+                            <span className="truncate text-xs opacity-70" title={it.secondary}>{it.secondary}</span>
                           </Link>
 
                           {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {
@@ -742,10 +753,11 @@ export function AppSidebar() {
                             );
                             return (
                               <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                                {groups.map((grp) => (
+                                {groups.map((grp, gi) => (
                                   <div key={grp.label} className="flex flex-col gap-0.5">
                                     <p className={cn(
                                       "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
+                                      gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
                                       GROUP_STYLES[grp.label].header
                                     )}>
                                       {grp.label}
@@ -763,7 +775,7 @@ export function AppSidebar() {
                                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                           )}
                                         >
-                                          <span className="flex-1 truncate">{s.label}</span>
+                                          <span className="flex-1 truncate" title={s.label}>{s.label}</span>
                                           {updateSectionComplete[s.value] && (
                                             <Check className="size-3.5 shrink-0 text-green-600" />
                                           )}

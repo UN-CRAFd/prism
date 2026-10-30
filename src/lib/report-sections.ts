@@ -29,13 +29,13 @@ export interface GroupStyle {
 export const GROUP_STYLES: Record<ReportSectionGroup, GroupStyle> = {
   Qualitative: {
     sidebarActive: "bg-crafd-yellow-light text-black",
-    tabActive: "border-crafd-yellow text-crafd-yellow",
-    header: "text-crafd-yellow",
+    tabActive: "border-crafd-yellow text-crafd-grey-900",
+    header: "text-crafd-grey-600",
   },
   Quantitative: {
     sidebarActive: "bg-crafd-yellow-light text-black",
-    tabActive: "border-sky-500 text-sky-600",
-    header: "text-sky-600",
+    tabActive: "border-crafd-yellow text-crafd-grey-900",
+    header: "text-crafd-grey-600",
   },
 };
 

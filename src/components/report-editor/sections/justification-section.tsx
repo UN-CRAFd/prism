@@ -8,7 +8,6 @@ import {
   GENERAL_JUSTIFICATION_KEY,
   appliedTypes,
   justificationPrompt,
-  updateTypeList,
 } from "@/lib/update-justifications";
 
 // Justification — why the partner is applying for this update. ONE open field,
@@ -82,20 +81,10 @@ export function JustificationSection({
     schedule();
   }
 
-  const list = updateTypeList(updateTypes);
   const applying = appliedTypes(updateTypes).length > 0;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="t-heading-section">Justification</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {list
-            ? `Explain why you are submitting this ${list}.`
-            : "Explain why this project update is being submitted."}
-        </p>
-      </div>
-
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}

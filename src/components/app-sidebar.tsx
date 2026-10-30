@@ -31,6 +31,7 @@ import {
   ClipboardPen,
   History,
   FilePen,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
@@ -68,6 +69,7 @@ const editorLinks = [
   { href: "/admin/indicators", label: "Indicators", icon: Target },
   { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
   { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
+  { href: "/admin/hact-recommendations", label: "HACT Recommendations", icon: ShieldCheck },
   { href: "/admin/comments", label: "Comments", icon: MessageSquare },
   { href: "/admin/guide", label: "Guide", icon: BookOpen },
 ];

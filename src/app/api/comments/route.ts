@@ -53,8 +53,14 @@ const SECTION_ITEM_LABEL_SQL: Record<string, string> = {
     `SELECT id, concat_ws(' · ', NULLIF(partner_organization, ''), NULLIF(result, '')) AS label
        FROM reporting_platform.partnerships WHERE id = ANY($1)`,
   hact:
-    `SELECT id, concat_ws(' · ', 'No. ' || NULLIF(number, ''), NULLIF(finding, '')) AS label
-       FROM reporting_platform.hact_recommendations WHERE id = ANY($1)`,
+    // "No." is the row's position in its project's list (see /api/hact-recommendations).
+    `SELECT h.id,
+            concat_ws(' · ',
+              'No. ' || (SELECT COUNT(*) FROM reporting_platform.hact_recommendations o
+                          WHERE o.project_id = h.project_id
+                            AND (o.sort_order, o.id) <= (h.sort_order, h.id)),
+              NULLIF(h.finding, '')) AS label
+       FROM reporting_platform.hact_recommendations h WHERE h.id = ANY($1)`,
   results:
     `SELECT id, concat_ws(' · ', NULLIF(context, ''), NULLIF(data_driven_decision, ''), NULLIF(resulting_impact, '')) AS label
        FROM reporting_platform.results WHERE id = ANY($1)`,

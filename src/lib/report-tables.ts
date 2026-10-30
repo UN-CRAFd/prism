@@ -15,7 +15,8 @@
 //
 // NOTE: `indicators` is intentionally absent — it is now a shared global
 // vocabulary with no project_id, so an indicator edit is no longer one project's
-// prodoc edit.
+// prodoc edit. `hact_recommendations` is absent too — it is one list per
+// project, shared by all of that project's updates (see the HACT route).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const REPORT_SCOPED_TABLES = [
@@ -32,7 +33,6 @@ export const REPORT_SCOPED_TABLES = [
   "expenditure_entries",
   "transfer_data",
   "complementary_data",
-  "hact_recommendations",
 ] as const;
 
 export const PRODOC_PROJECT_SCOPED_TABLES = [

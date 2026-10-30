@@ -16,10 +16,18 @@ interface ClampedTextProps {
   text: string;
   className?: string;
   lines?: number;
+  /** Controlled mode (with onToggle): the paragraph always stays clamped and the
+   *  full text is shown elsewhere; this only drives the "Show more/less" label. */
+  expanded?: boolean;
+  onToggle?: () => void;
 }
 
-export function ClampedText({ text, className, lines = 3 }: ClampedTextProps) {
-  const [expanded, setExpanded] = useState(false);
+export function ClampedText({ text, className, lines = 3, expanded: expandedProp, onToggle }: ClampedTextProps) {
+  const controlled = onToggle !== undefined;
+  const [innerExpanded, setExpanded] = useState(false);
+  // Controlled: the paragraph itself never expands.
+  const expanded = controlled ? false : innerExpanded;
+  const toggle = () => (controlled ? onToggle() : setExpanded((prev) => !prev));
   const [isTruncated, setIsTruncated] = useState(false);
   const pRef = useRef<HTMLParagraphElement>(null);
 
@@ -48,17 +56,17 @@ export function ClampedText({ text, className, lines = 3 }: ClampedTextProps) {
         <span
           role="button"
           tabIndex={0}
-          aria-expanded={expanded}
-          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={controlled ? !!expandedProp : expanded}
+          onClick={toggle}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               if (e.key === " ") e.preventDefault();
-              setExpanded((prev) => !prev);
+              toggle();
             }
           }}
-          className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          className="mt-1 text-xs font-medium text-crafd-grey-600 hover:text-crafd-grey-900 transition-colors cursor-pointer"
         >
-          {expanded ? "Show less" : "Show more"}
+          {(controlled ? expandedProp : expanded) ? "Show less" : "Show more"}
         </span>
       )}
     </div>

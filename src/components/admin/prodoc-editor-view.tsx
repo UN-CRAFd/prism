@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
@@ -198,6 +198,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [newRiskErrors, setNewRiskErrors] = useState({ name: false, description: false, likelihood: false, impact: false });
   const [deletingRiskId, setDeletingRiskId] = useState<number | null>(null);
   const [editingRiskId, setEditingRiskId] = useState<number | null>(null);
+  // Risks whose full description + mitigation are shown in the row below them.
+  const [expandedRiskIds, setExpandedRiskIds] = useState<Set<number>>(new Set());
+  const toggleRiskExpanded = (id: number) =>
+    setExpandedRiskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   const [editingRiskName, setEditingRiskName] = useState("");
   const [editingRiskDescription, setEditingRiskDescription] = useState("");
   const [editingRiskCategory, setEditingRiskCategory] = useState<string[]>([]);
@@ -1647,7 +1655,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                         {risks.map((risk, i) => {
                           const isEditing = editingRiskId === risk.id;
                           return (
-                            <tr key={risk.id} className="transition-colors hover:bg-muted/20">
+                            <Fragment key={risk.id}>
+                            <tr className="transition-colors hover:bg-muted/20">
                               <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
                               {isEditing ? (
                                 <>
@@ -1684,12 +1693,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                       <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium">{risk.risk_name}</p>
                                         {risk.risk_description && (
-                                          <ClampedText text={risk.risk_description} className="text-xs text-muted-foreground mt-0.5" />
+                                          <ClampedText text={risk.risk_description} className="text-xs text-muted-foreground mt-0.5" expanded={expandedRiskIds.has(risk.id)} onToggle={() => toggleRiskExpanded(risk.id)} />
                                         )}
                                         {risk.risk_category && risk.risk_category.length > 0 && (
                                           <div className="mt-1.5 flex flex-wrap gap-1">
                                             {risk.risk_category.map((cat) => (
-                                              <span key={cat} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                              <span key={cat} className="inline-flex items-center rounded-md bg-crafd-grey-100 px-2.5 py-1 text-sm font-medium text-crafd-grey-800">
                                                 {cat}
                                               </span>
                                             ))}
@@ -1709,7 +1718,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   </td>
                                   <td className="px-4 py-3 align-top">
                                     {risk.approved_mitigation
-                                      ? <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground" />
+                                      ? <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground" expanded={expandedRiskIds.has(risk.id)} onToggle={() => toggleRiskExpanded(risk.id)} />
                                       : <span className="text-sm text-muted-foreground/40">—</span>}
                                   </td>
                                   <td className="px-4 py-3 align-top">
@@ -1725,6 +1734,27 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                 </>
                               )}
                             </tr>
+                            {!isEditing && expandedRiskIds.has(risk.id) && (risk.risk_description || risk.approved_mitigation) && (
+                              <tr className="bg-crafd-yellow-50">
+                                <td colSpan={7} className="px-4 pb-4 pt-1">
+                                  <div className="grid gap-4 md:grid-cols-2">
+                                    {risk.risk_description && (
+                                      <div>
+                                        <p className="text-xs font-semibold text-crafd-grey-600 mb-1">Risk description</p>
+                                        <p className="text-sm text-crafd-grey-800 whitespace-pre-wrap">{risk.risk_description}</p>
+                                      </div>
+                                    )}
+                                    {risk.approved_mitigation && (
+                                      <div>
+                                        <p className="text-xs font-semibold text-crafd-grey-600 mb-1">{labels.risk.columns.approvedMitigation}</p>
+                                        <p className="text-sm text-crafd-grey-800 whitespace-pre-wrap">{risk.approved_mitigation}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            </Fragment>
                           );
                         })}
                         {showAddRiskRow && (

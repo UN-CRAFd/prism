@@ -123,7 +123,7 @@ export function ProdocList() {
                           `/partner/prodoc-editor/${slug(row)}/general`
                         )
                       }
-                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-3 py-1.5 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-3 py-1.5 text-sm font-semibold text-black hover:bg-crafd-yellow-900 transition-colors"
                     >
                       {labels.prodocList.open}
                       <ArrowRight className="size-3.5" />

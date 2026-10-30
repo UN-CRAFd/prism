@@ -23,6 +23,6 @@ export function cycleLabel(key: string | null | undefined): string {
 
 export const STATUS_COLORS: Record<IndicatorStatus, { bg: string; text: string; border: string }> = {
   ahead_of_schedule: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
-  on_track:          { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-300"   },
+  on_track:          { bg: "bg-crafd-yellow-300", text: "text-crafd-yellow-900", border: "border-crafd-yellow-600" },
   off_track:         { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
 };

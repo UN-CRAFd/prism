@@ -60,8 +60,25 @@
 
   /* CRAF'd Custom Brand Colors */
   --color-crafd-yellow: #f1b434;
-  --color-crafd-yellow-light: #f8da9a; /* brand yellow at ~50% on white: active nav items */
-  --color-crafd-yellow-pale: #fbeccc; /* brand yellow at ~25% on white: warning banners */
+  --color-crafd-yellow-light: #f7d793; /* brand yellow at ~50% on white: active nav items */
+  --color-crafd-yellow-pale: #fae7be; /* brand yellow at ~25% on white: warning banners */
+  /* CRAF'd design-system palette. Green (completion/success), red (errors, destructive, top of risk scale) and blue (links) are the only deliberate exceptions. */
+  --color-crafd-yellow-900: #c98c0e;
+  --color-crafd-yellow-700: #f3c35c;
+  --color-crafd-yellow-600: #f4c664;
+  --color-crafd-yellow-500: #f6d285;
+  --color-crafd-yellow-400: #f7d793;
+  --color-crafd-yellow-300: #f9e1ad;
+  --color-crafd-yellow-200: #fae7be;
+  --color-crafd-yellow-150: #fcf0d6;
+  --color-crafd-yellow-100: #fcf5e7;
+  --color-crafd-yellow-50: #fdf7ea;
+  --color-crafd-grey-900: #0f0f0f;
+  --color-crafd-grey-800: #3e3e3e;
+  --color-crafd-grey-600: #6f6f6f;
+  --color-crafd-grey-400: #9f9f9f;
+  --color-crafd-grey-200: #cfcfcf;
+  --color-crafd-grey-100: #e7e7e7;
 
   /* Custom Fonts */
   --font-roboto: var(--font-roboto), "Roboto", sans-serif;
@@ -165,6 +182,10 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
   }
 }
 

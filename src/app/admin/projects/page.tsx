@@ -27,7 +27,7 @@ import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
   FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
-import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
+import { reportStatusStyle, REPORT_STATUS_ICON_COLORS, type ReportStatus } from "@/lib/reports";
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
@@ -36,9 +36,9 @@ import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-inpu
 // admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
 // is keyed by the known values, with a neutral fallback for any added value.
 const PRODOC_STATUS_ICONS: Record<string, ReactNode> = {
-  Open:           <CircleDot className="size-3 shrink-0 text-emerald-700" />,
-  "Under Review": <Clock className="size-3 shrink-0 text-amber-700" />,
-  Closed:         <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+  Open:           <CircleDot className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Open}`} />,
+  "Under Review": <Clock className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS["Under Review"]}`} />,
+  Closed:         <CheckCircle2 className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Closed}`} />,
 };
 const PRODOC_STATUS_FALLBACK_ICON: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
 
@@ -98,22 +98,22 @@ interface ProjectRevision {
 // options ("projectStatus"); style/icon maps are keyed by the known values, with
 // neutral fallbacks applied for any added value.
 const STATUS_STYLES: Record<string, string> = {
-  Idea:                   "bg-violet-50 text-violet-700 border-violet-200",
-  Ongoing:                "bg-blue-50 text-blue-700 border-blue-200",
-  "Operationally Closed": "bg-amber-50 text-amber-700 border-amber-200",
-  "Financially Closed":   "bg-orange-50 text-orange-700 border-orange-200",
-  "Project Closed":       "bg-zinc-100 text-zinc-500 border-zinc-200",
+  Idea:                   "bg-white text-crafd-grey-600 border-crafd-grey-400",
+  Ongoing:                "bg-crafd-yellow text-crafd-grey-900 border-crafd-yellow-900",
+  "Operationally Closed": "bg-crafd-yellow-300 text-crafd-yellow-900 border-crafd-yellow-600",
+  "Financially Closed":   "bg-crafd-yellow-150 text-crafd-yellow-900 border-crafd-yellow-300",
+  "Project Closed":       "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200",
 };
-const STATUS_STYLE_FALLBACK = "bg-zinc-100 text-zinc-600 border-zinc-200";
+const STATUS_STYLE_FALLBACK = "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200";
 
 const STATUS_ICONS: Record<string, ReactNode> = {
-  Idea:                   <Lightbulb className="size-3 shrink-0 text-violet-700" />,
-  Ongoing:                <CircleDot className="size-3 shrink-0 text-blue-700" />,
-  "Operationally Closed": <PauseCircle className="size-3 shrink-0 text-amber-700" />,
-  "Financially Closed":   <Banknote className="size-3 shrink-0 text-orange-700" />,
-  "Project Closed":       <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+  Idea:                   <Lightbulb className="size-3 shrink-0 text-crafd-grey-600" />,
+  Ongoing:                <CircleDot className="size-3 shrink-0 text-crafd-grey-900" />,
+  "Operationally Closed": <PauseCircle className="size-3 shrink-0 text-crafd-yellow-900" />,
+  "Financially Closed":   <Banknote className="size-3 shrink-0 text-crafd-yellow-900" />,
+  "Project Closed":       <CheckCircle2 className="size-3 shrink-0 text-crafd-grey-600" />,
 };
-const STATUS_ICON_FALLBACK: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
+const STATUS_ICON_FALLBACK: ReactNode = <CircleDot className="size-3 shrink-0 text-crafd-grey-400" />;
 
 function durationLabel(months: number | null): string | null {
   return months && months > 0 ? `${months} months` : null;

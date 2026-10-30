@@ -36,7 +36,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
-import { reportStatusStyle } from "@/lib/reports";
+import { reportStatusStyle, REPORT_STATUS_ICON_COLORS } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
@@ -134,21 +134,15 @@ export type ReportRow = Report;
 
 export type GroupMode = "year" | "organization" | "status";
 
+// Single neutral style; kept as a one-element array so any indexed access still works.
 export const GROUP_COLORS = [
-  { bg: "bg-blue-50",    border: "border-blue-200",    icon: "text-blue-400",    label: "text-blue-700"   },
-  { bg: "bg-amber-50",   border: "border-amber-200",   icon: "text-amber-400",   label: "text-amber-700"  },
-  { bg: "bg-emerald-50", border: "border-emerald-200", icon: "text-emerald-400", label: "text-emerald-700"},
-  { bg: "bg-violet-50",  border: "border-violet-200",  icon: "text-violet-400",  label: "text-violet-700" },
-  { bg: "bg-rose-50",    border: "border-rose-200",    icon: "text-rose-400",    label: "text-rose-700"   },
-  { bg: "bg-cyan-50",    border: "border-cyan-200",    icon: "text-cyan-400",    label: "text-cyan-700"   },
-  { bg: "bg-orange-50",  border: "border-orange-200",  icon: "text-orange-400",  label: "text-orange-700" },
-  { bg: "bg-teal-50",    border: "border-teal-200",    icon: "text-teal-400",    label: "text-teal-700"   },
+  { bg: "bg-white", border: "border-crafd-grey-100", icon: "text-crafd-grey-400", label: "text-crafd-grey-800" },
 ];
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  Open:            <CircleDot className="size-3 shrink-0 text-emerald-700" />,
-  "Under Review":  <Clock className="size-3 shrink-0 text-amber-700" />,
-  Closed:          <CheckCircle2 className="size-3 shrink-0 text-zinc-500" />,
+  Open:            <CircleDot className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Open}`} />,
+  "Under Review":  <Clock className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS["Under Review"]}`} />,
+  Closed:          <CheckCircle2 className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Closed}`} />,
 };
 
 

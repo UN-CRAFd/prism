@@ -14,16 +14,23 @@ export type ReportStatus = string;
 
 export type ReportStatusVariant = "light" | "dark";
 
-const LIGHT_STATUS_STYLES: Record<string, string> = {
-  Open:           "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "Under Review": "bg-amber-50 text-amber-700 border-amber-200",
-  Closed:         "bg-zinc-100 text-zinc-500 border-zinc-200",
+export const LIGHT_STATUS_STYLES: Record<string, string> = {
+  Open:           "bg-crafd-yellow-100 text-crafd-yellow-900 border-crafd-yellow-600",
+  "Under Review": "bg-crafd-grey-100 text-crafd-grey-800 border-crafd-grey-200",
+  Closed:         "bg-white text-crafd-grey-400 border-crafd-grey-100",
+};
+
+// Icon colour per status, shared by the admin report + project-update lists.
+export const REPORT_STATUS_ICON_COLORS: Record<string, string> = {
+  Open:           "text-crafd-yellow-900",
+  "Under Review": "text-crafd-grey-600",
+  Closed:         "text-crafd-grey-400",
 };
 
 const DARK_STATUS_STYLES: Record<string, string> = {
-  Open:           "bg-emerald-500/15 text-emerald-300",
-  "Under Review": "bg-amber-500/15 text-amber-300",
-  Closed:         "bg-neutral-500/20 text-neutral-300",
+  Open:           "bg-crafd-yellow/15 text-crafd-yellow-600",
+  "Under Review": "bg-white/15 text-crafd-grey-200",
+  Closed:         "bg-white/10 text-crafd-grey-400",
 };
 
 export function reportStatusStyle(

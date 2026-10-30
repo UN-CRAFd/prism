@@ -13,9 +13,9 @@ import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel } from "@/l
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
   1: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
-  2: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-300" },
-  3: { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-300"  },
-  4: { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-300"   },
+  2: { bg: "bg-crafd-yellow-700", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
+  3: { bg: "bg-crafd-yellow-300", text: "text-crafd-yellow-900", border: "border-crafd-yellow-600" },
+  4: { bg: "bg-white", text: "text-green-700", border: "border-green-300" },
   5: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
 };
 

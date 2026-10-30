@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
@@ -567,9 +568,9 @@ export function GeneralInfoAdminEditor({
       )}
 
       {!readOnly && (
-        <div className="order-first rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+        <Notice variant="info" className="order-first">
           {labels.tabInstructions.general}
-        </div>
+        </Notice>
       )}
 
       {/* Project data (Title, dates, cost inputs, geographic scope, implementing

@@ -6,6 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
@@ -1481,88 +1482,65 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           own box (single scroller, frozen header); every other section scrolls here. */}
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {error && (
-          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <Notice variant="error" className="mb-4">
             {error}
-          </div>
+          </Notice>
         )}
 
         {statusReadOnly && selectedProdocId && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
-            <Lock className="size-3.5 shrink-0" />
-            <span>
-              This project document is <b>{selectedDoc?.status}</b> and is view-only
-              {selectedDoc?.status === "Under Review" ? " for partners — only the CRAF'd Secretariat can unlock the project document" : ""}.
-            </span>
-          </div>
+          <Notice variant="status" icon={<Lock />} className="mb-4">
+            This project document is <b>{selectedDoc?.status}</b> and is view-only
+            {selectedDoc?.status === "Under Review" ? " for partners — only the CRAF'd Secretariat can unlock the project document" : ""}.
+          </Notice>
         )}
 
         {/* Lock acquisition in progress */}
         {!statusReadOnly && selectedProdocId && lockPhase === "acquiring" && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-600">
-            <Loader2 className="size-3.5 shrink-0 animate-spin" />
-            <span>Checking editor availability…</span>
-          </div>
+          <Notice variant="neutral" icon={<Loader2 className="animate-spin" />} className="mb-4">
+            Checking editor availability…
+          </Notice>
         )}
 
         {/* Editing session ended due to inactivity */}
         {!statusReadOnly && selectedProdocId && lockPhase === "timed-out" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
-            <div className="flex items-center gap-2">
-              <Lock className="size-3.5 shrink-0" />
-              <span>Your editing session ended due to inactivity.</span>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 h-7 text-xs border-crafd-yellow/60 bg-white hover:bg-crafd-yellow/20 text-black"
-              onClick={handleStartEditing}
-            >
-              Start editing
-            </Button>
-          </div>
+          <Notice
+            variant="status"
+            icon={<Lock />}
+            className="mb-4"
+            action={<Button size="sm" variant="outline" onClick={handleStartEditing}>Start editing</Button>}
+          >
+            Your editing session ended due to inactivity.
+          </Notice>
         )}
 
         {/* Another session holds the lock */}
         {!statusReadOnly && selectedProdocId && lockPhase === "blocked" && lockHolder && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
-            <div className="flex items-center gap-2">
-              <Lock className="size-3.5 shrink-0" />
-              <span><b>{lockHolder.name}</b> currently has this document open.</span>
-            </div>
-          </div>
+          <Notice variant="status" icon={<Lock />} className="mb-4">
+            <b>{lockHolder.name}</b> currently has this document open.
+          </Notice>
         )}
 
         {/* Lock just freed — user must click to claim it */}
         {!statusReadOnly && selectedProdocId && lockPhase === "available" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-900">
-            <span>This document is now available.</span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 h-7 text-xs border-green-300 bg-green-50 hover:bg-green-100 text-green-900"
-              onClick={handleStartEditing}
-            >
-              Start editing
-            </Button>
-          </div>
+          <Notice
+            variant="success"
+            className="mb-4"
+            action={<Button size="sm" variant="outline" onClick={handleStartEditing}>Start editing</Button>}
+          >
+            This document is now available.
+          </Notice>
         )}
 
         {/* Inactivity warning — lock will expire in ~1 minute */}
         {!statusReadOnly && selectedProdocId && lockPhase === "warning" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="size-3.5 shrink-0" />
-              <span>Your editing session will expire in 1 minute due to inactivity.</span>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 h-7 text-xs border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-900"
-              onClick={noteEdit}
-            >
-              Keep editing
-            </Button>
-          </div>
+          <Notice
+            variant="status"
+            icon={<AlertTriangle />}
+            className="mb-4"
+            action={<Button size="sm" variant="outline" onClick={noteEdit}>Keep editing</Button>}
+          >
+            Your editing session will expire in 1 minute due to inactivity.
+          </Notice>
         )}
 
         {/* Section-level comment thread for finalizing the project document: admins
@@ -1583,12 +1561,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             inline here. Hidden when view-only, like the General Information box. */}
         {selectedProdocId && !readOnly &&
           ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
-          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+          <Notice variant="info" className="mb-4">
             {selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
               : selectedSection === "risk" ? labels.tabInstructions.prodocRisk
               : selectedSection === "expenditure" ? labels.tabInstructions.prodocBudgets
               : labels.tabInstructions.prodocWorkplan}
-          </div>
+          </Notice>
         )}
 
         {/* Two complementary read-only mechanisms lock a view-only prodoc, mirroring

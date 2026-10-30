@@ -5,6 +5,7 @@ import { Layers, ShieldCheck } from "lucide-react";
 import { combinedUpdateNote } from "@/lib/update-justifications";
 import { formatDate, formatUsd } from "@/lib/utils";
 import labels from "@/lib/labels";
+import { Notice } from "@/components/ui/notice";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import type { OverviewData } from "@/components/report-editor/types";
 
@@ -33,6 +34,10 @@ export interface OverviewSectionProps {
   documentName?: string;
   /** Project updates only: the update types this one document covers. */
   updateTypes?: string[] | null;
+  /** View-only (status locked): the "You are filling out…" box is hidden. */
+  readOnly?: boolean;
+  /** Project updates only: Annual and Final Reports never show the box. */
+  isUpdate?: boolean;
 }
 
 export function OverviewSection({
@@ -40,6 +45,8 @@ export function OverviewSection({
   updateOverview,
   documentName,
   updateTypes,
+  readOnly,
+  isUpdate,
 }: OverviewSectionProps) {
   const combinedNote = combinedUpdateNote(updateTypes);
   return (
@@ -47,19 +54,18 @@ export function OverviewSection({
       {/* Say what is being filled out, before anything else on the page. For an
           update that stands in for several submissions, the second line spells
           out that this one document is the whole job. */}
-      {(documentName || combinedNote) && (
-        <div className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-5 py-4">
-          <Layers className="mt-0.5 size-4 shrink-0 text-orange-700" />
+      {isUpdate && !readOnly && (documentName || combinedNote) && (
+        <Notice variant="info" icon={<Layers />}>
           <div className="space-y-1">
             {documentName && (
-              <p className="text-sm font-medium text-orange-900">
+              <p className="font-medium">
                 You are filling out the {documentName}.
               </p>
             )}
             {combinedNote && (
-              <p className="text-sm text-orange-900/90">
+              <p>
                 {combinedNote}{" "}
-                <span className="text-orange-900/70">
+                <span className="text-crafd-grey-600">
                   {(updateTypes?.length ?? 0) > 1
                     ? "Fill it out once — you do not need to submit them separately."
                     : "Everything needed for it is in this one document."}
@@ -67,7 +73,7 @@ export function OverviewSection({
               </p>
             )}
           </div>
-        </div>
+        </Notice>
       )}
 
       <div className="rounded-xl border bg-card p-6 space-y-5">

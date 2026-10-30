@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Link2, Printer } from "lucide-react";
+import { Notice } from "@/components/ui/notice";
 import labels from "@/lib/labels";
 import type { WikiTocEntry } from "@/lib/wiki";
 
@@ -103,15 +104,11 @@ export function InfoBox({
   variant?: "blue" | "amber" | "green";
 }) {
   const colors = {
-    blue: "bg-blue-50 border-blue-200 text-blue-900",
-    amber: "bg-amber-50 border-amber-200 text-amber-900",
-    green: "bg-green-50 border-green-200 text-green-900",
-  };
-  return (
-    <div className={`rounded-lg border px-4 py-3 text-sm ${colors[variant]}`}>
-      {children}
-    </div>
-  );
+    blue: "info",
+    amber: "status",
+    green: "success",
+  } as const;
+  return <Notice variant={colors[variant]}>{children}</Notice>;
 }
 
 export function Badge({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -133,9 +134,9 @@ export function SdgTargetsEditor({
       )}
 
       {!readOnly && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+        <Notice variant="info">
           {labels.tabInstructions.sdg}
-        </div>
+        </Notice>
       )}
 
       {/* Add-target row */}

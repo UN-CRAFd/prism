@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,9 +159,9 @@ export function SignaturesEditor({
       )}
 
       {!readOnly && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+        <Notice variant="info">
           {labels.tabInstructions.signatures}
-        </div>
+        </Notice>
       )}
 
       {/* ── Signatories (contact-derived + standalone) ── */}

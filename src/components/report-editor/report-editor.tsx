@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import {
   Select,
   SelectContent,
@@ -1020,86 +1021,72 @@ export function ReportEditor({
           own box (single scroller, frozen header); every other tab scrolls here. */}
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
         {/* Tab instructions — only while the report is editable */}
-        {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
-            {labels.tabInstructions[params.section as keyof typeof labels.tabInstructions] || ""}
-          </div>
-        )}
+        {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (() => {
+          const instruction = labels.tabInstructions[params.section as keyof typeof labels.tabInstructions];
+          return typeof instruction === "string" && instruction.trim() !== "" ? (
+            <Notice variant="info" className="mb-4">{instruction}</Notice>
+          ) : null;
+        })()}
 
         {error && (
-          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <Notice variant="error" className="mb-4">
             {error}
-          </div>
+          </Notice>
         )}
 
         {statusReadOnly && !sectionLoading && !notFound && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-3 text-sm text-black">
-            <Lock className="size-4 shrink-0" />
-            <span>
-              This {docNoun} is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
-            </span>
-          </div>
+          <Notice variant="status" icon={<Lock />} className="mb-4">
+            This {docNoun} is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
+          </Notice>
         )}
 
         {/* Lock acquisition in progress */}
         {!statusReadOnly && reportId && phase === "acquiring" && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-600">
-            <Loader2 className="size-3.5 shrink-0 animate-spin" />
-            <span>Checking editor availability…</span>
-          </div>
+          <Notice variant="neutral" icon={<Loader2 className="animate-spin" />} className="mb-4">
+            Checking editor availability…
+          </Notice>
         )}
 
         {/* Editing session ended due to inactivity */}
         {!statusReadOnly && reportId && phase === "timed-out" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
-            <div className="flex items-center gap-2">
-              <Lock className="size-3.5 shrink-0" />
-              <span>Your editing session ended due to inactivity.</span>
-            </div>
-            <button
-              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-crafd-yellow/60 bg-white hover:bg-crafd-yellow/20 text-black"
-              onClick={startEditing}
-            >
-              Start editing
-            </button>
-          </div>
+          <Notice
+            variant="status"
+            icon={<Lock />}
+            className="mb-4"
+            action={<Button size="sm" variant="outline" onClick={startEditing}>Start editing</Button>}
+          >
+            Your editing session ended due to inactivity.
+          </Notice>
         )}
 
         {/* Another session holds the lock */}
         {!statusReadOnly && reportId && phase === "blocked" && holder && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-crafd-yellow/50 bg-crafd-yellow-pale px-4 py-2.5 text-sm text-black">
-            <Lock className="size-3.5 shrink-0" />
-            <span><b>{holder.name}</b> currently has this {docNoun} open.</span>
-          </div>
+          <Notice variant="status" icon={<Lock />} className="mb-4">
+            <b>{holder.name}</b> currently has this {docNoun} open.
+          </Notice>
         )}
 
         {/* Lock just freed — user must click to claim it */}
         {!statusReadOnly && reportId && phase === "available" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-900">
-            <span>This {docNoun} is now available.</span>
-            <button
-              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-green-300 bg-green-50 hover:bg-green-100 text-green-900"
-              onClick={startEditing}
-            >
-              Start editing
-            </button>
-          </div>
+          <Notice
+            variant="success"
+            className="mb-4"
+            action={<Button size="sm" variant="outline" onClick={startEditing}>Start editing</Button>}
+          >
+            This {docNoun} is now available.
+          </Notice>
         )}
 
         {/* Inactivity warning — lock will expire in ~1 minute */}
         {!statusReadOnly && reportId && phase === "warning" && (
-          <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="size-3.5 shrink-0" />
-              <span>Your editing session will expire in 1 minute due to inactivity.</span>
-            </div>
-            <button
-              className="shrink-0 h-7 px-2.5 text-xs rounded-md border border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-900"
-              onClick={noteEdit}
-            >
-              Keep editing
-            </button>
-          </div>
+          <Notice
+            variant="status"
+            icon={<AlertTriangle />}
+            className="mb-4"
+            action={<Button size="sm" variant="outline" onClick={noteEdit}>Keep editing</Button>}
+          >
+            Your editing session will expire in 1 minute due to inactivity.
+          </Notice>
         )}
 
         {/* Section-level comment thread — mirrors the prodoc editor. Placed outside
@@ -1161,6 +1148,8 @@ export function ReportEditor({
                     updateOverview={updateOverview}
                     documentName={selectedReport ? documentTitle(selectedReport) : undefined}
                     updateTypes={activeUpdate?.update_types}
+                    readOnly={statusReadOnly}
+                    isUpdate={dataType === "update"}
                   />
                 )}
               </div>

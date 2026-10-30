@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { LoadingState } from "@/components/admin/shared";
@@ -126,9 +127,9 @@ export function NarrativesAdminEditor({
       )}
 
       {!readOnly && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+        <Notice variant="info">
           {labels.tabInstructions.narratives}
-        </div>
+        </Notice>
       )}
 
       {questions.length === 0 && (

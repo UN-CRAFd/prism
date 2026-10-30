@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
 import { useMemo } from "react";
 import labels from "@/lib/labels";
 import { SectionTableEditor, buildTestimonialSpecs } from "@/components/section-table-editor";
@@ -19,9 +20,9 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange, pus
       <div className="space-y-3">
         <h3 className="t-heading-sub">{labels.testimonials.leadershipHeading}</h3>
         {!readOnly && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+          <Notice variant="info">
             {labels.testimonials.leadershipInstruction}
-          </div>
+          </Notice>
         )}
         <SectionTableEditor
           key="testimonials-leadership"
@@ -35,9 +36,9 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange, pus
       <div className="space-y-3">
         <h3 className="t-heading-sub">{labels.testimonials.partnerHeading}</h3>
         {!readOnly && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+          <Notice variant="info">
             {labels.testimonials.partnerInstruction}
-          </div>
+          </Notice>
         )}
         <SectionTableEditor
           key="testimonials-partner"

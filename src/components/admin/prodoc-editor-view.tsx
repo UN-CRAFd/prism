@@ -1740,7 +1740,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   <div className="grid gap-4 md:grid-cols-2">
                                     {risk.risk_description && (
                                       <div>
-                                        <p className="text-xs font-semibold text-crafd-grey-600 mb-1">Risk description</p>
+                                        <p className="text-xs font-semibold text-crafd-grey-600 mb-1">{labels.risk.columns.riskDescription}</p>
                                         <p className="text-sm text-crafd-grey-800 whitespace-pre-wrap">{risk.risk_description}</p>
                                       </div>
                                     )}

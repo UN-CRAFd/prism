@@ -300,6 +300,7 @@
     "columns": {
       "number": "#",
       "risk": "Risk",
+      "riskDescription": "Risk description",
       "likelihood": "Likelihood",
       "impact": "Impact",
       "riskLevel": "Risk level",
@@ -661,6 +662,7 @@
     "title": "Your Project Documents",
     "loading": "Loading project documents…",
     "empty": "No project documents found for your organization.",
-    "open": "Open project document"
+    "open": "Open project document",
+    "readyToSubmit": "Ready to submit"
   }
 }

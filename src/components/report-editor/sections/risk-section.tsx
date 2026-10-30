@@ -87,7 +87,7 @@ function ShareToggle({
       className={cn(
         "inline-flex items-center justify-center size-5 rounded cursor-pointer transition-colors",
         "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        shared ? "text-blue-600 hover:text-blue-800" : "text-muted-foreground/40 hover:text-muted-foreground"
+        shared ? "text-crafd-grey-900 hover:text-black" : "text-muted-foreground/40 hover:text-muted-foreground"
       )}
     >
       {shared ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
@@ -98,7 +98,7 @@ function ShareToggle({
 // Small "Added in YYYY" badge shown under a risk name for non-ProDoc risks.
 function AddedBadge({ year }: { year: number }) {
   return (
-    <span className="mt-1.5 inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+    <span className="mt-1.5 inline-flex items-center rounded-md bg-crafd-yellow-100 px-2 py-0.5 text-xs font-medium text-crafd-yellow-900 ring-1 ring-inset ring-crafd-yellow-600">
       Added in {year}
     </span>
   );
@@ -333,7 +333,7 @@ export function RiskSection({
                               return cats.length > 0 ? (
                                 <div className="mt-1.5 flex flex-wrap gap-1">
                                   {cats.map((cat) => (
-                                    <span key={cat} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{cat}</span>
+                                    <span key={cat} className="inline-flex items-center rounded-md bg-crafd-grey-100 px-2 py-0.5 text-xs font-medium text-crafd-grey-800">{cat}</span>
                                   ))}
                                 </div>
                               ) : null;

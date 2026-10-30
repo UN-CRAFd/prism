@@ -61,6 +61,18 @@ export default function ReportEditorPage() {
   }, {});
   const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
 
+  const completionPct = (id: number) => {
+    const { completed, totalSections } = completion[id] ?? { completed: 0, totalSections: 0 };
+    return totalSections > 0 ? Math.round((completed / totalSections) * 100) : 0;
+  };
+  // Within a year: least complete first, then project title A–Z. Sorted copy.
+  const sortedForYear = (year: number) =>
+    [...byYear[year]].sort(
+      (a, b) =>
+        completionPct(a.id) - completionPct(b.id) ||
+        a.project_title.localeCompare(b.project_title),
+    );
+
   return (
     <div className="flex flex-col min-h-full bg-background">
       {/* Header */}
@@ -92,9 +104,8 @@ export default function ReportEditorPage() {
               <section key={year}>
                 <h2 className="text-xl font-bold mb-3">{year}</h2>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
-                  {byYear[year].map((report) => {
-                    const { completed, totalSections } = completion[report.id] ?? { completed: 0, totalSections: 0 };
-                    const pct = totalSections > 0 ? Math.round((completed / totalSections) * 100) : 0;
+                  {sortedForYear(year).map((report) => {
+                    const pct = completionPct(report.id);
                     return (
                       <div
                         key={report.id}
@@ -103,12 +114,15 @@ export default function ReportEditorPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <p className="text-base font-semibold truncate">{report.project_title}</p>
-                            <StatusPill status={report.status} />
+                            <StatusPill
+                              status={report.status}
+                              label={report.status === "Open" && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
+                            />
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-crafd-yellow rounded-full transition-all duration-300"
+                                className={`h-full ${report.status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
@@ -123,7 +137,7 @@ export default function ReportEditorPage() {
                               `/partner/report-editor/${projectSlug(report.project_short_name, report.project_title)}/${report.year}/overview`
                             )
                           }
-                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-3 py-1.5 text-sm font-semibold text-black hover:bg-crafd-yellow/90 transition-colors"
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-crafd-yellow px-3 py-1.5 text-sm font-semibold text-black hover:bg-crafd-yellow-900 transition-colors"
                         >
                           {labels.dashboard.openReport}
                           <ArrowRight className="size-3.5" />

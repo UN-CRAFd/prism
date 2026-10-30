@@ -40,6 +40,12 @@ export function ProdocList() {
   // De-duplicate by project slug (same as sidebar prodocItems)
   const slug = (r: Report) => projectSlug(r.project_short_name, r.project_title);
   const items = Array.from(new Map(prodocs.map((p) => [slug(p), p])).values());
+  // Least complete first, then A–Z by title. Sorted copy: `items` is not mutated.
+  const sortedItems = [...items].sort(
+    (a, b) =>
+      (completion[a.project_id] ?? 0) - (completion[b.project_id] ?? 0) ||
+      a.project_title.localeCompare(b.project_title),
+  );
 
   // Fetch completion for each unique project
   useEffect(() => {
@@ -93,7 +99,7 @@ export function ProdocList() {
         {!loading && !error && items.length > 0 && (
           <div className="pt-8">
             <div className="rounded-xl border bg-card overflow-hidden divide-y">
-              {items.map((row) => {
+              {sortedItems.map((row) => {
                 const pct = completion[row.project_id] ?? 0;
                 return (
                   <div
@@ -103,12 +109,15 @@ export function ProdocList() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <p className="text-base font-semibold truncate">{row.project_title}</p>
-                        <StatusPill status={row.status} />
+                        <StatusPill
+                          status={row.status}
+                          label={row.status === "Open" && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
+                        />
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full ${pct === 100 ? "bg-emerald-500" : "bg-crafd-yellow"} rounded-full transition-all duration-300`}
+                            className={`h-full ${row.status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>

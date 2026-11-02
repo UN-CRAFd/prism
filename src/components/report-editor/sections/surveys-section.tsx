@@ -66,7 +66,7 @@ export function SurveysSection({ surveys, rowStates, updateRow }: SurveysSection
       {groups.map((group, gi) => (
         <div key={group.heading ?? "__uncategorised__"}>
           {group.heading && (
-            <h3 className="t-heading-sub mb-4">{group.heading}</h3>
+            <h3 className="t-heading-editor mb-4">{group.heading}</h3>
           )}
           <div className="space-y-4">
             {group.items.map((survey) => {
@@ -98,7 +98,7 @@ function SurveyCard({ survey, index, rowStates, updateRow }: SurveyCardProps) {
     >
       <div className="flex items-start gap-3">
         <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{index + 1}.</span>
-        <p className="text-sm font-medium leading-snug flex-1">{survey.question}</p>
+        <p className="t-heading-question leading-snug flex-1">{survey.question}</p>
         <ItemComments section="surveys" itemId={survey.id} />
       </div>
       <div className="flex gap-6 items-start pl-8">

@@ -1056,9 +1056,9 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
     <div className={cn("rounded-xl border bg-card p-6 space-y-4", fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       <div className="flex items-center gap-2">
         <Wallet className="size-4 text-muted-foreground" />
-        <h3 className="t-heading-sub">{labels.generalInfo.budget.heading}</h3>
+        <h3 className="t-heading-editor">{labels.generalInfo.budget.heading}</h3>
       </div>
-      <p className="text-xs text-muted-foreground">{labels.generalInfo.budget.description}</p>
+      <p className="text-sm text-crafd-grey-600">{labels.generalInfo.budget.description}</p>
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
       {years.length === 0 ? (

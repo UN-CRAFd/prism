@@ -216,12 +216,29 @@
   line-height: var(--tw-leading, var(--text-base--line-height));
   font-weight: 600;
 }
-/* Compact tier, one step down: card headers that sit above a text-xs blurb, and
-   sub-section headings inside the prodoc editor tabs. Intentionally smaller
-   than t-heading-section — this is a real tier, not an inconsistency. */
+/* Compact tier, one step down: admin card headers that sit above a text-xs
+   blurb. Intentionally smaller than t-heading-section — this is a real tier,
+   not an inconsistency. */
 @utility t-heading-sub {
   font-size: var(--text-sm);
   line-height: var(--tw-leading, var(--text-sm--line-height));
+  font-weight: 600;
+}
+
+/* Section headings inside the ProDoc / Report / Project Update editor tabs
+   (e.g. Project data, Budget, each narrative question). One step below the
+   Guide's section headings; body and help text under them stay text-sm. */
+@utility t-heading-editor {
+  font-size: var(--text-lg);
+  line-height: var(--tw-leading, var(--text-lg--line-height));
+  font-weight: 700;
+}
+
+/* Question titles inside editor tabs (survey questions, narrative questions,
+   justification). One step below t-heading-editor so long questions don't shout. */
+@utility t-heading-question {
+  font-size: var(--text-base);
+  line-height: var(--tw-leading, var(--text-base--line-height));
   font-weight: 600;
 }
 

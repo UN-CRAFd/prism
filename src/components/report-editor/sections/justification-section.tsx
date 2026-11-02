@@ -98,7 +98,7 @@ export function JustificationSection({
       ) : (
         <div className="rounded-xl border bg-card p-6 space-y-3">
           <div className="flex items-start justify-between gap-3">
-            <label htmlFor="justification" className="text-sm font-medium">
+            <label htmlFor="justification" className="t-heading-question">
               {justificationPrompt(updateTypes)}
             </label>
             <ItemComments section="justification" itemId={null} />

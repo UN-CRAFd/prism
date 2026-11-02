@@ -579,7 +579,7 @@ export function GeneralInfoAdminEditor({
       <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-muted-foreground" />
-          <h3 className="t-heading-sub">{g.detailsHeading}</h3>
+          <h3 className="t-heading-editor">{g.detailsHeading}</h3>
         </div>
 
         <div className="space-y-1.5">
@@ -780,7 +780,7 @@ export function GeneralInfoAdminEditor({
       <div className="order-2 rounded-xl border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
-          <h3 className="t-heading-sub">{g.contactsHeading}</h3>
+          <h3 className="t-heading-editor">{g.contactsHeading}</h3>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 max-w-2xl">

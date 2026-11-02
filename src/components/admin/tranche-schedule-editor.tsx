@@ -234,7 +234,7 @@ export function TrancheScheduleEditor({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Coins className="size-4 text-muted-foreground" />
-          <h3 className="t-heading-sub">{g.tranches.heading}</h3>
+          <h3 className="t-heading-editor">{g.tranches.heading}</h3>
         </div>
         {participatingOrgs.length > 0 && (
           <Button onClick={addTrancheColumn} size="sm" variant="outline" className="shrink-0">

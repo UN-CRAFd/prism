@@ -150,14 +150,14 @@ export function NarrativesAdminEditor({
           >
             <div className="flex items-start gap-3">
               <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-              <label className="text-sm font-medium leading-snug flex-1">
+              <label className="t-heading-editor leading-snug flex-1">
                 {q.label}
               </label>
             </div>
 
             {/* Narrative answer */}
             <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground whitespace-pre-line max-w-5xl">{q.description || labels.narratives.answerLabel}</p>
+              <p className="text-sm text-crafd-grey-600 whitespace-pre-line max-w-5xl">{q.description || labels.narratives.answerLabel}</p>
               <RichTextEditor
                 value={answer}
                 onChange={(html) => update(q.key, { answer: html })}

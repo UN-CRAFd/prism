@@ -22,12 +22,14 @@ import {
   DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, X } from "lucide-react";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal } from "lucide-react";
 import {
   Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
   FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
 import { reportStatusStyle, REPORT_STATUS_ICON_COLORS, type ReportStatus } from "@/lib/reports";
+import labels from "@/lib/labels";
+import { StatusPill } from "@/components/partner/status-pill";
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
@@ -95,17 +97,9 @@ interface ProjectRevision {
 }
 
 // Project STATUS presentation. Values are admin-editable via Settings → Dropdown
-// options ("projectStatus"); style/icon maps are keyed by the known values, with
-// neutral fallbacks applied for any added value.
-const STATUS_STYLES: Record<string, string> = {
-  Idea:                   "bg-white text-crafd-grey-600 border-crafd-grey-400",
-  Ongoing:                "bg-crafd-yellow text-crafd-grey-900 border-crafd-yellow-900",
-  "Operationally Closed": "bg-crafd-yellow-300 text-crafd-grey-800 border-crafd-yellow-600",
-  "Financially Closed":   "bg-crafd-yellow-150 text-crafd-grey-800 border-crafd-yellow-300",
-  "Project Closed":       "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200",
-};
-const STATUS_STYLE_FALLBACK = "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200";
-
+// options ("projectStatus"); the icon map is keyed by the known values, with a
+// neutral fallback applied for any added value. The status itself is shown as
+// quiet grey text beside its icon.
 const STATUS_ICONS: Record<string, ReactNode> = {
   Idea:                   <Lightbulb className="size-3 shrink-0 text-crafd-grey-600" />,
   Ongoing:                <CircleDot className="size-3 shrink-0 text-crafd-grey-900" />,
@@ -209,6 +203,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   // project_id → its prodoc { report id, status, last_edited } (for Print / Open / status).
   const [prodocByProject, setProdocByProject] = useState<Record<number, { id: number; status: ReportStatus; last_edited: string | null }>>({});
+  // Per-project ProDoc completion (%).
+  const [completion, setCompletion] = useState<Record<number, number>>({});
   const [pendingStatusChange, setPendingStatusChange] = useState<{ projectId: number; prodocId: number; status: ReportStatus; fromStatus: string } | null>(null);
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -273,6 +269,30 @@ export default function ProjectsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // ProDoc completion per project — same calculation as the partner Project Document list.
+  useEffect(() => {
+    const ids = Object.keys(prodocByProject).map(Number);
+    if (ids.length === 0) return;
+    Promise.all(
+      ids.map((id) =>
+        fetch(`/api/prodoc-completion?projectId=${id}`)
+          .then((res) => res.json())
+          .then((data: { sections?: Record<string, boolean> }) => {
+            const sections = data.sections ?? {};
+            const keys = Object.keys(sections);
+            const trueCount = Object.values(sections).filter(Boolean).length;
+            const pct = keys.length > 0 ? Math.round((trueCount / keys.length) * 100) : 0;
+            return { id, pct };
+          })
+          .catch(() => ({ id, pct: 0 }))
+      )
+    ).then((results) => {
+      const c: Record<number, number> = {};
+      for (const { id, pct } of results) c[id] = pct;
+      setCompletion(c);
+    });
+  }, [prodocByProject]);
 
   function resetForm() {
     setPartnerId(""); setTitle(""); setShortName("");
@@ -589,9 +609,9 @@ export default function ProjectsPage() {
         </DropdownMenu>
       </div>
 
-      {/* Project status badge — read-only; change via the ⋯ menu */}
+      {/* Project status — quiet grey text; change via the ⋯ menu */}
       <div>
-        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
           {p.status}
         </span>
@@ -621,7 +641,7 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* ── Project Document ── status badge + open */}
+      {/* ── Project Document ── status + completion */}
       <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1.5 flex items-baseline justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
@@ -631,24 +651,25 @@ export default function ProjectsPage() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          {pd && (
-            <span
-              title="Project document status"
-              className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${reportStatusStyle(pd.status)}`}
-            >
-              {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
-              {pd.status}
-            </span>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
-            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Open the project document"
-          >
-            Open project document
-            <ArrowRight className="size-3" />
-          </button>
+        <div className="flex items-center gap-3">
+          {pd && (() => {
+            const pct = completion[p.id] ?? 0;
+            return (
+              <div className="flex min-w-0 flex-1 items-center gap-2" title="Project document status and completion">
+                <StatusPill
+                  status={pd.status}
+                  label={pd.status === "Open" && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
+                />
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full ${pd.status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">{pct}%</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -835,7 +856,7 @@ export default function ProjectsPage() {
                   <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
                   <TableCell>
                     <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-                      <SelectTrigger className={`!h-7 w-full px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+                      <SelectTrigger className="!h-7 w-full border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none [&>svg]:size-3 [&>svg]:shrink-0">
                         <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
                           {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
                           <SelectValue />
@@ -863,14 +884,6 @@ export default function ProjectsPage() {
                       >
                         {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
                         Print
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
-                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        title="Open the project document"
-                      >
-                        Open
-                        <ArrowRight className="size-3" />
                       </button>
                       {prodocByProject[p.id] && (
                         <Select

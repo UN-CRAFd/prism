@@ -33,6 +33,7 @@ import {
   GroupMode,
   ReportCard,
   CreateReportForm,
+  useReportCompletion,
 } from "@/components/admin/report-components";
 
 export default function ReportsPage() {
@@ -79,6 +80,9 @@ export default function ReportsPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Completion per card (footer progress bar).
+  const completion = useReportCompletion(reports);
 
   const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
@@ -135,7 +139,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Reports" description="Create and manage reporting periods for projects">
+      <PageHeader title="Project Reports" description="Create and manage reporting periods for projects">
         <ViewToggle view={view} onChange={setView} />
         {!showForm && (
           <Button size="sm" onClick={() => setShowForm(true)}>
@@ -302,12 +306,13 @@ export default function ReportsPage() {
                   <h2 className="t-heading-section">{key}</h2>
                   <span className="text-sm text-muted-foreground">({rows.length})</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rows.map((r) => (
                     <ReportCard
                       key={r.id}
                       report={r}
                       groupMode={groupMode}
+                      completion={completion[r.id] ?? 0}
                       onDelete={() => handleDelete(r)}
                     />
                   ))}

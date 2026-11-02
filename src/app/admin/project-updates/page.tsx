@@ -32,6 +32,7 @@ import {
   type GroupMode,
   ReportCard,
   CreateReportForm,
+  useReportCompletion,
 } from "@/components/admin/report-components";
 import { documentPath, firstUnlockedSection } from "@/lib/project-updates";
 import { updateTypeLabel, updateTypeShort } from "@/lib/update-modules";
@@ -87,6 +88,9 @@ export default function ProjectUpdatesPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Completion per card (footer progress bar).
+  const completion = useReportCompletion(reports);
 
   const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
@@ -327,7 +331,7 @@ export default function ProjectUpdatesPage() {
                   <h2 className="t-heading-section">{key}</h2>
                   <span className="text-sm text-muted-foreground">({rows.length})</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rows.map((r) => (
                     <ReportCard
                       key={r.id}
@@ -335,7 +339,8 @@ export default function ProjectUpdatesPage() {
                       groupMode={groupMode}
                       typeBadges={typeBadges(r)}
                       href={updateHref(r)}
-                      openLabel="Open update"
+                      footerLabel="Project Update"
+                      completion={completion[r.id] ?? 0}
                       onDelete={() => handleDelete(r)}
                     />
                   ))}

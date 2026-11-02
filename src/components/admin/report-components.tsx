@@ -28,15 +28,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  ArrowRight,
   CalendarDays,
-  CheckCircle2,
-  CircleDot,
-  Clock,
   MoreHorizontal,
 } from "lucide-react";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
-import { reportStatusStyle, REPORT_STATUS_ICON_COLORS } from "@/lib/reports";
+import { StatusPill } from "@/components/partner/status-pill";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
@@ -139,12 +135,43 @@ export const GROUP_COLORS = [
   { bg: "bg-white", border: "border-crafd-grey-100", icon: "text-crafd-grey-400", label: "text-crafd-grey-800" },
 ];
 
-const STATUS_ICONS: Record<string, React.ReactNode> = {
-  Open:            <CircleDot className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Open}`} />,
-  "Under Review":  <Clock className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS["Under Review"]}`} />,
-  Closed:          <CheckCircle2 className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Closed}`} />,
-};
-
+// Completion (%) per document id, from /api/report-completion. Reports count every
+// section; an update only counts the pages it unlocked (same rule as the partner
+// Project Updates list). Failures read as 0 rather than breaking the page.
+export function useReportCompletion(rows: { id: number; data_type?: string; unlocked_sections?: string[] }[]): Record<number, number> {
+  const [completion, setCompletion] = useState<Record<number, number>>({});
+  useEffect(() => {
+    if (rows.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      rows.map((row) =>
+        fetch(`/api/report-completion?reportId=${row.id}`)
+          .then((res) => res.json())
+          .then((data: { sections?: Record<string, boolean>; completed?: number; totalSections?: number }) => {
+            let done: number;
+            let total: number;
+            if (row.data_type === "update" && row.unlocked_sections) {
+              const sections = data.sections ?? {};
+              total = row.unlocked_sections.length;
+              done = row.unlocked_sections.filter((k) => sections[k] === true).length;
+            } else {
+              done = data.completed ?? 0;
+              total = data.totalSections ?? 0;
+            }
+            return { id: row.id, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
+          })
+          .catch(() => ({ id: row.id, pct: 0 }))
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const c: Record<number, number> = {};
+      for (const { id, pct } of results) c[id] = pct;
+      setCompletion(c);
+    });
+    return () => { cancelled = true; };
+  }, [rows]);
+  return completion;
+}
 
 // The card used by the Reports grid and, with the three optional props below,
 // by the Project Updates grid: an update is the same object with its own type
@@ -156,7 +183,8 @@ export function ReportCard({
   groupMode = "year",
   typeBadges,
   href,
-  openLabel = "Open report",
+  footerLabel = "Project Report",
+  completion = 0,
 }: {
   report: ReportRow;
   onDelete: () => void;
@@ -165,7 +193,10 @@ export function ReportCard({
   typeBadges?: { text: string; title?: string }[];
   /** Where the card opens. Defaults to this report's editor. */
   href?: string;
-  openLabel?: string;
+  /** Small uppercase label in the footer ("Project Report" / "Project Update"). */
+  footerLabel?: string;
+  /** Completion percentage (0–100) for the footer progress bar. */
+  completion?: number;
 }) {
   const router = useRouter();
   // The /api/reports/[id]/pdf endpoint still exists but its output is not presentable
@@ -218,84 +249,84 @@ export function ReportCard({
     <>
     <Card
       onClick={() => router.push(target)}
-      className="group relative flex flex-col gap-3 p-4 cursor-pointer transition-all hover:bg-muted/30"
+      className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer"
     >
-      {/* ⋯ menu — top right, always visible */}
-      <div className="absolute right-2.5 top-2.5">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            onClick={(e) => e.stopPropagation()}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <MoreHorizontal className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuRadioGroup value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
-                  {optionValues("reportStatus").map((s) => (
-                    <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setDateDialogOpen(true)}>
-              <CalendarDays />
-              Change submission date
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Top line: badges + due date */}
-      <div className="flex items-center gap-2 pr-8">
-        <Badge variant="outline" className="text-xs font-semibold tabular-nums">
-          {groupMode === "organization" ? report.year : shortName(report.partner_short_name)}
-        </Badge>
-        {badges.map((b) => (
-          <Badge key={b.text} variant="secondary" className="text-xs font-semibold capitalize" title={b.title}>
-            {b.text}
-          </Badge>
-        ))}
-        {submissionDate && (
-          <span className="text-xs text-muted-foreground ml-auto">
-            due {formatDate(submissionDate)}
-          </span>
-        )}
-      </div>
-
-      {/* Project title */}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold leading-snug">
-          {report.project_title}
-        </p>
-        {report.last_edited && (
-          <p className="mt-1 text-xs text-muted-foreground" title={`Last edited ${formatDate(report.last_edited)}`}>
-            edited {timeAgo(report.last_edited)}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-muted-foreground mb-1 uppercase">
+            {groupMode === "organization" ? report.year : shortName(report.partner_short_name)}
+            {badges.map((b) => (
+              <span key={b.text}>
+                {" · "}
+                <span title={b.title}>{b.text}</span>
+              </span>
+            ))}
           </p>
-        )}
+          <p className="text-lg font-semibold leading-snug">{report.project_title}</p>
+        </div>
+        <div className="shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                onClick={(e) => e.stopPropagation()}
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuRadioGroup value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
+                      {optionValues("reportStatus").map((s) => (
+                        <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setDateDialogOpen(true)}>
+                  <CalendarDays />
+                  Change submission date
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
       </div>
 
-      {/* Bottom: status badge + open */}
-      <div className="flex items-center gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
-        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${reportStatusStyle(status)}`}>
-          {STATUS_ICONS[status]}
-          {status}
-        </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); router.push(target); }}
-          className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title={openLabel}
-        >
-          {openLabel}
-          <ArrowRight className="size-3" />
-        </button>
+      {submissionDate && (
+        <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarDays className="size-3 shrink-0" />
+            Due {formatDate(submissionDate)}
+          </span>
+        </div>
+      )}
+
+      {/* Footer — same pattern as the Projects card: label + last edited, then
+          status and progress. The whole card opens the document. */}
+      <div className="mt-auto pt-3 border-t">
+        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{footerLabel}</p>
+          {report.last_edited && (
+            <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(report.last_edited)}`}>
+              edited {timeAgo(report.last_edited)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusPill status={status} />
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full ${status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
+              style={{ width: `${completion}%` }}
+            />
+          </div>
+          <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">{completion}%</span>
+        </div>
       </div>
     </Card>
 

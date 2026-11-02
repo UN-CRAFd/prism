@@ -12,9 +12,9 @@ import labels from "@/lib/labels";
 import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel } from "@/lib/risk";
 
 const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
-  2: { bg: "bg-crafd-yellow-700", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
-  3: { bg: "bg-crafd-yellow-300", text: "text-crafd-grey-800", border: "border-crafd-yellow-600" },
+  1: { bg: "bg-white", text: "text-crafd-grey-600", border: "border-crafd-grey-400" },
+  2: { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
+  3: { bg: "bg-crafd-yellow-600", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
   4: { bg: "bg-white", text: "text-green-700", border: "border-green-300" },
   5: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
 };

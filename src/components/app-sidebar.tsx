@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Database,
   LogOut,
   User,
   FileText,
@@ -19,19 +18,12 @@ import {
   ChevronDown,
   Edit,
   BarChart3,
-  UploadCloud,
-  Target,
   Check,
   Contact,
   MessageSquare,
   BookOpen,
-  ListChecks,
   Settings,
-  FolderPen,
-  ClipboardPen,
-  History,
   FilePen,
-  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
@@ -57,31 +49,46 @@ const NAV_PARENT_ACTIVE = "text-black font-semibold";
 // sections, which only admins receive) — see numberWikiSections in lib/wiki.
 type WikiSubLink = { hash: string; label: string; number: string | null };
 
-const administrationLinks = [
+// Admin nav: one flat list. `also` lists extra path prefixes that keep the item
+// active (the editors live under their list's entry); `subs` are shown only while
+// the current path is the parent's page or one of its sub-pages.
+type AdminNavItem = {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  also?: string[];
+  subs?: { href: string; label: string }[];
+};
+
+const adminNav: AdminNavItem[] = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
-  { href: "/admin/projects", label: "Projects", icon: FolderKanban },
-  { href: "/admin/reports", label: "Reports", icon: ClipboardList },
-  { href: "/admin/project-updates", label: "Project Updates", icon: FilePen },
+  { href: "/admin/projects", label: "Projects", icon: FolderKanban, also: ["/admin/prodoc-editor"] },
+  { href: "/admin/reports", label: "Project Reports", icon: ClipboardList, also: ["/admin/report-editor"] },
+  { href: "/admin/project-updates", label: "Project Updates", icon: FilePen, also: ["/admin/project-update-editor"] },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },
-];
-
-const editorLinks = [
-  { href: "/admin/prodoc-editor", label: "Project Document Editor", icon: FolderPen },
-  { href: "/admin/report-editor", label: "Project Report Editor", icon: ClipboardPen },
-  { href: "/admin/project-update-editor", label: "Project Update Editor", icon: FilePen },
-  { href: "/admin/indicators", label: "Indicators", icon: Target },
-  { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
-  { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
-  { href: "/admin/hact-recommendations", label: "HACT Recommendations", icon: ShieldCheck },
   { href: "/admin/comments", label: "Comments", icon: MessageSquare },
-  { href: "/admin/guide", label: "Guide", icon: BookOpen },
-];
-
-const dataLinks = [
-  { href: "/admin/data", label: "Full Data", icon: Database },
-  { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
-  { href: "/admin/version-log", label: "Version Log", icon: History },
-  { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
+  {
+    href: "/admin/dashboards",
+    label: "Data",
+    icon: BarChart3,
+    subs: [
+      { href: "/admin/data", label: "Full Data" },
+      { href: "/admin/version-log", label: "Version Log" },
+      { href: "/admin/upload", label: "Upload / Download" },
+    ],
+  },
+  {
+    href: "/admin/settings",
+    label: "Settings",
+    icon: Settings,
+    subs: [
+      { href: "/admin/indicators", label: "Indicators" },
+      { href: "/admin/survey-questions", label: "Survey Questions" },
+      { href: "/admin/narrative-questions", label: "Narrative Questions" },
+      { href: "/admin/hact-recommendations", label: "HACT Recommendations" },
+      { href: "/admin/guide", label: "Guide" },
+    ],
+  },
 ];
 
 interface SidebarReport {
@@ -277,26 +284,11 @@ export function AppSidebar() {
       .catch(() => {});
   }, [mounted, isPartner, user]);
 
-  // Editor nav visibility: the "Report Editor" / "Project Document" entries only
-  // appear once at least one report / prodoc exists in the viewer's scope. The
-  // reports API is session-scoped server-side, so a partner sees only their own.
-  //  • Admin fetches report counts here (partners get hasReports from the effect
-  //    above, which already loads their report list for the sub-menu).
-  //  • Both roles fetch whether any prodoc exists.
+  // Editor nav visibility: the partner "Project Document" entry only appears once
+  // at least one prodoc exists in the viewer's scope. The reports API is
+  // session-scoped server-side, so a partner sees only their own.
   useEffect(() => {
     if (!mounted || !user) return;
-    if (!isPartner) {
-      fetch("/api/reports?data_type=report")
-        .then((r) => (r.ok ? r.json() : []))
-        .then((rows) => setHasReports(Array.isArray(rows) && rows.length > 0))
-        .catch(() => {});
-      // Partners reach their updates through the Project Updates nav entry, which
-      // already loads the list; only the admin editor entry needs this count.
-      fetch("/api/reports?data_type=update")
-        .then((r) => (r.ok ? r.json() : []))
-        .then((rows) => setHasUpdates(Array.isArray(rows) && rows.length > 0))
-        .catch(() => {});
-    }
     fetch("/api/reports?data_type=prodoc")
       .then((r) => (r.ok ? r.json() : []))
       .then((rows) => {
@@ -813,97 +805,50 @@ export function AppSidebar() {
             Home
           </Link>
 
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Administration
-          </p>
-          {administrationLinks.map((link) => {
-            const isActive = pathname.startsWith(link.href);
+          {adminNav.map((item) => {
+            const ownActive = [item.href, ...(item.also ?? [])].some((h) => pathname.startsWith(h));
+            const subActive = item.subs?.some((sub) => pathname.startsWith(sub.href)) ?? false;
+            const showSubs = !!item.subs && (ownActive || subActive);
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                  isActive
-                    ? NAV_ACTIVE
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
+                    subActive
+                      ? NAV_PARENT_ACTIVE
+                      : ownActive
+                      ? NAV_ACTIVE
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                </Link>
+                {showSubs && (
+                  <div className="mt-0.5 mb-1 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+                    {item.subs!.map((sub) => {
+                      const active = pathname.startsWith(sub.href);
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          className={cn(
+                            "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                            active
+                              ? `${NAV_ACTIVE} font-medium`
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <link.icon className="size-4" />
-                {link.label}
-              </Link>
+              </div>
             );
           })}
-
-          <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Editor
-          </p>
-          {editorLinks
-            // Hide the Project Document / Report / Update editors until at least
-            // one prodoc / report / update exists (kept visible while the count is
-            // still loading).
-            .filter((link) =>
-              link.href === "/admin/prodoc-editor" ? hasProdocs !== false
-              : link.href === "/admin/report-editor" ? hasReports !== false
-              : link.href === "/admin/project-update-editor" ? hasUpdates !== false
-              : true
-            )
-            .map((link) => {
-            const isActive = pathname.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                  isActive
-                    ? NAV_ACTIVE
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-              >
-                <link.icon className="size-4" />
-                {link.label}
-              </Link>
-            );
-          })}
-
-          <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Data
-          </p>
-          {dataLinks.map((link) => {
-            const isActive = pathname.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                  isActive
-                    ? NAV_ACTIVE
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-              >
-                <link.icon className="size-4" />
-                {link.label}
-              </Link>
-            );
-          })}
-
-          <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Account
-          </p>
-          <Link
-            href="/admin/settings"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-              pathname.startsWith("/admin/settings")
-                ? NAV_ACTIVE
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            )}
-          >
-            <Settings className="size-4" />
-            Settings
-          </Link>
         </nav>
       )}
 

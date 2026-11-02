@@ -858,32 +858,81 @@ export function AppSidebar() {
                   <item.icon className="size-4" />
                   {item.label}
                 </Link>
-                {reportOpen && openAdminReport && (
-                  <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
-                    <Link
-                      href={`/admin/report-editor/${openAdminReport.project}/${openAdminReport.year}/${openAdminReport.section}`}
-                      className={cn("flex flex-col rounded-md px-3 py-1.5 transition-colors", NAV_PARENT_ACTIVE)}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setReportSectionsCollapsed((v) => !v);
-                      }}
-                    >
-                      <span className="flex items-center gap-1">
-                        <span className="truncate text-sm font-medium" title={adminActiveReport ? documentTitle(adminActiveReport) : `Report ${openAdminReport.year}`}>
-                          {adminActiveReport ? documentTitle(adminActiveReport) : `Report ${openAdminReport.year}`}
-                        </span>
+                {reportOpen && openAdminReport && (() => {
+                  // The open report: bold name (no fill) that toggles its section
+                  // list; the active section carries the fill.
+                  const openRow = (name: string) => (
+                    <div>
+                      <Link
+                        href={`/admin/report-editor/${openAdminReport.project}/${openAdminReport.year}/${openAdminReport.section}`}
+                        className={cn("flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors", NAV_PARENT_ACTIVE)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setReportSectionsCollapsed((v) => !v);
+                        }}
+                      >
+                        <span className="truncate text-sm font-medium" title={name}>{name}</span>
                         {reportSectionsCollapsed
                           ? <ChevronRight className="size-3 shrink-0" />
                           : <ChevronDown className="size-3 shrink-0" />}
-                      </span>
-                      <span className="truncate text-xs opacity-70" title={adminActiveReport ? (adminActiveReport.project_short_name || adminActiveReport.project_title) : openAdminReport.project}>
-                        {adminActiveReport ? (adminActiveReport.project_short_name || adminActiveReport.project_title) : openAdminReport.project}
-                      </span>
-                    </Link>
-                    {!reportSectionsCollapsed &&
-                      renderReportSections("/admin/report-editor", openAdminReport.project, openAdminReport.year, openAdminReport.section)}
-                  </div>
-                )}
+                      </Link>
+                      {!reportSectionsCollapsed &&
+                        renderReportSections("/admin/report-editor", openAdminReport.project, openAdminReport.year, openAdminReport.section)}
+                    </div>
+                  );
+
+                  // Report list not loaded yet: just the open report, named from the URL.
+                  if (reports.length === 0) {
+                    return (
+                      <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                        {openRow(`Report ${openAdminReport.year}`)}
+                      </div>
+                    );
+                  }
+
+                  // All reports, grouped by project (A–Z), newest year first.
+                  const byProject = new Map<number, { label: string; rows: SidebarReport[] }>();
+                  for (const r of reports) {
+                    const g = byProject.get(r.project_id) ?? { label: r.project_short_name || r.project_title, rows: [] };
+                    g.rows.push(r);
+                    byProject.set(r.project_id, g);
+                  }
+                  const groups = Array.from(byProject.values()).sort((x, y) => x.label.localeCompare(y.label));
+                  return (
+                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                      {groups.map((g, gi) => (
+                        <div key={g.label} className="flex flex-col gap-0.5">
+                          <p
+                            className={cn(
+                              "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider truncate",
+                              gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
+                              GROUP_STYLES.Qualitative.header
+                            )}
+                            title={g.label}
+                          >
+                            {g.label}
+                          </p>
+                          {g.rows
+                            .slice()
+                            .sort((x, y) => y.year - x.year || x.id - y.id)
+                            .map((r) =>
+                              r.id === adminActiveReport?.id ? (
+                                <div key={r.id}>{openRow(documentTitle(r))}</div>
+                              ) : (
+                                <Link
+                                  key={r.id}
+                                  href={`/admin/report-editor/${reportSlug(r)}/${r.year}/overview`}
+                                  className="flex items-center rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                >
+                                  <span className="truncate" title={documentTitle(r)}>{documentTitle(r)}</span>
+                                </Link>
+                              )
+                            )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {showSubs && (
                   <div className="mt-0.5 mb-1 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                     {item.subs!.map((sub) => {

@@ -13,7 +13,6 @@ export function ProjectUpdateEditorView() {
   return (
     <ReportEditor
       mode="admin"
-      showSectionTabs
       basePath="/admin/project-update-editor"
       dataType="update"
     />

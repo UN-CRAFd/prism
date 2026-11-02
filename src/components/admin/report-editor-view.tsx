@@ -8,7 +8,6 @@ export function ReportEditorView() {
   return (
     <ReportEditor
       mode="admin"
-      showSectionTabs
       basePath="/admin/report-editor"
     />
   );

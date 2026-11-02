@@ -357,16 +357,25 @@ export function AppSidebar() {
   const openUpdate = isPartner ? parseUpdatePath(pathname) : null;
   // Pinned by ?u=<id>: a year can hold several updates, so project+year alone
   // would pick a sibling — and this id drives the completion ticks below.
+  // Admin: /admin/project-update-editor/{project}/{year}/{section}, pinned the same way.
+  const adminUpdateParts = !isPartner && pathname.startsWith("/admin/project-update-editor/") ? pathname.split("/").filter(Boolean) : [];
+  const openAdminUpdate =
+    adminUpdateParts.length >= 5 && /^\d{4}$/.test(adminUpdateParts[3])
+      ? { project: adminUpdateParts[2], year: adminUpdateParts[3], section: adminUpdateParts[4] }
+      : null;
+  const resolveOpenUpdate = (o: { project: string; year: string }) =>
+    resolveDocument(
+      updates.filter(
+        (u) =>
+          projectSlug(u.project_short_name, u.project_title) === o.project &&
+          String(u.year) === o.year
+      ),
+      Number(searchParams.get(DOC_ID_PARAM))
+    ) ?? null;
+  const adminActiveUpdate = openAdminUpdate ? resolveOpenUpdate(openAdminUpdate) : null;
   const activeUpdateId = openUpdate
-    ? resolveDocument(
-        updates.filter(
-          (u) =>
-            projectSlug(u.project_short_name, u.project_title) === openUpdate.project &&
-            String(u.year) === openUpdate.year
-        ),
-        Number(searchParams.get(DOC_ID_PARAM))
-      )?.id ?? null
-    : null;
+    ? resolveOpenUpdate(openUpdate)?.id ?? null
+    : adminActiveUpdate?.id ?? null;
   const matchingProdoc = activeReportRow
     ? prodocItems.find((p) => p.project_title === activeReportRow.project_title) ?? null
     : null;
@@ -383,6 +392,16 @@ export function AppSidebar() {
       .then((all: SidebarReport[]) => { if (Array.isArray(all)) setReports(all); })
       .catch(() => {});
   }, [mounted, user, isPartner, adminReportOpen, reports.length]);
+
+  // Admin: load the update list once, when an update is first opened.
+  const adminUpdateOpen = openAdminUpdate != null;
+  useEffect(() => {
+    if (!mounted || !user || isPartner || !adminUpdateOpen || updates.length > 0) return;
+    fetch("/api/reports?data_type=update")
+      .then((r) => r.json())
+      .then((all: UpdateSidebarReport[]) => { if (Array.isArray(all)) setUpdates(all); })
+      .catch(() => {});
+  }, [mounted, user, isPartner, adminUpdateOpen, updates.length]);
 
   useEffect(() => {
     if (activeReportId == null) { setSectionComplete({}); return; }
@@ -465,6 +484,52 @@ export function AppSidebar() {
       ))}
     </div>
   );
+
+  // Section list of an open project update: only the pages it unlocked, split into
+  // Qualitative / Quantitative with the grey headings and dividers, with completion
+  // ticks. Shared by the partner and admin sidebars.
+  const renderUpdateSections = (
+    basePath: string,
+    update: { id: number; year: number; slug: string; unlocked: string[] },
+    activeSection: string
+  ) => {
+    const groups = updateSectionGroups(UPDATE_SECTIONS.filter((s) => update.unlocked.includes(s.value)));
+    return (
+      <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+        {groups.map((grp, gi) => (
+          <div key={grp.label} className="flex flex-col gap-0.5">
+            <p className={cn(
+              "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
+              gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
+              GROUP_STYLES[grp.label].header
+            )}>
+              {grp.label}
+            </p>
+            {grp.sections.map((s) => {
+              const secActive = activeSection === s.value;
+              return (
+                <Link
+                  key={s.value}
+                  href={documentPath(basePath, { id: update.id, data_type: "update", year: update.year }, update.slug, s.value)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                    secActive
+                      ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  <span className="flex-1 truncate">{s.label}</span>
+                  {updateSectionComplete[s.value] && (
+                    <Check className="size-3.5 shrink-0 text-green-600" />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (activeUpdateId == null) { setUpdateSectionComplete({}); return; }
@@ -714,7 +779,7 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <NameTip text={it.primary}><span className="truncate text-sm font-medium capitalize">{it.primary}</span></NameTip>
+                              <span className="truncate text-sm font-medium capitalize">{it.primary}</span>
                               {it.isActive && (
                                 reportSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
@@ -774,7 +839,7 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <NameTip text={it.primary}><span className="truncate text-sm font-medium">{it.primary}</span></NameTip>
+                              <span className="truncate text-sm font-medium">{it.primary}</span>
                               {it.isActive && (
                                 updateSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
@@ -784,50 +849,8 @@ export function AppSidebar() {
                             <NameTip text={it.secondary}><span className="truncate text-xs opacity-70">{it.secondary}</span></NameTip>
                           </Link>
 
-                          {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {
-                            // Updates draw on UPDATE_SECTIONS, not REPORT_SECTIONS —
-                            // Justification and HACT exist only here — and split into
-                            // the same Qualitative / Quantitative halves a report does,
-                            // narrowed to the pages this update unlocked.
-                            const groups = updateSectionGroups(
-                              UPDATE_SECTIONS.filter((s) => it.unlocked.includes(s.value))
-                            );
-                            return (
-                              <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                                {groups.map((grp, gi) => (
-                                  <div key={grp.label} className="flex flex-col gap-0.5">
-                                    <p className={cn(
-                                      "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
-                                      gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
-                                      GROUP_STYLES[grp.label].header
-                                    )}>
-                                      {grp.label}
-                                    </p>
-                                    {grp.sections.map((s) => {
-                                      const secActive = openUpdate.section === s.value;
-                                      return (
-                                        <Link
-                                          key={s.value}
-                                          href={documentPath("/partner/project-updates", { id: it.id, data_type: "update", year: it.year }, it.slug, s.value)}
-                                          className={cn(
-                                            "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
-                                            secActive
-                                              ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
-                                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                                          )}
-                                        >
-                                          <span className="flex-1 truncate">{s.label}</span>
-                                          {updateSectionComplete[s.value] && (
-                                            <Check className="size-3.5 shrink-0 text-green-600" />
-                                          )}
-                                        </Link>
-                                      );
-                                    })}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })()}
+                          {it.isActive && openUpdate && !updateSectionsCollapsed &&
+                            renderUpdateSections("/partner/project-updates", it, openUpdate.section)}
                         </div>
                       ))}
                     </div>
@@ -861,13 +884,15 @@ export function AppSidebar() {
             const reportOpen = item.href === "/admin/reports" && openAdminReport != null;
             // Same for the project document editor, listed under "Projects".
             const prodocOpen = item.href === "/admin/projects" && pathname.startsWith("/admin/prodoc-editor");
+            // And for the project update editor, listed under "Project Updates".
+            const updateOpen = item.href === "/admin/project-updates" && pathname.startsWith("/admin/project-update-editor");
             return (
               <div key={item.href}>
                 <Link
                   href={item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                    subActive || reportOpen || prodocOpen
+                    subActive || reportOpen || prodocOpen || updateOpen
                       ? NAV_PARENT_ACTIVE
                       : ownActive
                       ? NAV_ACTIVE
@@ -890,7 +915,7 @@ export function AppSidebar() {
                           setReportSectionsCollapsed((v) => !v);
                         }}
                       >
-                        <NameTip text={name}><span className="truncate text-sm font-medium">{name}</span></NameTip>
+                        <span className="truncate text-sm font-medium">{name}</span>
                         {reportSectionsCollapsed
                           ? <ChevronRight className="size-3 shrink-0" />
                           : <ChevronDown className="size-3 shrink-0" />}
@@ -944,7 +969,93 @@ export function AppSidebar() {
                                   href={`/admin/report-editor/${reportSlug(r)}/${r.year}/overview`}
                                   className="flex items-center rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                                 >
-                                  <NameTip text={documentTitle(r)}><span className="truncate">{documentTitle(r)}</span></NameTip>
+                                  <span className="truncate">{documentTitle(r)}</span>
+                                </Link>
+                              )
+                            )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {updateOpen && (() => {
+                  // All updates grouped by project title (A–Z), newest year first.
+                  // Only the open one is bold (no fill) and expands to the sections
+                  // it unlocked.
+                  const byProject = new Map<string, UpdateSidebarReport[]>();
+                  for (const u of updates) {
+                    const rows = byProject.get(u.project_title) ?? [];
+                    rows.push(u);
+                    byProject.set(u.project_title, rows);
+                  }
+                  const groups = Array.from(byProject.entries()).sort((x, y) => x[0].localeCompare(y[0]));
+                  const linkFor = (u: UpdateSidebarReport) =>
+                    documentPath(
+                      "/admin/project-update-editor",
+                      { id: u.id, data_type: "update", year: u.year },
+                      projectSlug(u.project_short_name, u.project_title),
+                      firstUnlockedSection(u.unlocked_sections ?? [])
+                    );
+
+                  // List not loaded yet: just the open update, named from the URL.
+                  if (updates.length === 0) {
+                    return openAdminUpdate ? (
+                      <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                        <span className={cn("flex items-center rounded-md px-3 py-1.5 text-sm font-medium", NAV_PARENT_ACTIVE)}>
+                          {`Project Update ${openAdminUpdate.year}`}
+                        </span>
+                      </div>
+                    ) : null;
+                  }
+                  return (
+                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                      {groups.map(([title, rows], gi) => (
+                        <div key={title} className="flex flex-col gap-0.5">
+                          <NameTip text={title}>
+                            <p
+                              className={cn(
+                                "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider truncate",
+                                gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
+                                GROUP_STYLES.Qualitative.header
+                              )}
+                            >
+                              {title}
+                            </p>
+                          </NameTip>
+                          {rows
+                            .slice()
+                            .sort((x, y) => y.year - x.year || x.id - y.id)
+                            .map((u) =>
+                              u.id === adminActiveUpdate?.id && openAdminUpdate ? (
+                                <div key={u.id}>
+                                  <Link
+                                    href={linkFor(u)}
+                                    className={cn("flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors", NAV_PARENT_ACTIVE)}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setUpdateSectionsCollapsed((v) => !v);
+                                    }}
+                                  >
+                                    <span className="truncate text-sm font-medium">{documentTitle(u)}</span>
+                                    {updateSectionsCollapsed
+                                      ? <ChevronRight className="size-3 shrink-0" />
+                                      : <ChevronDown className="size-3 shrink-0" />}
+                                  </Link>
+                                  {!updateSectionsCollapsed &&
+                                    renderUpdateSections(
+                                      "/admin/project-update-editor",
+                                      { id: u.id, year: u.year, slug: projectSlug(u.project_short_name, u.project_title), unlocked: u.unlocked_sections ?? [] },
+                                      openAdminUpdate.section
+                                    )}
+                                </div>
+                              ) : (
+                                <Link
+                                  key={u.id}
+                                  href={linkFor(u)}
+                                  onClick={() => setUpdateSectionsCollapsed(false)}
+                                  className="flex items-center rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                >
+                                  <span className="truncate">{documentTitle(u)}</span>
                                 </Link>
                               )
                             )}

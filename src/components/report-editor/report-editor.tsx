@@ -5,18 +5,10 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectGroup,
-  SelectLabel,
-} from "@/components/ui/select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, Lock, AlertTriangle, ChevronLeft, ChevronRight, Printer } from "lucide-react";
-import { cn, projectSlug, shortName } from "@/lib/utils";
+import { cn, projectSlug } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
@@ -24,11 +16,11 @@ import { SectionTableEditor, buildSectionSpecs } from "@/components/section-tabl
 import { ExpenditurePartnerEditor } from "@/components/expenditure-grid";
 import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { LoadingState } from "@/components/admin/shared";
-import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS, type ReportSectionGroup } from "@/lib/report-sections";
+import { REPORT_SECTIONS } from "@/lib/report-sections";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import type { Report } from "@/lib/types";
 import { DOC_ID_PARAM, documentPath, documentTitle, resolveDocument } from "@/lib/project-updates";
-import { UPDATE_SECTIONS, updateSectionGroups, type UpdateSection } from "@/lib/update-sections";
+import { UPDATE_SECTIONS } from "@/lib/update-sections";
 import { JustificationSection } from "@/components/report-editor/sections/justification-section";
 import { HactSection } from "@/components/report-editor/sections/hact-section";
 import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG, type ContributorActivity } from "@/components/report-editor/contributor-matrix";
@@ -72,7 +64,6 @@ export interface ReportEditorProps {
   // "admin" shows every report and (with forceReadOnly) is a read-only mirror.
   mode?: "partner" | "admin";
   forceReadOnly?: boolean;
-  showSectionTabs?: boolean;
   basePath?: string;
   dataType?: "report" | "update";
 }
@@ -80,7 +71,6 @@ export interface ReportEditorProps {
 export function ReportEditor({
   mode = "partner",
   forceReadOnly = false,
-  showSectionTabs = false,
   basePath = "/partner",
   dataType = "report",
 }: ReportEditorProps = {}) {
@@ -184,15 +174,6 @@ export function ReportEditor({
     const unlocked = activeUpdate?.unlocked_sections ?? [];
     return UPDATE_SECTIONS.filter((s) => unlocked.includes(s.value));
   }, [dataType, activeUpdate]);
-
-  // Updates split into the same Qualitative / Quantitative halves an annual
-  // report uses — narrowed to the pages this update actually has, so a half
-  // nothing was unlocked in simply does not appear.
-  const sectionGroups: { label: ReportSectionGroup; sections: { value: string; label: string }[] }[] =
-    useMemo(() => {
-      if (dataType !== "update") return REPORT_SECTION_GROUPS;
-      return updateSectionGroups(sections as UpdateSection[]);
-    }, [dataType, sections]);
 
   // ── What this document is called ───────────────────────────────────────────
   // The editor serves reports and project updates from the same component, so
@@ -454,19 +435,6 @@ export function ReportEditor({
     scheduleNext();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.section, reportId]);
-
-  // Admin reports navigate through the sidebar (its section list replaces the top
-  // tab bar and the report switcher). Admin project updates keep both for now.
-  const sidebarNav = mode === "admin" && dataType === "report";
-
-  function handleReportChange(val: string) {
-    const report = reports.find((r) => String(r.id) === val);
-    if (!report) return;
-    // Preserve the current section when switching reports, but default to the
-    // first available section when there is none yet.
-    const targetSection = params.section ?? defaultSection;
-    router.push(documentPath(basePath, report, toSlug(report), targetSection));
-  }
 
   function handleSectionChange(section: string) {
     if (!selectedReport || section === params.section) return;
@@ -860,112 +828,10 @@ export function ReportEditor({
             </Button>
           )}
 
-          {mode === "admin" && !sidebarNav && (
-            <Select
-              value={selectedReport ? String(selectedReport.id) : ""}
-              onValueChange={handleReportChange}
-              disabled={loadingReports}
-            >
-              <SelectTrigger className="w-[300px] max-w-[45vw] h-9 bg-neutral-900 border-neutral-700 text-white">
-                {loadingReports ? (
-                  <span className="flex items-center gap-2 text-neutral-400">
-                    <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
-                  </span>
-                ) : selectedReport ? (
-                  <span className="truncate capitalize">
-                    {documentTitle(selectedReport)} · {selectedReport.project_short_name || selectedReport.project_title}
-                  </span>
-                ) : (
-                  <span className="text-neutral-400">{labels.partnerEditor.selectReport}</span>
-                )}
-              </SelectTrigger>
-              <SelectContent>
-                {/* Reports classified underneath the partner & project (same grouping
-                    logic as the prodoc editor's project dropdown). */}
-                {Object.entries(
-                  reports.reduce((acc, r) => {
-                    const key = `${shortName(r.partner_short_name)} · ${r.project_short_name || r.project_title}`;
-                    (acc[key] ??= []).push(r);
-                    return acc;
-                  }, {} as Record<string, Report[]>)
-                ).map(([group, grouped]) => (
-                  <SelectGroup key={group}>
-                    <SelectLabel>{group}</SelectLabel>
-                    {grouped
-                      .slice()
-                      .sort((a, b) => b.year - a.year)
-                      .map((r) => (
-                        <SelectItem key={r.id} value={String(r.id)}>
-                          <span className="capitalize">{documentTitle(r)}</span>
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
 
         </div>
       </div>
 
-      {/* Section tabs — shown in the admin mirror (the partner nav uses the sidebar).
-          Kept to a single line: only the group containing the current section is
-          expanded into its tabs; the other group collapses to a clickable label
-          (click jumps to its first section, expanding it). */}
-      {showSectionTabs && !sidebarNav && selectedReport && (() => {
-        const activeGroup =
-          sectionGroups.find((g) => g.sections.some((s) => s.value === params.section))?.label
-          ?? sectionGroups[0]?.label;
-        return (
-          <div className="border-b px-8 flex items-center gap-1 shrink-0">
-            {sectionGroups.map((grp, i) => {
-              const expanded = grp.label === activeGroup;
-              return (
-                <div key={grp.label} className="flex items-center gap-1">
-                  {/* Divider so the two groups read as distinct. */}
-                  {i > 0 && <span className="mx-2 h-5 w-px bg-border" aria-hidden />}
-                  {expanded ? (
-                    <>
-                      <span className={cn(
-                        "px-1 text-xs font-semibold uppercase tracking-wider",
-                        GROUP_STYLES[grp.label].header
-                      )}>
-                        {grp.label}
-                      </span>
-                      {grp.sections.map((s) => (
-                        <button
-                          key={s.value}
-                          onClick={() => handleSectionChange(s.value)}
-                          className={cn(
-                            "px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-                            params.section === s.value
-                              ? GROUP_STYLES[grp.label].tabActive
-                              : "border-transparent text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </>
-                  ) : (
-                    // Collapsed group: jump to its first section to open it.
-                    <button
-                      onClick={() => handleSectionChange(grp.sections[0].value)}
-                      title={`Go to ${grp.label}`}
-                      className={cn(
-                        "px-2 py-2.5 text-xs font-semibold uppercase tracking-wider transition-opacity hover:opacity-70",
-                        GROUP_STYLES[grp.label].header
-                      )}
-                    >
-                      {grp.label}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
 
       {/* Content — the workplan fills the leftover height and scrolls inside its
           own box (single scroller, frozen header); every other tab scrolls here. */}

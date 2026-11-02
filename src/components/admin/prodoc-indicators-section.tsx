@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,12 +62,15 @@ function LinkedResultsPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex flex-col gap-0.5 disabled:cursor-not-allowed disabled:opacity-50">
-          {selected.length === 0
-            ? <span className="text-muted-foreground py-0.5">No outcome / objective</span>
-            : selected.map((key) => (
-                <span key={key} className="line-clamp-1 font-medium">{options.find((o) => o.key === key)?.label ?? key}</span>
-              ))}
+        <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {selected.length === 0
+              ? <span className="text-muted-foreground py-0.5">Select outcome / objective</span>
+              : selected.map((key) => (
+                  <span key={key} className="line-clamp-1 font-medium">{options.find((o) => o.key === key)?.label ?? key}</span>
+                ))}
+          </div>
+          <ChevronDown className="size-4 shrink-0 opacity-50" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
@@ -242,7 +245,7 @@ export function ProdocIndicatorsSection({
   // sticky cells — an inset box-shadow redraws it. The background has to be opaque
   // (not the old bg-muted/30) or scrolled rows show through; bg-neutral-100 matches
   // the frozen heads on the workplan / expenditure / risk tabs.
-  const headCell = `sticky top-0 z-10 ${HEAD_BG} px-4 py-3 text-left ${HEAD_COLOR} ${HEAD_TEXT}`;
+  const headCell = `sticky top-0 z-10 ${HEAD_BG} px-4 py-3 text-left whitespace-nowrap ${HEAD_COLOR} ${HEAD_TEXT}`;
   const headShadow = { boxShadow: `inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}` };
 
   function renderTable(tableLines: ProdocIndicatorLine[], type: "standard" | "custom", footer?: React.ReactNode) {

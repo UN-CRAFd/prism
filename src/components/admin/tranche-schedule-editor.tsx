@@ -342,7 +342,7 @@ export function TrancheScheduleEditor({
                               value={releaseDate}
                               onChange={(v) => setCell(org.id, tn, { release_date: v })}
                               disabled={readOnly}
-                              className={cn(needsDate && "border-amber-400")}
+                              className={cn(needsDate && "border-crafd-yellow-400")}
                               aria-label={`Tranche ${tn} release date for ${org.name}`}
                             />
                           </td>
@@ -385,7 +385,7 @@ export function TrancheScheduleEditor({
       )}
 
       {missingReleaseDate && (
-        <p className="text-sm text-amber-700">{g.tranches.missingReleaseDate}</p>
+        <p className="text-sm text-crafd-grey-800">{g.tranches.missingReleaseDate}</p>
       )}
 
       <FundingSummary kind="tranche" requested={grantSize} total={trancheTotal} />

@@ -23,7 +23,7 @@ export function ActionRow({ action }: { action: ProjectAction }) {
     subtitleClass = "text-red-600";
   } else if (action.dueSoon) {
     subtitle = `Due ${action.dueDateFormatted}`;
-    subtitleClass = "text-amber-600";
+    subtitleClass = "text-crafd-grey-800";
   } else {
     subtitle = `Due ${action.dueDateFormatted}`;
     subtitleClass = "text-muted-foreground";
@@ -37,7 +37,7 @@ export function ActionRow({ action }: { action: ProjectAction }) {
       <AlertCircle
         className={cn(
           "size-4 mt-0.5 shrink-0",
-          action.overdue ? "text-red-500" : "text-amber-500"
+          action.overdue ? "text-red-500" : "text-crafd-yellow-900"
         )}
       />
       <div className="flex-1 min-w-0">
@@ -46,7 +46,7 @@ export function ActionRow({ action }: { action: ProjectAction }) {
           <p className={cn("text-xs mt-0.5", subtitleClass)}>{subtitle}</p>
         )}
         {action.commentCount > 0 && (
-          <p className="text-xs text-blue-700 mt-0.5">
+          <p className="text-xs font-medium text-crafd-grey-800 mt-0.5">
             {action.commentCount}{" "}
             {action.commentCount === 1
               ? labels.partnerHome.commentToAddress

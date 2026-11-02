@@ -194,7 +194,7 @@ export function LabelsEditor() {
                   <span className="font-medium text-sm">{group}</span>
                   <span className="text-xs text-muted-foreground">({leaves.length})</span>
                   {groupModified > 0 && (
-                    <span className="ml-auto text-xs rounded-full bg-amber-100 text-amber-800 px-2 py-0.5">
+                    <span className="ml-auto text-xs rounded-full bg-crafd-yellow-100 text-crafd-grey-800 px-2 py-0.5">
                       {groupModified} modified
                     </span>
                   )}
@@ -206,7 +206,7 @@ export function LabelsEditor() {
                       const val = values[leaf.path] ?? "";
                       const modified = val !== leaf.base;
                       return (
-                        <div key={leaf.path} className={cn("px-4 py-3", modified && "bg-amber-50/40")}>
+                        <div key={leaf.path} className={cn("px-4 py-3", modified && "bg-crafd-yellow-100")}>
                           <div className="flex items-center gap-2 mb-1.5">
                             <code className="text-xs text-muted-foreground break-all">{leaf.path}</code>
                             {leaf.kind === "array" && (

@@ -39,7 +39,7 @@ interface HactRow {
 // out and the partner's comment locks (the API enforces the lock too).
 const IMPLEMENTED = "Implemented";
 const STATUS_STYLES: Record<string, string> = {
-  "In Progress": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "In Progress": "bg-green-50 text-green-700 border-green-200",
   [IMPLEMENTED]: "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
 const STATUS_STYLE_FALLBACK = "bg-zinc-50 text-zinc-600 border-zinc-200";
@@ -295,7 +295,7 @@ export function HactSection({
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
-                            className="rounded p-1.5 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                            className="rounded p-1.5 text-green-700 hover:bg-green-50 transition-colors"
                             title="Done editing"
                           >
                             <Check className="size-3.5" />

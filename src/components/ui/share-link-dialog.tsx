@@ -39,7 +39,7 @@ export function ShareLinkDialog({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="size-5 shrink-0 text-green-600" />
                 <p className="text-sm font-semibold">Link copied</p>
               </div>
               <input

@@ -279,7 +279,7 @@ export function OptionsEditor() {
                   <span className="font-medium text-sm">{group.label}</span>
                   <span className="text-xs text-muted-foreground">({rows.length})</span>
                   {modified && (
-                    <span className="ml-auto text-xs rounded-full bg-amber-100 text-amber-800 px-2 py-0.5">
+                    <span className="ml-auto text-xs rounded-full bg-crafd-yellow-100 text-crafd-grey-800 px-2 py-0.5">
                       modified
                     </span>
                   )}

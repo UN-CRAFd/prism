@@ -258,7 +258,7 @@ export function GuideEditor() {
                   aria-label={s.hidden ? labels.guideEditor.show : labels.guideEditor.hide}
                   title={s.hidden ? labels.guideEditor.show : labels.guideEditor.hide}
                 >
-                  {s.hidden ? <EyeOff className="size-4 text-amber-600" /> : <Eye className="size-4" />}
+                  {s.hidden ? <EyeOff className="size-4 text-crafd-yellow-900" /> : <Eye className="size-4" />}
                 </Button>
 
                 <Button
@@ -275,7 +275,7 @@ export function GuideEditor() {
             </div>
 
             {s.hidden && (
-              <p className="text-xs text-amber-700">{labels.guideEditor.hiddenNote}</p>
+              <p className="text-xs text-crafd-grey-800">{labels.guideEditor.hiddenNote}</p>
             )}
 
             {/* Body */}
@@ -290,7 +290,7 @@ export function GuideEditor() {
               <div
                 className={cn(
                   "text-xs text-right tabular-nums",
-                  len >= MAX_CHARS ? "text-amber-600 font-medium" : "text-muted-foreground"
+                  len >= MAX_CHARS ? "text-crafd-grey-800 font-medium" : "text-muted-foreground"
                 )}
               >
                 {len.toLocaleString()}/{MAX_CHARS.toLocaleString()} characters
@@ -381,7 +381,7 @@ function IconPicker({
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors",
                   selected
-                    ? "border-amber-400 bg-amber-100 text-amber-700"
+                    ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800"
                     : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
                 )}
               >

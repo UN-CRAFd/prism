@@ -94,7 +94,7 @@ function SurveyCard({ survey, index, rowStates, updateRow }: SurveyCardProps) {
   if (!state) return null;
   return (
     <div
-      className={cn("rounded-xl border bg-card p-5 space-y-4 transition-colors", state.dirty && "border-amber-200")}
+      className={cn("rounded-xl border bg-card p-5 space-y-4 transition-colors", state.dirty && "border-crafd-yellow-400")}
     >
       <div className="flex items-start gap-3">
         <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{index + 1}.</span>

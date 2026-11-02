@@ -59,7 +59,7 @@ export function CommentContextBadges({
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {itemLabel && (
-        <Badge className="max-w-[240px] truncate border-blue-200 bg-blue-50 text-blue-700" title={itemLabel}>
+        <Badge className="max-w-[240px] truncate border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800" title={itemLabel}>
           {itemLabel}
         </Badge>
       )}

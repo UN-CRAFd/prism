@@ -575,16 +575,16 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                 return (
                   <tr key={row.entityId} className="align-top">
                     {/* Frozen: organisation identity (master, editable anytime) */}
-                    <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
+                    <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
                       <div className="flex items-center gap-1">
                         <Input value={state.name} onChange={(e) => updateMaster(row.entityId, { name: e.target.value })} placeholder={config.labels.identityPlaceholder} className="text-sm h-8 flex-1" />
                         <ItemComments section={config.section} itemId={row.entityId} />
                       </div>
                     </td>
-                    <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
+                    <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
                       <Input value={state.website} onChange={(e) => updateMaster(row.entityId, { website: e.target.value })} placeholder={config.labels.websitePlaceholder} className="text-sm h-8" />
                     </td>
-                    <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-amber-50/60")}>
+                    <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
                       <Select value={state.type || "none"} onValueChange={(v) => updateMaster(row.entityId, { type: v === "none" ? null : v })}>
                         <SelectTrigger className="w-full h-8 px-2">
                           {state.type

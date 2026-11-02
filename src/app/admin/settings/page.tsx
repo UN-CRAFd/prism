@@ -77,7 +77,7 @@ export default function AdminSettingsPage() {
         {/* Change admin password — heading above a single compact row */}
         <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-6">
           <div className="flex items-center gap-3 mb-4">
-            <KeyRound className="size-5 text-amber-500 shrink-0" />
+            <KeyRound className="size-5 text-crafd-yellow-900 shrink-0" />
             <h2 className="t-heading-section">Change admin password</h2>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -135,7 +135,7 @@ export default function AdminSettingsPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center gap-3 mb-1">
-              <Tag className="size-5 text-amber-500 shrink-0" />
+              <Tag className="size-5 text-crafd-yellow-900 shrink-0" />
               <h2 className="t-heading-section">Interface labels</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
@@ -150,7 +150,7 @@ export default function AdminSettingsPage() {
 
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center gap-3 mb-1">
-              <List className="size-5 text-amber-500 shrink-0" />
+              <List className="size-5 text-crafd-yellow-900 shrink-0" />
               <h2 className="t-heading-section">Dropdown options</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
@@ -167,7 +167,7 @@ export default function AdminSettingsPage() {
         {/* Character limits */}
         <div className="rounded-xl border bg-card p-6">
           <div className="flex items-center gap-3 mb-1">
-            <Type className="size-5 text-amber-500 shrink-0" />
+            <Type className="size-5 text-crafd-yellow-900 shrink-0" />
             <h2 className="t-heading-section">Character limits</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-1">

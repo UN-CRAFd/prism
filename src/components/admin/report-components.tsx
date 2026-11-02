@@ -561,7 +561,7 @@ export function CreateReportForm({
                 placeholder={clash.length === 0 ? "Not needed" : "e.g. 2"}
               />
               {clash.length > 0 && (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-crafd-grey-800">
                   {clash.length === 1
                     ? `A project update already exists for ${year}.`
                     : `${clash.length} project updates already exist for ${year}.`}{" "}

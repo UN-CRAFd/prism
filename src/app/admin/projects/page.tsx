@@ -100,8 +100,8 @@ interface ProjectRevision {
 const STATUS_STYLES: Record<string, string> = {
   Idea:                   "bg-white text-crafd-grey-600 border-crafd-grey-400",
   Ongoing:                "bg-crafd-yellow text-crafd-grey-900 border-crafd-yellow-900",
-  "Operationally Closed": "bg-crafd-yellow-300 text-crafd-yellow-900 border-crafd-yellow-600",
-  "Financially Closed":   "bg-crafd-yellow-150 text-crafd-yellow-900 border-crafd-yellow-300",
+  "Operationally Closed": "bg-crafd-yellow-300 text-crafd-grey-800 border-crafd-yellow-600",
+  "Financially Closed":   "bg-crafd-yellow-150 text-crafd-grey-800 border-crafd-yellow-300",
   "Project Closed":       "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200",
 };
 const STATUS_STYLE_FALLBACK = "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200";
@@ -610,7 +610,7 @@ export default function ProjectsPage() {
             {durationLabel(p.project_duration_months)}
             {p.extension_count > 0 && (
               <span
-                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-semibold text-blue-700"
+                className="inline-flex items-center gap-0.5 rounded border border-crafd-yellow-400 bg-crafd-yellow-100 px-1.5 py-0.5 text-xs font-semibold text-crafd-grey-800"
                 title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
               >
                 <CalendarPlus className="size-2.5" />
@@ -943,7 +943,7 @@ export default function ProjectsPage() {
             <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-start gap-3 mb-4">
-                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-crafd-yellow-100 text-crafd-yellow-900">
                     <CalendarPlus className="size-4" />
                   </span>
                   <div className="min-w-0">
@@ -1022,7 +1022,7 @@ export default function ProjectsPage() {
           <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-start gap-3 mb-4">
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-crafd-yellow-100 text-crafd-yellow-900">
                   <FilePenLine className="size-4" />
                 </span>
                 <div className="min-w-0">

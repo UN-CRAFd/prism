@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { Notice } from "@/components/ui/notice";
 import { PageHeader, ErrorBanner } from "@/components/admin/shared";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { HactSection } from "@/components/report-editor/sections/hact-section";
@@ -58,10 +59,10 @@ export default function ProjectHactRecommendationsPage() {
 
         {error && <ErrorBanner message={error} />}
 
-        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-base text-blue-900">
+        <Notice variant="info" className="mb-6">
           Add one row per finding; use a row&apos;s pencil to edit it. This list is shared with all of the
           project&apos;s updates. The partner can respond in the Partner comment column only.
-        </div>
+        </Notice>
 
         {Number.isInteger(id) && (
           <HactSection projectId={id} isAdmin onSaveStateChange={setSaveState} />

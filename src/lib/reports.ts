@@ -15,7 +15,7 @@ export type ReportStatus = string;
 export type ReportStatusVariant = "light" | "dark";
 
 export const LIGHT_STATUS_STYLES: Record<string, string> = {
-  Open:           "bg-crafd-yellow-100 text-crafd-yellow-900 border-crafd-yellow-600",
+  Open:           "bg-crafd-yellow-100 text-crafd-grey-800 border-crafd-yellow-600",
   "Under Review": "bg-crafd-grey-100 text-crafd-grey-800 border-crafd-grey-200",
   Closed:         "bg-white text-crafd-grey-400 border-crafd-grey-100",
 };

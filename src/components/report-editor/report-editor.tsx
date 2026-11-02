@@ -1330,7 +1330,7 @@ export function ReportEditor({
                   Submit
                 </Button>
                 {(submitBlockers.length > 0 || submitError) && (
-                  <p className="text-xs text-amber-700 max-w-[420px] text-right leading-snug">
+                  <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
                     {submitError ?? submitBlockers.join(" ")}
                   </p>
                 )}

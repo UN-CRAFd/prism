@@ -210,7 +210,7 @@ export function UpdateModuleMatrix({
    *  ticks so the selection does not compete with the cells being edited. */
   const columnTint = (type: string, header: boolean) =>
     !editing && typeSet.has(type)
-      ? header ? "bg-orange-200/70" : "bg-orange-100/70"
+      ? header ? "bg-crafd-yellow-200 border-crafd-yellow" : "bg-crafd-yellow-100"
       : header ? HEAD_BG : undefined;
 
   return (
@@ -230,7 +230,7 @@ export function UpdateModuleMatrix({
                     HEAD_COLOR,
                     HEAD_TEXT,
                     columnTint(type.value, true),
-                    !editing && typeSet.has(type.value) && "text-orange-900"
+                    !editing && typeSet.has(type.value) && "text-crafd-grey-800"
                   )}
                 >
                   <label
@@ -241,7 +241,7 @@ export function UpdateModuleMatrix({
                   >
                     <input
                       type="checkbox"
-                      className="accent-orange-500 shrink-0"
+                      className="accent-crafd-yellow shrink-0"
                       checked={typeSet.has(type.value)}
                       disabled={editing}
                       onChange={() => toggleType(type.value)}
@@ -347,7 +347,7 @@ export function UpdateModuleMatrix({
                           <Check
                             className={cn(
                               "mx-auto size-4",
-                              typeSet.has(type.value) ? "text-orange-700" : "text-muted-foreground"
+                              typeSet.has(type.value) ? "text-crafd-yellow-900" : "text-muted-foreground"
                             )}
                             aria-label={`Required for ${type.label}`}
                           />

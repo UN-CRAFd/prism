@@ -98,7 +98,7 @@ function ShareToggle({
 // Small "Added in YYYY" badge shown under a risk name for non-ProDoc risks.
 function AddedBadge({ year }: { year: number }) {
   return (
-    <span className="mt-1.5 inline-flex items-center rounded-md bg-crafd-yellow-100 px-2 py-0.5 text-xs font-medium text-crafd-yellow-900 ring-1 ring-inset ring-crafd-yellow-600">
+    <span className="mt-1.5 inline-flex items-center rounded-md bg-crafd-yellow-100 px-2 py-0.5 text-xs font-medium text-crafd-grey-800 ring-1 ring-inset ring-crafd-yellow-600">
       Added in {year}
     </span>
   );
@@ -285,7 +285,7 @@ export function RiskSection({
                 const addedYear = isNew ? reportYear : risk.origin_year;
 
                 return (
-                  <tr key={risk.id} className={cn("align-top transition-colors", state.dirty && "bg-amber-50/40")}>
+                  <tr key={risk.id} className={cn("align-top transition-colors", state.dirty && "bg-crafd-yellow-100")}>
                     {/* # */}
                     <td className="px-3 py-3 border-t">
                       <span className="text-xs font-mono text-muted-foreground">{i + 1}.</span>

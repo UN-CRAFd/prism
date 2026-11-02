@@ -12,5 +12,5 @@ export function fundingTypes(): string[] {
 // unknown/added types fall back to a neutral treatment via fundingTypeColor().
 export const FUNDING_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   "In Cash": { bg: "bg-green-50", text: "text-green-700", border: "border-green-300" },
-  "In Kind": { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-300" },
+  "In Kind": { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
 };

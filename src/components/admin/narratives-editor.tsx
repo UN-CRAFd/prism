@@ -145,7 +145,7 @@ export function NarrativesAdminEditor({
             key={q.key}
             className={cn(
               "rounded-xl border bg-card p-5 space-y-3 transition-colors",
-              isDirty(q.key) && "border-amber-200"
+              isDirty(q.key) && "border-crafd-yellow-400"
             )}
           >
             <div className="flex items-start gap-3">

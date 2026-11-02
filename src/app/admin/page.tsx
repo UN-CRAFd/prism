@@ -177,11 +177,11 @@ export default function AdminHomePage() {
   }, []);
 
   const statCards = [
-    { label: "Total Reports",  value: stats?.totalReports,       icon: ClipboardList, color: "text-blue-600" },
+    { label: "Total Reports",  value: stats?.totalReports,       icon: ClipboardList, color: "text-crafd-yellow-900" },
     { label: "Authorized",     value: stats?.authorizedReports,  icon: CheckCircle2,  color: "text-green-600" },
-    { label: "Pending",        value: stats?.pendingReports,     icon: Clock,         color: "text-amber-600" },
-    { label: "Partners",       value: stats?.totalPartners,      icon: Users,         color: "text-violet-600" },
-    { label: "Projects",       value: stats?.totalProjects,      icon: FolderKanban,  color: "text-emerald-600" },
+    { label: "Pending",        value: stats?.pendingReports,     icon: Clock,         color: "text-crafd-yellow-900" },
+    { label: "Partners",       value: stats?.totalPartners,      icon: Users,         color: "text-crafd-yellow-900" },
+    { label: "Projects",       value: stats?.totalProjects,      icon: FolderKanban,  color: "text-green-600" },
   ];
 
   return (
@@ -227,10 +227,10 @@ export default function AdminHomePage() {
                 <button
                   key={href}
                   onClick={() => router.push(href)}
-                  className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/70 p-5 text-left transition-shadow hover:shadow-md cursor-pointer text-neutral-900"
+                  className="group rounded-xl border border-crafd-yellow-400 bg-gradient-to-br from-crafd-yellow-100 to-crafd-yellow-200 p-5 text-left transition-shadow hover:shadow-md cursor-pointer text-neutral-900"
                 >
                   <div className="flex items-center gap-2">
-                    <Icon className="size-5 shrink-0 text-amber-500" />
+                    <Icon className="size-5 shrink-0 text-crafd-yellow-900" />
                     <p className="text-sm font-bold uppercase tracking-wide">{label}</p>
                   </div>
                   {display != null && (
@@ -287,7 +287,7 @@ export default function AdminHomePage() {
                       )}
                       className="group w-full px-5 py-3.5 flex items-start gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
                     >
-                      <MessageSquare className="size-4 mt-0.5 shrink-0 text-amber-500" />
+                      <MessageSquare className="size-4 mt-0.5 shrink-0 text-crafd-yellow-900" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm line-clamp-2">{c.body}</p>
                         <CommentContextBadges

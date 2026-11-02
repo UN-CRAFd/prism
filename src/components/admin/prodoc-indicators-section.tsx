@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ComboboxItem } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
+import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR } from "@/components/report-editor/matrix-table";
 import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import labels from "@/lib/labels";
 import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
@@ -243,7 +243,7 @@ export function ProdocIndicatorsSection({
   // (not the old bg-muted/30) or scrolled rows show through; bg-neutral-100 matches
   // the frozen heads on the workplan / expenditure / risk tabs.
   const headCell = `sticky top-0 z-10 ${HEAD_BG} px-4 py-3 text-left ${HEAD_COLOR} ${HEAD_TEXT}`;
-  const headShadow = { boxShadow: "inset 0 -1px 0 var(--border)" };
+  const headShadow = { boxShadow: `inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}` };
 
   function renderTable(tableLines: ProdocIndicatorLine[], type: "standard" | "custom", footer?: React.ReactNode) {
     return (

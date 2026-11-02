@@ -134,7 +134,7 @@ export default function AdminCommentsPage() {
     return (
       <div className={cn("rounded-xl border bg-card", archived && "bg-muted/30 opacity-70")}>
         <div className="flex items-start gap-3 p-4">
-          <MessageSquare className={cn("size-4 mt-0.5 shrink-0", archived ? "text-muted-foreground/50" : "text-amber-500")} />
+          <MessageSquare className={cn("size-4 mt-0.5 shrink-0", archived ? "text-muted-foreground/50" : "text-crafd-yellow-900")} />
           <div className="flex-1 min-w-0">
             {editing ? (
               <div className="space-y-2">
@@ -252,7 +252,7 @@ export default function AdminCommentsPage() {
 
             <section className="space-y-3">
               <div className="flex items-center gap-2">
-                <Send className="size-4 text-amber-500" />
+                <Send className="size-4 text-crafd-yellow-900" />
                 <h2 className="t-heading-section">Sent out</h2>
                 <span className="text-xs text-muted-foreground">awaiting the partner · {sentOut.length}</span>
               </div>

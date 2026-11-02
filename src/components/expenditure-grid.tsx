@@ -128,8 +128,8 @@ function frozenLayout(proposed: boolean) {
 
 // Columns for years the extension adds, tinted so proposed extra time is never
 // read as approved project period. Matches the work plan grid's treatment.
-const EXTENSION_HEAD = "bg-amber-100/80 text-amber-900";
-const EXTENSION_CELL = "bg-amber-50/60";
+const EXTENSION_HEAD = "bg-crafd-yellow-300 text-crafd-grey-800";
+const EXTENSION_CELL = "bg-crafd-yellow-100";
 
 // A collapsed border vanishes under a sticky cell; redraw it with an inset shadow.
 const HEAD_SHADOW = `inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}`; // bottom
@@ -450,15 +450,15 @@ export function ExpenditurePartnerEditor({
   }) {
     const bg =
       flag === "error" ? "bg-red-50" :
-      flag === "warn" ? "bg-amber-50" :
+      flag === "warn" ? "bg-crafd-yellow-100" :
       strong ? "bg-neutral-100" : "bg-neutral-50";
     return (
-      <tr className={cn("border-t", bg, strong && "font-semibold", flag === "error" && "text-red-900", flag === "warn" && "text-amber-900")}>
+      <tr className={cn("border-t", bg, strong && "font-semibold", flag === "error" && "text-red-900", flag === "warn" && "text-crafd-grey-800")}>
         <td style={L.fz("cat")} className={cn("px-3 py-2 text-sm border-r border-t", bg)}>
           <span className="inline-flex items-center gap-1.5" title={flag ? hint : undefined}>
             {flag && (
               <AlertTriangle
-                className={cn("size-3.5 shrink-0", flag === "error" ? "text-red-600" : "text-amber-600")}
+                className={cn("size-3.5 shrink-0", flag === "error" ? "text-red-600" : "text-crafd-yellow-900")}
                 aria-hidden
               />
             )}
@@ -517,7 +517,7 @@ export function ExpenditurePartnerEditor({
       {/* The claim is above the indirect support costs granted. A flag, not a
           block: the figure still saves. */}
       {iscOverClaimed && (
-        <div className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        <div className="shrink-0 rounded-lg border border-crafd-yellow-400 bg-crafd-yellow-100 px-4 py-2.5 text-sm text-crafd-grey-800">
           <span className="font-medium">Indirect support costs are above what was approved.</span>{" "}
           {formatAmount(iscTotal)} has been reported in total, against {formatAmount(iscCeiling)} approved
           ({Math.round(indirectRate * 100)}% of the approved project costs) — {formatAmount(iscTotal - iscCeiling)} too much.
@@ -531,7 +531,7 @@ export function ExpenditurePartnerEditor({
             "shrink-0 rounded-lg border px-4 py-2.5 text-sm",
             overspendLevel === "steering"
               ? "border-red-300 bg-red-50 text-red-900"
-              : "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800"
           )}
         >
           <span className="font-medium">
@@ -620,7 +620,7 @@ export function ExpenditurePartnerEditor({
                         : undefined
                     }
                   >
-                    {overspent && <AlertTriangle className="size-3.5 shrink-0 text-amber-600" aria-hidden />}
+                    {overspent && <AlertTriangle className="size-3.5 shrink-0 text-crafd-yellow-900" aria-hidden />}
                     {c.name}
                     <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
                   </span>

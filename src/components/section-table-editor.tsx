@@ -893,7 +893,7 @@ export function SectionTableEditor({
         </thead>
         <tbody className="divide-y">
           {rows.map((row, i) => (
-            <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-amber-50/40")}>
+            <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-crafd-yellow-100")}>
               <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
               {fields.map((f) => (
                 <td key={f.key} className="px-4 py-3 align-top">

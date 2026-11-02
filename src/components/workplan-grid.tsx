@@ -137,8 +137,8 @@ function QuarterCell({
 // Quarters added by an extended time frame are tinted across both header rows
 // and down the body, so the proposed extra time is never mistaken for the
 // project's approved timeline.
-const EXTENSION_HEAD = "bg-amber-100/80 text-amber-900";
-const EXTENSION_CELL = "bg-amber-50/60";
+const EXTENSION_HEAD = "bg-crafd-yellow-300 text-crafd-grey-800";
+const EXTENSION_CELL = "bg-crafd-yellow-100";
 
 // Two-row year/quarter header shared by both grids. `extension` holds the
 // quarter keys that fall beyond the project's approved end date; a year is
@@ -497,7 +497,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
       {/* No banner for the extended time frame: the added quarters announce
           themselves as the tinted columns past the project's own end. */}
       {activeUpdateId == null && (
-        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <div className="mb-3 rounded-lg border border-crafd-yellow-400 bg-crafd-yellow-100 px-4 py-2.5 text-sm text-crafd-grey-800">
           No active update window has been set for this project. Ask your administrator to add and activate one before entering progress.
         </div>
       )}
@@ -1539,7 +1539,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
                     if (!partnerMode) {
                       return (
-                        <tr key={row.key} className={cn("border-t", row.dirty && "bg-amber-50/30")}>
+                        <tr key={row.key} className={cn("border-t", row.dirty && "bg-crafd-yellow-100")}>
                           {activityCell}
                           {quarters.map((q, i) => (
                             <td key={q} className={cn("px-1 py-2 align-middle", i === 0 && "border-l")}>
@@ -1560,7 +1560,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                     const updatedQuarters = ps?.updated_quarters ?? row.planned_quarters;
                     return (
                       <Fragment key={row.key}>
-                        <tr className={cn("border-t", row.dirty && "bg-amber-50/30")}>
+                        <tr className={cn("border-t", row.dirty && "bg-crafd-yellow-100")}>
                           {activityCell}
                           <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">Baseline</td>
                           {quarters.map((q, i) => (
@@ -1597,7 +1597,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           </td>
                           {deleteCell}
                         </tr>
-                        <tr className={cn("border-b", row.dirty && "bg-amber-50/30")}>
+                        <tr className={cn("border-b", row.dirty && "bg-crafd-yellow-100")}>
                           <td className="px-2 py-2 text-xs font-medium text-neutral-700 whitespace-nowrap">Updated</td>
                           {quarters.map((q, i) => (
                             <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>

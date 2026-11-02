@@ -182,7 +182,7 @@ function ProjectBox({
             </span>
           )}
           {actionCount > 0 && (
-            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[13px] font-medium px-2.5 py-0.5">
+            <span className="inline-flex items-center rounded-full bg-crafd-yellow-100 text-crafd-grey-800 text-[13px] font-medium px-2.5 py-0.5">
               {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
             </span>
           )}

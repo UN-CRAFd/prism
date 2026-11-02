@@ -65,15 +65,15 @@ interface BadgeColors { bg: string; text: string; border: string }
 
 export const SCALE_COLORS: Record<number, BadgeColors> = {
   1: { bg: "bg-white", text: "text-crafd-grey-600", border: "border-crafd-grey-400" },
-  2: { bg: "bg-crafd-yellow-100", text: "text-crafd-yellow-900", border: "border-crafd-yellow-400" },
-  3: { bg: "bg-crafd-yellow-200", text: "text-crafd-yellow-900", border: "border-crafd-yellow-600" },
+  2: { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
+  3: { bg: "bg-crafd-yellow-200", text: "text-crafd-grey-800", border: "border-crafd-yellow-600" },
   4: { bg: "bg-crafd-yellow-600", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
   5: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
 };
 
 export const RISK_LEVEL_COLORS: Record<RiskLevelKey, BadgeColors> = {
   low:      { bg: "bg-white", text: "text-crafd-grey-600", border: "border-crafd-grey-400" },
-  medium:   { bg: "bg-crafd-yellow-300", text: "text-crafd-yellow-900", border: "border-crafd-yellow-600" },
+  medium:   { bg: "bg-crafd-yellow-300", text: "text-crafd-grey-800", border: "border-crafd-yellow-600" },
   high:     { bg: "bg-crafd-yellow-700", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
   veryHigh: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
 };

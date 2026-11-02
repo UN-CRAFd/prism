@@ -108,7 +108,7 @@ export function AutosaveIndicator({
   }
   if (s === "over-limit") {
     return (
-      <span className={cn("text-sm", tone === "dark" ? "text-amber-300" : "text-amber-600")}>
+      <span className={cn("text-sm", tone === "dark" ? "text-crafd-yellow-600" : "text-crafd-grey-800")}>
         Not saving — content is over the character limit
       </span>
     );

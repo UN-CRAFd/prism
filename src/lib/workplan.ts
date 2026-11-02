@@ -41,8 +41,8 @@ export function workplanUpdateWindowLabel(u: { year: number; type_code: string }
 const WORKPLAN_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   "Achieved": { bg: "bg-green-700", text: "text-white", border: "border-green-700" },
   "On Track": { bg: "bg-green-100", text: "text-green-800", border: "border-green-300" },
-  "Delayed": { bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300" },
-  "At Risk": { bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-300" },
+  "Delayed": { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
+  "At Risk": { bg: "bg-crafd-yellow-200", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
   "Suspended": { bg: "bg-red-700", text: "text-white", border: "border-red-700" },
 };
 const WORKPLAN_STATUS_FALLBACK_COLOR = { bg: "bg-zinc-100", text: "text-zinc-700", border: "border-zinc-300" };

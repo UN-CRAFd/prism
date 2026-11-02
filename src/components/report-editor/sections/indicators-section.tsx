@@ -140,7 +140,7 @@ export function IndicatorsSection({
             if (!state) return null;
             return (
               <tr key={row.indicator_id} className="align-top">
-                <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-amber-50/60")}>
+                <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-crafd-yellow-100")}>
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 mt-0.5 w-6 text-xs tabular-nums text-muted-foreground text-right">{idx + 1}.</span>
                     <div className="flex-1 min-w-0">
@@ -168,10 +168,10 @@ export function IndicatorsSection({
                     </div>
                   </div>
                 </td>
-                <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
+                <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
                   <ValueYear value={tableType === "project" ? state.baseline_value : row.baseline_value} year={tableType === "project" ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />
                 </td>
-                <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-amber-50/60")}>
+                <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
                   <ValueYear value={tableType === "project" ? state.target_value : row.target_value} year={tableType === "project" ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
                 </td>
 

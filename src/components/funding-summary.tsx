@@ -64,7 +64,7 @@ export function FundingSummary({
             statusVariant === "ok"
               ? "border-green-200 bg-green-50 text-green-800"
               : statusVariant === "warn"
-              ? "border-amber-300 bg-amber-50 text-amber-900"
+              ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800"
               : "border-border bg-muted/30 text-muted-foreground"
           )}
         >

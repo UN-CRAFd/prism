@@ -280,7 +280,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
         className={cn(
           "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs transition-colors",
           pendingCount > 0
-            ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800 hover:bg-crafd-yellow-200"
             : mainList.length > 0
             ? "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
             : "border-transparent text-muted-foreground/50 hover:text-muted-foreground hover:border-border"

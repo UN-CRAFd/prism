@@ -268,7 +268,7 @@ export function SdgTargetsEditor({
                 "text-sm font-semibold tabular-nums rounded-full px-2.5 py-0.5",
                 isHundred
                   ? "bg-green-100 text-green-800"
-                  : "bg-amber-100 text-amber-800"
+                  : "bg-crafd-yellow-100 text-crafd-grey-800"
               )}
             >
               {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}%
@@ -278,7 +278,7 @@ export function SdgTargetsEditor({
       )}
 
       {selected.length > 0 && !isHundred && (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs text-crafd-grey-800">
           Focus percentages should add up to 100% (currently {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}%).
         </p>
       )}

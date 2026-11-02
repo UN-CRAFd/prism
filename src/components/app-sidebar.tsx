@@ -321,9 +321,25 @@ export function AppSidebar() {
   const openProdocRow = prodocItems.find((p) => projectSlug(p.project_short_name, p.project_title) === openProdocSlug) ?? null;
 
   const openReport = isPartner ? parseReportPath(pathname) : null;
+
+  // Admin: /admin/report-editor/{project}/{year}/{section}. The one open report is
+  // resolved with the same resolver the editor uses, so the sidebar and the page
+  // can never disagree about which report is open.
+  const adminParts = !isPartner && pathname.startsWith("/admin/report-editor/") ? pathname.split("/").filter(Boolean) : [];
+  const openAdminReport =
+    adminParts.length >= 5 && /^\d{4}$/.test(adminParts[3])
+      ? { project: adminParts[2], year: adminParts[3], section: adminParts[4] }
+      : null;
+  const adminActiveReport = openAdminReport
+    ? resolveDocument(
+        reports.filter((r) => reportSlug(r) === openAdminReport.project && String(r.year) === openAdminReport.year),
+        null
+      ) ?? null
+    : null;
+
   const activeReportId = openReport
     ? reports.find((r) => reportSlug(r) === openReport.project && String(r.year) === openReport.year)?.id ?? null
-    : null;
+    : adminActiveReport?.id ?? null;
   const activeReportRow = activeReportId ? reports.find((r) => r.id === activeReportId) ?? null : null;
 
   const openUpdate = isPartner ? parseUpdatePath(pathname) : null;
@@ -346,6 +362,16 @@ export function AppSidebar() {
     ? `/partner/prodoc-editor/${projectSlug(matchingProdoc.project_short_name, matchingProdoc.project_title)}/general`
     : null;
 
+  // Admin: load the report list once, when a report is first opened, to name it.
+  const adminReportOpen = openAdminReport != null;
+  useEffect(() => {
+    if (!mounted || !user || isPartner || !adminReportOpen || reports.length > 0) return;
+    fetch("/api/reports?data_type=report")
+      .then((r) => r.json())
+      .then((all: SidebarReport[]) => { if (Array.isArray(all)) setReports(all); })
+      .catch(() => {});
+  }, [mounted, user, isPartner, adminReportOpen, reports.length]);
+
   useEffect(() => {
     if (activeReportId == null) { setSectionComplete({}); return; }
     fetch(`/api/report-completion?reportId=${activeReportId}`)
@@ -362,6 +388,44 @@ export function AppSidebar() {
       .then((d) => setProdocSectionComplete({ projectId, sections: d.sections ?? {} }))
       .catch(() => {});
   }, [openProdocRow?.project_id, pathname]);
+
+  // Section list of an open report, split into Qualitative / Quantitative groups,
+  // with completion ticks. Shared by the partner and admin sidebars.
+  const renderReportSections = (basePath: string, slug: string, year: number | string, activeSection: string) => (
+    <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+      {REPORT_SECTION_GROUPS.map((grp, gi) => (
+        <div key={grp.label} className="flex flex-col gap-0.5">
+          <p className={cn(
+            "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
+            gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
+            GROUP_STYLES[grp.label].header
+          )}>
+            {grp.label}
+          </p>
+          {grp.sections.map((s) => {
+            const secActive = activeSection === s.value;
+            return (
+              <Link
+                key={s.value}
+                href={`${basePath}/${slug}/${year}/${s.value}`}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                  secActive
+                    ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                <span className="flex-1 truncate" title={s.label}>{s.label}</span>
+                {sectionComplete[s.value] && (
+                  <Check className="size-3.5 shrink-0 text-green-600" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
 
   useEffect(() => {
     if (activeUpdateId == null) { setUpdateSectionComplete({}); return; }
@@ -645,42 +709,8 @@ export function AppSidebar() {
 
                           {/* Level 2: sections of the open report, split into
                               Qualitative / Quantitative groups. */}
-                          {it.isActive && report && !reportSectionsCollapsed && (
-                            <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                              {REPORT_SECTION_GROUPS.map((grp, gi) => (
-                                <div key={grp.label} className="flex flex-col gap-0.5">
-                                  <p className={cn(
-                                    "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider",
-                                    gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
-                                    GROUP_STYLES[grp.label].header
-                                  )}>
-                                    {grp.label}
-                                  </p>
-                                  {grp.sections.map((s) => {
-                                    const secActive = report.section === s.value;
-                                    return (
-                                      <Link
-                                        key={s.value}
-                                        href={`/partner/report-editor/${it.slug}/${it.year}/${s.value}`}
-                                        className={cn(
-                                          "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
-                                          secActive
-                                            ? cn(GROUP_STYLES[grp.label].sidebarActive, "font-medium")
-                                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                                        )}
-                                      >
-                                        <span className="flex-1 truncate" title={s.label}>{s.label}</span>
-                                        {sectionComplete[s.value] && (
-                                          <Check className="size-3.5 shrink-0 text-green-600" />
-                                        )}
-                                      </Link>
-
-                                    );
-                                  })}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          {it.isActive && report && !reportSectionsCollapsed &&
+                            renderReportSections("/partner/report-editor", it.slug, it.year, report.section)}
                         </div>
                       ))}
                     </div>
@@ -809,13 +839,16 @@ export function AppSidebar() {
             const ownActive = [item.href, ...(item.also ?? [])].some((h) => pathname.startsWith(h));
             const subActive = item.subs?.some((sub) => pathname.startsWith(sub.href)) ?? false;
             const showSubs = !!item.subs && (ownActive || subActive);
+            // An open report puts "Project Reports" and the report's name in the
+            // bold-no-fill state, so only the active section carries the fill.
+            const reportOpen = item.href === "/admin/reports" && openAdminReport != null;
             return (
               <div key={item.href}>
                 <Link
                   href={item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                    subActive
+                    subActive || reportOpen
                       ? NAV_PARENT_ACTIVE
                       : ownActive
                       ? NAV_ACTIVE
@@ -825,6 +858,32 @@ export function AppSidebar() {
                   <item.icon className="size-4" />
                   {item.label}
                 </Link>
+                {reportOpen && openAdminReport && (
+                  <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                    <Link
+                      href={`/admin/report-editor/${openAdminReport.project}/${openAdminReport.year}/${openAdminReport.section}`}
+                      className={cn("flex flex-col rounded-md px-3 py-1.5 transition-colors", NAV_PARENT_ACTIVE)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setReportSectionsCollapsed((v) => !v);
+                      }}
+                    >
+                      <span className="flex items-center gap-1">
+                        <span className="truncate text-sm font-medium" title={adminActiveReport ? documentTitle(adminActiveReport) : `Report ${openAdminReport.year}`}>
+                          {adminActiveReport ? documentTitle(adminActiveReport) : `Report ${openAdminReport.year}`}
+                        </span>
+                        {reportSectionsCollapsed
+                          ? <ChevronRight className="size-3 shrink-0" />
+                          : <ChevronDown className="size-3 shrink-0" />}
+                      </span>
+                      <span className="truncate text-xs opacity-70" title={adminActiveReport ? (adminActiveReport.project_short_name || adminActiveReport.project_title) : openAdminReport.project}>
+                        {adminActiveReport ? (adminActiveReport.project_short_name || adminActiveReport.project_title) : openAdminReport.project}
+                      </span>
+                    </Link>
+                    {!reportSectionsCollapsed &&
+                      renderReportSections("/admin/report-editor", openAdminReport.project, openAdminReport.year, openAdminReport.section)}
+                  </div>
+                )}
                 {showSubs && (
                   <div className="mt-0.5 mb-1 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
                     {item.subs!.map((sub) => {

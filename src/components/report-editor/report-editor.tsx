@@ -459,6 +459,10 @@ export function ReportEditor({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.section, reportId]);
 
+  // Admin reports navigate through the sidebar (its section list replaces the top
+  // tab bar and the report switcher). Admin project updates keep both for now.
+  const sidebarNav = mode === "admin" && dataType === "report";
+
   function handleReportChange(val: string) {
     const report = reports.find((r) => String(r.id) === val);
     if (!report) return;
@@ -910,7 +914,7 @@ export function ReportEditor({
             </Button>
           )}
 
-          {mode === "admin" && (
+          {mode === "admin" && !sidebarNav && (
             <Select
               value={selectedReport ? String(selectedReport.id) : ""}
               onValueChange={handleReportChange}
@@ -962,7 +966,7 @@ export function ReportEditor({
           Kept to a single line: only the group containing the current section is
           expanded into its tabs; the other group collapses to a clickable label
           (click jumps to its first section, expanding it). */}
-      {showSectionTabs && selectedReport && (() => {
+      {showSectionTabs && !sidebarNav && selectedReport && (() => {
         const activeGroup =
           sectionGroups.find((g) => g.sections.some((s) => s.value === params.section))?.label
           ?? sectionGroups[0]?.label;

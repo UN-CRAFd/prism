@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
-import { HEAD_TEXT, SUBHEAD_TEXT, CURRENT_YEAR_HEAD } from "@/components/report-editor/matrix-table";
+import { HEAD_TEXT, SUBHEAD_TEXT, CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, SUBHEAD_BG } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -174,9 +174,9 @@ export function RiskSection({
   }
 
   // Shared sub-header cell classes for comparison columns (read-only, greyed).
-  const histSubHead = cn("px-2 py-1.5 text-left border-b bg-neutral-50", SUBHEAD_TEXT);
+  const histSubHead = cn("px-2 py-1.5 text-left border-b", SUBHEAD_BG, HEAD_COLOR, SUBHEAD_TEXT);
   // Current-year sub-header cell classes.
-  const curSubHead = cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, CURRENT_YEAR_HEAD);
+  const curSubHead = cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, HEAD_COLOR, CURRENT_YEAR_HEAD);
 
   return (
     <div className="space-y-4">
@@ -224,10 +224,10 @@ export function RiskSection({
             <thead>
               {/* Row 1: group labels */}
               <tr className={HEAD_TEXT}>
-                <th rowSpan={2} className="text-left px-3 py-2 text-muted-foreground border-b bg-neutral-100 align-bottom" style={{ width: 48, minWidth: 48 }}>
+                <th rowSpan={2} className={cn("text-left px-3 py-2 border-b align-bottom", HEAD_COLOR, HEAD_BG)} style={{ width: 48, minWidth: 48 }}>
                   {labels.risk.columns.number}
                 </th>
-                <th rowSpan={2} className="text-left px-3 py-2 text-muted-foreground border-b bg-neutral-100 align-bottom" style={{ width: 280, minWidth: 280 }}>
+                <th rowSpan={2} className={cn("text-left px-3 py-2 border-b align-bottom", HEAD_COLOR, HEAD_BG)} style={{ width: 280, minWidth: 280 }}>
                   {labels.risk.columns.risk}
                 </th>
 
@@ -236,7 +236,7 @@ export function RiskSection({
                   <th
                     key={key}
                     colSpan={2}
-                    className="px-2 py-2 text-center text-muted-foreground border-l border-b bg-neutral-100"
+                    className={cn("px-2 py-2 text-center border-l border-b", HEAD_COLOR, HEAD_BG)}
                     style={{ width: HIST_COL_W * 2, minWidth: HIST_COL_W * 2 }}
                   >
                     {key === "prodoc" ? "Baseline" : key}
@@ -244,11 +244,11 @@ export function RiskSection({
                 ))}
 
                 {/* Current-year group: Likelihood + Impact + [Risk Level (admin)] + Mitigation */}
-                <th colSpan={isAdmin ? 4 : 3} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b", CURRENT_YEAR_HEAD)}>
+                <th colSpan={isAdmin ? 4 : 3} className={cn("px-2 py-2 text-center border-l border-b", HEAD_COLOR, CURRENT_YEAR_HEAD)}>
                   {reportYear}
                 </th>
 
-                <th rowSpan={2} className="px-3 py-2 text-center text-muted-foreground border-l border-b bg-neutral-100 align-bottom" style={{ width: 90, minWidth: 90 }}>
+                <th rowSpan={2} className={cn("px-3 py-2 text-center border-l border-b align-bottom", HEAD_COLOR, HEAD_BG)} style={{ width: 90, minWidth: 90 }}>
                   <span className="inline-flex items-center justify-center gap-1">
                     {labels.risk.columns.revision}
                     <InfoPopover
@@ -258,7 +258,7 @@ export function RiskSection({
                     />
                   </span>
                 </th>
-                <th rowSpan={2} className="border-b bg-neutral-100" style={{ width: 80, minWidth: 80 }} />
+                <th rowSpan={2} className={cn("border-b", HEAD_BG)} style={{ width: 80, minWidth: 80 }} />
               </tr>
 
               {/* Row 2: sub-column labels */}

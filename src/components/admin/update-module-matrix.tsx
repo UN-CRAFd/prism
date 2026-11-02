@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Check, Loader2, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import {
   MAX_EXTENSION_MONTHS,
   MIN_EXTENSION_MONTHS,
@@ -210,15 +211,15 @@ export function UpdateModuleMatrix({
   const columnTint = (type: string, header: boolean) =>
     !editing && typeSet.has(type)
       ? header ? "bg-orange-200/70" : "bg-orange-100/70"
-      : header ? "bg-muted/40" : undefined;
+      : header ? HEAD_BG : undefined;
 
   return (
     <div className="space-y-2">
       <div className="overflow-x-auto rounded-lg border bg-card">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b">
-              <th className="px-3 py-2 text-left align-bottom font-medium text-muted-foreground min-w-[280px]">
+            <tr className={cn("border-b", HEAD_BG)}>
+              <th className={cn("px-3 py-2 text-left align-bottom min-w-[280px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
                 Module
               </th>
               {UPDATE_TYPES.map((type) => (
@@ -226,13 +227,15 @@ export function UpdateModuleMatrix({
                   key={type.value}
                   className={cn(
                     "border-l px-3 py-2 align-bottom transition-colors",
+                    HEAD_COLOR,
+                    HEAD_TEXT,
                     columnTint(type.value, true),
                     !editing && typeSet.has(type.value) && "text-orange-900"
                   )}
                 >
                   <label
                     className={cn(
-                      "flex items-center justify-center gap-1.5 text-xs font-semibold",
+                      "flex items-center justify-center gap-1.5",
                       editing ? "cursor-default opacity-70" : "cursor-pointer select-none"
                     )}
                   >

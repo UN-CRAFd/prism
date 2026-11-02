@@ -16,6 +16,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
+import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn, formatAmount } from "@/lib/utils";
 import { Plus, Trash2, Users, FileText, Pencil, Check, X } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
@@ -860,11 +861,11 @@ export function GeneralInfoAdminEditor({
           <div className="rounded-xl border overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">{g.columns.contact}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-40">{g.columns.organisation}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-72">{g.columns.roles}</th>
-                  <th className="w-20 px-4 py-3" />
+                <tr className={cn("border-b", HEAD_BG)}>
+                  <th className={cn("text-left px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{g.columns.contact}</th>
+                  <th className={cn("text-left px-4 py-3 w-40", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{g.columns.organisation}</th>
+                  <th className={cn("text-left px-4 py-3 w-72", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{g.columns.roles}</th>
+                  <th className={cn("w-20 px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
                 </tr>
               </thead>
               <tbody className="divide-y">

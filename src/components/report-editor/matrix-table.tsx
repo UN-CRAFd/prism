@@ -17,9 +17,21 @@ export const MATRIX_TABLE = "w-full text-sm border-separate border-spacing-0";
 // Both bold, one step larger than the old text-xs/text-xs headers.
 export const HEAD_TEXT = "text-sm font-bold";
 export const SUBHEAD_TEXT = "text-xs font-bold";
+// Header colours shared by every on-screen table: light grey fill, grey text.
+// SUBHEAD_BG is the same grey as HEAD_BG so every header row reads as one grey;
+// it must stay OPAQUE (no alpha) because header rows can be frozen and body rows
+// scroll underneath them.
+// HEAD_DIVIDER / HEAD_DIVIDER_COLOR: the header's own divider lines (a darker grey
+// than the default border, which vanishes against the grey header fill). Use the
+// class on header cells' borders and the colour inside header box-shadows.
+export const HEAD_BG = "bg-crafd-grey-100";
+export const HEAD_COLOR = "text-crafd-grey-600";
+export const SUBHEAD_BG = "bg-crafd-grey-100";
+export const HEAD_DIVIDER = "border-crafd-grey-200";
+export const HEAD_DIVIDER_COLOR = "var(--color-crafd-grey-200)";
 
 // Shared header-cell base for a frozen leading column.
-const HEAD_CELL = `px-3 py-2 ${HEAD_TEXT} text-muted-foreground border-b bg-neutral-100 align-bottom`;
+const HEAD_CELL = `px-3 py-2 ${HEAD_TEXT} ${HEAD_COLOR} border-b ${HEAD_DIVIDER} ${HEAD_BG} align-bottom`;
 
 // The frozen header is two stacked rows, so row two's sticky offset has to equal
 // row one's *rendered* height exactly — a mismatch makes the sub-column header
@@ -30,11 +42,10 @@ const HEAD_CELL = `px-3 py-2 ${HEAD_TEXT} text-muted-foreground border-b bg-neut
 const YEAR_ROW_HEIGHT = "h-9 py-1.5";
 const SUBHEAD_STICKY_TOP = "top-9";
 
-// Current-year header highlight. An OPAQUE blend (crafd-yellow 20% mixed into
-// white — visually identical to bg-crafd-yellow/20 over the white card) so that
-// when the header is frozen (fillHeight), body rows scrolling underneath stay
-// hidden instead of bleeding through a translucent tint.
-export const CURRENT_YEAR_HEAD = "bg-[color-mix(in_srgb,var(--color-crafd-yellow)_20%,white)]";
+// Current-year header highlight. Opaque (a palette token, not a translucent tint)
+// so that when the header is frozen (fillHeight), body rows scrolling underneath
+// stay hidden instead of bleeding through.
+export const CURRENT_YEAR_HEAD = "bg-crafd-yellow-150";
 
 export interface MatrixLeadingCol {
   label: ReactNode;
@@ -126,10 +137,12 @@ export function MatrixTableShell({
                   key={year}
                   colSpan={cols.length}
                   className={cn(
-                    "px-2 text-center text-muted-foreground border-l border-b",
+                    "px-2 text-center border-l border-b",
+                    HEAD_DIVIDER,
+                    HEAD_COLOR,
                     YEAR_ROW_HEIGHT,
                     HEAD_TEXT,
-                    year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-100",
+                    year === currentYear ? CURRENT_YEAR_HEAD : HEAD_BG,
                     fillHeight && "sticky top-0 z-30"
                   )}
                 >
@@ -144,16 +157,16 @@ export function MatrixTableShell({
             ))}
           </tr>
           {/* Sub-column header */}
-          <tr className="text-xs text-muted-foreground">
+          <tr className="text-xs">
             {years.map((year) => {
-              const bg = year === currentYear ? CURRENT_YEAR_HEAD : "bg-neutral-50";
+              const bg = year === currentYear ? CURRENT_YEAR_HEAD : SUBHEAD_BG;
               const cols = (year !== currentYear && pastSubCols) ? pastSubCols : subCols;
               return (
                 <Fragment key={year}>
                   {cols.map((sc, i) => (
                     <th
                       key={i}
-                      className={cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, i === 0 && "border-l", sc.minWidth, bg, fillHeight && cn("sticky z-30", SUBHEAD_STICKY_TOP))}
+                      className={cn("px-2 py-1.5 text-left border-b", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, i === 0 && "border-l", sc.minWidth, bg, fillHeight && cn("sticky z-30", SUBHEAD_STICKY_TOP))}
                     >
                       {sc.label}
                     </th>

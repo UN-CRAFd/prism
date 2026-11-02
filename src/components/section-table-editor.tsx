@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { useReadOnly } from "@/components/ui/read-only-context";
+import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
@@ -853,10 +854,10 @@ export function SectionTableEditor({
     <div className="overflow-x-auto rounded-xl border">
       <table className="w-full table-fixed text-sm">
         <thead>
-          <tr className="border-b bg-muted/30">
-            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground w-10">#</th>
+          <tr className={cn("border-b", HEAD_BG)}>
+            <th className={cn("text-left px-4 py-3 w-10", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>#</th>
             {fields.map((f) => (
-              <th key={f.key} className={cn("text-left px-4 py-3 text-sm font-medium text-muted-foreground", f.headClass)}>
+              <th key={f.key} className={cn("text-left px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT, f.headClass)}>
                 {/* Photo columns collect images — surface the CRAF'd image standards
                     behind an info icon so contributors upload/label them correctly. */}
                 {f.type === "photo" || f.type === "testimonial-photos" ? (
@@ -876,7 +877,7 @@ export function SectionTableEditor({
                 )}
               </th>
             ))}
-            <th className="w-10 px-4 py-3" />
+            <th className={cn("w-10 px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
           </tr>
           {hasRemarks && (
             <tr className="border-b bg-background">

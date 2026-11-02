@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { FundingSummary } from "@/components/funding-summary";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
-import { CURRENT_YEAR_HEAD, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER, HEAD_DIVIDER_COLOR, SUBHEAD_BG, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,8 +132,8 @@ const EXTENSION_HEAD = "bg-amber-100/80 text-amber-900";
 const EXTENSION_CELL = "bg-amber-50/60";
 
 // A collapsed border vanishes under a sticky cell; redraw it with an inset shadow.
-const HEAD_SHADOW = "inset 0 -1px 0 var(--border)"; // bottom
-const HEAD_SHADOW_L = "inset 1px 0 0 var(--border), inset 0 -1px 0 var(--border)"; // left + bottom
+const HEAD_SHADOW = `inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}`; // bottom
+const HEAD_SHADOW_L = `inset 1px 0 0 ${HEAD_DIVIDER_COLOR}, inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}`; // left + bottom
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner editor — enter the current report year's expenditure + comments
@@ -547,12 +547,15 @@ export function ExpenditurePartnerEditor({
       <table className="text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
           <tr className="text-xs" ref={headRowRef}>
-            <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 text-muted-foreground border-r border-b bg-neutral-100 align-bottom", HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
-            <th colSpan={showProposed ? 5 : 3} style={fillHeight ? { position: "sticky", left: L.left("app"), top: 0, zIndex: 40 } : { position: "sticky", left: L.left("app"), zIndex: 30 }} className={cn("px-2 py-2 text-center text-muted-foreground border-r border-b bg-neutral-100", HEAD_TEXT, fillHeight && "h-8")}>Total</th>
+            <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 border-r border-b align-bottom", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
+            <th colSpan={showProposed ? 5 : 3} style={fillHeight ? { position: "sticky", left: L.left("app"), top: 0, zIndex: 40 } : { position: "sticky", left: L.left("app"), zIndex: 30 }} className={cn("px-2 py-2 text-center border-r border-b", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "h-8")}>Total</th>
             <th
               rowSpan={2}
               className={cn(
-                "text-left px-2 py-2 text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[200px]",
+                "text-left px-2 py-2 border-l border-b align-bottom min-w-[200px]",
+                HEAD_DIVIDER,
+                HEAD_COLOR,
+                HEAD_BG,
                 HEAD_TEXT,
                 fillHeight && "sticky top-0 z-30"
               )}
@@ -562,7 +565,7 @@ export function ExpenditurePartnerEditor({
             {/* nowrap: a year label that wrapped would make this row taller
                 than the row below expects, and the two would overlap. */}
             {columnYears.map((y) => (
-              <th key={y} colSpan={hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center text-muted-foreground border-l border-b whitespace-nowrap", HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : extensionSet.has(y) ? EXTENSION_HEAD : "bg-neutral-100", fillHeight && "sticky top-0 z-30 h-8")}>
+              <th key={y} colSpan={hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center border-l border-b whitespace-nowrap", HEAD_DIVIDER, HEAD_COLOR, HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : extensionSet.has(y) ? EXTENSION_HEAD : HEAD_BG, fillHeight && "sticky top-0 z-30 h-8")}>
                 {y}
                 {/* The year being reported is only part of a year unless this
                     update is also the annual report. */}
@@ -572,17 +575,17 @@ export function ExpenditurePartnerEditor({
             ))}
           </tr>
           <tr className="text-muted-foreground">
-            <th style={fillHeight ? { ...L.fz("app", 40), top: headRowHeight } : L.fz("app", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Approved total budget</th>
-            <th style={fillHeight ? { ...L.fz("exp", 40), top: headRowHeight } : L.fz("exp", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Total expenditure</th>
+            <th style={fillHeight ? { ...L.fz("app", 40), top: headRowHeight } : L.fz("app", 30)} className={cn("px-2 py-1.5 text-right border-b", HEAD_DIVIDER, SUBHEAD_BG, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>Approved total budget</th>
+            <th style={fillHeight ? { ...L.fz("exp", 40), top: headRowHeight } : L.fz("exp", 30)} className={cn("px-2 py-1.5 text-right border-b", HEAD_DIVIDER, SUBHEAD_BG, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>Total expenditure</th>
             {/* "Difference" only needs qualifying once there is a second one to
                 tell it apart from — the plain page keeps the shorter header. */}
-            <th style={fillHeight ? { ...L.fz("diff", 40), top: headRowHeight } : L.fz("diff", 30)} className={cn("px-2 py-1.5 text-right border-b bg-neutral-50", !showProposed && "border-r", SUBHEAD_TEXT, fillHeight && "sticky")}>
+            <th style={fillHeight ? { ...L.fz("diff", 40), top: headRowHeight } : L.fz("diff", 30)} className={cn("px-2 py-1.5 text-right border-b", HEAD_DIVIDER, SUBHEAD_BG, !showProposed && "border-r", SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>
               {showProposed ? "Difference to total approved budget" : "Difference"}
             </th>
             {showProposed && (
               <>
-                <th style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)} className={cn("px-2 py-1.5 text-right border-l border-b bg-crafd-yellow/15", SUBHEAD_TEXT, fillHeight && "sticky")}>New requested total budget</th>
-                <th style={fillHeight ? { ...L.fz("pdiff", 40), top: headRowHeight } : L.fz("pdiff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b bg-neutral-50", SUBHEAD_TEXT, fillHeight && "sticky")}>Difference in new budget</th>
+                <th style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)} className={cn("px-2 py-1.5 text-right border-l border-b", HEAD_DIVIDER, CURRENT_YEAR_HEAD, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>New requested total budget</th>
+                <th style={fillHeight ? { ...L.fz("pdiff", 40), top: headRowHeight } : L.fz("pdiff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b", HEAD_DIVIDER, SUBHEAD_BG, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>Difference in new budget</th>
               </>
             )}
             {columnYears.map((y) =>
@@ -738,12 +741,12 @@ export function ExpenditurePartnerEditor({
 function FragmentYearHead({ current, toDate = false, fillHeight = false, top }: { current: boolean; toDate?: boolean; fillHeight?: boolean; top: number }) {
   const sticky = fillHeight && "sticky z-30";
   const style = fillHeight ? { position: "sticky" as const, top } : undefined;
-  const bg = current ? CURRENT_YEAR_HEAD : "bg-neutral-50";
+  const bg = current ? CURRENT_YEAR_HEAD : SUBHEAD_BG;
   return (
     <>
-      <th style={style} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, bg, sticky)}>Approved annual budget</th>
-      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", SUBHEAD_TEXT, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}</th>
-      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", SUBHEAD_TEXT, bg, sticky)}>Difference</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Approved annual budget</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Difference</th>
     </>
   );
 }
@@ -755,7 +758,7 @@ function FragmentYearHead({ current, toDate = false, fillHeight = false, top }: 
 function ApprovedOnlyHead({ fillHeight = false, extension = false, top }: { fillHeight?: boolean; extension?: boolean; top: number }) {
   const sticky = fillHeight && "sticky z-30";
   return (
-    <th style={fillHeight ? { position: "sticky", top } : undefined} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", SUBHEAD_TEXT, extension ? EXTENSION_HEAD : "bg-neutral-50", sticky)}>Approved annual budget</th>
+    <th style={fillHeight ? { position: "sticky", top } : undefined} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, extension ? EXTENSION_HEAD : SUBHEAD_BG, sticky)}>Approved annual budget</th>
   );
 }
 
@@ -1068,12 +1071,12 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
             <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Annual budget (USD) per category</p>
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b bg-muted/40">
-                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW } : undefined} className={cn("text-left px-3 py-2 text-muted-foreground min-w-[220px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Budget categories</th>
-                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Total budgets</th>
-                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-left border-l min-w-[200px] w-72", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>Description</th>
+                <tr className={cn("border-b", HEAD_BG)}>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW } : undefined} className={cn("text-left px-3 py-2 min-w-[220px]", HEAD_TEXT, HEAD_BG, HEAD_COLOR, fillHeight && "sticky top-0 z-10")}>Budget categories</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_DIVIDER, HEAD_TEXT, HEAD_BG, HEAD_COLOR, fillHeight && "sticky top-0 z-10")}>Total budgets</th>
+                  <th style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-left border-l min-w-[200px] w-72", HEAD_DIVIDER, HEAD_TEXT, HEAD_BG, HEAD_COLOR, fillHeight && "sticky top-0 z-10")}>Description</th>
                   {years.map((y) => (
-                    <th key={y} style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_TEXT, fillHeight && "sticky top-0 z-10 bg-neutral-100")}>{y}</th>
+                    <th key={y} style={fillHeight ? { boxShadow: HEAD_SHADOW_L } : undefined} className={cn("px-2 py-2 text-right border-l min-w-[110px]", HEAD_DIVIDER, HEAD_TEXT, HEAD_BG, HEAD_COLOR, fillHeight && "sticky top-0 z-10")}>{y}</th>
                   ))}
                 </tr>
               </thead>

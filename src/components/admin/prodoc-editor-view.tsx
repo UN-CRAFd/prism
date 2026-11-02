@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
-import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { useAuth } from "@/lib/auth-context";
@@ -1641,14 +1641,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                   <div className="rounded-xl border bg-card overflow-hidden overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b bg-muted/30">
-                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-8", HEAD_TEXT)}>{labels.risk.columns.number}</th>
-                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-96", HEAD_TEXT)}>{labels.risk.columns.risk}</th>
-                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.likelihood}</th>
-                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-32", HEAD_TEXT)}>{labels.risk.columns.impact}</th>
-                          <th className={cn("text-left px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.riskLevel}</th>
-                          <th className={cn("text-left px-4 py-3 text-muted-foreground", HEAD_TEXT)}>{labels.risk.columns.approvedMitigation}</th>
-                          <th className={cn("text-right px-4 py-3 text-muted-foreground w-28", HEAD_TEXT)}>{labels.risk.columns.actions}</th>
+                        <tr className={cn("border-b", HEAD_BG)}>
+                          <th className={cn("text-left px-4 py-3 w-8", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.number}</th>
+                          <th className={cn("text-left px-4 py-3 w-96", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.risk}</th>
+                          <th className={cn("text-left px-4 py-3 w-32", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.likelihood}</th>
+                          <th className={cn("text-left px-4 py-3 w-32", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.impact}</th>
+                          <th className={cn("text-left px-4 py-3 w-28", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.riskLevel}</th>
+                          <th className={cn("text-left px-4 py-3", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.approvedMitigation}</th>
+                          <th className={cn("text-right px-4 py-3 w-28", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">

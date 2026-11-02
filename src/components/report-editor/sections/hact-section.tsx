@@ -9,7 +9,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { LoadingState } from "@/components/admin/shared";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { HEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, CURRENT_YEAR_HEAD } from "@/components/report-editor/matrix-table";
 import { optionValues } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
@@ -203,14 +203,14 @@ export function HactSection({
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="bg-muted text-left text-muted-foreground">
-                <th className={cn("px-3 py-2 w-20", HEAD_TEXT)}>No.</th>
-                <th className={cn("px-3 py-2 min-w-[220px]", HEAD_TEXT)}>Description of finding</th>
-                <th className={cn("px-3 py-2 min-w-[220px]", HEAD_TEXT)}>Recommendation</th>
-                <th className={cn("px-3 py-2 min-w-[160px]", HEAD_TEXT)}>Should be addressed by</th>
-                <th className={cn("px-3 py-2 min-w-[220px] bg-crafd-yellow/15", HEAD_TEXT)}>Partner comment</th>
-                <th className={cn("px-3 py-2 w-44", HEAD_TEXT)}>Status</th>
-                {canEditAll && <th className="w-20" />}
+              <tr className={cn("text-left", HEAD_BG, HEAD_COLOR)}>
+                <th className={cn("px-3 py-2 w-20", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>No.</th>
+                <th className={cn("px-3 py-2 min-w-[220px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description of finding</th>
+                <th className={cn("px-3 py-2 min-w-[220px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Recommendation</th>
+                <th className={cn("px-3 py-2 min-w-[160px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Should be addressed by</th>
+                <th className={cn("px-3 py-2 min-w-[220px]", CURRENT_YEAR_HEAD, HEAD_COLOR, HEAD_TEXT)}>Partner comment</th>
+                <th className={cn("px-3 py-2 w-44", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Status</th>
+                {canEditAll && <th className={cn("w-20", HEAD_BG)} />}
               </tr>
             </thead>
             <tbody>

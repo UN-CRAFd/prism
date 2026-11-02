@@ -29,7 +29,7 @@ import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { FilterChip } from "@/components/report-editor/past-year-chips";
 import { useStickySet } from "@/components/report-editor/sticky-filter";
-import { HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import {
   workplanStatuses,
@@ -49,8 +49,8 @@ function joinAgents(vs: string[]) { return vs.join(AGENT_DELIM); }
 // Sticky header edges drawn as inset box-shadow, not CSS borders: with
 // border-collapse the collapsed borders don't travel with a sticky cell and
 // vanish on scroll, whereas a box-shadow is painted with the cell.
-const HEAD_SHADOW = "inset 0 -1px 0 var(--border)"; // bottom
-const HEAD_SHADOW_L = "inset 1px 0 0 var(--border), inset 0 -1px 0 var(--border)"; // left + bottom
+const HEAD_SHADOW = `inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}`; // bottom
+const HEAD_SHADOW_L = `inset 1px 0 0 ${HEAD_DIVIDER_COLOR}, inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}`; // left + bottom
 
 // ── Shared types ─────────────────────────────────────────────────────────────
 
@@ -178,7 +178,7 @@ function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters:
             style={{ boxShadow: HEAD_SHADOW_L }}
             className={cn(
               "sticky top-0 z-20 h-8 px-1 py-2 text-center",
-              g.quarters.every((q) => isExtension(q.key)) ? EXTENSION_HEAD : "bg-muted",
+              g.quarters.every((q) => isExtension(q.key)) ? EXTENSION_HEAD : cn(HEAD_BG, HEAD_COLOR),
               HEAD_TEXT
             )}
           >
@@ -195,7 +195,7 @@ function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters:
               style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW, top: yearRowHeight }}
               className={cn(
                 "sticky z-20 px-1 py-1 text-center w-9",
-                isExtension(q.key) ? EXTENSION_HEAD : "bg-muted text-muted-foreground",
+                isExtension(q.key) ? EXTENSION_HEAD : cn(HEAD_BG, HEAD_COLOR),
                 SUBHEAD_TEXT
               )}
             >
@@ -513,15 +513,15 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             extension={extensionKeys}
             leadCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-3 py-2 text-muted-foreground min-w-[280px] align-bottom", HEAD_TEXT)}>Activity</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-2 py-2 text-muted-foreground min-w-[100px] align-bottom", HEAD_TEXT)}>Update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[280px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Update</th>
               </>
             }
             trailCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Project partner</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Description</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[120px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[200px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
               </>
             }
           />
@@ -1347,16 +1347,16 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-3 py-2 text-muted-foreground min-w-[320px] align-bottom", HEAD_TEXT)}>Activity</th>
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 bg-muted text-left px-2 py-2 text-muted-foreground min-w-[100px] align-bottom", HEAD_TEXT)}>Timeline</th>}
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[320px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity</th>
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>}
                 </>
               }
               trailCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[120px] align-bottom", HEAD_TEXT)}>Project partner</th>
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[110px] align-bottom", HEAD_TEXT)}>Progress update</th>}
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 bg-muted px-2 py-2 text-muted-foreground min-w-[200px] align-bottom", HEAD_TEXT)}>Description</th>}
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className="sticky top-0 z-20 bg-muted px-2 py-2 w-10 align-bottom" />
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[120px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update</th>}
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[200px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>}
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 px-2 py-2 w-10 align-bottom", HEAD_BG)} />
                 </>
               }
             />

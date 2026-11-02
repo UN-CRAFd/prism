@@ -9,7 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { Loader2, Upload, FileText, Download, Trash2 } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
@@ -214,14 +215,14 @@ export function DocumentsEditor({
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground uppercase tracking-wide">
-                <th className="px-6 py-3 font-medium">{d.columns.type}</th>
-                <th className="px-4 py-3 font-medium">{d.columns.name}</th>
-                <th className="px-4 py-3 font-medium w-32">{d.columns.date}</th>
-                <th className="px-4 py-3 font-medium">{d.columns.file}</th>
-                <th className="px-4 py-3 font-medium w-24">{d.columns.size}</th>
-                <th className="px-4 py-3 font-medium w-40">{d.columns.uploaded}</th>
-                <th className="px-4 py-3 font-medium w-20 text-right">{d.columns.actions}</th>
+              <tr className={cn("border-b text-left", HEAD_BG)}>
+                <th className={cn("px-6 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.type}</th>
+                <th className={cn("px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.name}</th>
+                <th className={cn("px-4 py-3 w-32", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.date}</th>
+                <th className={cn("px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.file}</th>
+                <th className={cn("px-4 py-3 w-24", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.size}</th>
+                <th className={cn("px-4 py-3 w-40", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.uploaded}</th>
+                <th className={cn("px-4 py-3 w-20 text-right", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{d.columns.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y">

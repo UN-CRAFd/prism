@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { MatrixTableShell, HEAD_TEXT } from "@/components/report-editor/matrix-table";
+import { MatrixTableShell, HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { optionValues } from "@/lib/options";
@@ -563,7 +563,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             { label: config.labels.amountColumn, minWidth: "min-w-[110px]" },
           ]}
           trailingCols={[
-            { label: config.labels.subTotalColumn, className: `px-3 py-2 text-right ${HEAD_TEXT} text-muted-foreground border-l border-b bg-neutral-100 align-bottom min-w-[150px]` },
+            { label: config.labels.subTotalColumn, className: `px-3 py-2 text-right ${HEAD_TEXT} ${HEAD_COLOR} border-l border-b ${HEAD_BG} align-bottom min-w-[150px]` },
             { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
           ]}
         >

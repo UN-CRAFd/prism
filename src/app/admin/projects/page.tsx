@@ -512,7 +512,7 @@ export default function ProjectsPage() {
   const renderCard = (p: Project) => {
     const pd = prodocByProject[p.id];
     return (
-    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
+    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => openProdoc(p)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name?.toUpperCase() || "—"}</p>
@@ -823,7 +823,7 @@ export default function ProjectsPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
+                <TableRow key={p.id} className="cursor-pointer" onClick={() => openProdoc(p)}>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
                       {p.partner_short_name?.toUpperCase() || "—"}

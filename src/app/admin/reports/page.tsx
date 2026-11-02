@@ -25,13 +25,13 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
-import { reportStatusStyle } from "@/lib/reports";
 import { PageHeader, ViewToggle, FilterBar, FilterSelect, ALL } from "@/components/admin/shared";
 import {
   ReportRow,
   Project,
   GroupMode,
   ReportCard,
+  ReportStatusSelect,
   CreateReportForm,
   useReportCompletion,
 } from "@/components/admin/report-components";
@@ -83,6 +83,11 @@ export default function ReportsPage() {
 
   // Completion per card (footer progress bar).
   const completion = useReportCompletion(reports);
+
+  // Keep the list in step after a status change from a card or table row.
+  function handleStatusChanged(id: number, status: ReportRow["status"]) {
+    setReports((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
+  }
 
   const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
@@ -254,10 +259,8 @@ export default function ReportsPage() {
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold border ${reportStatusStyle(r.status)}`}>
-                      {r.status}
-                    </span>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <ReportStatusSelect report={r} onStatusChange={handleStatusChanged} />
                   </TableCell>
                   <TableCell>
                     {r.authorized ? (
@@ -313,6 +316,7 @@ export default function ReportsPage() {
                       report={r}
                       groupMode={groupMode}
                       completion={completion[r.id] ?? 0}
+                      onStatusChange={handleStatusChanged}
                       onDelete={() => handleDelete(r)}
                     />
                   ))}

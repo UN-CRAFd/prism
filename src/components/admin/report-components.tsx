@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { StatusPill } from "@/components/partner/status-pill";
+import { reportStatusStyle } from "@/lib/reports";
 import { optionValues, optionItems } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { Field, FormShell } from "@/components/admin/shared";
@@ -135,6 +136,63 @@ export const GROUP_COLORS = [
   { bg: "bg-white", border: "border-crafd-grey-100", icon: "text-crafd-grey-400", label: "text-crafd-grey-800" },
 ];
 
+// Status control for the table views: the same options, confirmation dialog and
+// API call as the card's "..." menu. Reports, project updates and project
+// documents all share the report status model.
+export function ReportStatusSelect({
+  report,
+  onStatusChange,
+}: {
+  report: ReportRow;
+  onStatusChange?: (id: number, status: ReportRow["status"]) => void;
+}) {
+  const [status, setStatus] = useState<ReportRow["status"]>(report.status);
+  useEffect(() => { setStatus(report.status); }, [report.status]);
+  const [pendingStatus, setPendingStatus] = useState<ReportRow["status"] | null>(null);
+
+  async function applyStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
+    const newStatus = pendingStatus;
+    if (!newStatus) return;
+    setPendingStatus(null);
+    setStatus(newStatus);
+    onStatusChange?.(report.id, newStatus);
+    await fetch(`/api/reports/${report.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: newStatus,
+        actor_name: actorName || null,
+        reason: reason || null,
+      }),
+    });
+  }
+
+  return (
+    <>
+      <Select value={status} onValueChange={(v) => setPendingStatus(v as ReportRow["status"])}>
+        <SelectTrigger
+          title="Change status"
+          className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(status)}`}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {optionValues("reportStatus").map((st) => (
+            <SelectItem key={st} value={st}>{st}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <StatusChangeDialog
+        open={pendingStatus !== null}
+        fromStatus={status}
+        toStatus={pendingStatus ?? ""}
+        onCancel={() => setPendingStatus(null)}
+        onConfirm={applyStatusChange}
+      />
+    </>
+  );
+}
+
 // Completion (%) per document id, from /api/report-completion. Reports count every
 // section; an update only counts the pages it unlocked (same rule as the partner
 // Project Updates list). Failures read as 0 rather than breaking the page.
@@ -185,6 +243,7 @@ export function ReportCard({
   href,
   footerLabel = "Project Report",
   completion = 0,
+  onStatusChange,
 }: {
   report: ReportRow;
   onDelete: () => void;
@@ -197,11 +256,15 @@ export function ReportCard({
   footerLabel?: string;
   /** Completion percentage (0–100) for the footer progress bar. */
   completion?: number;
+  /** Called after a status change is saved, so the page can keep its list in step. */
+  onStatusChange?: (id: number, status: ReportRow["status"]) => void;
 }) {
   const router = useRouter();
   // The /api/reports/[id]/pdf endpoint still exists but its output is not presentable
   // yet, so the Print control was pulled rather than the feature deleted.
   const [status, setStatus] = useState<ReportRow["status"]>(report.status);
+  // Follow the list when the status is changed elsewhere (e.g. the table view).
+  useEffect(() => { setStatus(report.status); }, [report.status]);
   const [pendingStatus, setPendingStatus] = useState<ReportRow["status"] | null>(null);
   const [submissionDate, setSubmissionDate] = useState<string | null>(report.report_submission_date ?? null);
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
@@ -230,6 +293,7 @@ export function ReportCard({
     if (!newStatus) return;
     setPendingStatus(null);
     setStatus(newStatus);
+    onStatusChange?.(report.id, newStatus);
     await fetch(`/api/reports/${report.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

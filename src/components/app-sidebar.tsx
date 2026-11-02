@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactElement } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -29,12 +29,24 @@ import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
 import { UPDATE_SECTIONS, updateSectionGroups } from "@/lib/update-sections";
 import { DOC_ID_PARAM, documentPath, documentTitle, firstUnlockedSection, resolveDocument } from "@/lib/project-updates";
-import { partnerProdocSections } from "@/lib/prodoc-sections";
+import { PRODOC_SECTIONS, partnerProdocSections } from "@/lib/prodoc-sections";
 import { numberWikiSections } from "@/lib/wiki";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+// Full-name tooltip for a truncated label — the same Tooltip the editor headers
+// use on their document titles (default delay, always available on hover).
+function NameTip({ text, children }: { text: string; children: ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{text}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 // Active nav item style, shared by every level of the partner and admin sidebars.
 const NAV_ACTIVE = "bg-crafd-yellow-light text-black";
@@ -315,7 +327,7 @@ export function AppSidebar() {
     new Map(prodocs.map((p) => [reportSlug(p), p])).values()
   );
   const prodocParts = pathname.split("/").filter(Boolean);
-  const inProdoc = isPartner && pathname.startsWith("/partner/prodoc-editor/");
+  const inProdoc = pathname.startsWith(isPartner ? "/partner/prodoc-editor/" : "/admin/prodoc-editor/");
   const openProdocSlug = inProdoc ? prodocParts[2] ?? null : null;
   const openProdocSection = (inProdoc ? prodocParts[3] : null) ?? "general";
   const openProdocRow = prodocItems.find((p) => projectSlug(p.project_short_name, p.project_title) === openProdocSlug) ?? null;
@@ -389,6 +401,33 @@ export function AppSidebar() {
       .catch(() => {});
   }, [openProdocRow?.project_id, pathname]);
 
+  // Tab list of an open project document, with completion ticks. Shared by the
+  // partner and admin sidebars (the admin one also passes the admin-only tabs).
+  const renderProdocSections = (basePath: string, slug: string, activeSection: string, sections: { value: string; label: string }[]) => (
+    <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+      {sections.map((s) => {
+        const secActive = activeSection === s.value;
+        return (
+          <Link
+            key={s.value}
+            href={`${basePath}/${slug}/${s.value}`}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+              secActive
+                ? `${NAV_ACTIVE} font-medium`
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <span className="flex-1 truncate">{s.label}</span>
+            {prodocSectionComplete?.projectId === openProdocRow?.project_id && prodocSectionComplete?.sections[s.value] && (
+              <Check className="size-3.5 shrink-0 text-green-600" />
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+
   // Section list of an open report, split into Qualitative / Quantitative groups,
   // with completion ticks. Shared by the partner and admin sidebars.
   const renderReportSections = (basePath: string, slug: string, year: number | string, activeSection: string) => (
@@ -415,7 +454,7 @@ export function AppSidebar() {
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
-                <span className="flex-1 truncate" title={s.label}>{s.label}</span>
+                <span className="flex-1 truncate">{s.label}</span>
                 {sectionComplete[s.value] && (
                   <Check className="size-3.5 shrink-0 text-green-600" />
                 )}
@@ -609,9 +648,9 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-sm font-medium" title={p.project_title}>
+                              <NameTip text={p.project_title}><span className="truncate text-sm font-medium">
                                 {p.project_title}
-                              </span>
+                              </span></NameTip>
                               {pActive && (
                                 prodocSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
@@ -619,30 +658,8 @@ export function AppSidebar() {
                               )}
                             </span>
                           </Link>
-                          {pActive && !prodocSectionsCollapsed && (
-                            <div className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                              {partnerProdocSections().map((s) => {
-                                const secActive = openProdocSection === s.value;
-                                return (
-                                  <Link
-                                    key={s.value}
-                                    href={`/partner/prodoc-editor/${slug}/${s.value}`}
-                                    className={cn(
-                                      "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
-                                      secActive
-                                        ? `${NAV_ACTIVE} font-medium`
-                                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                                    )}
-                                  >
-                                    <span className="flex-1 truncate" title={s.label}>{s.label}</span>
-                                    {prodocSectionComplete?.projectId === openProdocRow?.project_id && prodocSectionComplete?.sections[s.value] && (
-                                      <Check className="size-3.5 shrink-0 text-green-600" />
-                                    )}
-                                  </Link>
-                                );
-                              })}
-                            </div>
-                          )}
+                          {pActive && !prodocSectionsCollapsed &&
+                            renderProdocSections("/partner/prodoc-editor", slug, openProdocSection, partnerProdocSections())}
                         </div>
                       );
                     })}
@@ -697,14 +714,14 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-sm font-medium capitalize" title={it.primary}>{it.primary}</span>
+                              <NameTip text={it.primary}><span className="truncate text-sm font-medium capitalize">{it.primary}</span></NameTip>
                               {it.isActive && (
                                 reportSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
                                   : <ChevronDown className="size-3 shrink-0" />
                               )}
                             </span>
-                            <span className="truncate text-xs opacity-70" title={it.secondary}>{it.secondary}</span>
+                            <NameTip text={it.secondary}><span className="truncate text-xs opacity-70">{it.secondary}</span></NameTip>
                           </Link>
 
                           {/* Level 2: sections of the open report, split into
@@ -757,14 +774,14 @@ export function AppSidebar() {
                             }}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="truncate text-sm font-medium" title={it.primary}>{it.primary}</span>
+                              <NameTip text={it.primary}><span className="truncate text-sm font-medium">{it.primary}</span></NameTip>
                               {it.isActive && (
                                 updateSectionsCollapsed
                                   ? <ChevronRight className="size-3 shrink-0" />
                                   : <ChevronDown className="size-3 shrink-0" />
                               )}
                             </span>
-                            <span className="truncate text-xs opacity-70" title={it.secondary}>{it.secondary}</span>
+                            <NameTip text={it.secondary}><span className="truncate text-xs opacity-70">{it.secondary}</span></NameTip>
                           </Link>
 
                           {it.isActive && openUpdate && !updateSectionsCollapsed && (() => {
@@ -799,7 +816,7 @@ export function AppSidebar() {
                                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                           )}
                                         >
-                                          <span className="flex-1 truncate" title={s.label}>{s.label}</span>
+                                          <span className="flex-1 truncate">{s.label}</span>
                                           {updateSectionComplete[s.value] && (
                                             <Check className="size-3.5 shrink-0 text-green-600" />
                                           )}
@@ -842,13 +859,15 @@ export function AppSidebar() {
             // An open report puts "Project Reports" and the report's name in the
             // bold-no-fill state, so only the active section carries the fill.
             const reportOpen = item.href === "/admin/reports" && openAdminReport != null;
+            // Same for the project document editor, listed under "Projects".
+            const prodocOpen = item.href === "/admin/projects" && pathname.startsWith("/admin/prodoc-editor");
             return (
               <div key={item.href}>
                 <Link
                   href={item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                    subActive || reportOpen
+                    subActive || reportOpen || prodocOpen
                       ? NAV_PARENT_ACTIVE
                       : ownActive
                       ? NAV_ACTIVE
@@ -871,7 +890,7 @@ export function AppSidebar() {
                           setReportSectionsCollapsed((v) => !v);
                         }}
                       >
-                        <span className="truncate text-sm font-medium" title={name}>{name}</span>
+                        <NameTip text={name}><span className="truncate text-sm font-medium">{name}</span></NameTip>
                         {reportSectionsCollapsed
                           ? <ChevronRight className="size-3 shrink-0" />
                           : <ChevronDown className="size-3 shrink-0" />}
@@ -902,16 +921,17 @@ export function AppSidebar() {
                     <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
                       {groups.map((g, gi) => (
                         <div key={g.label} className="flex flex-col gap-0.5">
-                          <p
-                            className={cn(
-                              "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider truncate",
-                              gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
-                              GROUP_STYLES.Qualitative.header
-                            )}
-                            title={g.label}
-                          >
-                            {g.label}
-                          </p>
+                          <NameTip text={g.label}>
+                            <p
+                              className={cn(
+                                "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider truncate",
+                                gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
+                                GROUP_STYLES.Qualitative.header
+                              )}
+                            >
+                              {g.label}
+                            </p>
+                          </NameTip>
                           {g.rows
                             .slice()
                             .sort((x, y) => y.year - x.year || x.id - y.id)
@@ -924,12 +944,53 @@ export function AppSidebar() {
                                   href={`/admin/report-editor/${reportSlug(r)}/${r.year}/overview`}
                                   className="flex items-center rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                                 >
-                                  <span className="truncate" title={documentTitle(r)}>{documentTitle(r)}</span>
+                                  <NameTip text={documentTitle(r)}><span className="truncate">{documentTitle(r)}</span></NameTip>
                                 </Link>
                               )
                             )}
                         </div>
                       ))}
+                    </div>
+                  );
+                })()}
+                {prodocOpen && (() => {
+                  // All project documents (one per project), A–Z by project title. Only the open one
+                  // is bold (no fill) and expands to its tabs, admin-only ones included.
+                  const label = (p: SidebarReport) => p.project_title;
+                  const sorted = prodocItems.slice().sort((x, y) => label(x).localeCompare(label(y)));
+                  const openTitle = (p: SidebarReport) => p.project_title;
+                  return (
+                    <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
+                      {sorted.map((p) => {
+                        const slug = reportSlug(p);
+                        return slug === openProdocSlug ? (
+                          <div key={p.id}>
+                            <Link
+                              href={`/admin/prodoc-editor/${slug}/${openProdocSection}`}
+                              className={cn("flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors", NAV_PARENT_ACTIVE)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setProdocSectionsCollapsed((v) => !v);
+                              }}
+                            >
+                              <NameTip text={openTitle(p)}><span className="truncate text-sm font-medium">{label(p)}</span></NameTip>
+                              {prodocSectionsCollapsed
+                                ? <ChevronRight className="size-3 shrink-0" />
+                                : <ChevronDown className="size-3 shrink-0" />}
+                            </Link>
+                            {!prodocSectionsCollapsed &&
+                              renderProdocSections("/admin/prodoc-editor", slug, openProdocSection, PRODOC_SECTIONS.filter((s) => !s.hidden))}
+                          </div>
+                        ) : (
+                          <Link
+                            key={p.id}
+                            href={`/admin/prodoc-editor/${slug}/general`}
+                            className="flex items-center rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          >
+                            <NameTip text={openTitle(p)}><span className="truncate">{label(p)}</span></NameTip>
+                          </Link>
+                        );
+                      })}
                     </div>
                   );
                 })()}

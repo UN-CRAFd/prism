@@ -2,18 +2,14 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
-import { cn, projectSlug, shortName } from "@/lib/utils";
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
+import { cn, projectSlug } from "@/lib/utils";
 import { HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
 import { PRODOC_SECTIONS } from "@/lib/prodoc-sections";
@@ -38,8 +34,6 @@ import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { ClampedText } from "@/components/report-editor/clamped-text";
 import { riskLevelLabel, computeRiskLevelKey, RISK_LEVEL_COLORS } from "@/lib/risk";
 import { cycleLabel } from "@/lib/indicators";
-import { reportStatusStyle } from "@/lib/reports";
-import { optionValues } from "@/lib/options";
 import { getEditorSessionId } from "@/lib/editor-session-id";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { ProdocIndicatorsSection, type ProdocIndicatorEdit } from "@/components/admin/prodoc-indicators-section";
@@ -163,7 +157,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   const [selectedProdocId, setSelectedProdocId] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState<string>(params.section ?? "general");
 
-  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   // Per-line, per-field year validity. Keyed by indicator line id.
@@ -615,16 +608,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     router.push(`${routeBase}/${toSlug(doc)}/${section}`);
   }
 
-  function handleDocChange(val: string) {
-    setSelectedProdocId(val);
-    setError(null); setSubmitError(null);
-    setRisks([]); setIndicatorLines([]); setLibrary([]);
-    visitedRef.current = new Set(["general"]);
-    setMountTick((t) => t + 1);
-    const doc = docs.find((d) => String(d.id) === val);
-    if (doc) pushUrl(doc, "general");
-  }
-
   function handleSectionChange(val: string) {
     if (val === selectedSection) return;
     setSelectedSection(val);
@@ -1047,30 +1030,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     }
   }
 
-  // Change the prodoc status from the top bar (admin only). Opens the
-  // StatusChangeDialog to collect a name and reason before applying.
-  function handleStatusChange(newStatus: string) {
-    if (!selectedDoc) return;
-    setPendingStatus(newStatus);
-  }
-
-  async function applyStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
-    if (!selectedDoc || !pendingStatus) return;
-    const id = selectedDoc.id;
-    const newStatus = pendingStatus;
-    setPendingStatus(null);
-    setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
-    await fetch(`/api/reports/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: newStatus,
-        actor_name: actorName || null,
-        reason: reason || null,
-      }),
-    });
-  }
-
   // Shown in the "available" banner after polling detects the lock freed.
   async function handleStartEditing() {
     const projectId = selectedDoc?.project_id;
@@ -1373,19 +1332,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             ) : (
               <h1 className="t-title-banner truncate min-w-0 cursor-default">Project Document</h1>
             )}
-            {!isPartner && selectedDoc && (
-              <Select value={selectedDoc.status ?? "Open"} onValueChange={handleStatusChange}>
-                <SelectTrigger className={`!h-7 w-fit shrink-0 px-2.5 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(selectedDoc.status ?? "Open")}`}>
-                  <span className="flex items-center gap-1 whitespace-nowrap">
-                    {readOnly && <Lock className="size-3" />}
-                    <SelectValue />
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
           </div>
           {isPartner ? (
             /* Partners edit two kinds of prodocs: their own projects (they're the
@@ -1421,70 +1367,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             </Button>
           )}
 
-          {!isPartner && (
-            <Select value={selectedProdocId} onValueChange={handleDocChange} disabled={loadingDocs}>
-            <SelectTrigger className="w-[320px] max-w-[45vw] h-9">
-              {loadingDocs ? (
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" /> {labels.common.loading}
-                </span>
-              ) : selectedDoc ? (
-                <span className="truncate">{selectedDoc.project_title}</span>
-              ) : (
-                <span className="text-muted-foreground">Select a project</span>
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(
-                docs.reduce((acc, d) => {
-                  const key = d.partner_short_name;
-                  if (!acc[key]) acc[key] = [];
-                  acc[key].push(d);
-                  return acc;
-                }, {} as Record<string, Prodoc[]>)
-              ).map(([partner, grouped]) => (
-                <SelectGroup key={partner}>
-                  <SelectLabel>{shortName(partner)}</SelectLabel>
-                  {grouped.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.project_title}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-          )}
         </div>
       </div>
-
-      {/* Section tabs — admin only; partners navigate sections via the sidebar */}
-      {!isPartner && <div className="border-b px-8 flex gap-1 shrink-0">
-        {sections.map((sec) => {
-          const active = selectedSection === sec.value;
-          return (
-            <button
-              key={sec.value}
-              onClick={() => handleSectionChange(sec.value)}
-              className={cn(
-                "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-                active
-                  ? "border-foreground text-foreground"
-                  : sec.muted
-                    ? "border-transparent text-muted-foreground/40 hover:text-muted-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                {sec.label}
-                {sectionComplete?.[sec.value] && (
-                  <Check className="size-3.5 shrink-0 text-green-600" />
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>}
 
       {/* Content — quant tables fill the leftover height and scroll inside their
           own box (single scroller, frozen header); every other section scrolls here. */}
@@ -1916,13 +1800,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       </div>
     </div>
 
-    <StatusChangeDialog
-      open={pendingStatus !== null}
-      fromStatus={selectedDoc?.status ?? ""}
-      toStatus={pendingStatus ?? ""}
-      onCancel={() => setPendingStatus(null)}
-      onConfirm={applyStatusChange}
-    />
     </CommentsProvider>
   );
 }

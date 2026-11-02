@@ -28,9 +28,9 @@ export const REPORT_STATUS_ICON_COLORS: Record<string, string> = {
 };
 
 const DARK_STATUS_STYLES: Record<string, string> = {
-  Open:           "bg-crafd-yellow/15 text-crafd-yellow-600",
-  "Under Review": "bg-white/15 text-crafd-grey-200",
-  Closed:         "bg-white/10 text-crafd-grey-400",
+  Open:           "bg-crafd-yellow-600 text-crafd-grey-900",
+  "Under Review": "bg-crafd-grey-100 text-crafd-grey-900",
+  Closed:         "bg-crafd-grey-100 text-crafd-grey-900",
 };
 
 export function reportStatusStyle(

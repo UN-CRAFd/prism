@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { Loader2, FileQuestion, Lock, AlertTriangle, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -27,8 +26,6 @@ import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/aut
 import { LoadingState } from "@/components/admin/shared";
 import { REPORT_SECTION_GROUPS, GROUP_STYLES, REPORT_SECTIONS, type ReportSectionGroup } from "@/lib/report-sections";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
-import { reportStatusStyle } from "@/lib/reports";
-import { optionValues } from "@/lib/options";
 import type { Report } from "@/lib/types";
 import { DOC_ID_PARAM, documentPath, documentTitle, resolveDocument } from "@/lib/project-updates";
 import { UPDATE_SECTIONS, updateSectionGroups, type UpdateSection } from "@/lib/update-sections";
@@ -216,7 +213,6 @@ export function ReportEditor({
   const visitedRef = useRef<Set<string>>(new Set([params.section ?? defaultSection]));
   const [, setMountTick] = useState(0);
 
-  const [pendingStatus, setPendingStatus] = useState<Report["status"] | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -475,30 +471,6 @@ export function ReportEditor({
   function handleSectionChange(section: string) {
     if (!selectedReport || section === params.section) return;
     router.push(documentPath(basePath, selectedReport, toSlug(selectedReport), section));
-  }
-
-  // Change the report's status from the top bar (admin only). Opens the
-  // StatusChangeDialog to collect a name and reason before applying.
-  function handleReportStatusChange(newStatus: Report["status"]) {
-    if (!selectedReport) return;
-    setPendingStatus(newStatus);
-  }
-
-  async function applyStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
-    if (!selectedReport || !pendingStatus) return;
-    const id = selectedReport.id;
-    const newStatus = pendingStatus;
-    setPendingStatus(null);
-    setReports((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
-    await fetch(`/api/reports/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: newStatus,
-        actor_name: actorName || null,
-        reason: reason || null,
-      }),
-    });
   }
 
   async function handleSubmit() {
@@ -864,36 +836,10 @@ export function ReportEditor({
           </p>
           {selectedReport ? (
             <>
-              <div className="flex items-center gap-3">
-                <h1 className="t-title-banner capitalize">
+              <div className="flex items-center gap-3 min-w-0">
+                <h1 className="t-title-banner capitalize truncate min-w-0">
                   {documentTitle(selectedReport)}
                 </h1>
-                {mode === "admin" ? (
-                  <Select value={selectedReport.status} onValueChange={(v) => handleReportStatusChange(v as Report["status"])}>
-                    <SelectTrigger className={cn(
-                      "h-7 w-auto gap-1 rounded-full border-0 px-2.5 text-xs font-semibold [&>svg]:size-3 [&>svg]:opacity-70",
-                      reportStatusStyle(selectedReport.status, "dark")
-                    )}>
-                      <span className="flex items-center gap-1 whitespace-nowrap">
-                        {readOnly && <Lock className="size-3" />}
-                        {selectedReport.status}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {optionValues("reportStatus").map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                    reportStatusStyle(selectedReport.status, "dark")
-                  )}>
-                    {readOnly && <Lock className="size-3" />}
-                    {selectedReport.status}
-                  </span>
-                )}
               </div>
               <p className="text-neutral-400 text-sm mt-0.5 truncate" title={selectedReport.project_title}>{selectedReport.project_title}</p>
             </>
@@ -1345,13 +1291,6 @@ export function ReportEditor({
       </div>
     </div>
 
-    <StatusChangeDialog
-      open={pendingStatus !== null}
-      fromStatus={selectedReport?.status ?? ""}
-      toStatus={pendingStatus ?? ""}
-      onCancel={() => setPendingStatus(null)}
-      onConfirm={applyStatusChange}
-    />
     </CommentsProvider>
   );
 }

@@ -116,7 +116,7 @@ function QuarterCell({
         "inline-flex size-5 items-center justify-center rounded border",
         checked
           ? variant === "baseline"
-            ? "bg-neutral-300 border-neutral-300 text-neutral-600"
+            ? "bg-crafd-grey-200 border-crafd-grey-200 text-crafd-grey-600"
             : "bg-crafd-yellow border-crafd-yellow text-black"
           : "border-neutral-300 bg-white text-transparent"
       )}
@@ -565,13 +565,13 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               return (
                 <Fragment key={a.id}>
                   {showOutcome && (
-                    <tr className="bg-neutral-100 border-y">
-                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700"><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                    <tr className="bg-crafd-yellow-600 border-y">
+                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900"><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
                     </tr>
                   )}
                   {showObjective && (
-                    <tr className="bg-blue-50/60 border-y">
-                      <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-blue-900">
+                    <tr className="bg-crafd-yellow-100 border-y">
+                      <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-crafd-grey-900">
                         {a.objective_num ? `${a.objective_num}. Objective: ` : ""}{a.objective_text}
                       </td>
                     </tr>
@@ -612,7 +612,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     const status = (isActive ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
                     const comment = isActive ? (ps?.comment ?? "") : (cell?.comment ?? "");
                     return (
-                      <tr key={u.id} className={cn("border-t", isActive ? "bg-crafd-yellow/5" : "opacity-60")}>
+                      <tr key={u.id} className={cn("border-t", isActive ? "bg-crafd-yellow-50" : "opacity-60")}>
                         {first && activityCell}
                         <td className="px-2 py-2 text-xs font-medium whitespace-nowrap">
                           <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
@@ -1295,8 +1295,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
 
   // Sits at the foot of the table, where the new outcome actually appears.
-  // Deliberately a muted echo of the black outcome header above it — same bar,
-  // same uppercase chip, carrying the number the outcome will take — so it
+  // A light outlined control carrying the number the outcome will take, so it
   // reads as the next one in the sequence rather than a detached control.
   const addOutcomeBar = (
     <button
@@ -1304,13 +1303,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       onClick={addOutcome}
       disabled={readOnly}
       className={cn(
-        "group flex w-full items-center gap-2 bg-neutral-800/85 px-3 py-2.5 text-left text-white transition-colors",
+        "group flex w-full items-center gap-2 border border-dashed border-crafd-grey-200 bg-white px-3 py-2.5 text-left text-crafd-grey-600 transition-colors",
         "disabled:opacity-30 disabled:cursor-not-allowed",
-        !readOnly && "hover:bg-neutral-800",
+        !readOnly && "hover:border-crafd-yellow hover:bg-crafd-yellow-50 hover:text-crafd-grey-900",
       )}
     >
-      <Plus className={cn("size-4 shrink-0 text-white/70 transition-colors", !readOnly && "group-hover:text-white")} />
-      <span className={cn("rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider transition-colors", !readOnly && "group-hover:bg-white/25")}>
+      <Plus className="size-4 shrink-0 text-current" />
+      <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
         Add outcome {clusters.length + 1}
       </span>
     </button>
@@ -1365,30 +1364,30 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               {clusters.map((cluster, ci) => (
                 <Fragment key={cluster.clusterId}>
                   {/* Outcome cluster header — top level of the hierarchy */}
-                  <tr className="bg-neutral-800 text-white">
+                  <tr className="bg-crafd-yellow-600 text-crafd-grey-900">
                     <td colSpan={totalCols} className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setCollapsedClusters((p) => ({ ...p, [cluster.clusterId]: !p[cluster.clusterId] }))}
-                          className="shrink-0 text-white/70 hover:text-white transition-colors"
+                          className="shrink-0 text-crafd-grey-800 hover:text-crafd-grey-900 transition-colors"
                           aria-label={collapsedClusters[cluster.clusterId] ? "Expand outcome" : "Collapse outcome"}
                         >
                           {collapsedClusters[cluster.clusterId] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                         </button>
-                        <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0">{ci + 1}. Outcome</span>
+                        <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-crafd-grey-900 shrink-0">{ci + 1}. Outcome</span>
                         <Input
                           value={cluster.outcome}
                           onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
                           placeholder="Outcome heading…"
-                          className="h-7 flex-1 text-sm bg-white text-neutral-900 placeholder:text-neutral-400"
+                          className="h-7 flex-1 text-sm bg-white text-crafd-grey-900 placeholder:text-crafd-grey-400"
                         />
                         <Button onClick={() => addObjective(cluster.clusterId)} variant="secondary" size="sm" className="h-7 shrink-0 gap-1">
                           <Plus className="size-3.5" /> Objective
                         </Button>
                         <button
                           onClick={() => deleteCluster(cluster.clusterId)}
-                          className="text-white/60 hover:text-red-300 transition-colors shrink-0"
+                          className="text-crafd-grey-800 hover:text-destructive transition-colors shrink-0"
                           aria-label="Delete outcome"
                         >
                           <Trash2 className="size-4" />
@@ -1398,18 +1397,18 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                   </tr>
                   {!collapsedClusters[cluster.clusterId] && cluster.sections.map((sec) => (
                     <Fragment key={sec.sectionId}>
-                  <tr className="bg-blue-50/70 border-b">
+                  <tr className="bg-crafd-yellow-100 border-b">
                     <td colSpan={totalCols} className="py-2 pl-8 pr-3">
-                      <div className="flex items-center gap-2 border-l-2 border-blue-300 pl-3">
+                      <div className="flex items-center gap-2 border-l-2 border-crafd-yellow pl-3">
                         <button
                           type="button"
                           onClick={() => setCollapsedSections((p) => ({ ...p, [sec.sectionId]: !p[sec.sectionId] }))}
-                          className="shrink-0 text-blue-700 hover:text-blue-900 transition-colors"
+                          className="shrink-0 text-crafd-grey-600 hover:text-crafd-grey-900 transition-colors"
                           aria-label={collapsedSections[sec.sectionId] ? "Expand objective" : "Collapse objective"}
                         >
                           {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                         </button>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-blue-900 shrink-0">{sec.objective_num}. Objective</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Objective</span>
                         <Input
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}

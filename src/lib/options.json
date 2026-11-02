@@ -96,10 +96,8 @@
     "description": "Status of a HACT recommendation on a project update. Set by CRAF'd.",
     "kind": "flat",
     "items": [
-      { "value": "Open", "label": "Open" },
       { "value": "In Progress", "label": "In Progress" },
-      { "value": "Implemented", "label": "Implemented" },
-      { "value": "Closed", "label": "Closed" }
+      { "value": "Implemented", "label": "Implemented" }
     ]
   },
   "workplanUpdateType": {

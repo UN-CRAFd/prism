@@ -345,9 +345,10 @@ export async function POST(req: NextRequest) {
       await query(
         `INSERT INTO reporting_platform.indicator_data
            (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_results, sort_order)
-         SELECT annual.id, $1, $2, $3, $4, $5, $6, $7
+         SELECT annual.id, $1, $2, $3, $4, $5, $6,
+                COALESCE((SELECT MAX(x.sort_order) FROM reporting_platform.indicator_data x WHERE x.report_id = annual.id), 0) + 1
            FROM reporting_platform.reports annual
-          WHERE annual.project_id = $8
+          WHERE annual.project_id = $7
             AND annual.data_type IN ('report', 'update')
          ON CONFLICT (report_id, indicator_id) DO NOTHING`,
         [
@@ -357,8 +358,7 @@ export async function POST(req: NextRequest) {
           body.target_value || null,                                           // $4
           toYear(body.target_year),                                            // $5
           Array.isArray(body.linked_results) ? body.linked_results : [],      // $6
-          body.sort_order ?? inserted[0].id,                                   // $7
-          reportMeta[0].project_id,                                            // $8
+          reportMeta[0].project_id,                                            // $7
         ]
       );
     }

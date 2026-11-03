@@ -1,4 +1,5 @@
 import { ALWAYS_UPDATE_SECTIONS, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
+import { UPDATE_TYPES } from "@/lib/update-types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The project-update module matrix.
@@ -27,25 +28,9 @@ import { ALWAYS_UPDATE_SECTIONS, PROJECT_UPDATE_SECTIONS } from "@/lib/project-u
 // Work Plan or Expenditure tab. An add-on always implies its base row.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface UpdateType {
-  /** Stored value — the matrix column key. */
-  value: string;
-  /** Column header shown in the matrix. */
-  label: string;
-  /** Abbreviation used where the full label will not fit. */
-  short: string;
-}
-
-// No Cost Extension sits next to Budget Revision because those two are the pair
-// that most often combines, each contributing its own add-on row.
-export const UPDATE_TYPES: UpdateType[] = [
-  { value: "budget_revision",   label: "Budget Revision",   short: "BR" },
-  { value: "nce",               label: "No Cost Extension", short: "NCE" },
-  { value: "tranche_release",   label: "Tranche Release",   short: "TR" },
-  { value: "reprogramming",     label: "Reprogramming",     short: "RP" },
-  { value: "annual_report",     label: "Annual Report",     short: "AR" },
-  { value: "final_report",      label: "Final Report",      short: "FR" },
-];
+// The update types (matrix columns) live in lib/update-types.ts so the naming
+// helpers in lib/project-updates.ts can use them without an import cycle.
+export { UPDATE_TYPES, updateTypeLabel, updateTypeShort, updateTypesCode, type UpdateType } from "@/lib/update-types";
 
 export interface UpdateModule {
   /** Stored value — the matrix row key. */
@@ -270,15 +255,6 @@ export function moduleLabel(key: string, months?: number | null): string {
   const group = moduleGroupOf(key);
   const text = entry.label.replace(MONTHS_TOKEN, months != null ? String(months) : "XX");
   return isAddOn(key) && group ? `${group.label} ${text}` : text;
-}
-
-export function updateTypeLabel(key: string): string {
-  return UPDATE_TYPES.find((t) => t.value === key)?.label ?? key;
-}
-
-/** The abbreviation ("BR", "NCE", …) for places that list types as badges. */
-export function updateTypeShort(key: string): string {
-  return UPDATE_TYPES.find((t) => t.value === key)?.short ?? key;
 }
 
 /** The report-editor sections unlocked by a set of modules, in canonical tab

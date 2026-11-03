@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,15 +27,13 @@ import {
 //   cells   = the permanent ticks marking which modules a type REQUIRES
 //
 // Ticking a column selects that update type and tints the whole column light
-// orange; the modules it requires are selected with it. Ticking a row selects
-// that module on its own, so an admin can combine modules beyond what the chosen
-// types require — that is what makes the resulting update modular.
+// orange. Only the columns are clickable: the selected modules are always
+// exactly the union of what the chosen types require, so an update's modules
+// can never drift from its update types. Rows just show whether they are in.
 //
-// Sub-categories are ADDITIVE, so several can be ticked at once: select Budget
-// Revision and No Cost Extension together and Expenditure ends up with its
-// general row plus both the proposed-new-budget and extended-time-frame rows.
-// Ticking an add-on pulls in its base row; clearing a base row clears its
-// add-ons with it.
+// Sub-categories are ADDITIVE: select Budget Revision and No Cost Extension
+// together and Expenditure ends up with its general row plus both the
+// proposed-new-budget and extended-time-frame rows.
 //
 // Rows whose label carries {months} render a small numeric field in its place.
 // Every such field is bound to the SAME `months` value, so a number typed on the
@@ -74,7 +72,6 @@ export function UpdateModuleMatrix({
   /** Hide the requirements editor for non-admin surfaces. */
   canEditRequirements?: boolean;
 }) {
-  const uid = useId();
   const [requirements, setRequirements] = useState<UpdateRequirements>({});
   const [loading, setLoading] = useState(true);
 
@@ -114,37 +111,28 @@ export function UpdateModuleMatrix({
   // Columns drive the selection: toggling one re-takes the union of what the
   // chosen types require, so adding No Cost Extension layers its add-ons on top
   // of whatever Budget Revision already contributed rather than replacing them.
-  // Rows the admin ticked by hand (never required by the previous mix) survive.
   function toggleType(type: string) {
     if (editing) return;
     const next = typeSet.has(type)
       ? selectedTypes.filter((t) => t !== type)
       : [...selectedTypes, type];
     onTypesChange(next);
-
-    const required = requiredModulesFor(next, requirements);
-    const wasRequired = new Set(requiredModulesFor(selectedTypes, requirements));
-    const handPicked = selectedModules.filter((m) => !wasRequired.has(m));
-    onModulesChange(normaliseModules([...required, ...handPicked]));
+    onModulesChange(requiredModulesFor(next, requirements));
   }
 
-  // Rows toggle independently. Ticking an add-on pulls in the base row it
-  // extends (normaliseModules does that); clearing a base row clears its add-ons,
-  // which would otherwise be left extending nothing.
-  function toggleModule(moduleKey: string) {
-    if (editing) return;
-    if (moduleSet.has(moduleKey)) {
-      const dropped = new Set([moduleKey, ...addOnsOf(moduleKey)]);
-      onModulesChange(selectedModules.filter((m) => !dropped.has(m)));
-      return;
-    }
-    onModulesChange(normaliseModules([...selectedModules, moduleKey]));
-  }
+  // Keep the selection in step with the requirements once they have loaded, so
+  // modules handed in from outside can never disagree with the chosen types.
+  useEffect(() => {
+    if (loading) return;
+    const derived = requiredModulesFor(selectedTypes, requirements);
+    if (derived.join("|") !== selectedModules.join("|")) onModulesChange(derived);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, requirements, selectedTypes]);
 
   // Clear everything the matrix is currently showing. While the requirements are
   // being edited that means the ticks themselves (staged in the draft, so Cancel
-  // still puts them back); otherwise it means the selection — columns, rows and
-  // the extension length — so the form can be started over from empty.
+  // still puts them back); otherwise it means the selection — columns and the
+  // extension length — so the form can be started over from empty.
   function reset() {
     if (editing) {
       setDraft(Object.fromEntries(UPDATE_TYPES.map((t) => [t.value, []])));
@@ -261,15 +249,9 @@ export function UpdateModuleMatrix({
                   <td className="px-3 py-1.5">
                     {(() => {
                       const selected = moduleSet.has(row.module.value);
-                      const boxId = `${uid}-${row.key}`;
-                      // A months row splits into text / field / text. The field
-                      // must sit OUTSIDE the <label>, or clicking it would toggle
-                      // the row; the two text halves stay label-linked to the box.
+                      // A months row splits into text / field / text.
                       const [before, after] = row.module.label.split(MONTHS_TOKEN);
-                      const textClass = cn(
-                        selected && "font-medium",
-                        editing ? "cursor-default" : "cursor-pointer select-none"
-                      );
+                      const textClass = cn(selected ? "font-medium" : "text-muted-foreground");
                       return (
                         <div
                           className={cn(
@@ -280,18 +262,17 @@ export function UpdateModuleMatrix({
                             editing && "opacity-70"
                           )}
                         >
-                          <label htmlFor={boxId} className={cn("flex items-center gap-2", textClass)}>
-                            <input
-                              id={boxId}
-                              type="checkbox"
-                              className="accent-primary shrink-0"
-                              checked={selected}
-                              disabled={editing}
-                              onChange={() => toggleModule(row.module.value)}
-                              aria-label={`Select ${moduleLabel(row.module.value, months)}`}
-                            />
-                            <span>{before.trim()}</span>
-                          </label>
+                          {/* Read-only marker: rows follow the ticked columns. */}
+                          <span
+                            className={cn(
+                              "flex size-4 shrink-0 items-center justify-center rounded-sm border",
+                              selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                            )}
+                            aria-label={`${moduleLabel(row.module.value, months)} ${selected ? "included" : "not included"}`}
+                          >
+                            {selected && <Check className="size-3" />}
+                          </span>
+                          <span className={textClass}>{before.trim()}</span>
                           {after !== undefined && (
                             <>
                               <input
@@ -309,9 +290,7 @@ export function UpdateModuleMatrix({
                                 aria-label="Length of the extension in months"
                                 className="h-6 w-14 rounded border border-input bg-background px-1.5 text-center text-sm tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
                               />
-                              <label htmlFor={boxId} className={textClass}>
-                                {after.trim()}
-                              </label>
+                              <span className={textClass}>{after.trim()}</span>
                             </>
                           )}
                         </div>
@@ -367,7 +346,7 @@ export function UpdateModuleMatrix({
         <p className="text-xs text-muted-foreground">
           {editing
             ? "Click a cell to set whether that update type requires the module."
-            : "Ticks show what each update type requires. Sub-categories add up — combining columns ticks each add-on they bring, alongside the general row."}
+            : "Tick the update types this document covers; the modules follow from them. Sub-categories add up — combining columns brings in each add-on, alongside the general row."}
         </p>
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -375,7 +354,7 @@ export function UpdateModuleMatrix({
             size="sm"
             onClick={reset}
             disabled={!canReset || saving}
-            title={editing ? "Clear every tick in the table" : "Clear all selected columns, rows and the extension length"}
+            title={editing ? "Clear every tick in the table" : "Clear all selected columns and the extension length"}
           >
             <RotateCcw className="size-3.5" />
             Reset

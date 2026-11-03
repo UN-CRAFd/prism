@@ -9,10 +9,8 @@ import {
   LogOut,
   User,
   FileText,
-  ClipboardList,
   Home,
   Building2,
-  FolderKanban,
   FileStack,
   ChevronLeft,
   ChevronRight,
@@ -59,9 +57,6 @@ type WikiSubLink = { hash: string; label: string; number: string | null };
 
 const administrationLinks = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
-  { href: "/admin/projects", label: "Projects", icon: FolderKanban },
-  { href: "/admin/reports", label: "Reports", icon: ClipboardList },
-  { href: "/admin/project-updates", label: "Project Updates", icon: FilePen },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },
 ];
 
@@ -101,6 +96,7 @@ interface UpdateSidebarReport {
   data_type: string;
   /** Distinguishes several updates in one year — see lib/project-updates. */
   update_index?: string | null;
+  update_types?: string[] | null;
   project_title: string;
   project_short_name: string | null;
   unlocked_sections: string[];
@@ -838,17 +834,9 @@ export function AppSidebar() {
           <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Editor
           </p>
-          {editorLinks
-            // Hide the Project Document / Report / Update editors until at least
-            // one prodoc / report / update exists (kept visible while the count is
-            // still loading).
-            .filter((link) =>
-              link.href === "/admin/prodoc-editor" ? hasProdocs !== false
-              : link.href === "/admin/report-editor" ? hasReports !== false
-              : link.href === "/admin/project-update-editor" ? hasUpdates !== false
-              : true
-            )
-            .map((link) => {
+          {/* The editor links land on the project / report / update lists (where
+              those documents are created), so they stay visible even when none exist. */}
+          {editorLinks.map((link) => {
             const isActive = pathname.startsWith(link.href);
             return (
               <Link

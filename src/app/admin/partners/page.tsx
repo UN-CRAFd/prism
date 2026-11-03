@@ -423,7 +423,7 @@ export default function PartnersPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((p) => (
-              <div key={p.id} className="group rounded-xl border bg-card flex transition-colors hover:bg-muted/30 cursor-pointer overflow-hidden" onClick={() => router.push(`/admin/projects?partner=${p.id}`)}>
+              <div key={p.id} className="group rounded-xl border bg-card flex transition-colors hover:bg-muted/30 cursor-pointer overflow-hidden" onClick={() => router.push(`/admin/prodoc-editor?partner=${p.id}`)}>
                 <div className="bg-muted w-24 flex-shrink-0 flex items-center justify-center p-3">
                   <PartnerLogo shortName={p.short_name} />
                 </div>

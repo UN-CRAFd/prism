@@ -75,14 +75,14 @@ const quickLinks = [
     countKey: "totalPartners" as const,
   },
   {
-    href: "/admin/projects",
+    href: "/admin/prodoc-editor",
     label: "Projects",
     description: "Manage project entries",
     icon: FolderKanban,
     countKey: "totalProjects" as const,
   },
   {
-    href: "/admin/reports",
+    href: "/admin/report-editor",
     label: "Reports",
     description: "Manage reporting periods",
     icon: ClipboardList,
@@ -349,7 +349,7 @@ export default function AdminHomePage() {
                 <TrendingUp className="size-4 text-muted-foreground" />
                 Recently Edited
               </h2>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push("/admin/reports")}>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push("/admin/report-editor")}>
                 View all <ArrowRight className="size-3 ml-1" />
               </Button>
             </div>

@@ -136,9 +136,10 @@ function QuarterCell({
 
 // Quarters added by an extended time frame are tinted across both header rows
 // and down the body, so the proposed extra time is never mistaken for the
-// project's approved timeline.
-const EXTENSION_HEAD = "bg-crafd-yellow-300 text-crafd-grey-800";
-const EXTENSION_CELL = "bg-crafd-yellow-100";
+// project's approved timeline. The header is a shade darker than the body so the
+// two stay distinguishable.
+const EXTENSION_HEAD = "bg-crafd-yellow-500 text-crafd-grey-800";
+const EXTENSION_CELL = "bg-crafd-yellow-200";
 
 // Two-row year/quarter header shared by both grids. `extension` holds the
 // quarter keys that fall beyond the project's approved end date; a year is

@@ -25,6 +25,7 @@ import { Plus, FolderKanban, Clock, ExternalLink, Printer, Loader2, Lightbulb, C
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, PageHeader,
   FilterBar, FilterSelect, SearchInput, ResultCount, ALL, SortableHead, sortBy, useTableSort,
+  ArchiveFilter, ArchiveSelect, matchesArchive, type ArchiveView,
 } from "@/components/admin/shared";
 import { reportStatusStyle, REPORT_STATUS_ICON_COLORS, type ReportStatus } from "@/lib/reports";
 import labels from "@/lib/labels";
@@ -76,6 +77,9 @@ interface Project {
   // across all extensions and how many were granted.
   extension_months_total: number;
   extension_count: number;
+  // Hidden from this overview unless the Archived/All filter is on. Absent
+  // before db/add-archived.sql has run (reads as active).
+  archived?: boolean;
 }
 
 interface ProjectExtension {
@@ -213,12 +217,14 @@ export default function ProjectsPage() {
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   const [filterProdocStatus, setFilterProdocStatus] = useState<string>(ALL);
   const [filterScope, setFilterScope] = useState<string>(ALL);
+  // Archived projects are hidden unless asked for.
+  const [archiveView, setArchiveView] = useState<ArchiveView>("active");
 
   // Sort state (click a column header). Default: alphabetical by project title.
   type SortKey =
     | "project_title" | "short_name" | "partner_short_name" | "status"
     | "mptfo_project_number" | "grant_size_usd" | "project_duration_months"
-    | "geographic_scope" | "prodoc";
+    | "geographic_scope" | "prodoc" | "archived";
   const { sortKey, sortDir, toggle: toggleSort } = useTableSort<SortKey>("project_title");
 
   // Apply partner filter from query parameter on mount
@@ -335,6 +341,72 @@ export default function ProjectsPage() {
       resetForm(); load();
     } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setSaving(false); }
+  }
+
+  // ── Archive / unarchive ────────────────────────────────────────────────────
+  // Archiving is project-level and cascades to the project's reports and
+  // updates (POST /api/projects/:id/archive). It is refused while any report or
+  // update is not yet Closed — checked up front so the admin is told before
+  // filling in the name/reason dialog, and re-checked by the server.
+  const [pendingArchive, setPendingArchive] = useState<Project | null>(null);
+
+  async function handleArchiveChange(p: Project, archived: boolean) {
+    if (archived) {
+      const res = await fetch(`/api/projects/${p.id}/archive`);
+      if (!res.ok) {
+        setError("Could not check the project's reports and updates. Has db/add-archived.sql been run?");
+        return;
+      }
+      const { blockers } = (await res.json()) as { blockers: { label: string; status: string }[] };
+      if (blockers.length) {
+        await confirm({
+          title: "This project cannot be archived yet",
+          message: `All reports and project updates must be Closed first. Still open: ${blockers
+            .map((b) => `${b.label} (${b.status})`)
+            .join("; ")}.`,
+          acknowledgement: true,
+          variant: "default",
+        });
+        return;
+      }
+      // Ask for name + reason, like a status change; applied in applyArchive.
+      setPendingArchive(p);
+      return;
+    }
+    const ok = await confirm({
+      title: "Unarchive this project?",
+      message: "Are you sure you want to unarchive this project? It will show in the overview again, together with its reports and project updates.",
+      confirmLabel: "Unarchive",
+      variant: "question",
+    });
+    if (ok) await submitArchive(p.id, false, { actorName: "", reason: "" });
+  }
+
+  async function applyArchive(values: { actorName: string; reason: string }) {
+    if (!pendingArchive) return;
+    const id = pendingArchive.id;
+    setPendingArchive(null);
+    await submitArchive(id, true, values);
+  }
+
+  async function submitArchive(id: number, archived: boolean, { actorName, reason }: { actorName: string; reason: string }) {
+    const res = await fetch(`/api/projects/${id}/archive`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived, actor_name: actorName || null, reason: reason || null }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const blockers = (body?.blockers ?? []) as { label: string; status: string }[];
+      setError(
+        blockers.length
+          ? `${body.error} Still open: ${blockers.map((b) => `${b.label} (${b.status})`).join("; ")}.`
+          : body?.error ?? "Failed to change the archive state. Has db/add-archived.sql been run?"
+      );
+      return;
+    }
+    setError(null);
+    setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, archived } : p)));
   }
 
   async function handleStatusChange(id: number, newStatus: ProjectStatus) {
@@ -499,6 +571,7 @@ export default function ProjectsPage() {
         (filterStatus === ALL || p.status === filterStatus) &&
         (filterProdocStatus === ALL || prodocByProject[p.id]?.status === filterProdocStatus) &&
         (filterScope === ALL || p.geographic_scope === filterScope) &&
+        matchesArchive(p.archived, archiveView) &&
         (!q ||
           [p.project_title, p.short_name, p.partner_short_name, p.partner_long_name, p.mptfo_project_number]
             .some((v) => v?.toLowerCase().includes(q)))
@@ -519,11 +592,12 @@ export default function ProjectsPage() {
           // Status order first, then completion within a status.
           return pd ? prodocOrder.indexOf(pd.status) * 1000 + (completion[p.id] ?? 0) : null;
         }
+        if (sortKey === "archived") return p.archived ? 1 : 0;
         return p[sortKey];
       },
       sortDir
     );
-  }, [projects, prodocByProject, completion, search, filterPartner, filterStatus, filterProdocStatus, filterScope, sortKey, sortDir]);
+  }, [projects, prodocByProject, completion, search, filterPartner, filterStatus, filterProdocStatus, filterScope, archiveView, sortKey, sortDir]);
 
   const scopes = useMemo(
     () => Array.from(new Set(projects.map((p) => p.geographic_scope).filter((s): s is string => !!s))).sort(),
@@ -531,7 +605,8 @@ export default function ProjectsPage() {
   );
 
   const filtersActive =
-    !!search.trim() || filterPartner !== ALL || filterStatus !== ALL || filterProdocStatus !== ALL || filterScope !== ALL;
+    !!search.trim() || filterPartner !== ALL || filterStatus !== ALL || filterProdocStatus !== ALL || filterScope !== ALL ||
+    archiveView !== "active";
 
   function clearFilters() {
     setSearch("");
@@ -539,6 +614,7 @@ export default function ProjectsPage() {
     setFilterStatus(ALL);
     setFilterProdocStatus(ALL);
     setFilterScope(ALL);
+    setArchiveView("active");
   }
 
   const sortProps = { sortKey, sortDir, onSort: toggleSort };
@@ -593,6 +669,7 @@ export default function ProjectsPage() {
             options={scopes.map((s) => ({ value: s, label: s }))}
           />
         )}
+        <ArchiveFilter value={archiveView} onChange={setArchiveView} />
         <ResultCount shown={filtered.length} total={projects.length} noun="project" onClear={filtersActive ? clearFilters : undefined} />
       </FilterBar>
 
@@ -696,6 +773,7 @@ export default function ProjectsPage() {
                 <SortableHead label="Short" column="short_name" {...sortProps} />
                 <SortableHead label="Project title" column="project_title" {...sortProps} />
                 <SortableHead label="Status" column="status" className="w-48" {...sortProps} />
+                <SortableHead label="Archive" column="archived" {...sortProps} />
                 <SortableHead label="MPTFO #" column="mptfo_project_number" {...sortProps} />
                 <SortableHead label="Grant size" column="grant_size_usd" align="right" className="text-right" {...sortProps} />
                 <SortableHead label="Duration" column="project_duration_months" {...sortProps} />
@@ -708,7 +786,7 @@ export default function ProjectsPage() {
               {filtered.map((p, i) => {
                 const pd = prodocByProject[p.id];
                 return (
-                <TableRow key={p.id} className="cursor-pointer" onClick={() => openProdoc(p)}>
+                <TableRow key={p.id} className={`cursor-pointer ${p.archived ? "text-muted-foreground [&_td]:opacity-70" : ""}`} onClick={() => openProdoc(p)}>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
@@ -733,6 +811,9 @@ export default function ProjectsPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <ArchiveSelect archived={!!p.archived} onChange={(a) => handleArchiveChange(p, a)} />
                   </TableCell>
                   <TableCell className="text-xs font-mono">
                     {p.mptfo_project_number ? (
@@ -991,6 +1072,15 @@ export default function ProjectsPage() {
       toStatus={pendingStatusChange?.status ?? ""}
       onCancel={() => setPendingStatusChange(null)}
       onConfirm={applyProdocStatusChange}
+    />
+    <StatusChangeDialog
+      open={pendingArchive !== null}
+      title="Archive project?"
+      confirmLabel="Archive"
+      fromStatus="Active"
+      toStatus="Archived"
+      onCancel={() => setPendingArchive(null)}
+      onConfirm={applyArchive}
     />
     </div>
   );

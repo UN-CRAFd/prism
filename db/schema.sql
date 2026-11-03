@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS projects (
     optional_markers        TEXT,
     fund_specific_markers   TEXT,
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
+    archived                BOOLEAN       NOT NULL DEFAULT FALSE,  -- hidden from the admin Projects overview by default (Active/Archived filter)
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
@@ -290,6 +291,7 @@ CREATE TABLE IF NOT EXISTS reports (
     update_modules         TEXT[]         NOT NULL DEFAULT '{}',  -- project update: modules included (justification, workplan_months, expenditure_budget, …)
     update_months          INTEGER,                               -- project update: length of the extension, when an "+ extended time frame" module is included
     update_index           TEXT           NOT NULL DEFAULT '',    -- project update: free-text tag telling apart several updates in one year ("Project Update 2027 (2)"); always '' for reports and prodocs
+    archived               BOOLEAN        NOT NULL DEFAULT FALSE,  -- hidden from the admin Reports / Project Updates overviews by default
     indirect_expenditure   NUMERIC(15,2)  CHECK (indirect_expenditure IS NULL OR indirect_expenditure >= 0),
                                                                   -- project update: indirect support costs actually spent in the year this document reports. One figure per document, so it sits here rather than in expenditure_entries (which is keyed by budget category, and ISC is not one). See db/add-expenditure-indirect.sql.
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),

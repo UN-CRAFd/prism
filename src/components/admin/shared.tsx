@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, type LucideIcon } from "lucide-react";
+import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Archive, CircleCheck, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -326,6 +326,71 @@ export function SortSelect<T extends string>({
 
 // "12 of 30 projects" at the right end of a FilterBar, with a reset link when
 // any filter is active (pass `onClear` only then).
+// ── Archived / Active ────────────────────────────────────────────────────────
+// Projects can be archived (Projects page only); their reports and updates are
+// archived with them. Archived rows stay intact, just hidden by default.
+// `ArchiveFilter` goes in each overview's FilterBar (default "active");
+// `ArchiveSelect` sits in a Projects table row, changed inline like the status.
+
+export type ArchiveView = "active" | "archived" | typeof ALL;
+
+export function matchesArchive(archived: boolean | undefined, view: ArchiveView): boolean {
+  if (view === ALL) return true;
+  return view === "archived" ? !!archived : !archived;
+}
+
+export function ArchiveFilter({ value, onChange }: { value: ArchiveView; onChange: (v: ArchiveView) => void }) {
+  return (
+    <FilterSelect
+      icon={Archive}
+      label="Show"
+      value={value}
+      onChange={(v) => onChange(v as ArchiveView)}
+      allLabel="All"
+      width={110}
+      options={[{ value: "active", label: "Active" }, { value: "archived", label: "Archived" }]}
+    />
+  );
+}
+
+// Controlled by `archived`: the caller runs its confirmation flow in `onChange`
+// and only updates `archived` once the change has gone through, so a cancelled
+// or refused change leaves the select as it was.
+export function ArchiveSelect({
+  archived,
+  onChange,
+}: {
+  archived: boolean;
+  onChange: (archived: boolean) => void;
+}) {
+  return (
+    <Select
+      value={archived ? "archived" : "active"}
+      onValueChange={(v) => { if ((v === "archived") !== archived) onChange(v === "archived"); }}
+    >
+      <SelectTrigger
+        title="Archived projects (and their reports and updates) are hidden unless Show is set to Archived or All"
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0",
+          archived
+            ? "border-crafd-grey-200 bg-crafd-grey-100 text-crafd-grey-800"
+            : "border-transparent bg-transparent text-muted-foreground shadow-none"
+        )}
+      >
+        <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+          {archived ? <Archive className="size-3 shrink-0" /> : <CircleCheck className="size-3 shrink-0" />}
+          <SelectValue />
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="active">Active</SelectItem>
+        <SelectItem value="archived">Archived</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function ResultCount({
   shown,
   total,

@@ -27,15 +27,17 @@ export interface GroupStyle {
 }
 
 export const GROUP_STYLES: Record<ReportSectionGroup, GroupStyle> = {
+  // Headers are orange so "Qualitative" / "Quantitative" read as section
+  // labels, not as tabs you can click.
   Qualitative: {
     sidebarActive: "bg-crafd-yellow-light text-black",
     tabActive: "border-crafd-yellow text-crafd-grey-900",
-    header: "text-crafd-grey-600",
+    header: "text-crafd-orange",
   },
   Quantitative: {
     sidebarActive: "bg-crafd-yellow-light text-black",
     tabActive: "border-crafd-yellow text-crafd-grey-900",
-    header: "text-crafd-grey-600",
+    header: "text-crafd-orange",
   },
 };
 

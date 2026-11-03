@@ -951,7 +951,7 @@ export function AppSidebar() {
                               className={cn(
                                 "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider truncate",
                                 gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
-                                GROUP_STYLES.Qualitative.header
+                                "text-crafd-grey-600"
                               )}
                             >
                               {g.label}
@@ -1016,7 +1016,7 @@ export function AppSidebar() {
                               className={cn(
                                 "px-3 pt-2 pb-0.5 text-xs font-semibold uppercase tracking-wider truncate",
                                 gi > 0 && "mt-2 border-t border-crafd-grey-100 pt-3",
-                                GROUP_STYLES.Qualitative.header
+                                "text-crafd-grey-600"
                               )}
                             >
                               {title}

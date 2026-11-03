@@ -73,6 +73,10 @@
   --color-crafd-yellow-150: #fcf0d6;
   --color-crafd-yellow-100: #fcf5e7;
   --color-crafd-yellow-50: #fdf7ea;
+  /* Orange: only for the Qualitative / Quantitative section headings in the
+     report and project update sidebars, marking them as section labels rather
+     than clickable tabs. */
+  --color-crafd-orange: #e07a1f;
   --color-crafd-grey-900: #0f0f0f;
   --color-crafd-grey-800: #3e3e3e;
   --color-crafd-grey-600: #6f6f6f;

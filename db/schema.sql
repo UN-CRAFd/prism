@@ -663,11 +663,14 @@ CREATE TRIGGER external_coverage_updated_at
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
 -- Testimonials: one leadership quote (kind='leadership') + up to three partner/
--- user quotes (kind='partner') per report. Per-kind caps enforced in the API.
+-- user quotes (kind='partner') + up to five "Photos from the Ground" (kind='ground';
+-- quote holds the description & caption, photos (each with caption + credits) in
+-- testimonial_photos)
+-- per report. Per-kind caps enforced in the API.
 CREATE TABLE IF NOT EXISTS testimonials (
     id            SERIAL       PRIMARY KEY,
     report_id     INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    kind          TEXT         NOT NULL CHECK (kind IN ('leadership', 'partner')),
+    kind          TEXT         NOT NULL CONSTRAINT testimonials_kind_check CHECK (kind IN ('leadership', 'partner', 'ground')),
     quote         TEXT,
     person_name   TEXT,
     person_title  TEXT,

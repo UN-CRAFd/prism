@@ -49,6 +49,22 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange, pus
           pushCommand={pushCommand}
         />
       </div>
+      <div className="space-y-3">
+        <h3 className="t-heading-editor">{labels.testimonials.groundHeading}</h3>
+        {!readOnly && (
+          <Notice variant="info">
+            {labels.testimonials.groundInstruction}
+          </Notice>
+        )}
+        <SectionTableEditor
+          key="testimonials-ground"
+          reportId={reportId}
+          spec={specs.ground}
+          onSaveStateChange={onSaveStateChange}
+          commentSection="testimonials"
+          pushCommand={pushCommand}
+        />
+      </div>
     </div>
   );
 }

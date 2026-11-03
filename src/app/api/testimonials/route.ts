@@ -6,22 +6,34 @@ import { logger } from "@/lib/logger";
 // Testimonials section (qualitative). Two kinds, each with its own per-report cap:
 //   • leadership — exactly one quote from the organisation's leadership (max 1)
 //   • partner    — up to three quotes from partners or users (max 3)
+//   • ground     — "Photos from the Ground": up to five implementation photos
+//                  (max 5 rows); `quote` holds the description & caption,
+//                  and its one photo (upload or link, with caption and
+//                  credits) is its testimonial_photos row
 // GET ?reportId=&kind= (kind optional), POST { reportId, kind, ... }, PATCH { id, ... }, DELETE ?id=
 // Photos are now stored in testimonial_photos (many per testimonial); the GET
 // response includes a `photos` array per row (no bytes — same fields as the
 // /api/testimonial-photos list endpoint).
 
 const FIELDS = ["quote", "person_name", "person_title"] as const;
-const KIND_MAX: Record<string, number> = { leadership: 1, partner: 3 };
+const KIND_MAX: Record<string, number> = { leadership: 1, partner: 3, ground: 5 };
 
 const RETURN_COLS = `id, report_id, kind, ${FIELDS.join(", ")}, sort_order`;
 
 const PHOTO_COLS =
   "id, testimonial_id, photo_link, photo_file_name, photo_mime_type, photo_size_bytes, (photo_content IS NOT NULL) AS has_file, photo_label, photo_credits, sort_order";
 
-function isKind(v: unknown): v is "leadership" | "partner" {
-  return v === "leadership" || v === "partner";
+type Kind = "leadership" | "partner" | "ground";
+
+function isKind(v: unknown): v is Kind {
+  return v === "leadership" || v === "partner" || v === "ground";
 }
+
+const KIND_NOUN: Record<Kind, [string, string]> = {
+  leadership: ["leadership quote", "leadership quotes"],
+  partner: ["partner quote", "partner quotes"],
+  ground: ["photo from the ground", "photos from the ground"],
+};
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
@@ -122,7 +134,7 @@ export async function POST(req: NextRequest) {
 
   const { reportId, kind } = body;
   if (!reportId) return NextResponse.json({ error: "reportId is required" }, { status: 400 });
-  if (!isKind(kind)) return NextResponse.json({ error: "kind must be 'leadership' or 'partner'" }, { status: 400 });
+  if (!isKind(kind)) return NextResponse.json({ error: "kind must be 'leadership', 'partner' or 'ground'" }, { status: 400 });
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -138,7 +150,7 @@ export async function POST(req: NextRequest) {
     const max = KIND_MAX[kind];
     if (count >= max) {
       return NextResponse.json(
-        { error: `Maximum of ${max} ${kind} ${max === 1 ? "quote" : "quotes"} per report` },
+        { error: `Maximum of ${max} ${KIND_NOUN[kind][max === 1 ? 0 : 1]} per report` },
         { status: 400 }
       );
     }
@@ -177,12 +189,16 @@ export async function PATCH(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    const setClause = FIELDS.map((f, i) => `${f} = $${i + 1}`).join(", ");
-    const values = [...FIELDS.map((f) => body[f] ?? null), id];
+    // Only the fields the client sent: a Photos from the Ground row sends just
+    // its description (quote), so it never blanks person_name / person_title.
+    const sent = FIELDS.filter((f) => f in body);
+    if (sent.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    const setClause = sent.map((f, i) => `${f} = $${i + 1}`).join(", ");
+    const values = [...sent.map((f) => body[f] ?? null), id];
     const rows = await query(
       `UPDATE reporting_platform.testimonials
           SET ${setClause}, updated_at = NOW()
-        WHERE id = $${FIELDS.length + 1}
+        WHERE id = $${sent.length + 1}
       RETURNING ${RETURN_COLS}`,
       values
     );

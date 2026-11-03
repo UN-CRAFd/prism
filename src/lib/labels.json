@@ -343,20 +343,24 @@
     "partnerInstruction": "Use this sub-section to provide up to three quotes from partners or users of the project's data or insights. Quotes should describe how partners contributed to the project or how they used the data or insights in practice, particularly for crisis anticipation, prevention, or response. Limit each quote to a maximum of 20 words. Provide properly labelled photos of the person quoted here if available.",
     "leadershipHeading": "Leadership Quote",
     "partnerHeading": "Partner / User Quotes",
+    "groundHeading": "Photos from the Ground",
+    "groundInstruction": "Use this sub-section to submit up to five photos that show how the project was implemented or how its data and insights were used in practice during the reporting period, e.g. data collection or validation, data analysis or use of tools and dashboards, collaboration with implementing or ecosystem partners, or decision-making informed by project data. Photos should reflect real project implementation and use. For each photo, add a short description, then upload the photo or add a link, with a photo caption and photo credits.",
     "columns": {
       "quote": "Quote",
       "personName": "Name of person quoted",
       "personTitle": "Title of person quoted",
       "photoLabel": "Photo label",
       "photoLink": "Photo",
-      "photoCredits": "Photo credits"
+      "photoCredits": "Photo credits",
+      "caption": "Description & short caption"
     },
     "placeholders": {
       "quote": "Enter the quote…",
       "personName": "Full name",
       "personTitle": "Role / Position",
       "photoLabel": "Photo caption",
-      "photoCredits": "© Jane Doe"
+      "photoCredits": "© Jane Doe",
+      "caption": "What does the photo show, and how does it relate to the project?"
     },
     "photo": {
       "linkTab": "Link",
@@ -546,6 +550,8 @@
     "addCoverage": "Add coverage",
     "emptyTestimonials": "No partner or user quotes added yet. Click below to add your first.",
     "addTestimonial": "Add quote",
+    "emptyGroundPhotos": "No photos added yet. Click below to add your first.",
+    "addGroundPhoto": "Add photo",
     "emptyIndicators": "No indicators have been added yet.",
     "notFound": "Report not found.",
     "sectionNotFound": "Section not found."

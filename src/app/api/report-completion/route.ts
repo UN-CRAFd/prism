@@ -150,6 +150,9 @@ export async function GET(req: NextRequest) {
       // Testimonials — a leadership row and at least one partner row must each have
       // quote, person_name and person_title filled; no started-but-incomplete row of
       // either kind is allowed; and every photo must have caption and credits.
+      // "Photos from the Ground" (kind='ground') are optional, but a started entry
+      // needs its description & caption and at least one photo; like every
+      // testimonial photo, each needs a caption and credits.
       query<Row>(
         `SELECT EXISTS (SELECT 1 FROM reporting_platform.testimonials
                          WHERE report_id = $1 AND kind = 'leadership'
@@ -164,9 +167,21 @@ export async function GET(req: NextRequest) {
                NOT EXISTS (
                  SELECT 1 FROM reporting_platform.testimonials
                   WHERE report_id = $1
+                    AND kind IN ('leadership', 'partner')
                     AND (COALESCE(trim(quote), '') <> '' OR COALESCE(trim(person_name), '') <> '' OR COALESCE(trim(person_title), '') <> '')
                     AND (COALESCE(trim(quote), '') = '' OR COALESCE(trim(person_name), '') = '' OR COALESCE(trim(person_title), '') = '')
                ) AS fields_ok,
+               NOT EXISTS (
+                 SELECT 1 FROM reporting_platform.testimonials t
+                  WHERE t.report_id = $1
+                    AND t.kind = 'ground'
+                    -- started: anything filled in or attached …
+                    AND (COALESCE(trim(t.quote), '') <> ''
+                         OR EXISTS (SELECT 1 FROM reporting_platform.testimonial_photos p WHERE p.testimonial_id = t.id))
+                    -- … but not complete
+                    AND (COALESCE(trim(t.quote), '') = ''
+                         OR NOT EXISTS (SELECT 1 FROM reporting_platform.testimonial_photos p WHERE p.testimonial_id = t.id))
+               ) AS ground_ok,
                NOT EXISTS (
                  SELECT 1
                    FROM reporting_platform.testimonial_photos p
@@ -175,7 +190,7 @@ export async function GET(req: NextRequest) {
                     AND (COALESCE(trim(p.photo_label), '') = '' OR COALESCE(trim(p.photo_credits), '') = '')
                ) AS photos_ok`,
         [reportId]
-      ).then((r) => r[0]?.leadership_ok === true && r[0]?.partner_ok === true && r[0]?.fields_ok === true && r[0]?.photos_ok === true),
+      ).then((r) => r[0]?.leadership_ok === true && r[0]?.partner_ok === true && r[0]?.fields_ok === true && r[0]?.ground_ok === true && r[0]?.photos_ok === true),
     ]);
 
     const sections: Record<string, boolean> = {

@@ -82,6 +82,10 @@ interface ExternalCoverage {
 interface Testimonial {
   id: number; kind: string | null; quote: string | null;
   person_name: string | null; person_title: string | null;
+  photos?: {
+    id: number; has_file: boolean; photo_link: string | null;
+    photo_label: string | null; photo_credits: string | null;
+  }[];
 }
 
 interface WorkplanActivity {
@@ -668,9 +672,9 @@ export default function ReportPrintPage() {
 
         {/* ── Testimonials ── */}
         <Section title="Testimonials" error={sectionErrors["testimonials"]}>
-          {testimonials && testimonials.length > 0 ? (
+          {testimonials && testimonials.some((t) => t.kind !== "ground") ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {testimonials.map((t) => (
+              {testimonials.filter((t) => t.kind !== "ground").map((t) => (
                 <div key={t.id} className="avoid-break" style={{
                   borderLeft: `3px solid ${BRAND}`, paddingLeft: 12,
                   background: SOFT, padding: "10px 12px",
@@ -693,6 +697,48 @@ export default function ReportPrintPage() {
             </div>
           ) : (
             testimonials && <Empty />
+          )}
+          {/* Photos from the Ground: description in `quote`, then its photo
+              (uploads print as an image, links as their URL) with caption and
+              credits. */}
+          {testimonials && testimonials.some((t) => t.kind === "ground" && (t.quote || t.photos?.length)) && (
+            <div style={{ marginTop: 16 }}>
+              <div data-block style={{ fontSize: 9.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, marginBottom: 8 }}>
+                Photos from the Ground
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {testimonials
+                  .filter((t) => t.kind === "ground" && (t.quote || t.photos?.length))
+                  .map((t, i) => (
+                    <div key={t.id} className="avoid-break" style={{ background: SOFT, padding: 10, borderLeft: `3px solid ${BRAND}` }}>
+                      {t.quote && (
+                        <div style={{ fontSize: 11.5, lineHeight: 1.45, marginBottom: 6 }}>
+                          <strong>{i + 1}.</strong> {t.quote}
+                        </div>
+                      )}
+                      {(t.photos ?? []).map((ph) => (
+                        <div key={ph.id} style={{ marginBottom: 6 }}>
+                          {ph.has_file ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={`/api/testimonial-photos/${ph.id}/file`}
+                              alt={ph.photo_label ?? ""}
+                              style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }}
+                            />
+                          ) : ph.photo_link ? (
+                            <div style={{ fontSize: 10.5, wordBreak: "break-all" }}>{ph.photo_link}</div>
+                          ) : null}
+                          {(ph.photo_label || ph.photo_credits) && (
+                            <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>
+                              {[ph.photo_label, ph.photo_credits && `Photo: ${ph.photo_credits}`].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+              </div>
+            </div>
           )}
         </Section>
 

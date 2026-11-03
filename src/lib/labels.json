@@ -662,7 +662,7 @@
   "prodocList": {
     "title": "Your Project Documents",
     "loading": "Loading project documents…",
-    "empty": "No project documents found for your organization.",
+    "empty": "Your project has not been set up yet - contact the CRAF'd Secretariat",
     "open": "Open project document",
     "readyToSubmit": "Ready to submit"
   }

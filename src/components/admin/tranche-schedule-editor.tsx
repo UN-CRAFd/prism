@@ -285,7 +285,7 @@ export function TrancheScheduleEditor({
                       <th className={cn("text-left px-4 py-2 w-36", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
                         {g.tranches.columns.releaseDate}
                       </th>
-                      <th className={cn("text-left px-4 py-2 w-72", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
+                      <th className={cn("text-left px-4 py-2 w-72 min-w-[200px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
                         {g.tranches.columns.activities}
                       </th>
                     </Fragment>
@@ -346,7 +346,7 @@ export function TrancheScheduleEditor({
                               aria-label={`Tranche ${tn} release date for ${org.name}`}
                             />
                           </td>
-                          <td className="px-4 py-3 align-middle w-72">
+                          <td className="px-4 py-3 align-middle w-72 min-w-[200px]">
                             <Textarea
                               value={desc}
                               onChange={(e) => setCell(org.id, tn, { date_description: e.target.value })}

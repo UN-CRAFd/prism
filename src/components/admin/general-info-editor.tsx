@@ -797,50 +797,49 @@ export function GeneralInfoAdminEditor({
         </div>
 
         {pendingContactName && (
-          <div className="rounded-lg border bg-muted/30 px-3 py-3 max-w-2xl space-y-2">
+          <div className="rounded-lg border bg-muted/30 px-3 py-3 space-y-2">
             <p className="text-sm text-muted-foreground">
               Details for <strong>{pendingContactName}</strong>
               <span className="ml-2 text-xs">* required</span>
             </p>
-            <div className="grid grid-cols-3 gap-2">
-              <Input
-                value={pendingContactEmail}
-                onChange={(e) => setPendingContactEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
-                placeholder="name@example.org *"
-                type="email"
-                className="h-8 text-sm"
-                autoFocus
-                aria-label="Email"
-              />
-              <Combobox
-                items={orgSuggestions}
-                value={pendingContactOrg}
-                onChange={setPendingContactOrg}
-                placeholder="Organisation *"
-              />
-              <Input
-                value={pendingContactJobTitle}
-                onChange={(e) => setPendingContactJobTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
-                placeholder="Job title (optional)"
-                className="h-8 text-sm"
-                aria-label="Job title"
-              />
-            </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[11rem]">
+                <Input
+                  value={pendingContactEmail}
+                  onChange={(e) => setPendingContactEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
+                  placeholder="name@example.org *"
+                  type="email"
+                  className="h-8 text-sm"
+                  autoFocus
+                  aria-label="Email"
+                />
+              </div>
+              <div className="flex-1 min-w-[11rem]">
+                <Combobox
+                  items={orgSuggestions}
+                  value={pendingContactOrg}
+                  onChange={setPendingContactOrg}
+                  placeholder="Organisation *"
+                />
+              </div>
+              <div className="flex-1 min-w-[10rem]">
+                <Input
+                  value={pendingContactJobTitle}
+                  onChange={(e) => setPendingContactJobTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
+                  placeholder="Job title (optional)"
+                  className="h-8 text-sm"
+                  aria-label="Job title"
+                />
+              </div>
               <MultiSelect
                 staticItems={CONTACT_ROLES}
                 value={pendingContactRoles}
                 onChange={setPendingContactRoles}
                 placeholder="Roles (optional)"
-                className="h-8 text-sm w-72"
+                className="h-8 text-sm w-56"
               />
-            </div>
-            {pendingContactError && (
-              <p className="text-xs text-destructive">{pendingContactError}</p>
-            )}
-            <div className="flex items-center gap-2">
               <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
               <button
                 type="button"
@@ -850,6 +849,9 @@ export function GeneralInfoAdminEditor({
                 Cancel
               </button>
             </div>
+            {pendingContactError && (
+              <p className="text-xs text-destructive">{pendingContactError}</p>
+            )}
           </div>
         )}
 

@@ -130,7 +130,7 @@ export default function MagicLinkPage() {
               <p className="text-neutral-400 text-sm mt-1">
                 {phase === "setup"
                   ? `Choose a password to set up ${name || "your organization"}'s PRISM login. You'll use it each time you sign in.`
-                  : `Enter the password for ${name || "your organization"} to sign in to PRISM.`}
+                  : "Enter the password to sign into your CRAF'd project page."}
               </p>
             </div>
 

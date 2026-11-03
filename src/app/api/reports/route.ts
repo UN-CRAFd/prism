@@ -6,7 +6,7 @@ import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
-import { isValidUpdateSections, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
+import { isValidUpdateSections, nextUpdateIndex, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
 import { hasUpdateIndex, normaliseUpdateIndex, reportConflictTarget } from "@/lib/report-conflict";
 import { hasUpdateModuleColumns } from "@/lib/update-columns";
 import {
@@ -522,33 +522,43 @@ export async function POST(request: Request) {
       );
     }
 
-    // An index tells apart several updates in the same year. Rejected outright
-    // when the database has not been widened yet, rather than silently dropping
-    // it and colliding with the year's existing update.
     const withUpdateIndex = await hasUpdateIndex();
-    const updateIndex = normaliseUpdateIndex(body.update_index);
-    if (updateIndex && !withUpdateIndex) {
-      return NextResponse.json(
-        { error: "This database allows only one project update per year — run db/add-update-index.sql to enable indexed updates" },
-        { status: 400 }
-      );
-    }
-
     const withModuleCols = await hasUpdateModuleColumns();
     const conflictTarget = await reportConflictTarget();
-    const updateCols = [
-      ...(withModuleCols ? ["update_types", "update_modules", "update_months"] : []),
-      ...(withUpdateIndex ? ["update_index"] : []),
-    ];
-    const updateValues: unknown[] = [
-      ...(withModuleCols
-        ? [updateTypes, updateModules, needsMonths(updateModules) ? updateMonths : null]
-        : []),
-      ...(withUpdateIndex ? [updateIndex] : []),
-    ];
     const updateClient = await pool.connect();
     try {
       await updateClient.query("BEGIN");
+
+      // The index is the update's name after the year — "BR-TR-AR", or
+      // "BR-TR-AR (2)" when the project already has that exact name for the year
+      // (see nextUpdateIndex). Assigned here, not taken from the client, so it
+      // always matches the types. A request without types (an older client)
+      // keeps sending its own free-text index. Without the index column the
+      // database allows only one update per year, so there is nothing to assign.
+      let updateIndex = "";
+      if (withUpdateIndex) {
+        if (withModuleCols && updateTypes.length > 0) {
+          const siblings = await updateClient.query<{ update_types: string[] | null; update_index: string | null }>(
+            `SELECT update_types, update_index FROM reporting_platform.reports
+              WHERE project_id = $1 AND year = $2 AND data_type = 'update'`,
+            [projectId, year]
+          );
+          updateIndex = nextUpdateIndex(year, updateTypes, siblings.rows.map((r) => ({ ...r, year })));
+        } else {
+          updateIndex = normaliseUpdateIndex(body.update_index);
+        }
+      }
+
+      const updateCols = [
+        ...(withModuleCols ? ["update_types", "update_modules", "update_months"] : []),
+        ...(withUpdateIndex ? ["update_index"] : []),
+      ];
+      const updateValues: unknown[] = [
+        ...(withModuleCols
+          ? [updateTypes, updateModules, needsMonths(updateModules) ? updateMonths : null]
+          : []),
+        ...(withUpdateIndex ? [updateIndex] : []),
+      ];
 
       const inserted = await updateClient.query<{ id: number }>(
         `INSERT INTO reporting_platform.reports (project_id, year, report_submission_date, data_type, report_type, unlocked_sections${
@@ -566,9 +576,9 @@ export async function POST(request: Request) {
         await updateClient.query("ROLLBACK");
         return NextResponse.json(
           {
-            error: updateIndex
-              ? `A project update already exists for this project and year with the index "${updateIndex}"`
-              : "A project update already exists for this project and year — give this one an index to tell them apart",
+            error: withUpdateIndex
+              ? "A project update with this name already exists for this project and year — please try again"
+              : "This database allows only one project update per year — run db/add-update-index.sql to enable more",
           },
           { status: 409 }
         );

@@ -3,6 +3,9 @@ import pool, { query } from "@/lib/db";
 import { requireSession, guardReportOwner } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { logStatusChange } from "@/lib/version-log";
+import { documentTitle } from "@/lib/project-updates";
+import { hasUpdateIndex } from "@/lib/report-conflict";
+import { hasUpdateModuleColumns } from "@/lib/update-columns";
 
 // POST /api/report-submit — partner submits an annual/final report for review.
 // Transitions status Open → Under Review, which locks partner editing.
@@ -20,8 +23,14 @@ export async function POST(request: NextRequest) {
     const gate = await guardReportOwner(session, reportId);
     if (gate) return gate;
 
-    const rows = await query<{ id: number; status: string; authorized: boolean; data_type: string; project_id: number; year: number; report_type: string }>(
-      `SELECT id, status, authorized, data_type, project_id, year, report_type
+    // An update is named from its types and index, so read them (when the
+    // columns exist — same guard as GET /api/reports).
+    const updateCols = [
+      ...((await hasUpdateModuleColumns()) ? ["update_types"] : []),
+      ...((await hasUpdateIndex()) ? ["update_index"] : []),
+    ];
+    const rows = await query<{ id: number; status: string; authorized: boolean; data_type: string; project_id: number; year: number; report_type: string; update_types?: string[] | null; update_index?: string | null }>(
+      `SELECT id, status, authorized, data_type, project_id, year, report_type${updateCols.map((c) => `, ${c}`).join("")}
          FROM reporting_platform.reports
         WHERE id = $1`,
       [reportId]
@@ -54,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const entityLabel =
       report.data_type === "update"
-        ? `Project Update ${report.year}`
+        ? documentTitle(report)
         : report.report_type
           ? `${report.report_type.charAt(0).toUpperCase()}${report.report_type.slice(1)} Report ${report.year}`
           : `Annual Report ${report.year}`;

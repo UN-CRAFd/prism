@@ -39,6 +39,7 @@ import {
 } from "@/components/admin/report-components";
 import { documentPath, firstUnlockedSection } from "@/lib/project-updates";
 import { UPDATE_TYPES, updateTypeLabel, updateTypeShort } from "@/lib/update-modules";
+import { updateTypesCode } from "@/lib/update-types";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
 
@@ -66,6 +67,28 @@ const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
 type SortKey =
   | "partner" | "type" | "year" | "project" | "status" | "auth" | "due" | "last_edited" | "progress";
+
+// What follows the year in the Year column. The type codes are already shown as
+// badges, so a name-style index ("BR-TR-AR") adds nothing; only its running
+// number ("BR-TR-AR (2)" → "(2)") does. An older free-text index is kept in
+// brackets as it always was.
+function yearSuffix(r: UpdateRow): string {
+  const code = updateTypesCode(r.update_types);
+  const index = r.update_index?.trim() ?? "";
+  if (!index) return "";
+  if (code && index === code) return "";
+  if (code && index.startsWith(`${code} (`)) return index.slice(code.length).trim();
+  return `(${index})`;
+}
+
+// Year, then the running number numerically (so "(10)" follows "(2)"), then any
+// older free-text index.
+function yearSortKey(r: UpdateRow): string {
+  const suffix = yearSuffix(r);
+  const n = /^\((\d+)\)$/.exec(suffix)?.[1];
+  const rank = !suffix ? "0000" : n ? n.padStart(4, "0") : `~${suffix}`;
+  return `${r.year}-${rank}`;
+}
 
 export default function ProjectUpdatesPage() {
   const router = useRouter();
@@ -167,7 +190,7 @@ export default function ProjectUpdatesPage() {
           case "type": return r.update_types?.length
             ? r.update_types.map((t) => String(UPDATE_TYPES.findIndex((u) => u.value === t)).padStart(2, "0")).join(",")
             : "99";
-          case "year": return `${r.year}-${(r.update_index ?? "").trim().padStart(4, " ")}`;
+          case "year": return yearSortKey(r);
           case "project": return r.project_title;
           case "status": return STATUS_ORDER.indexOf(r.status);
           case "auth": return r.authorized ? 1 : 0;
@@ -367,8 +390,8 @@ export default function ProjectUpdatesPage() {
                   </TableCell>
                   <TableCell className="font-medium tabular-nums whitespace-nowrap">
                     {r.year}
-                    {r.update_index?.trim() && (
-                      <span className="text-muted-foreground font-normal"> ({r.update_index.trim()})</span>
+                    {yearSuffix(r) && (
+                      <span className="text-muted-foreground font-normal"> {yearSuffix(r)}</span>
                     )}
                   </TableCell>
                   <Tooltip delayDuration={0}>

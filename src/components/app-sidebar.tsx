@@ -120,6 +120,8 @@ interface UpdateSidebarReport {
   data_type: string;
   /** Distinguishes several updates in one year — see lib/project-updates. */
   update_index?: string | null;
+  /** The update types — documentTitle() names the update from these. */
+  update_types?: string[] | null;
   project_title: string;
   project_short_name: string | null;
   unlocked_sections: string[];

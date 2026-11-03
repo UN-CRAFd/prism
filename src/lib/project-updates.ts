@@ -1,3 +1,5 @@
+import { updateTypesCode } from "@/lib/update-types";
+
 // Every page a project update can show, in the order they appear as tabs. Each
 // one is produced by a module group in the matrix (see lib/update-modules.ts):
 // an update unlocks exactly the pages its selected modules map to.
@@ -89,25 +91,51 @@ export function documentPath(
   return `${basePath}/${slug}/${r.year}/${section}${documentQuery(r)}`;
 }
 
-// A project may carry more than one update for the same year. The extra ones are
-// told apart by `update_index` — free text, shown in brackets after the year, so
-// the second 2027 update reads "Project Update 2027 (2)". The first update of a
-// year has an empty index and reads as it always did.
+// A project update is named after its year and types: "2027-BR-TR-AR". Only when
+// that exact name is already taken for the project does it get a running number,
+// "2027-BR-TR-AR (2)". The stored `update_index` is the part after the year
+// ("BR-TR-AR", "BR-TR-AR (2)"), which keeps the (project, year, type, index)
+// key unique exactly when the names are.
+//
+// Updates created before this scheme hold an empty or free-text index. They read
+// "2027-BR" / "2027-BR (2)" from their types, or "Project Update 2027" if they
+// were filed without any.
 export function documentTitle(r: {
   data_type?: string;
   report_type?: string | null;
   year: number;
+  update_types?: string[] | null;
   update_index?: string | null;
 }): string {
   if (r.data_type === "update") {
-    const index = r.update_index?.trim();
-    return index ? `Project Update ${r.year} (${index})` : `Project Update ${r.year}`;
+    const code = updateTypesCode(r.update_types);
+    const index = r.update_index?.trim() ?? "";
+    if (!code) return index ? `Project Update ${r.year} (${index})` : `Project Update ${r.year}`;
+    if (index === code || index.startsWith(`${code} (`)) return `${r.year}-${index}`;
+    return index ? `${r.year}-${code} (${index})` : `${r.year}-${code}`;
   }
   if (r.data_type === "prodoc") return "Project Document";
   // Capitalised here rather than left to a CSS `capitalize` at each call site,
   // so the title reads correctly wherever it is used — including as plain text.
   const type = r.report_type ?? "annual";
   return `${type.charAt(0).toUpperCase()}${type.slice(1)} Report ${r.year}`;
+}
+
+type UpdateSibling = { year: number; update_types?: string[] | null; update_index?: string | null };
+
+/** The `update_index` a new update of these types gets, given the updates the
+ *  project already has in that year: its bare type code, or the code plus the
+ *  lowest "(n)" whose name — and stored index — is still free. Shared by the
+ *  create form (to preview the name) and the API (which assigns it). */
+export function nextUpdateIndex(year: number, types: string[], siblings: UpdateSibling[]): string {
+  const code = updateTypesCode(types);
+  const takenTitles = new Set(siblings.map((r) => documentTitle({ ...r, data_type: "update" })));
+  const takenIndexes = new Set(siblings.map((r) => r.update_index?.trim() ?? ""));
+  for (let n = 1; ; n++) {
+    const index = n === 1 ? code : `${code} (${n})`;
+    const title = documentTitle({ data_type: "update", year, update_types: types, update_index: index });
+    if (!takenTitles.has(title) && !takenIndexes.has(index)) return index;
+  }
 }
 
 export function firstUnlockedSection(unlocked: string[] | null | undefined): string {

@@ -46,6 +46,7 @@ import {
   needsMonths,
 } from "@/lib/update-modules";
 import { UpdateModuleMatrix } from "@/components/admin/update-module-matrix";
+import { documentTitle, nextUpdateIndex } from "@/lib/project-updates";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 
 const YEARS = [2023, 2024, 2025, 2026];
@@ -458,9 +459,9 @@ export function CreateReportForm({
   dataType: "report" | "prodoc" | "update";
   onRefresh: () => void;
   title: string;
-  /** Documents of this type that already exist, so the form can spot a clash on
-   *  (project, year) and ask for an index instead of failing on submit. */
-  existing?: Pick<Report, "project_id" | "year" | "update_index">[];
+  /** Documents of this type that already exist, so the form can preview the
+   *  name a new update will get — indexed only if its exact name is taken. */
+  existing?: Pick<Report, "project_id" | "year" | "update_types" | "update_index">[];
 }) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -479,9 +480,6 @@ export function CreateReportForm({
   // One extension length for the whole update, shared by every row that shows a
   // months field — so the Work Plan and Expenditure figures cannot disagree.
   const [updateMonths, setUpdateMonths] = useState<number | null>(null);
-  // Free-text tag separating a second update for a year from the first. Only
-  // editable once a clash is detected — see `clash` below.
-  const [updateIndex, setUpdateIndex] = useState<string>("");
 
   // Fetch available years when project is selected
   useEffect(() => {
@@ -524,14 +522,17 @@ export function CreateReportForm({
 
   const withinProject = (y: number) => projectYears.includes(y);
 
-  // Updates already filed for this project and year. The first one owns the
-  // empty index, so any further update needs one of its own.
-  const clash = useMemo(() => {
-    if (dataType !== "update" || !projectId || !year) return [];
-    return existing.filter(
+  // The name the new update will get ("2027-BR-TR-AR", or "… (2)" if the project
+  // already has that exact name for the year). Preview only — the API assigns
+  // it the same way (nextUpdateIndex) when the update is created.
+  const updateName = useMemo(() => {
+    if (dataType !== "update" || !projectId || !year || updateTypes.length === 0) return null;
+    const siblings = existing.filter(
       (r) => r.project_id === Number(projectId) && r.year === Number(year)
     );
-  }, [existing, dataType, projectId, year]);
+    const index = nextUpdateIndex(Number(year), updateTypes, siblings);
+    return documentTitle({ data_type: "update", year: Number(year), update_types: updateTypes, update_index: index });
+  }, [existing, dataType, projectId, year, updateTypes]);
 
   function reset() {
     setProjectId("");
@@ -542,7 +543,6 @@ export function CreateReportForm({
     setUpdateTypes([]);
     setUpdateModules([]);
     setUpdateMonths(null);
-    setUpdateIndex("");
     setFormError(null);
   }
 
@@ -561,16 +561,6 @@ export function CreateReportForm({
     if (dataType === "update") {
       if (updateModules.length === 0) {
         setFormError("Select at least one module for this update");
-        return;
-      }
-      // A second update for a year has to be distinguishable from the first.
-      const index = updateIndex.trim();
-      if (clash.length > 0 && !index) {
-        setFormError(`A project update already exists for ${year} — give this one an index`);
-        return;
-      }
-      if (clash.some((r) => (r.update_index ?? "").trim() === index)) {
-        setFormError(`A project update for ${year} already uses the index "${index}"`);
         return;
       }
       // An extended-time-frame row without a figure would read "by XX months".
@@ -592,7 +582,7 @@ export function CreateReportForm({
     try {
       const body: Record<string, unknown> =
         dataType === "update"
-          ? { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: "update", unlocked_sections: derivedSections, update_types: updateTypes, update_modules: updateModules, update_months: needsMonths(updateModules) ? updateMonths : null, update_index: updateIndex.trim() }
+          ? { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: "update", unlocked_sections: derivedSections, update_types: updateTypes, update_modules: updateModules, update_months: needsMonths(updateModules) ? updateMonths : null }
           : { project_id: Number(projectId), year: Number(year), report_submission_date: submissionDate || null, data_type: dataType, report_type: reportType };
 
       const res = await fetch("/api/reports", {
@@ -675,25 +665,16 @@ export function CreateReportForm({
 
           {dataType === "update" && (
             <Field
-              label="Index"
-              hint="Only needed when a project already has an update for the chosen year. Anything that tells them apart — a number, a word — shown after the year, e.g. Project Update 2027 (2)."
+              label="Name"
+              hint="Set automatically from the year and the update types below. A number is added only if the project already has an update with exactly this name."
             >
               <Input
                 className="w-full"
-                value={updateIndex}
-                onChange={(e) => setUpdateIndex(e.target.value)}
-                disabled={clash.length === 0}
-                maxLength={40}
-                placeholder={clash.length === 0 ? "Not needed" : "e.g. 2"}
+                value={updateName ?? ""}
+                readOnly
+                disabled
+                placeholder="Choose a project, year and update types"
               />
-              {clash.length > 0 && (
-                <p className="text-xs text-crafd-grey-800">
-                  {clash.length === 1
-                    ? `A project update already exists for ${year}.`
-                    : `${clash.length} project updates already exist for ${year}.`}{" "}
-                  Give this one an index to tell them apart.
-                </p>
-              )}
             </Field>
           )}
 
@@ -712,7 +693,7 @@ export function CreateReportForm({
           <Field
             label="Sections to unlock"
             required
-            hint="Tick the update types this document covers, then adjust the modules it should contain. Several types can be combined into one modular update."
+            hint="Tick the update types this document covers; its modules follow from them. Several types can be combined into one modular update."
           >
             <UpdateModuleMatrix
               months={updateMonths}

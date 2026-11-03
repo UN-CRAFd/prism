@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays,
+  CheckCircle2,
+  Clock,
   MoreHorizontal,
 } from "lucide-react";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
@@ -139,6 +141,35 @@ export const GROUP_COLORS = [
 // Status control for the table views: the same options, confirmation dialog and
 // API call as the card's "..." menu. Reports, project updates and project
 // documents all share the report status model.
+// Table cells shared by the Reports and Project Updates lists.
+export function ReportAuthCell({ authorized }: { authorized: boolean }) {
+  return authorized ? (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 whitespace-nowrap">
+      <CheckCircle2 className="size-3" /> Authorized
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+      <Clock className="size-3" /> Pending
+    </span>
+  );
+}
+
+// Completion bar: yellow while the document is Open (being filled in), grey once
+// it has moved on to review or is closed.
+export function ReportProgressCell({ pct, open }: { pct: number; open: boolean }) {
+  return (
+    <div className="flex items-center gap-2 min-w-[90px]" title={`${pct}% complete`}>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full ${open ? "bg-crafd-yellow" : "bg-crafd-grey-400"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">{pct}%</span>
+    </div>
+  );
+}
+
 export function ReportStatusSelect({
   report,
   onStatusChange,

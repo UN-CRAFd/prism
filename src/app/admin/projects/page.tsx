@@ -18,18 +18,16 @@ import {
 } from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
-  DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, X } from "lucide-react";
-import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal } from "lucide-react";
+import { Plus, FolderKanban, Clock, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Building2, CalendarPlus, FilePenLine, MoreHorizontal, FileText, Globe, Pencil, Trash2 } from "lucide-react";
 import {
-  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
-  FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
+  Dash, Field, LoadingState, ErrorBanner, FormShell, PageHeader,
+  FilterBar, FilterSelect, SearchInput, ResultCount, ALL, SortableHead, sortBy, useTableSort,
 } from "@/components/admin/shared";
 import { reportStatusStyle, REPORT_STATUS_ICON_COLORS, type ReportStatus } from "@/lib/reports";
 import labels from "@/lib/labels";
-import { StatusPill } from "@/components/partner/status-pill";
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
@@ -209,20 +207,19 @@ export default function ProjectsPage() {
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"list" | "grid">("grid");
-
-  // Filter & group bar state.
+  // Filter bar state.
+  const [search, setSearch] = useState("");
   const [filterPartner, setFilterPartner] = useState<string>(ALL);
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
-  // ALL = no grouping; otherwise "partner" | "status".
-  const [groupMode, setGroupMode] = useState<string>(ALL);
+  const [filterProdocStatus, setFilterProdocStatus] = useState<string>(ALL);
+  const [filterScope, setFilterScope] = useState<string>(ALL);
 
-  // Sort state. Default: alphabetical by project title.
+  // Sort state (click a column header). Default: alphabetical by project title.
   type SortKey =
     | "project_title" | "short_name" | "partner_short_name" | "status"
-    | "mptfo_project_number" | "grant_size_usd" | "project_duration_months" | "project_start_date";
-  const [sortKey, setSortKey] = useState<SortKey>("project_title");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+    | "mptfo_project_number" | "grant_size_usd" | "project_duration_months"
+    | "geographic_scope" | "prodoc";
+  const { sortKey, sortDir, toggle: toggleSort } = useTableSort<SortKey>("project_title");
 
   // Apply partner filter from query parameter on mount
   useEffect(() => {
@@ -493,192 +490,62 @@ export default function ProjectsPage() {
     });
   }
 
-  // ── Filter, sort & group ──────────────────────────────────────────────────
+  // ── Filter & sort ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const matched = projects.filter(
       (p) =>
         (filterPartner === ALL || String(p.partner_id) === filterPartner) &&
-        (filterStatus === ALL || p.status === filterStatus)
+        (filterStatus === ALL || p.status === filterStatus) &&
+        (filterProdocStatus === ALL || prodocByProject[p.id]?.status === filterProdocStatus) &&
+        (filterScope === ALL || p.geographic_scope === filterScope) &&
+        (!q ||
+          [p.project_title, p.short_name, p.partner_short_name, p.partner_long_name, p.mptfo_project_number]
+            .some((v) => v?.toLowerCase().includes(q)))
     );
+    const prodocOrder = optionValues("reportStatus");
+    const statusOrder = optionValues("projectStatus");
     return sortBy(
       matched,
       (p) => {
-        // Money & duration sort numerically; the rest lexically (nulls sink).
+        // Money, duration and MPTFO # sort numerically; statuses by their
+        // workflow order; the rest lexically (nulls sink).
         if (sortKey === "grant_size_usd") return p.grant_size_usd != null ? parseFloat(p.grant_size_usd) : null;
         if (sortKey === "project_duration_months") return p.project_duration_months;
-        return p[sortKey] as string | null;
+        if (sortKey === "mptfo_project_number") return p.mptfo_project_number ? Number(p.mptfo_project_number) : null;
+        if (sortKey === "status") return statusOrder.indexOf(p.status);
+        if (sortKey === "prodoc") {
+          const pd = prodocByProject[p.id];
+          // Status order first, then completion within a status.
+          return pd ? prodocOrder.indexOf(pd.status) * 1000 + (completion[p.id] ?? 0) : null;
+        }
+        return p[sortKey];
       },
       sortDir
     );
-  }, [projects, filterPartner, filterStatus, sortKey, sortDir]);
+  }, [projects, prodocByProject, completion, search, filterPartner, filterStatus, filterProdocStatus, filterScope, sortKey, sortDir]);
 
-  // Grouped sections for the grid view (null when grouping is off → flat grid).
-  const groups = useMemo(() => {
-    if (groupMode === ALL) return null;
-    const map = new Map<string, Project[]>();
-    for (const p of filtered) {
-      const key = groupMode === "partner" ? (p.partner_short_name || "—") : p.status;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(p);
-    }
-    const entries = Array.from(map.entries());
-    if (groupMode === "status") {
-      const order = optionValues("projectStatus");
-      return entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
-    }
-    return entries.sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtered, groupMode]);
+  const scopes = useMemo(
+    () => Array.from(new Set(projects.map((p) => p.geographic_scope).filter((s): s is string => !!s))).sort(),
+    [projects]
+  );
 
-  const renderCard = (p: Project) => {
-    const pd = prodocByProject[p.id];
-    return (
-    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => openProdoc(p)}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name?.toUpperCase() || "—"}</p>
-          {/* Keep the MPTFO link OUTSIDE the title element so a long title can't clip it away. */}
-          <p className="text-lg font-semibold leading-snug">{p.project_title}</p>
-          {p.mptfo_project_number && (
-            <a
-              href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline"
-              title="Open on MPTF Office Gateway"
-            >
-              MPTFO
-              <ExternalLink className="size-3" />
-            </a>
-          )}
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            onClick={(e) => e.stopPropagation()}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <MoreHorizontal className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Project status</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuRadioGroup value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-                  {optionValues("projectStatus").map((s) => (
-                    <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            {pd && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Document status</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuRadioGroup value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
-                    {optionValues("reportStatus").map((s) => (
-                      <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-            <DropdownMenuSeparator />
-            {p.project_start_date && p.project_duration_months != null && (
-              <DropdownMenuItem onSelect={() => openNce(p)}>
-                <CalendarPlus />
-                No-cost extension
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={() => openRevision(p)}>
-              <FilePenLine />
-              Project revision
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
-              {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
-              Print project document
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => startEdit(p)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onSelect={() => handleDelete(p.id)}>
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+  const filtersActive =
+    !!search.trim() || filterPartner !== ALL || filterStatus !== ALL || filterProdocStatus !== ALL || filterScope !== ALL;
 
-      {/* Project status — quiet grey text; change via the ⋯ menu */}
-      <div>
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
-          {p.status}
-        </span>
-      </div>
+  function clearFilters() {
+    setSearch("");
+    setFilterPartner(ALL);
+    setFilterStatus(ALL);
+    setFilterProdocStatus(ALL);
+    setFilterScope(ALL);
+  }
 
-      <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-        {p.grant_size_usd && (
-          <span className="inline-flex items-center gap-1.5">
-            <DollarSign className="size-3 shrink-0" />
-            {formatUsd(p.grant_size_usd)}
-          </span>
-        )}
-        {durationLabel(p.project_duration_months) && (
-          <span className="inline-flex items-center gap-1.5">
-            <Clock className="size-3 shrink-0" />
-            {durationLabel(p.project_duration_months)}
-            {p.extension_count > 0 && (
-              <span
-                className="inline-flex items-center gap-0.5 rounded border border-crafd-yellow-400 bg-crafd-yellow-100 px-1.5 py-0.5 text-xs font-semibold text-crafd-grey-800"
-                title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
-              >
-                <CalendarPlus className="size-2.5" />
-                +{p.extension_months_total}mo NCE{p.extension_count > 1 ? ` ×${p.extension_count}` : ""}
-              </span>
-            )}
-          </span>
-        )}
-      </div>
-
-      {/* ── Project Document ── status + completion */}
-      <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-1.5 flex items-baseline justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
-          {pd?.last_edited && (
-            <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
-              edited {timeAgo(pd.last_edited)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {pd && (() => {
-            const pct = completion[p.id] ?? 0;
-            return (
-              <div className="flex min-w-0 flex-1 items-center gap-2" title="Project document status and completion">
-                <StatusPill
-                  status={pd.status}
-                />
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full ${pd.status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">{pct}%</span>
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-    </div>
-    );
-  };
+  const sortProps = { sortKey, sortDir, onSort: toggleSort };
 
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Projects" description="Manage projects across partner organizations">
-        <ViewToggle view={view} onChange={setView} />
         {!showForm && (
           <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} disabled={partners.length === 0}>
             <Plus className="size-3.5" /> Add project
@@ -687,13 +554,14 @@ export default function ProjectsPage() {
       </PageHeader>
 
       <FilterBar>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search projects…" className="max-w-[220px]" />
         <FilterSelect
           icon={Building2}
           label="Partner"
           value={filterPartner}
           onChange={setFilterPartner}
           allLabel="All partners"
-          width={190}
+          width={160}
           options={partners.map((p) => ({ value: String(p.id), label: p.short_name?.toUpperCase() || p.long_name || "—" }))}
         />
         <FilterSelect
@@ -702,36 +570,30 @@ export default function ProjectsPage() {
           value={filterStatus}
           onChange={setFilterStatus}
           allLabel="All statuses"
-          width={190}
+          width={180}
           options={optionValues("projectStatus").map((s) => ({ value: s, label: s }))}
         />
-        <SortSelect
-          value={sortKey}
-          dir={sortDir}
-          onChange={setSortKey}
-          onDirChange={setSortDir}
-          options={[
-            { value: "project_title", label: "Title" },
-            { value: "short_name", label: "Short name" },
-            { value: "partner_short_name", label: "Partner" },
-            { value: "status", label: "Status" },
-            { value: "mptfo_project_number", label: "MPTFO #" },
-            { value: "grant_size_usd", label: "Grant size" },
-            { value: "project_duration_months", label: "Duration" },
-            { value: "project_start_date", label: "Start date" },
-          ]}
+        <FilterSelect
+          icon={FileText}
+          label="ProDoc"
+          value={filterProdocStatus}
+          onChange={setFilterProdocStatus}
+          allLabel="All"
+          width={140}
+          options={optionValues("reportStatus").map((s) => ({ value: s, label: s }))}
         />
-        {view === "grid" && (
+        {scopes.length > 0 && (
           <FilterSelect
-            icon={Layers}
-            label="Group by"
-            value={groupMode}
-            onChange={setGroupMode}
-            allLabel="None"
+            icon={Globe}
+            label="Scope"
+            value={filterScope}
+            onChange={setFilterScope}
+            allLabel="All scopes"
             width={150}
-            options={[{ value: "partner", label: "Partner" }, { value: "status", label: "Status" }]}
+            options={scopes.map((s) => ({ value: s, label: s }))}
           />
         )}
+        <ResultCount shown={filtered.length} total={projects.length} noun="project" onClear={filtersActive ? clearFilters : undefined} />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">
@@ -825,25 +687,29 @@ export default function ProjectsPage() {
             <FolderKanban className="size-8 opacity-30" />
             <p className="text-sm">No projects match the current filters.</p>
           </div>
-        ) : view === "list" ? (
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Partner</TableHead>
-                <TableHead>Short</TableHead>
-                <TableHead>Project title</TableHead>
-                <TableHead className="w-48">Status</TableHead>
-                <TableHead>MPTFO #</TableHead>
-                <TableHead className="text-right">Grant size</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead className="w-40">ProDoc</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-10 text-right">#</TableHead>
+                <SortableHead label="Partner" column="partner_short_name" {...sortProps} />
+                <SortableHead label="Short" column="short_name" {...sortProps} />
+                <SortableHead label="Project title" column="project_title" {...sortProps} />
+                <SortableHead label="Status" column="status" className="w-48" {...sortProps} />
+                <SortableHead label="MPTFO #" column="mptfo_project_number" {...sortProps} />
+                <SortableHead label="Grant size" column="grant_size_usd" align="right" className="text-right" {...sortProps} />
+                <SortableHead label="Duration" column="project_duration_months" {...sortProps} />
+                <SortableHead label="Scope" column="geographic_scope" {...sortProps} />
+                <SortableHead label="ProDoc" column="prodoc" className="w-48" {...sortProps} />
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => (
+              {filtered.map((p, i) => {
+                const pd = prodocByProject[p.id];
+                return (
                 <TableRow key={p.id} className="cursor-pointer" onClick={() => openProdoc(p)}>
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-normal">
                       {p.partner_short_name?.toUpperCase() || "—"}
@@ -852,8 +718,8 @@ export default function ProjectsPage() {
                   <TableCell className="text-xs font-mono text-muted-foreground">
                     {p.short_name || <Dash />}
                   </TableCell>
-                  <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium max-w-[260px] truncate" title={p.project_title}>{p.project_title}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
                       <SelectTrigger className="!h-7 w-full border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none [&>svg]:size-3 [&>svg]:shrink-0">
                         <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
@@ -868,77 +734,110 @@ export default function ProjectsPage() {
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">{p.mptfo_project_number || <Dash />}</TableCell>
+                  <TableCell className="text-xs font-mono">
+                    {p.mptfo_project_number ? (
+                      <a
+                        href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"
+                        title="Open on MPTF Office Gateway"
+                      >
+                        {p.mptfo_project_number}
+                        <ExternalLink className="size-3" />
+                      </a>
+                    ) : <Dash />}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{formatUsd(p.grant_size_usd)}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      {durationLabel(p.project_duration_months) || <Dash />}
+                      {p.extension_count > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded border border-crafd-yellow-400 bg-crafd-yellow-100 px-1.5 py-0.5 text-xs font-semibold text-crafd-grey-800"
+                          title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
+                        >
+                          <CalendarPlus className="size-2.5" />
+                          +{p.extension_months_total}mo
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-col gap-1">
-                    <div className="flex gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
-                        disabled={printingId === p.id || !prodocByProject[p.id]}
-                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-                        title="Print the project document to PDF"
-                      >
-                        {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
-                        Print
-                      </button>
-                      {prodocByProject[p.id] && (
-                        <Select
-                          value={prodocByProject[p.id]!.status}
-                          onValueChange={(v) => handleProdocStatusChange(p.id, prodocByProject[p.id]!.id, v as ReportStatus)}
-                        >
-                          <SelectTrigger
-                            title="Project document status"
-                            className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(prodocByProject[p.id]!.status)}`}
+                    {pd ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={pd.status}
+                            onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}
                           >
-                            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                              {PRODOC_STATUS_ICONS[prodocByProject[p.id]!.status] ?? PRODOC_STATUS_FALLBACK_ICON}
-                              <SelectValue />
-                            </span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                    {prodocByProject[p.id]?.last_edited && (
-                      <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(prodocByProject[p.id]!.last_edited!)}`}>
-                        edited {timeAgo(prodocByProject[p.id]!.last_edited!)}
-                      </span>
-                    )}
-                    </div>
+                            <SelectTrigger
+                              title="Project document status"
+                              className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}
+                            >
+                              <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                                {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
+                                <SelectValue />
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <span className="text-xs tabular-nums text-muted-foreground" title="Project document completion">
+                            {completion[p.id] ?? 0}%
+                          </span>
+                        </div>
+                        {pd.last_edited && (
+                          <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
+                            edited {timeAgo(pd.last_edited)}
+                          </span>
+                        )}
+                      </div>
+                    ) : <Dash />}
                   </TableCell>
-                  <TableCell>
-                    <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title="More actions"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {p.project_start_date && p.project_duration_months != null && (
+                          <DropdownMenuItem onSelect={() => openNce(p)}>
+                            <CalendarPlus />
+                            No-cost extension
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onSelect={() => openRevision(p)}>
+                          <FilePenLine />
+                          Project revision
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
+                          {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
+                          Print project document
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => startEdit(p)}>
+                          <Pencil />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => handleDelete(p.id)}>
+                          <Trash2 />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
-        ) : groups ? (
-          <div className="space-y-6">
-            {groups.map(([key, rows]) => (
-              <div key={key} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  {groupMode === "partner"
-                    ? <Building2 className="size-4 text-muted-foreground" />
-                    : <CircleDot className="size-4 text-muted-foreground" />}
-                  <h2 className="t-heading-section">{key}</h2>
-                  <span className="text-sm text-muted-foreground">({rows.length})</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rows.map(renderCard)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(renderCard)}
-          </div>
         )}
       </div>
 

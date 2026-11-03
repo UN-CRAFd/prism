@@ -14,27 +14,34 @@ import {
   Loader2,
   CalendarDays,
   Building2,
-  Layers,
   Plus,
-  CheckCircle2,
-  Clock,
   Trash2,
-  Printer,
   CircleDot,
   FolderKanban,
+  Tags,
+  ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
-import { PageHeader, ViewToggle, FilterBar, FilterSelect, ALL } from "@/components/admin/shared";
+import {
+  PageHeader, FilterBar, FilterSelect, SearchInput, ResultCount, ALL,
+  SortableHead, sortBy, useTableSort,
+} from "@/components/admin/shared";
 import {
   ReportRow,
   Project,
-  GroupMode,
-  ReportCard,
   ReportStatusSelect,
+  ReportAuthCell,
+  ReportProgressCell,
   CreateReportForm,
   useReportCompletion,
 } from "@/components/admin/report-components";
+import { optionItems } from "@/lib/options";
+
+const STATUS_ORDER = ["Open", "Under Review", "Closed"];
+
+type SortKey =
+  | "partner" | "type" | "year" | "project" | "status" | "auth" | "due" | "last_edited" | "progress";
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -43,14 +50,19 @@ export default function ReportsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [groupMode, setGroupMode] = useState<GroupMode>("year");
   const [showForm, setShowForm] = useState(false);
-  const [view, setView] = useState<"list" | "grid">("grid");
 
   // Filter bar state.
+  const [search, setSearch] = useState("");
   const [filterProject, setFilterProject] = useState<string>(ALL);
+  const [filterPartner, setFilterPartner] = useState<string>(ALL);
+  const [filterType, setFilterType] = useState<string>(ALL);
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   const [filterYear, setFilterYear] = useState<string>(ALL);
+  const [filterAuth, setFilterAuth] = useState<string>(ALL);
+
+  // Default: newest year first.
+  const { sortKey, sortDir, toggle: toggleSort } = useTableSort<SortKey>("year", "desc");
 
   // Apply project filter from query parameter on mount
   useEffect(() => {
@@ -81,15 +93,13 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Completion per card (footer progress bar).
+  // Completion per report (Progress column).
   const completion = useReportCompletion(reports);
 
-  // Keep the list in step after a status change from a card or table row.
+  // Keep the list in step after a status change from a table row.
   function handleStatusChanged(id: number, status: ReportRow["status"]) {
     setReports((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
   }
-
-  const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
   // Distinct years present, for the year filter.
   const years = useMemo(
@@ -97,32 +107,58 @@ export default function ReportsPage() {
     [reports]
   );
 
-  const filtered = useMemo(
-    () => reports.filter(
-      (r) =>
-        (filterProject === ALL || String(r.project_id) === filterProject) &&
-        (filterStatus === ALL || r.status === filterStatus) &&
-        (filterYear === ALL || String(r.year) === filterYear)
-    ),
-    [reports, filterProject, filterStatus, filterYear]
+  const partnerNames = useMemo(
+    () => Array.from(new Set(reports.map((r) => r.partner_short_name).filter(Boolean)))
+      .sort((a, b) => shortName(a).localeCompare(shortName(b))),
+    [reports]
   );
 
-  const groups = useMemo(() => {
-    const map = new Map<string, ReportRow[]>();
-    for (const r of filtered) {
-      const key =
-        groupMode === "year" ? String(r.year) :
-        groupMode === "organization" ? (r.partner_long_name || shortName(r.partner_short_name)) :
-        r.status;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(r);
-    }
-    return Array.from(map.entries()).sort((a, b) => {
-      if (groupMode === "year") return b[0].localeCompare(a[0]);
-      if (groupMode === "status") return STATUS_ORDER.indexOf(a[0]) - STATUS_ORDER.indexOf(b[0]);
-      return a[0].localeCompare(b[0]);
-    });
-  }, [filtered, groupMode]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const matched = reports.filter(
+      (r) =>
+        (filterProject === ALL || String(r.project_id) === filterProject) &&
+        (filterPartner === ALL || r.partner_short_name === filterPartner) &&
+        (filterType === ALL || (r.report_type ?? "annual") === filterType) &&
+        (filterStatus === ALL || r.status === filterStatus) &&
+        (filterYear === ALL || String(r.year) === filterYear) &&
+        (filterAuth === ALL || (filterAuth === "yes") === !!r.authorized) &&
+        (!q ||
+          [r.project_title, r.project_short_name, r.partner_short_name, r.partner_long_name, String(r.year)]
+            .some((v) => v?.toLowerCase().includes(q)))
+    );
+    return sortBy(
+      matched,
+      (r) => {
+        switch (sortKey) {
+          case "partner": return shortName(r.partner_short_name);
+          case "type": return r.report_type ?? "annual";
+          case "year": return r.year;
+          case "project": return r.project_title;
+          case "status": return STATUS_ORDER.indexOf(r.status);
+          case "auth": return r.authorized ? 1 : 0;
+          case "due": return r.report_submission_date ?? null;
+          case "last_edited": return r.last_edited ?? null;
+          case "progress": return completion[r.id] ?? 0;
+        }
+      },
+      sortDir
+    );
+  }, [reports, completion, search, filterProject, filterPartner, filterType, filterStatus, filterYear, filterAuth, sortKey, sortDir]);
+
+  const filtersActive =
+    !!search.trim() || filterProject !== ALL || filterPartner !== ALL || filterType !== ALL ||
+    filterStatus !== ALL || filterYear !== ALL || filterAuth !== ALL;
+
+  function clearFilters() {
+    setSearch("");
+    setFilterProject(ALL);
+    setFilterPartner(ALL);
+    setFilterType(ALL);
+    setFilterStatus(ALL);
+    setFilterYear(ALL);
+    setFilterAuth(ALL);
+  }
 
   const confirm = useConfirm();
 
@@ -142,10 +178,11 @@ export default function ReportsPage() {
     router.push(`/admin/report-editor/${slug}/${r.year}/overview`);
   }
 
+  const sortProps = { sortKey, sortDir, onSort: toggleSort };
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Project Reports" description="Create and manage reporting periods for projects">
-        <ViewToggle view={view} onChange={setView} />
         {!showForm && (
           <Button size="sm" onClick={() => setShowForm(true)}>
             <Plus className="size-3.5" /> Add report
@@ -154,17 +191,36 @@ export default function ReportsPage() {
       </PageHeader>
 
       <FilterBar>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search reports…" className="max-w-[200px]" />
         <FilterSelect
           icon={FolderKanban}
           label="Project"
           value={filterProject}
           onChange={setFilterProject}
           allLabel="All projects"
-          width={240}
+          width={220}
           options={projects.map((p) => ({
             value: String(p.id),
             label: p.partner_short_name ? `${shortName(p.partner_short_name)} · ${p.project_title}` : p.project_title,
           }))}
+        />
+        <FilterSelect
+          icon={Building2}
+          label="Partner"
+          value={filterPartner}
+          onChange={setFilterPartner}
+          allLabel="All partners"
+          width={130}
+          options={partnerNames.map((n) => ({ value: n, label: shortName(n) }))}
+        />
+        <FilterSelect
+          icon={Tags}
+          label="Type"
+          value={filterType}
+          onChange={setFilterType}
+          allLabel="All types"
+          width={120}
+          options={optionItems("reportType").map((o) => ({ value: o.value, label: o.label }))}
         />
         <FilterSelect
           icon={CircleDot}
@@ -172,7 +228,7 @@ export default function ReportsPage() {
           value={filterStatus}
           onChange={setFilterStatus}
           allLabel="All statuses"
-          width={160}
+          width={140}
           options={STATUS_ORDER.map((s) => ({ value: s, label: s }))}
         />
         <FilterSelect
@@ -181,20 +237,19 @@ export default function ReportsPage() {
           value={filterYear}
           onChange={setFilterYear}
           allLabel="All years"
-          width={120}
+          width={110}
           options={years.map((y) => ({ value: String(y), label: String(y) }))}
         />
-        {view === "grid" && (
-          <FilterSelect
-            icon={Layers}
-            label="Group by"
-            value={groupMode === "year" ? ALL : groupMode}
-            onChange={(v) => setGroupMode(v === ALL ? "year" : (v as GroupMode))}
-            allLabel="Year"
-            width={150}
-            options={[{ value: "organization", label: "Organization" }, { value: "status", label: "Status" }]}
-          />
-        )}
+        <FilterSelect
+          icon={ShieldCheck}
+          label="Auth"
+          value={filterAuth}
+          onChange={setFilterAuth}
+          allLabel="All"
+          width={130}
+          options={[{ value: "yes", label: "Authorized" }, { value: "no", label: "Pending" }]}
+        />
+        <ResultCount shown={filtered.length} total={reports.length} noun="report" onClear={filtersActive ? clearFilters : undefined} />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
@@ -225,28 +280,31 @@ export default function ReportsPage() {
           <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
             No reports match the current filters.
           </div>
-        ) : view === "list" ? (
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Partner</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Year</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Auth</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead>Last edited</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-10 text-right">#</TableHead>
+                <SortableHead label="Partner" column="partner" {...sortProps} />
+                <SortableHead label="Type" column="type" {...sortProps} />
+                <SortableHead label="Year" column="year" {...sortProps} />
+                <SortableHead label="Project" column="project" {...sortProps} />
+                <SortableHead label="Status" column="status" {...sortProps} />
+                <SortableHead label="Auth" column="auth" {...sortProps} />
+                <SortableHead label="Progress" column="progress" {...sortProps} />
+                <SortableHead label="Due date" column="due" {...sortProps} />
+                <SortableHead label="Last edited" column="last_edited" {...sortProps} />
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => (
+              {filtered.map((r, i) => (
                 <TableRow
                   key={r.id}
                   className="cursor-pointer"
                   onClick={() => navigateToReport(r)}
                 >
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-semibold">
                       {shortName(r.partner_short_name)}
@@ -258,25 +316,20 @@ export default function ReportsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
-                  <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
+                  <TableCell className="max-w-[260px] truncate text-sm" title={r.project_title}>{r.project_title}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <ReportStatusSelect report={r} onStatusChange={handleStatusChanged} />
                   </TableCell>
                   <TableCell>
-                    {r.authorized ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
-                        <CheckCircle2 className="size-3" /> Authorized
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="size-3" /> Pending
-                      </span>
-                    )}
+                    <ReportAuthCell authorized={!!r.authorized} />
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell>
+                    <ReportProgressCell pct={completion[r.id] ?? 0} open={r.status === "Open"} />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground" title={r.last_edited ? formatDate(r.last_edited) : undefined}>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={r.last_edited ? formatDate(r.last_edited) : undefined}>
                     {r.last_edited ? timeAgo(r.last_edited) : "—"}
                   </TableCell>
                   <TableCell>
@@ -294,36 +347,6 @@ export default function ReportsPage() {
               ))}
             </TableBody>
           </Table>
-        ) : (
-          <div className="space-y-5">
-            {groups.map(([key, rows]) => (
-              <div key={key} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  {groupMode === "year" ? (
-                    <CalendarDays className="size-4 text-muted-foreground" />
-                  ) : groupMode === "status" ? (
-                    <CircleDot className="size-4 text-muted-foreground" />
-                  ) : (
-                    <Building2 className="size-4 text-muted-foreground" />
-                  )}
-                  <h2 className="t-heading-section">{key}</h2>
-                  <span className="text-sm text-muted-foreground">({rows.length})</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rows.map((r) => (
-                    <ReportCard
-                      key={r.id}
-                      report={r}
-                      groupMode={groupMode}
-                      completion={completion[r.id] ?? 0}
-                      onStatusChange={handleStatusChanged}
-                      onDelete={() => handleDelete(r)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>

@@ -1,7 +1,1086 @@
-import { ProdocEditorView } from "@/components/admin/prodoc-editor-view";
+﻿"use client";
 
 export const dynamic = "force-dynamic";
 
-export default function ProdocEditorPage() {
-  return <ProdocEditorView />;
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
+  DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronsUpDown, X } from "lucide-react";
+import { Plus, FolderKanban, Clock, DollarSign, ExternalLink, Printer, ArrowRight, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Layers, Building2, CalendarPlus, FilePenLine, MoreHorizontal } from "lucide-react";
+import {
+  Dash, Field, ViewToggle, LoadingState, ErrorBanner, FormShell, RowActions, PageHeader,
+  FilterBar, FilterSelect, ALL, SortSelect, sortBy, type SortDir,
+} from "@/components/admin/shared";
+import { reportStatusStyle, REPORT_STATUS_ICON_COLORS, type ReportStatus } from "@/lib/reports";
+import { optionValues } from "@/lib/options";
+import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
+import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
+
+// Prodoc uses the same status set as reports (it IS a reports row). Values are
+// admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
+// is keyed by the known values, with a neutral fallback for any added value.
+const PRODOC_STATUS_ICONS: Record<string, ReactNode> = {
+  Open:           <CircleDot className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Open}`} />,
+  "Under Review": <Clock className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS["Under Review"]}`} />,
+  Closed:         <CheckCircle2 className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Closed}`} />,
+};
+const PRODOC_STATUS_FALLBACK_ICON: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
+
+// Mirrors the sentinel in general-info-editor: Radix Select can't hold an
+// empty-string item, so "no scope selected" round-trips through this value.
+const GEO_SCOPE_NONE = "__none__";
+
+// -- Types ------------------------------------------------------------------
+
+interface Partner {
+  id: number;
+  short_name: string | null;
+  long_name: string | null;
+}
+
+type ProjectStatus = string;
+
+interface Project {
+  id: number;
+  partner_id: number;
+  partner_short_name: string | null;
+  partner_long_name: string | null;
+  project_title: string;
+  short_name: string | null;
+  status: ProjectStatus;
+  mptfo_project_number: string | null;
+  grant_size_usd: string | null;
+  project_start_date: string | null;
+  project_duration_months: number | null;
+  geographic_scope: string | null;
+  // partners.id[] granted prodoc edit rights (project_editors). May be absent on
+  // responses that predate the feature.
+  editor_partner_ids?: number[] | null;
+  // No-cost extension rollup (from project_extensions) — total months added
+  // across all extensions and how many were granted.
+  extension_months_total: number;
+  extension_count: number;
+}
+
+interface ProjectExtension {
+  id: number;
+  months_added: number;
+  previous_duration_months: number;
+  new_duration_months: number;
+  note: string | null;
+  created_at: string;
+}
+
+interface ProjectRevision {
+  id: number;
+  revision_date: string;
+  comment: string | null;
+  created_at: string;
+}
+
+// Project STATUS presentation. Values are admin-editable via Settings → Dropdown
+// options ("projectStatus"); style/icon maps are keyed by the known values, with
+// neutral fallbacks applied for any added value.
+const STATUS_STYLES: Record<string, string> = {
+  Idea:                   "bg-white text-crafd-grey-600 border-crafd-grey-400",
+  Ongoing:                "bg-crafd-yellow text-crafd-grey-900 border-crafd-yellow-900",
+  "Operationally Closed": "bg-crafd-yellow-300 text-crafd-grey-800 border-crafd-yellow-600",
+  "Financially Closed":   "bg-crafd-yellow-150 text-crafd-grey-800 border-crafd-yellow-300",
+  "Project Closed":       "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200",
+};
+const STATUS_STYLE_FALLBACK = "bg-crafd-grey-100 text-crafd-grey-600 border-crafd-grey-200";
+
+const STATUS_ICONS: Record<string, ReactNode> = {
+  Idea:                   <Lightbulb className="size-3 shrink-0 text-crafd-grey-600" />,
+  Ongoing:                <CircleDot className="size-3 shrink-0 text-crafd-grey-900" />,
+  "Operationally Closed": <PauseCircle className="size-3 shrink-0 text-crafd-yellow-900" />,
+  "Financially Closed":   <Banknote className="size-3 shrink-0 text-crafd-yellow-900" />,
+  "Project Closed":       <CheckCircle2 className="size-3 shrink-0 text-crafd-grey-600" />,
+};
+const STATUS_ICON_FALLBACK: ReactNode = <CircleDot className="size-3 shrink-0 text-crafd-grey-400" />;
+
+function durationLabel(months: number | null): string | null {
+  return months && months > 0 ? `${months} months` : null;
+}
+
+// Derived project end date = start + duration months. Parsed in local time from
+// the YYYY-MM-DD portion so it never drifts a day across time zones. Mirrors the
+// DB's reporting_platform.project_end_date() used by budgets/workplan.
+function projectEndDate(startDate: string, durationMonths: number): Date {
+  const [y, m, d] = startDate.slice(0, 10).split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setMonth(dt.getMonth() + durationMonths);
+  return dt;
+}
+
+
+// Multi-select over the partner list (dynamic options, numeric ids), used to
+// grant prodoc edit rights. Mirrors the chip/checkbox look of ui/MultiSelect but
+// takes an explicit option list rather than the admin option registry.
+function PartnerMultiSelect({
+  partners, value, onChange, placeholder = "Select partners…",
+}: {
+  partners: Partner[];
+  value: number[];
+  onChange: (next: number[]) => void;
+  placeholder?: string;
+}) {
+  // Compact chip label (trigger): capitalized short name, falling back to long.
+  const labelFor = (id: number) => {
+    const p = partners.find((x) => x.id === id);
+    const short = p?.short_name ? p.short_name.toUpperCase() : null;
+    return short || p?.long_name || `#${id}`;
+  };
+  // Fuller option-list label: "SHORT - Long name" (both when available).
+  const optionLabel = (p: Partner) => {
+    const short = p.short_name ? p.short_name.toUpperCase() : null;
+    if (short && p.long_name) return `${short} - ${p.long_name}`;
+    return short || p.long_name || `#${p.id}`;
+  };
+  function toggle(id: number) {
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex min-h-9 w-full items-center gap-1 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+        <div className="flex flex-1 flex-wrap items-center gap-1">
+          {value.length === 0 ? (
+            <span className="text-muted-foreground px-1">{placeholder}</span>
+          ) : (
+            value.map((id) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {labelFor(id)}
+                <span
+                  role="button" tabIndex={-1} aria-label={`Remove ${labelFor(id)}`}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggle(id); }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </span>
+              </span>
+            ))
+          )}
+        </div>
+        <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-[--radix-dropdown-menu-trigger-width] min-w-56 overflow-y-auto">
+        {partners.length === 0 ? (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No other partners available.</div>
+        ) : (
+          partners.map((p) => (
+            <DropdownMenuCheckboxItem
+              key={p.id}
+              checked={value.includes(p.id)}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={() => toggle(p.id)}
+            >
+              {optionLabel(p)}
+            </DropdownMenuCheckboxItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// -- Page -------------------------------------------------------------------
+
+export default function ProjectsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  // project_id → its prodoc { report id, status, last_edited } (for Print / Open / status).
+  const [prodocByProject, setProdocByProject] = useState<Record<number, { id: number; status: ReportStatus; last_edited: string | null }>>({});
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ projectId: number; prodocId: number; status: ReportStatus; fromStatus: string } | null>(null);
+  const [printingId, setPrintingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"list" | "grid">("grid");
+
+  // Filter & group bar state.
+  const [filterPartner, setFilterPartner] = useState<string>(ALL);
+  const [filterStatus, setFilterStatus] = useState<string>(ALL);
+  // ALL = no grouping; otherwise "partner" | "status".
+  const [groupMode, setGroupMode] = useState<string>(ALL);
+
+  // Sort state. Default: alphabetical by project title.
+  type SortKey =
+    | "project_title" | "short_name" | "partner_short_name" | "status"
+    | "mptfo_project_number" | "grant_size_usd" | "project_duration_months" | "project_start_date";
+  const [sortKey, setSortKey] = useState<SortKey>("project_title");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // Apply partner filter from query parameter on mount
+  useEffect(() => {
+    const partnerParam = searchParams.get("partner");
+    if (partnerParam) {
+      setFilterPartner(partnerParam);
+    }
+  }, [searchParams]);
+
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [partnerId, setPartnerId] = useState("");
+  const [title, setTitle] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [mptfo, setMptfo] = useState("");
+  const [grantSize, setGrantSize] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [durationMonths, setDurationMonths] = useState("");
+  const [scope, setScope] = useState("");
+  const [editorIds, setEditorIds] = useState<number[]>([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [pRes, prRes, pdRes] = await Promise.all([
+        fetch("/api/partners"),
+        fetch("/api/projects"),
+        fetch("/api/reports?data_type=prodoc"),
+      ]);
+      if (!pRes.ok || !prRes.ok || !pdRes.ok) throw new Error("Failed to fetch data");
+      setPartners(await pRes.json());
+      setProjects(await prRes.json());
+      const prodocs: { id: number; project_id: number; status: ReportStatus; last_edited: string | null }[] = await pdRes.json();
+      setProdocByProject(Object.fromEntries(prodocs.map((d) => [d.project_id, { id: d.id, status: d.status, last_edited: d.last_edited }])));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function resetForm() {
+    setPartnerId(""); setTitle(""); setShortName("");
+    setMptfo(""); setGrantSize(""); setStartDate(""); setDurationMonths(""); setScope("");
+    setEditorIds([]);
+    setEditId(null); setShowForm(false); setFormError(null);
+  }
+
+  function startEdit(p: Project) {
+    setPartnerId(String(p.partner_id));
+    setTitle(p.project_title);
+    setShortName(p.short_name || "");
+    setMptfo(p.mptfo_project_number || "");
+    setGrantSize(p.grant_size_usd || "");
+    setStartDate(p.project_start_date || "");
+    setDurationMonths(p.project_duration_months != null ? String(p.project_duration_months) : "");
+    setScope(p.geographic_scope || "");
+    setEditorIds(Array.isArray(p.editor_partner_ids) ? p.editor_partner_ids : []);
+    setEditId(p.id); setShowForm(true); setFormError(null);
+  }
+
+  async function handleSubmit() {
+    if (!partnerId || !title.trim()) { setFormError("Partner and project title are required"); return; }
+    setSaving(true); setFormError(null);
+    try {
+      const body = {
+        partner_id: Number(partnerId),
+        project_title: title.trim(),
+        short_name: shortName.trim() || null,
+        mptfo_project_number: mptfo.trim() || null,
+        grant_size_usd: grantSize ? parseFloat(grantSize) : null,
+        project_start_date: startDate || null,
+        project_duration_months: durationMonths ? parseInt(durationMonths, 10) : null,
+        geographic_scope: scope.trim() || null,
+        // Never grant the lead editor rights (they already own the project).
+        editor_partner_ids: editorIds.filter((id) => id !== Number(partnerId)),
+      };
+      const res = await fetch(
+        editId ? `/api/projects/${editId}` : "/api/projects",
+        { method: editId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to save"); }
+      resetForm(); load();
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleStatusChange(id: number, newStatus: ProjectStatus) {
+    // Optimistic: reflect the change immediately, roll back on failure.
+    const prev = projects;
+    setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
+    const res = await fetch(`/api/projects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) setProjects(prev);
+  }
+
+  // ── No-cost extension ─────────────────────────────────────────────────────
+  // A no-cost extension only lengthens the project timeline: it adds months to
+  // project_duration_months. Everything derived from the period recomputes on
+  // reload — the budget year columns (project_year_range), the workplan quarter
+  // grid (project_end_date) and the Gantt — because they read the duration
+  // server-side. No budget figures change; the same grant covers more time.
+  const [nceProject, setNceProject] = useState<Project | null>(null);
+  const [nceMonths, setNceMonths] = useState("");
+  const [nceNote, setNceNote] = useState("");
+  const [nceHistory, setNceHistory] = useState<ProjectExtension[]>([]);
+  const [nceSaving, setNceSaving] = useState(false);
+  const [nceError, setNceError] = useState<string | null>(null);
+
+  function openNce(p: Project) {
+    setNceProject(p);
+    setNceMonths("");
+    setNceNote("");
+    setNceError(null);
+    // Show the project's prior extensions for context while granting a new one.
+    setNceHistory([]);
+    fetch(`/api/projects/${p.id}/extensions`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: ProjectExtension[]) => setNceHistory(Array.isArray(rows) ? rows : []))
+      .catch(() => setNceHistory([]));
+  }
+
+  async function submitNce() {
+    if (!nceProject || nceProject.project_duration_months == null) return;
+    const added = parseInt(nceMonths, 10);
+    if (!Number.isFinite(added) || added <= 0) { setNceError("Enter a positive number of months to add"); return; }
+    setNceSaving(true); setNceError(null);
+    try {
+      // Records the extension (project_extensions) and lengthens the period in
+      // one transaction; budget/workplan periods recompute on reload.
+      const res = await fetch(`/api/projects/${nceProject.id}/extensions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months_added: added, note: nceNote.trim() || null }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to extend project"); }
+      setNceProject(null);
+      load();
+    } catch (e) { setNceError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setNceSaving(false); }
+  }
+
+  // ── Project revision ──────────────────────────────────────────────────────
+  // A logged event only — the project was revised on a date, for a reason.
+  // Nothing derived from the project changes.
+  const [revProject, setRevProject] = useState<Project | null>(null);
+  const [revDate, setRevDate] = useState("");
+  const [revComment, setRevComment] = useState("");
+  const [revHistory, setRevHistory] = useState<ProjectRevision[]>([]);
+  const [revSaving, setRevSaving] = useState(false);
+  const [revError, setRevError] = useState<string | null>(null);
+
+  function openRevision(p: Project) {
+    // Default the date to today in local time (never drifts across time zones).
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setRevProject(p);
+    setRevDate(today);
+    setRevComment("");
+    setRevError(null);
+    setRevHistory([]);
+    fetch(`/api/projects/${p.id}/revisions`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: ProjectRevision[]) => setRevHistory(Array.isArray(rows) ? rows : []))
+      .catch(() => setRevHistory([]));
+  }
+
+  async function submitRevision() {
+    if (!revProject) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(revDate)) { setRevError("Pick a revision date"); return; }
+    setRevSaving(true); setRevError(null);
+    try {
+      const res = await fetch(`/api/projects/${revProject.id}/revisions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision_date: revDate, comment: revComment.trim() || null }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to log revision"); }
+      setRevProject(null);
+      load();
+    } catch (e) { setRevError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setRevSaving(false); }
+  }
+
+  const confirm = useConfirm();
+
+  async function handleDelete(id: number) {
+    if (!await confirm({ message: "Delete this project?" })) return;
+    const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to delete"); return; }
+    load();
+  }
+
+  // ── Project document (prodoc) actions ─────────────────────────────────────
+  function openProdoc(p: Project) {
+    const slug = projectSlug(p.short_name, p.project_title);
+    router.push(`/admin/prodoc-editor/${slug}/general`);
+  }
+
+  function printProdoc(p: Project) {
+    const prodocId = prodocByProject[p.id]?.id;
+    if (!prodocId) return;
+    // Open the styled print view; it renders the full prodoc with the brand fonts
+    // and prints via the browser (→ Save as PDF), then closes.
+    setPrintingId(p.id);
+    window.open(`/prodoc-print/${prodocId}?auto=1`, "_blank");
+    setTimeout(() => setPrintingId(null), 1500);
+  }
+
+  // Set the prodoc's editable status (Open / Under Review / Closed) — same
+  // status model as reports. Opens the StatusChangeDialog to collect a name
+  // and reason before applying. Optimistic; persisted via PUT /api/reports/:id.
+  function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
+    setPendingStatusChange({
+      projectId,
+      prodocId,
+      status,
+      fromStatus: prodocByProject[projectId]?.status ?? "",
+    });
+  }
+
+  async function applyProdocStatusChange({ actorName, reason }: { actorName: string; reason: string }) {
+    if (!pendingStatusChange) return;
+    const { projectId, prodocId, status } = pendingStatusChange;
+    setPendingStatusChange(null);
+    setProdocByProject((prev) => ({ ...prev, [projectId]: { ...prev[projectId], id: prodocId, status } }));
+    await fetch(`/api/reports/${prodocId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status,
+        actor_name: actorName || null,
+        reason: reason || null,
+      }),
+    });
+  }
+
+  // ── Filter, sort & group ──────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const matched = projects.filter(
+      (p) =>
+        (filterPartner === ALL || String(p.partner_id) === filterPartner) &&
+        (filterStatus === ALL || p.status === filterStatus)
+    );
+    return sortBy(
+      matched,
+      (p) => {
+        // Money & duration sort numerically; the rest lexically (nulls sink).
+        if (sortKey === "grant_size_usd") return p.grant_size_usd != null ? parseFloat(p.grant_size_usd) : null;
+        if (sortKey === "project_duration_months") return p.project_duration_months;
+        return p[sortKey] as string | null;
+      },
+      sortDir
+    );
+  }, [projects, filterPartner, filterStatus, sortKey, sortDir]);
+
+  // Grouped sections for the grid view (null when grouping is off → flat grid).
+  const groups = useMemo(() => {
+    if (groupMode === ALL) return null;
+    const map = new Map<string, Project[]>();
+    for (const p of filtered) {
+      const key = groupMode === "partner" ? (p.partner_short_name || "—") : p.status;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(p);
+    }
+    const entries = Array.from(map.entries());
+    if (groupMode === "status") {
+      const order = optionValues("projectStatus");
+      return entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+    }
+    return entries.sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered, groupMode]);
+
+  const renderCard = (p: Project) => {
+    const pd = prodocByProject[p.id];
+    return (
+    <div key={p.id} className="group rounded-xl border bg-card p-5 flex flex-col gap-3 transition-colors hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-muted-foreground mb-1">{p.partner_short_name?.toUpperCase() || "—"}</p>
+          {/* Keep the MPTFO link OUTSIDE the title element so a long title can't clip it away. */}
+          <p className="text-lg font-semibold leading-snug">{p.project_title}</p>
+          {p.mptfo_project_number && (
+            <a
+              href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline"
+              title="Open on MPTF Office Gateway"
+            >
+              MPTFO
+              <ExternalLink className="size-3" />
+            </a>
+          )}
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onClick={(e) => e.stopPropagation()}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Project status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuRadioGroup value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+                  {optionValues("projectStatus").map((s) => (
+                    <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {pd && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Document status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuRadioGroup value={pd.status} onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}>
+                    {optionValues("reportStatus").map((s) => (
+                      <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            <DropdownMenuSeparator />
+            {p.project_start_date && p.project_duration_months != null && (
+              <DropdownMenuItem onSelect={() => openNce(p)}>
+                <CalendarPlus />
+                No-cost extension
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => openRevision(p)}>
+              <FilePenLine />
+              Project revision
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
+              {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
+              Print project document
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => startEdit(p)}>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onSelect={() => handleDelete(p.id)}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Project status badge — read-only; change via the ⋯ menu */}
+      <div>
+        <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+          {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
+          {p.status}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+        {p.grant_size_usd && (
+          <span className="inline-flex items-center gap-1.5">
+            <DollarSign className="size-3 shrink-0" />
+            {formatUsd(p.grant_size_usd)}
+          </span>
+        )}
+        {durationLabel(p.project_duration_months) && (
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="size-3 shrink-0" />
+            {durationLabel(p.project_duration_months)}
+            {p.extension_count > 0 && (
+              <span
+                className="inline-flex items-center gap-0.5 rounded border border-crafd-yellow-400 bg-crafd-yellow-100 px-1.5 py-0.5 text-xs font-semibold text-crafd-grey-800"
+                title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
+              >
+                <CalendarPlus className="size-2.5" />
+                +{p.extension_months_total}mo NCE{p.extension_count > 1 ? ` ×${p.extension_count}` : ""}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+
+      {/* ── Project Document ── status badge + open */}
+      <div className="mt-auto pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project Document</p>
+          {pd?.last_edited && (
+            <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
+              edited {timeAgo(pd.last_edited)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {pd && (
+            <span
+              title="Project document status"
+              className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${reportStatusStyle(pd.status)}`}
+            >
+              {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
+              {pd.status}
+            </span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
+            className="h-7 flex-1 flex items-center justify-center gap-1.5 rounded border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Open the project document"
+          >
+            Open project document
+            <ArrowRight className="size-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <PageHeader title="Projects" description="Manage projects across partner organizations">
+        <ViewToggle view={view} onChange={setView} />
+        {!showForm && (
+          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} disabled={partners.length === 0}>
+            <Plus className="size-3.5" /> Add project
+          </Button>
+        )}
+      </PageHeader>
+
+      <FilterBar>
+        <FilterSelect
+          icon={Building2}
+          label="Partner"
+          value={filterPartner}
+          onChange={setFilterPartner}
+          allLabel="All partners"
+          width={190}
+          options={partners.map((p) => ({ value: String(p.id), label: p.short_name?.toUpperCase() || p.long_name || "—" }))}
+        />
+        <FilterSelect
+          icon={CircleDot}
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          allLabel="All statuses"
+          width={190}
+          options={optionValues("projectStatus").map((s) => ({ value: s, label: s }))}
+        />
+        <SortSelect
+          value={sortKey}
+          dir={sortDir}
+          onChange={setSortKey}
+          onDirChange={setSortDir}
+          options={[
+            { value: "project_title", label: "Title" },
+            { value: "short_name", label: "Short name" },
+            { value: "partner_short_name", label: "Partner" },
+            { value: "status", label: "Status" },
+            { value: "mptfo_project_number", label: "MPTFO #" },
+            { value: "grant_size_usd", label: "Grant size" },
+            { value: "project_duration_months", label: "Duration" },
+            { value: "project_start_date", label: "Start date" },
+          ]}
+        />
+        {view === "grid" && (
+          <FilterSelect
+            icon={Layers}
+            label="Group by"
+            value={groupMode}
+            onChange={setGroupMode}
+            allLabel="None"
+            width={150}
+            options={[{ value: "partner", label: "Partner" }, { value: "status", label: "Status" }]}
+          />
+        )}
+      </FilterBar>
+
+      <div className="flex-1 overflow-auto px-8 py-6">
+        {error && <ErrorBanner message={error} />}
+
+        {showForm && (
+          <FormShell
+            title={editId ? "Edit project" : "New project"}
+            onClose={resetForm}
+            error={formError}
+            saving={saving}
+            editMode={!!editId}
+            onCancel={resetForm}
+            onSubmit={handleSubmit}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Field label="Partner" required>
+                <Select value={partnerId} onValueChange={setPartnerId}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select partner" /></SelectTrigger>
+                  <SelectContent>
+                    {partners.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.short_name ? `${p.short_name.toUpperCase()} — ${p.long_name || p.short_name.toUpperCase()}` : (p.long_name || "—")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Project title" required>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Project title" />
+              </Field>
+              <Field label="Short name">
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="Short name" />
+              </Field>
+              <Field label="MPTFO project number">
+                <Input value={mptfo} onChange={(e) => setMptfo(e.target.value.replace(/\D/g, ""))} placeholder="MPTFO Number" inputMode="numeric" />
+              </Field>
+              <Field label="Grant size (USD)">
+                <Input
+                  value={grantSize}
+                  onChange={(e) => setGrantSize(numericAmount(e.target.value))}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                />
+              </Field>
+              <Field label="Start date">
+                <DateInput value={startDate} onChange={(v) => setStartDate(v)} />
+              </Field>
+              <Field label="Duration (months)">
+                <Input value={durationMonths} onChange={(e) => setDurationMonths(clampDuration(e.target.value))} type="text" inputMode="numeric" placeholder="e.g. 24" />
+              </Field>
+              <Field label="Geographic scope">
+                {/* Same dropdown as the prodoc General Info tab: options come from
+                    Settings → Dropdown options via @/lib/options (never the JSON
+                    defaults directly), so admin edits take effect live. */}
+                <Select
+                  value={scope || GEO_SCOPE_NONE}
+                  onValueChange={(v) => setScope(v === GEO_SCOPE_NONE ? "" : v)}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select a scope…" /></SelectTrigger>
+                  <SelectContent>
+                    {optionValues("geographicScope").map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Editing rights">
+                <PartnerMultiSelect
+                  partners={partners.filter((p) => String(p.id) !== partnerId)}
+                  value={editorIds}
+                  onChange={setEditorIds}
+                  placeholder="Partners who can edit this project's ProDoc and reports…"
+                />
+              </Field>
+            </div>
+          </FormShell>
+        )}
+
+        {loading ? (
+          <LoadingState />
+        ) : projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <FolderKanban className="size-8 opacity-30" />
+            <p className="text-sm">
+              {partners.length === 0 ? "Add a partner first, then create projects." : "No projects yet."}
+            </p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <FolderKanban className="size-8 opacity-30" />
+            <p className="text-sm">No projects match the current filters.</p>
+          </div>
+        ) : view === "list" ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Partner</TableHead>
+                <TableHead>Short</TableHead>
+                <TableHead>Project title</TableHead>
+                <TableHead className="w-48">Status</TableHead>
+                <TableHead>MPTFO #</TableHead>
+                <TableHead className="text-right">Grant size</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Scope</TableHead>
+                <TableHead className="w-40">ProDoc</TableHead>
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((p) => (
+                <TableRow key={p.id} className="cursor-pointer" onClick={() => router.push(`/admin/reports?project=${p.id}`)}>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs font-normal">
+                      {p.partner_short_name?.toUpperCase() || "—"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs font-mono text-muted-foreground">
+                    {p.short_name || <Dash />}
+                  </TableCell>
+                  <TableCell className="font-medium max-w-[260px] truncate">{p.project_title}</TableCell>
+                  <TableCell>
+                    <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+                      <SelectTrigger className={`!h-7 w-full px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${STATUS_STYLES[p.status] ?? STATUS_STYLE_FALLBACK}`}>
+                        <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                          {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
+                          <SelectValue />
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {optionValues("projectStatus").map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">{p.mptfo_project_number || <Dash />}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatUsd(p.grant_size_usd)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{durationLabel(p.project_duration_months) || <Dash />}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); printProdoc(p); }}
+                        disabled={printingId === p.id || !prodocByProject[p.id]}
+                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                        title="Print the project document to PDF"
+                      >
+                        {printingId === p.id ? <Loader2 className="size-3 animate-spin" /> : <Printer className="size-3" />}
+                        Print
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openProdoc(p); }}
+                        className="h-7 flex items-center justify-center gap-1 rounded border border-border px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        title="Open the project document"
+                      >
+                        Open
+                        <ArrowRight className="size-3" />
+                      </button>
+                      {prodocByProject[p.id] && (
+                        <Select
+                          value={prodocByProject[p.id]!.status}
+                          onValueChange={(v) => handleProdocStatusChange(p.id, prodocByProject[p.id]!.id, v as ReportStatus)}
+                        >
+                          <SelectTrigger
+                            title="Project document status"
+                            className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(prodocByProject[p.id]!.status)}`}
+                          >
+                            <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                              {PRODOC_STATUS_ICONS[prodocByProject[p.id]!.status] ?? PRODOC_STATUS_FALLBACK_ICON}
+                              <SelectValue />
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                    {prodocByProject[p.id]?.last_edited && (
+                      <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(prodocByProject[p.id]!.last_edited!)}`}>
+                        edited {timeAgo(prodocByProject[p.id]!.last_edited!)}
+                      </span>
+                    )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : groups ? (
+          <div className="space-y-6">
+            {groups.map(([key, rows]) => (
+              <div key={key} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {groupMode === "partner"
+                    ? <Building2 className="size-4 text-muted-foreground" />
+                    : <CircleDot className="size-4 text-muted-foreground" />}
+                  <h2 className="t-heading-section">{key}</h2>
+                  <span className="text-sm text-muted-foreground">({rows.length})</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rows.map(renderCard)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(renderCard)}
+          </div>
+        )}
+      </div>
+
+      {/* No-cost extension dialog */}
+      {nceProject && nceProject.project_start_date && nceProject.project_duration_months != null && (() => {
+        const start = nceProject.project_start_date;
+        const currentDuration = nceProject.project_duration_months;
+        const added = parseInt(nceMonths, 10);
+        const validAdd = Number.isFinite(added) && added > 0 ? added : 0;
+        const newDuration = currentDuration + validAdd;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { if (!nceSaving) setNceProject(null); }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+            <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-crafd-yellow-100 text-crafd-yellow-900">
+                    <CalendarPlus className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-snug">No-cost extension</p>
+                    <p className="text-sm text-muted-foreground leading-snug truncate">{nceProject.project_title}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground mb-4 space-y-1">
+                  <div className="flex justify-between gap-2"><span className="truncate min-w-0">Start</span><span className="tabular-nums text-foreground shrink-0">{formatDate(start)}</span></div>
+                  <div className="flex justify-between gap-2"><span className="truncate min-w-0">Current end</span><span className="tabular-nums text-foreground shrink-0">{formatDate(projectEndDate(start, currentDuration))} · {currentDuration} mo</span></div>
+                </div>
+
+                {nceHistory.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Previous extensions
+                    </p>
+                    <ul className="space-y-1">
+                      {nceHistory.map((ext) => (
+                        <li key={ext.id} className="flex items-start justify-between gap-2 text-xs">
+                          <span className="min-w-0">
+                            <span className="font-semibold text-foreground">+{ext.months_added} mo</span>
+                            {ext.note && <span className="text-muted-foreground"> — {ext.note}</span>}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">{formatDate(ext.created_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <label className="text-xs font-medium text-foreground">Months to add</label>
+                <Input
+                  value={nceMonths}
+                  onChange={(e) => { setNceMonths(numericInteger(e.target.value)); setNceError(null); }}
+                  inputMode="numeric"
+                  placeholder="e.g. 6"
+                  autoFocus
+                  className="mt-1.5"
+                />
+
+                {validAdd > 0 && (
+                  <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                    New end date <span className="font-semibold text-foreground tabular-nums">{formatDate(projectEndDate(start, newDuration))}</span> · {newDuration} months total.
+                    <br />Budget and workplan periods update automatically; the grant amount is unchanged.
+                  </p>
+                )}
+
+                <label className="mt-4 block text-xs font-medium text-foreground">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <Input
+                  value={nceNote}
+                  onChange={(e) => setNceNote(e.target.value)}
+                  placeholder="e.g. donor-approved extension"
+                  className="mt-1.5"
+                />
+
+                {nceError && <p className="mt-3 text-xs text-destructive">{nceError}</p>}
+              </div>
+
+              <div className="flex justify-end gap-2 px-6 pb-5">
+                <Button variant="outline" size="sm" onClick={() => setNceProject(null)} disabled={nceSaving}>Cancel</Button>
+                <Button size="sm" onClick={submitNce} disabled={nceSaving || !validAdd}>
+                  {nceSaving ? <Loader2 className="size-4 animate-spin" /> : "Extend project"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Project revision dialog */}
+      {revProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { if (!revSaving) setRevProject(null); }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+          <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-crafd-yellow-100 text-crafd-yellow-900">
+                  <FilePenLine className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground leading-snug">Project revision</p>
+                  <p className="text-sm text-muted-foreground leading-snug truncate">{revProject.project_title}</p>
+                </div>
+              </div>
+
+              {revHistory.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                    Previous revisions
+                  </p>
+                  <ul className="space-y-1">
+                    {revHistory.map((rev) => (
+                      <li key={rev.id} className="flex items-start justify-between gap-2 text-xs">
+                        <span className="min-w-0 text-muted-foreground">{rev.comment || <span className="italic">No comment</span>}</span>
+                        <span className="shrink-0 tabular-nums text-foreground">{formatDate(rev.revision_date)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <label className="text-xs font-medium text-foreground">Revision date</label>
+              <DateInput
+                value={revDate}
+                onChange={(v) => { setRevDate(v); setRevError(null); }}
+                className="mt-1.5"
+              />
+
+              <label className="mt-4 block text-xs font-medium text-foreground">Comment <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <Input
+                value={revComment}
+                onChange={(e) => setRevComment(e.target.value)}
+                placeholder="e.g. revised scope and deliverables"
+                className="mt-1.5"
+              />
+
+              {revError && <p className="mt-3 text-xs text-destructive">{revError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2 px-6 pb-5">
+              <Button variant="outline" size="sm" onClick={() => setRevProject(null)} disabled={revSaving}>Cancel</Button>
+              <Button size="sm" onClick={submitRevision} disabled={revSaving || !revDate}>
+                {revSaving ? <Loader2 className="size-4 animate-spin" /> : "Log revision"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    <StatusChangeDialog
+      open={pendingStatusChange !== null}
+      fromStatus={pendingStatusChange?.fromStatus ?? ""}
+      toStatus={pendingStatusChange?.status ?? ""}
+      onCancel={() => setPendingStatusChange(null)}
+      onConfirm={applyProdocStatusChange}
+    />
+    </div>
+  );
 }

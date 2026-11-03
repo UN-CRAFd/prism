@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -68,6 +69,10 @@ export interface SectionField {
   options?: readonly string[];
   headClass?: string; // column width utility class
   maxWords?: number; // optional word limit for textareas (shows counter but allows over-limit)
+  // Width classes of extra columns this field's cells span. The header still
+  // renders one (empty) cell per extra column so the column widths match a
+  // neighbouring table with those columns; body cells use colSpan.
+  spanCols?: string[];
 }
 
 export interface SectionSpec {
@@ -273,13 +278,22 @@ type TestimonialPhoto = {
 // Photos column for testimonials: fetches from /api/testimonial-photos, renders
 // each photo with editable label/credits (saved on blur), a remove button, and
 // an "Add photo" panel with upload and link options. Leadership rows can have
-// any number of photos; partner rows are capped at one.
+// any number of photos; partner rows and "Photos from the Ground" entries hold
+// one each.
+//
+// `ensureId` creates the row on demand when it has not been saved yet, so a
+// photo can be added before anything is typed (a Photos from the Ground row
+// usually starts with its photo).
+export type TestimonialKind = "leadership" | "partner" | "ground";
+
 function TestimonialPhotosField({
   testimonialId,
   kind,
+  ensureId,
 }: {
   testimonialId: number | null;
-  kind: "leadership" | "partner";
+  kind: TestimonialKind;
+  ensureId?: () => Promise<number | null>;
 }) {
   const readOnly = useReadOnly();
   const confirm = useConfirm();
@@ -294,6 +308,9 @@ function TestimonialPhotosField({
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Id of a row this cell created itself (via ensureId): it has no photos yet,
+  // so skip the load — a late empty response would wipe the photo just added.
+  const createdIdRef = useRef<number | null>(null);
 
   // Always-current snapshot of photos for use in async/debounced closures.
   const photosRef = useRef<TestimonialPhoto[]>([]);
@@ -304,7 +321,7 @@ function TestimonialPhotosField({
   const pendingFlushesRef = useRef(new Map<string, () => void>());
 
   useEffect(() => {
-    if (testimonialId == null) return;
+    if (testimonialId == null || testimonialId === createdIdRef.current) return;
     setLoading(true);
     fetch(`/api/testimonial-photos?testimonialId=${testimonialId}`)
       .then((r) => r.json())
@@ -333,6 +350,15 @@ function TestimonialPhotosField({
   }, []);
 
   const canAddMore = kind === "leadership" || photos.length < 1;
+
+  // The row id to attach a photo to, creating the row first if needed.
+  async function targetId(): Promise<number | null> {
+    if (testimonialId != null) return testimonialId;
+    if (!ensureId) return null;
+    const id = await ensureId();
+    createdIdRef.current = id;
+    return id;
+  }
 
   async function removePhoto(photoId: number) {
     if (!await confirm({ message: "Delete this photo?" })) return;
@@ -397,13 +423,15 @@ function TestimonialPhotosField({
   }
 
   async function addLinkPhoto() {
-    if (!addLink.trim() || testimonialId == null) return;
+    if (!addLink.trim()) return;
     setAddBusy(true); setAddError(null);
     try {
+      const id = await targetId();
+      if (id == null) return;
       const res = await fetch("/api/testimonial-photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testimonialId, photo_link: addLink }),
+        body: JSON.stringify({ testimonialId: id, photo_link: addLink }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed to add photo"); }
       const created: TestimonialPhoto = await res.json();
@@ -415,14 +443,16 @@ function TestimonialPhotosField({
   }
 
   async function uploadPhoto(file: File | null) {
-    if (!file || testimonialId == null) return;
+    if (!file) return;
     setAddError(null);
     if (!isAllowedImageExtension(file.name)) { setAddError(p.errorType); return; }
     if (file.size > MAX_PHOTO_BYTES) { setAddError(p.errorSize.replace("{mb}", String(MAX_PHOTO_MB))); return; }
     setAddBusy(true);
     try {
+      const id = await targetId();
+      if (id == null) return;
       const body = new FormData();
-      body.append("testimonialId", String(testimonialId));
+      body.append("testimonialId", String(id));
       body.append("file", file);
       const res = await fetch("/api/testimonial-photos", { method: "POST", body });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || p.errorSave); }
@@ -436,7 +466,7 @@ function TestimonialPhotosField({
     }
   }
 
-  if (testimonialId == null) {
+  if (testimonialId == null && !ensureId) {
     return <p className="text-xs text-muted-foreground">Save the row first to add photos.</p>;
   }
   if (loading) {
@@ -846,7 +876,8 @@ export function SectionTableEditor({
   }
 
   const hasRemarks = fields.some((f) => f.remark);
-  const colCount = 2 + fields.length; // number + fields + actions
+  // number + fields (incl. any spanned columns) + actions
+  const colCount = 2 + fields.reduce((n, f) => n + 1 + (f.spanCols?.length ?? 0), 0);
   const minRows = min ?? 0;
   const canAdd = max === undefined || rows.length < max;
 
@@ -857,7 +888,8 @@ export function SectionTableEditor({
           <tr className={cn("border-b", HEAD_BG)}>
             <th className={cn("text-left px-4 py-3 w-10", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>#</th>
             {fields.map((f) => (
-              <th key={f.key} className={cn("text-left px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT, f.headClass)}>
+              <Fragment key={f.key}>
+              <th className={cn("text-left px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT, f.headClass, f.spanCols && "whitespace-nowrap overflow-visible")}>
                 {/* Photo columns collect images — surface the CRAF'd image standards
                     behind an info icon so contributors upload/label them correctly. */}
                 {f.type === "photo" || f.type === "testimonial-photos" ? (
@@ -876,6 +908,10 @@ export function SectionTableEditor({
                   f.header
                 )}
               </th>
+              {f.spanCols?.map((c, ci) => (
+                <th key={ci} aria-hidden className={cn("px-4 py-3", HEAD_BG, c)} />
+              ))}
+              </Fragment>
             ))}
             <th className={cn("w-10 px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
           </tr>
@@ -883,7 +919,7 @@ export function SectionTableEditor({
             <tr className="border-b bg-background">
               <td />
               {fields.map((f) => (
-                <td key={f.key} className="px-4 py-1 text-sm text-muted-foreground leading-snug align-top">
+                <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-1 text-sm text-muted-foreground leading-snug align-top">
                   {f.remark}
                 </td>
               ))}
@@ -896,7 +932,7 @@ export function SectionTableEditor({
             <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-crafd-yellow-100")}>
               <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
               {fields.map((f) => (
-                <td key={f.key} className="px-4 py-3 align-top">
+                <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-3 align-top">
                   {f.type === "input" ? (
                     <Input value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
                   ) : f.type === "textarea" ? (
@@ -933,7 +969,8 @@ export function SectionTableEditor({
                   ) : f.type === "testimonial-photos" ? (
                     <TestimonialPhotosField
                       testimonialId={row.id}
-                      kind={(kind ?? "leadership") as "leadership" | "partner"}
+                      kind={(kind ?? "leadership") as TestimonialKind}
+                      ensureId={() => forceCreateRow(rowsRef.current.find((r) => r.key === row.key) ?? row)}
                     />
                   ) : f.type === "multiselect" ? (
                     <MultiSelect
@@ -1076,7 +1113,26 @@ const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
   { key: "_photos", header: labels.testimonials.columns.photoLink, type: "testimonial-photos", headClass: "w-64" },
 ];
 
-export function buildTestimonialSpecs(): Record<"leadership" | "partner", SectionSpec> {
+// "Photos from the Ground": up to five entries, each a description & short
+// caption and one photo (upload or link) with its own caption and credits —
+// the same photo cell as the partner quotes. Stored as
+// testimonials rows of kind 'ground': `quote` holds the description, photos
+// live in testimonial_photos.
+//
+// The table has exactly the quote tables' columns (TESTIMONIAL_BASE_FIELDS:
+// Quote, Name, Title, Photo, same width classes), and the description cell spans
+// the first three (`spanCols`). The browser therefore sizes every column the
+// same way in both tables, so Photo lines up with the quotes' Photo column.
+const GROUND_PHOTO_FIELDS: SectionField[] = [
+  {
+    key: "quote", header: labels.testimonials.columns.caption, type: "textarea",
+    placeholder: labels.testimonials.placeholders.caption, maxWords: 200,
+    headClass: "w-[30%] min-w-[240px]", spanCols: ["w-40", "w-44"],
+  },
+  { key: "_photos", header: labels.testimonials.columns.photoLink, type: "testimonial-photos", headClass: "w-64" },
+];
+
+export function buildTestimonialSpecs(): Record<TestimonialKind, SectionSpec> {
   return {
     leadership: {
       endpoint: "/api/testimonials",
@@ -1095,6 +1151,15 @@ export function buildTestimonialSpecs(): Record<"leadership" | "partner", Sectio
       emptyText: labels.partnerEditor.emptyTestimonials,
       max: 3,
       fields: TESTIMONIAL_BASE_FIELDS(20),
+    },
+    ground: {
+      endpoint: "/api/testimonials",
+      kind: "ground",
+      requiredField: "quote",
+      addLabel: labels.partnerEditor.addGroundPhoto,
+      emptyText: labels.partnerEditor.emptyGroundPhotos,
+      max: 5,
+      fields: GROUND_PHOTO_FIELDS,
     },
   };
 }

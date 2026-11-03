@@ -92,13 +92,18 @@ export async function POST(req: NextRequest) {
     );
     if (!testimonials.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    if (testimonials[0].kind === "partner") {
+    // Leadership quotes may carry several portraits; a partner quote and a
+    // "Photos from the Ground" entry hold exactly one photo each.
+    if (testimonials[0].kind !== "leadership") {
       const existing = await query<{ count: string }>(
         `SELECT COUNT(*) AS count FROM reporting_platform.testimonial_photos WHERE testimonial_id = $1`,
         [testimonialId]
       );
       if (Number(existing[0].count) >= 1) {
-        return NextResponse.json({ error: "Partner quotes can have one photo." }, { status: 400 });
+        return NextResponse.json(
+          { error: testimonials[0].kind === "ground" ? "Each entry has one photo." : "Partner quotes can have one photo." },
+          { status: 400 }
+        );
       }
     }
 

@@ -31,6 +31,8 @@ export interface Report {
   /** Project update only: free-text tag telling apart several updates in one
    *  year ("Project Update 2027 (2)"). Empty for the year's first update. */
   update_index?: string | null;
+  /** Hidden from the admin overview lists unless the Archived/All filter is on. */
+  archived?: boolean;
   last_edited?: string | null;
   partner_long_name?: string | null;
   indicator_count?: number;

@@ -7,7 +7,7 @@ import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 import { REPORT_SCOPED_TABLES, PRODOC_PROJECT_SCOPED_TABLES } from "@/lib/report-tables";
 import { isValidUpdateSections, nextUpdateIndex, PROJECT_UPDATE_SECTIONS } from "@/lib/project-updates";
-import { hasUpdateIndex, normaliseUpdateIndex, reportConflictTarget } from "@/lib/report-conflict";
+import { hasArchivedColumn, hasUpdateIndex, normaliseUpdateIndex, reportConflictTarget } from "@/lib/report-conflict";
 import { hasUpdateModuleColumns } from "@/lib/update-columns";
 import {
   MAX_EXTENSION_MONTHS,
@@ -126,6 +126,11 @@ export async function GET(request: Request) {
     const updateCols = [
       ...((await hasUpdateModuleColumns()) ? ["r.update_types", "r.update_modules", "r.update_months"] : []),
       ...((await hasUpdateIndex()) ? ["r.update_index"] : []),
+      // Archiving is project-level (POST /api/projects/[id]/archive cascades to
+      // the documents); OR-ing the project's flag also covers a document created
+      // after its project was archived. Before db/add-archived.sql every row
+      // reads as active.
+      (await hasArchivedColumn()) ? "(r.archived OR pr.archived) AS archived" : "FALSE AS archived",
     ];
     const moduleCols = updateCols.length ? `${updateCols.join(",\n        ")},` : "";
     const rows = await query(

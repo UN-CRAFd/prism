@@ -18,6 +18,10 @@ export interface StatusChangeDialogProps {
   toStatus: string;
   onCancel: () => void;
   onConfirm: (values: StatusChangeValues) => void;
+  /** Heading; defaults to "Change status?" (e.g. "Archive project?"). */
+  title?: string;
+  /** Confirm button text; defaults to "Confirm". */
+  confirmLabel?: string;
 }
 
 function StatusChangeDialogUI({
@@ -25,6 +29,8 @@ function StatusChangeDialogUI({
   toStatus,
   onCancel,
   onConfirm,
+  title = "Change status?",
+  confirmLabel = "Confirm",
 }: Omit<StatusChangeDialogProps, "open">) {
   const [actorName, setActorName] = useState("");
   const [reason, setReason] = useState("");
@@ -61,7 +67,7 @@ function StatusChangeDialogUI({
               <RefreshCw className="size-4" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-foreground leading-snug mb-1">Change status?</p>
+              <p className="text-sm font-semibold text-foreground leading-snug mb-1">{title}</p>
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <span>{fromStatus}</span>
                 <ArrowRight className="size-3.5 shrink-0" />
@@ -96,14 +102,14 @@ function StatusChangeDialogUI({
         {/* Actions */}
         <div className="flex justify-end gap-2 px-6 pb-5">
           <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-          <Button size="sm" onClick={handleConfirm}>Confirm</Button>
+          <Button size="sm" onClick={handleConfirm}>{confirmLabel}</Button>
         </div>
       </div>
     </div>
   );
 }
 
-export function StatusChangeDialog({ open, fromStatus, toStatus, onCancel, onConfirm }: StatusChangeDialogProps) {
+export function StatusChangeDialog({ open, fromStatus, toStatus, onCancel, onConfirm, title, confirmLabel }: StatusChangeDialogProps) {
   if (!open || typeof window === "undefined") return null;
   return createPortal(
     <StatusChangeDialogUI
@@ -111,6 +117,8 @@ export function StatusChangeDialog({ open, fromStatus, toStatus, onCancel, onCon
       toStatus={toStatus}
       onCancel={onCancel}
       onConfirm={onConfirm}
+      title={title}
+      confirmLabel={confirmLabel}
     />,
     document.body
   );

@@ -49,10 +49,10 @@ function groupFor(section: ProjectUpdateSection) {
 // Most update pages ARE annual-report sections, so they take their half from
 // there and can never drift from it. The two update-only pages are placed by
 // hand: Justification is the narrative reason for the update, and HACT
-// Recommendations belongs with Risk Management, which it accompanies.
+// Recommendations is a qualitative assessment, so both sit under Qualitative.
 const UPDATE_ONLY_KIND: Record<string, ReportSectionGroup> = {
   justification: "Qualitative",
-  hact: "Quantitative",
+  hact: "Qualitative",
 };
 
 function kindFor(section: ProjectUpdateSection): ReportSectionGroup {

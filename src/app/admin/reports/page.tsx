@@ -27,6 +27,7 @@ import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import {
   PageHeader, FilterBar, FilterSelect, SearchInput, ResultCount, ALL,
   SortableHead, sortBy, useTableSort,
+  ArchiveFilter, matchesArchive, type ArchiveView,
 } from "@/components/admin/shared";
 import {
   ReportRow,
@@ -61,6 +62,9 @@ export default function ReportsPage() {
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   const [filterYear, setFilterYear] = useState<string>(ALL);
   const [filterAuth, setFilterAuth] = useState<string>(ALL);
+  // Documents of archived projects are hidden unless asked for (archiving is
+  // done per project, on the Projects page).
+  const [archiveView, setArchiveView] = useState<ArchiveView>("active");
 
   // Default: newest year first.
   const { sortKey, sortDir, toggle: toggleSort } = useTableSort<SortKey>("year", "desc");
@@ -124,6 +128,7 @@ export default function ReportsPage() {
         (filterStatus === ALL || r.status === filterStatus) &&
         (filterYear === ALL || String(r.year) === filterYear) &&
         (filterAuth === ALL || (filterAuth === "yes") === !!r.authorized) &&
+        matchesArchive(r.archived, archiveView) &&
         (!q ||
           [r.project_title, r.project_short_name, r.partner_short_name, r.partner_long_name, String(r.year)]
             .some((v) => v?.toLowerCase().includes(q)))
@@ -145,11 +150,12 @@ export default function ReportsPage() {
       },
       sortDir
     );
-  }, [reports, completion, search, filterProject, filterPartner, filterType, filterStatus, filterYear, filterAuth, sortKey, sortDir]);
+  }, [reports, completion, search, filterProject, filterPartner, filterType, filterStatus, filterYear, filterAuth, archiveView, sortKey, sortDir]);
 
   const filtersActive =
     !!search.trim() || filterProject !== ALL || filterPartner !== ALL || filterType !== ALL ||
-    filterStatus !== ALL || filterYear !== ALL || filterAuth !== ALL;
+    filterStatus !== ALL || filterYear !== ALL || filterAuth !== ALL ||
+    archiveView !== "active";
 
   function clearFilters() {
     setSearch("");
@@ -159,6 +165,7 @@ export default function ReportsPage() {
     setFilterStatus(ALL);
     setFilterYear(ALL);
     setFilterAuth(ALL);
+    setArchiveView("active");
   }
 
   const confirm = useConfirm();
@@ -250,6 +257,7 @@ export default function ReportsPage() {
           width={130}
           options={[{ value: "yes", label: "Authorized" }, { value: "no", label: "Pending" }]}
         />
+        <ArchiveFilter value={archiveView} onChange={setArchiveView} />
         <ResultCount shown={filtered.length} total={reports.length} noun="report" onClear={filtersActive ? clearFilters : undefined} />
       </FilterBar>
 
@@ -302,7 +310,7 @@ export default function ReportsPage() {
               {filtered.map((r, i) => (
                 <TableRow
                   key={r.id}
-                  className="cursor-pointer"
+                  className={`cursor-pointer ${r.archived ? "text-muted-foreground [&_td]:opacity-70" : ""}`}
                   onClick={() => navigateToReport(r)}
                 >
                   <TableCell className="w-10 min-w-10 max-w-10 text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
@@ -319,7 +327,12 @@ export default function ReportsPage() {
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
-                      <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
+                      <TableCell className="max-w-[260px] truncate text-sm">
+                        {r.archived && (
+                          <Badge variant="outline" className="mr-1.5 text-xs font-normal" title="The project is archived">Archived</Badge>
+                        )}
+                        {r.project_title}
+                      </TableCell>
                     </TooltipTrigger>
                     <TooltipContent>{r.project_title}</TooltipContent>
                   </Tooltip>

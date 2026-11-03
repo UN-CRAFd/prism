@@ -29,6 +29,24 @@ export async function hasUpdateIndex(): Promise<boolean> {
   return hasUpdateIndexCache;
 }
 
+// Whether db/add-archived.sql has run (it adds `archived` to both reports and
+// projects; reports is checked). Same caching as above: GET /api/reports only
+// selects the columns once they are there.
+let hasArchivedCache: boolean | null = null;
+
+export async function hasArchivedColumn(): Promise<boolean> {
+  if (hasArchivedCache !== null) return hasArchivedCache;
+  const present = await query<{ column_name: string }>(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'reporting_platform'
+        AND table_name   = 'reports'
+        AND column_name  = 'archived'`
+  );
+  hasArchivedCache = present.length === 1;
+  return hasArchivedCache;
+}
+
 /** The ON CONFLICT target matching the live uniqueness key, parentheses included. */
 export async function reportConflictTarget(): Promise<string> {
   return (await hasUpdateIndex())

@@ -19,6 +19,9 @@ export interface ConfirmOptions {
   // Prevent all implicit dismissal (backdrop click). The confirm button is the
   // only way to close. Use when the user must make a deliberate choice.
   blockDismiss?: boolean;
+  // Acknowledgement dialogs show a green check by default; "warning" swaps it for a
+  // warning icon in the yellow palette, for notices that are not good news.
+  tone?: "warning";
 }
 
 type Resolver = (confirmed: boolean) => void;
@@ -98,6 +101,7 @@ export function ConfirmDialogUI({
     variant = "destructive",
     acknowledgement = false,
     blockDismiss = false,
+    tone,
   } = options;
 
   const resolvedConfirmLabel = confirmLabel ?? (acknowledgement ? "OK" : "Delete");
@@ -123,14 +127,18 @@ export function ConfirmDialogUI({
             <span
               className={cn(
                 "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
-                acknowledgement
+                acknowledgement && tone === "warning"
+                  ? "bg-crafd-yellow-100 text-crafd-yellow-900"
+                  : acknowledgement
                   ? "bg-green-100 text-green-800"
                   : variant === "destructive"
                     ? "bg-destructive/10 text-destructive"
                     : "bg-muted text-muted-foreground"
               )}
             >
-              {acknowledgement ? (
+              {acknowledgement && tone === "warning" ? (
+                <AlertTriangle className="size-4" />
+              ) : acknowledgement ? (
                 <CheckCircle2 className="size-4" />
               ) : variant === "destructive" ? (
                 <Trash2 className="size-4" />

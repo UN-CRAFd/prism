@@ -24,6 +24,12 @@ import {
   BookOpen,
   Settings,
   FilePen,
+  Database,
+  History,
+  UploadCloud,
+  Target,
+  ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
@@ -61,46 +67,48 @@ const NAV_PARENT_ACTIVE = "text-black font-semibold";
 // sections, which only admins receive) — see numberWikiSections in lib/wiki.
 type WikiSubLink = { hash: string; label: string; number: string | null };
 
-// Admin nav: one flat list. `also` lists extra path prefixes that keep the item
-// active (the editors live under their list's entry); `subs` are shown only while
-// the current path is the parent's page or one of its sub-pages.
+// Admin nav: flat links under small group headings. `also` lists extra path
+// prefixes that keep an item active (the editors live under their list's entry).
 type AdminNavItem = {
   href: string;
   label: string;
   icon: typeof Home;
   also?: string[];
-  subs?: { href: string; label: string }[];
 };
 
-const adminNav: AdminNavItem[] = [
-  { href: "/admin/partners", label: "Partners", icon: Building2 },
-  { href: "/admin/projects", label: "Project Documents", icon: FolderKanban, also: ["/admin/prodoc-editor"] },
-  { href: "/admin/reports", label: "Project Reports", icon: ClipboardList, also: ["/admin/report-editor"] },
-  { href: "/admin/project-updates", label: "Project Updates", icon: FilePen, also: ["/admin/project-update-editor"] },
-  { href: "/admin/contacts", label: "Contacts", icon: Contact },
-  { href: "/admin/comments", label: "Comments", icon: MessageSquare },
+const adminNavGroups: { heading?: string; items: AdminNavItem[] }[] = [
   {
-    href: "/admin/dashboards",
-    label: "Data",
-    icon: BarChart3,
-    subs: [
-      { href: "/admin/data", label: "Full Data" },
-      { href: "/admin/version-log", label: "Version Log" },
-      { href: "/admin/upload", label: "Upload / Download" },
+    heading: "Administration",
+    items: [
+      { href: "/admin/partners", label: "Partners", icon: Building2 },
+      { href: "/admin/contacts", label: "Contacts", icon: Contact },
     ],
   },
   {
-    href: "/admin/settings",
-    label: "Settings",
-    icon: Settings,
-    subs: [
-      { href: "/admin/indicators", label: "Indicators" },
-      { href: "/admin/survey-questions", label: "Survey Questions" },
-      { href: "/admin/narrative-questions", label: "Narrative Questions" },
-      { href: "/admin/hact-recommendations", label: "HACT Recommendations" },
-      { href: "/admin/guide", label: "Guide" },
+    heading: "Editor",
+    items: [
+      { href: "/admin/projects", label: "Project Documents", icon: FolderKanban, also: ["/admin/prodoc-editor"] },
+      { href: "/admin/reports", label: "Project Reports", icon: ClipboardList, also: ["/admin/report-editor"] },
+      { href: "/admin/project-updates", label: "Project Updates", icon: FilePen, also: ["/admin/project-update-editor"] },
+      { href: "/admin/indicators", label: "Indicators", icon: Target },
+      { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
+      { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
+      { href: "/admin/hact-recommendations", label: "HACT Recommendations", icon: ShieldCheck },
+      { href: "/admin/comments", label: "Comments", icon: MessageSquare },
+      { href: "/admin/guide", label: "Guide", icon: BookOpen },
     ],
   },
+  {
+    heading: "Data",
+    items: [
+      { href: "/admin/data", label: "Full Data", icon: Database },
+      { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
+      { href: "/admin/version-log", label: "Version Log", icon: History },
+      { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
+    ],
+  },
+  // Settings sits on its own at the bottom, outside any group.
+  { items: [{ href: "/admin/settings", label: "Settings", icon: Settings }] },
 ];
 
 interface SidebarReport {
@@ -877,14 +885,19 @@ export function AppSidebar() {
             Home
           </Link>
 
-          {adminNav.map((item) => {
+          {adminNavGroups.map((group, gi) => (
+          <div key={group.heading ?? "bottom"} className={cn(gi > 0 && "mt-8")}>
+          {group.heading && (
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {group.heading}
+            </p>
+          )}
+          {group.items.map((item) => {
             const ownActive = [item.href, ...(item.also ?? [])].some((h) => pathname.startsWith(h));
-            const subActive = item.subs?.some((sub) => pathname.startsWith(sub.href)) ?? false;
-            const showSubs = !!item.subs && (ownActive || subActive);
             // An open report puts "Project Reports" and the report's name in the
             // bold-no-fill state, so only the active section carries the fill.
             const reportOpen = item.href === "/admin/reports" && openAdminReport != null;
-            // Same for the project document editor, listed under "Projects".
+            // Same for the project document editor, listed under "Project Documents".
             const prodocOpen = item.href === "/admin/projects" && pathname.startsWith("/admin/prodoc-editor");
             // And for the project update editor, listed under "Project Updates".
             const updateOpen = item.href === "/admin/project-updates" && pathname.startsWith("/admin/project-update-editor");
@@ -894,7 +907,7 @@ export function AppSidebar() {
                   href={item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
-                    subActive || reportOpen || prodocOpen || updateOpen
+                    reportOpen || prodocOpen || updateOpen
                       ? NAV_PARENT_ACTIVE
                       : ownActive
                       ? NAV_ACTIVE
@@ -1107,30 +1120,11 @@ export function AppSidebar() {
                     </div>
                   );
                 })()}
-                {showSubs && (
-                  <div className="mt-0.5 mb-1 ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2">
-                    {item.subs!.map((sub) => {
-                      const active = pathname.startsWith(sub.href);
-                      return (
-                        <Link
-                          key={sub.href}
-                          href={sub.href}
-                          className={cn(
-                            "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
-                            active
-                              ? `${NAV_ACTIVE} font-medium`
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                          )}
-                        >
-                          {sub.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             );
           })}
+          </div>
+          ))}
         </nav>
       )}
 

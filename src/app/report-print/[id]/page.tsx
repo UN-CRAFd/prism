@@ -461,7 +461,7 @@ export default function ReportPrintPage() {
                   Status: <strong style={{ color: INK }}>{report.status}</strong>
                 </span>
                 {report.report_submission_date && (
-                  <span>Submitted: <strong style={{ color: INK }}>{fmtDate(report.report_submission_date)}</strong></span>
+                  <span>Due date: <strong style={{ color: INK }}>{fmtDate(report.report_submission_date)}</strong></span>
                 )}
               </div>
             </div>
@@ -486,7 +486,7 @@ export default function ReportPrintPage() {
                   ["Geographic scope", overview.geographic_scope || "—"],
                   ["Project start date", fmtDate(overview.project_start_date)],
                   ["Duration", overview.project_duration_months ? `${overview.project_duration_months} months` : "—"],
-                  ["Submission date", fmtDate(overview.report_submission_date)],
+                  ["Due date", fmtDate(overview.report_submission_date)],
                 ]} />
               </div>
               {Array.isArray(overview.participating_organizations) && overview.participating_organizations.length > 0 && (

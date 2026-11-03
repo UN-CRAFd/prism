@@ -820,8 +820,8 @@ export function ReportEditor({
           {reportId && !sectionLoading && !notFound && (
             <AutosaveIndicator tone="dark" idleAsSaved state={displaySaveState} />
           )}
-          {reportId && mode === "admin" && (
-            <Button variant="outline" size="sm" className="h-9 shrink-0 bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 hover:text-white"
+          {reportId && (
+            <Button size="sm" className="on-dark h-9 shrink-0"
               onClick={() => window.open(`/report-print/${reportId}?auto=1`, "_blank")}>
               <Printer className="size-4 mr-1.5" />
               Print

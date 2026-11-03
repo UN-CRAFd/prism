@@ -74,7 +74,7 @@ type AdminNavItem = {
 
 const adminNav: AdminNavItem[] = [
   { href: "/admin/partners", label: "Partners", icon: Building2 },
-  { href: "/admin/projects", label: "Projects", icon: FolderKanban, also: ["/admin/prodoc-editor"] },
+  { href: "/admin/projects", label: "Project Documents", icon: FolderKanban, also: ["/admin/prodoc-editor"] },
   { href: "/admin/reports", label: "Project Reports", icon: ClipboardList, also: ["/admin/report-editor"] },
   { href: "/admin/project-updates", label: "Project Updates", icon: FilePen, also: ["/admin/project-update-editor"] },
   { href: "/admin/contacts", label: "Contacts", icon: Contact },

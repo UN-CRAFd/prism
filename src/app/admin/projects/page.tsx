@@ -21,26 +21,18 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, X } from "lucide-react";
-import { Plus, FolderKanban, Clock, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Building2, CalendarPlus, FilePenLine, MoreHorizontal, FileText, Globe, Pencil, Trash2 } from "lucide-react";
+import { Plus, FolderKanban, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Building2, CalendarPlus, FilePenLine, MoreHorizontal, FileText, Globe, Pencil, Trash2 } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, PageHeader,
   FilterBar, FilterSelect, SearchInput, ResultCount, ALL, SortableHead, sortBy, useTableSort,
 } from "@/components/admin/shared";
-import { reportStatusStyle, REPORT_STATUS_ICON_COLORS, type ReportStatus } from "@/lib/reports";
+import { reportStatusStyle, type ReportStatus } from "@/lib/reports";
 import labels from "@/lib/labels";
+import { ReportProgressCell } from "@/components/admin/report-components";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
-
-// Prodoc uses the same status set as reports (it IS a reports row). Values are
-// admin-editable via Settings → Dropdown options ("reportStatus"); the icon map
-// is keyed by the known values, with a neutral fallback for any added value.
-const PRODOC_STATUS_ICONS: Record<string, ReactNode> = {
-  Open:           <CircleDot className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Open}`} />,
-  "Under Review": <Clock className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS["Under Review"]}`} />,
-  Closed:         <CheckCircle2 className={`size-3 shrink-0 ${REPORT_STATUS_ICON_COLORS.Closed}`} />,
-};
-const PRODOC_STATUS_FALLBACK_ICON: ReactNode = <CircleDot className="size-3 shrink-0 text-zinc-400" />;
 
 // Mirrors the sentinel in general-info-editor: Radix Select can't hold an
 // empty-string item, so "no scope selected" round-trips through this value.
@@ -216,9 +208,9 @@ export default function ProjectsPage() {
 
   // Sort state (click a column header). Default: alphabetical by project title.
   type SortKey =
-    | "project_title" | "short_name" | "partner_short_name" | "status"
+    | "project_title" | "partner_short_name" | "status"
     | "mptfo_project_number" | "grant_size_usd" | "project_duration_months"
-    | "geographic_scope" | "prodoc";
+    | "geographic_scope" | "prodoc" | "progress" | "last_edited";
   const { sortKey, sortDir, toggle: toggleSort } = useTableSort<SortKey>("project_title");
 
   // Apply partner filter from query parameter on mount
@@ -516,9 +508,10 @@ export default function ProjectsPage() {
         if (sortKey === "status") return statusOrder.indexOf(p.status);
         if (sortKey === "prodoc") {
           const pd = prodocByProject[p.id];
-          // Status order first, then completion within a status.
-          return pd ? prodocOrder.indexOf(pd.status) * 1000 + (completion[p.id] ?? 0) : null;
+          return pd ? prodocOrder.indexOf(pd.status) : null;
         }
+        if (sortKey === "progress") return prodocByProject[p.id] ? (completion[p.id] ?? 0) : null;
+        if (sortKey === "last_edited") return prodocByProject[p.id]?.last_edited ?? null;
         return p[sortKey];
       },
       sortDir
@@ -545,7 +538,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Projects" description="Manage projects across partner organizations">
+      <PageHeader title="Project Documents" description="Manage projects across partner organizations">
         {!showForm && (
           <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} disabled={partners.length === 0}>
             <Plus className="size-3.5" /> Add project
@@ -693,14 +686,15 @@ export default function ProjectsPage() {
               <TableRow>
                 <TableHead className="w-10 text-right">#</TableHead>
                 <SortableHead label="Partner" column="partner_short_name" {...sortProps} />
-                <SortableHead label="Short" column="short_name" {...sortProps} />
                 <SortableHead label="Project title" column="project_title" {...sortProps} />
                 <SortableHead label="Status" column="status" className="w-48" {...sortProps} />
                 <SortableHead label="MPTFO #" column="mptfo_project_number" {...sortProps} />
                 <SortableHead label="Grant size" column="grant_size_usd" align="right" className="text-right" {...sortProps} />
                 <SortableHead label="Duration" column="project_duration_months" {...sortProps} />
                 <SortableHead label="Scope" column="geographic_scope" {...sortProps} />
-                <SortableHead label="ProDoc" column="prodoc" className="w-48" {...sortProps} />
+                <SortableHead label="ProDoc" column="prodoc" {...sortProps} />
+                <SortableHead label="Progress" column="progress" {...sortProps} />
+                <SortableHead label="Last edited" column="last_edited" {...sortProps} />
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -711,14 +705,16 @@ export default function ProjectsPage() {
                 <TableRow key={p.id} className="cursor-pointer" onClick={() => openProdoc(p)}>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs font-normal">
+                    <Badge variant="outline" className="text-xs font-semibold">
                       {p.partner_short_name?.toUpperCase() || "—"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs font-mono text-muted-foreground">
-                    {p.short_name || <Dash />}
-                  </TableCell>
-                  <TableCell className="font-medium max-w-[260px] truncate" title={p.project_title}>{p.project_title}</TableCell>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <TableCell className="min-w-[240px] max-w-[340px] truncate text-sm">{p.project_title}</TableCell>
+                    </TooltipTrigger>
+                    <TooltipContent>{p.project_title}</TooltipContent>
+                  </Tooltip>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
                       <SelectTrigger className="!h-7 w-full border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none [&>svg]:size-3 [&>svg]:shrink-0">
@@ -767,36 +763,27 @@ export default function ProjectsPage() {
                   <TableCell className="text-muted-foreground text-xs max-w-[140px] truncate">{p.geographic_scope || <Dash />}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {pd ? (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={pd.status}
-                            onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}
-                          >
-                            <SelectTrigger
-                              title="Project document status"
-                              className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}
-                            >
-                              <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                                {PRODOC_STATUS_ICONS[pd.status] ?? PRODOC_STATUS_FALLBACK_ICON}
-                                <SelectValue />
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <span className="text-xs tabular-nums text-muted-foreground" title="Project document completion">
-                            {completion[p.id] ?? 0}%
-                          </span>
-                        </div>
-                        {pd.last_edited && (
-                          <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(pd.last_edited)}`}>
-                            edited {timeAgo(pd.last_edited)}
-                          </span>
-                        )}
-                      </div>
+                      <Select
+                        value={pd.status}
+                        onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}
+                      >
+                        <SelectTrigger
+                          title="Project document status"
+                          className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     ) : <Dash />}
+                  </TableCell>
+                  <TableCell>
+                    {pd ? <ReportProgressCell pct={completion[p.id] ?? 0} open={pd.status === "Open"} /> : <Dash />}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={pd?.last_edited ? formatDate(pd.last_edited) : undefined}>
+                    {pd?.last_edited ? timeAgo(pd.last_edited) : "—"}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>

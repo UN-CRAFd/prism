@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -329,7 +330,7 @@ export default function ProjectUpdatesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10 text-right">#</TableHead>
+                <TableHead className="w-10 min-w-10 max-w-10 text-right">#</TableHead>
                 <SortableHead label="Partner" column="partner" {...sortProps} />
                 <SortableHead label="Type" column="type" {...sortProps} />
                 <SortableHead label="Year" column="year" {...sortProps} />
@@ -349,7 +350,7 @@ export default function ProjectUpdatesPage() {
                   className="cursor-pointer"
                   onClick={() => router.push(updateHref(r))}
                 >
-                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="w-10 min-w-10 max-w-10 text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-semibold">
                       {shortName(r.partner_short_name)}
@@ -370,7 +371,12 @@ export default function ProjectUpdatesPage() {
                       <span className="text-muted-foreground font-normal"> ({r.update_index.trim()})</span>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[260px] truncate text-sm" title={r.project_title}>{r.project_title}</TableCell>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <TableCell className="max-w-[260px] truncate text-sm">{r.project_title}</TableCell>
+                    </TooltipTrigger>
+                    <TooltipContent>{r.project_title}</TooltipContent>
+                  </Tooltip>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <ReportStatusSelect report={r} onStatusChange={handleStatusChanged} />
                   </TableCell>

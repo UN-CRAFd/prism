@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -71,6 +72,15 @@ interface ExpenditurePayload {
   currentYearToDate?: boolean;
   /** Version 2/4: show the proposed new budget columns. */
   proposedBudget?: boolean;
+  /** Budget revisions: the planned-budget table exists (db/add-expenditure-forecasts.sql).
+   *  When it does, the new requested total is computed, not typed. */
+  forecastsAvailable?: boolean;
+  /** Years a planned budget can be entered for: every year after the reported
+   *  one (extension years included) and, for a "to date" update, the rest of
+   *  the reported year. */
+  forecastYears?: number[];
+  /** category_id null = planned indirect support costs for that year. */
+  forecasts?: { category_id: number | null; year: number; planned_amount: number | null }[];
   /** Version 3/4: `years` are the ones the extension adds past the project end;
    *  empty when the extra months stay inside the final year. */
   extension?: { months: number; years: number[]; endDate: string | null };
@@ -97,12 +107,12 @@ function Num({ value, kind = "plain" }: { value: number | null; kind?: "plain" |
 // The Total block is two columns wider in the proposed-new-budget versions, so
 // the offsets are derived from whichever columns are in play rather than being
 // written down once.
-type FrozenKey = "cat" | "app" | "exp" | "diff" | "prop" | "pdiff";
+type FrozenKey = "cat" | "app" | "exp" | "diff" | "prop";
 const FCOL_WIDTH: Record<FrozenKey, number> = {
-  cat: 240, app: 130, exp: 130, diff: 120, prop: 140, pdiff: 140,
+  cat: 240, app: 130, exp: 130, diff: 120, prop: 140,
 };
 const PLAIN_COLS: FrozenKey[] = ["cat", "app", "exp", "diff"];
-const PROPOSED_COLS: FrozenKey[] = [...PLAIN_COLS, "prop", "pdiff"];
+const PROPOSED_COLS: FrozenKey[] = [...PLAIN_COLS, "prop"];
 
 function frozenLayout(proposed: boolean) {
   const keys = proposed ? PROPOSED_COLS : PLAIN_COLS;
@@ -141,6 +151,34 @@ const HEAD_SHADOW_L = `inset 1px 0 0 ${HEAD_DIVIDER_COLOR}, inset 0 -1px 0 ${HEA
 
 interface EditState { exp: string; prop: string; comment: string; dirty: boolean }
 
+// Planned budgets are keyed per category and year.
+// "isc" is the indirect support costs row, which is not a category.
+const planKey = (catId: number | "isc", year: number) => `${catId}-${year}`;
+
+// The new requested total for one category on a budget revision: everything
+// spent so far (stored years plus the figure being typed for the reported
+// year) and everything planned from here on. Pure, so the save path can work
+// it out from the latest refs exactly as the table shows it.
+function requestedTotalOf(
+  d: ExpenditurePayload,
+  edits: Record<number, EditState>,
+  planned: Record<string, string>,
+  catId: number,
+): number {
+  // A plannable year (the reported year included, when it is not closed by
+  // this update) counts with its planned figure, never with spending.
+  const plannable = new Set(d.forecastYears ?? []);
+  let spent = 0;
+  for (const y of d.years) {
+    if (plannable.has(y)) continue;
+    spent += y === d.currentYear
+      ? num(parseAmount(edits[catId]?.exp ?? ""))
+      : num(d.expenditure.find((e) => e.category_id === catId && e.year === y)?.annual_expenditure ?? null);
+  }
+  const plannedSum = (d.forecastYears ?? []).reduce((a, y) => a + num(parseAmount(planned[planKey(catId, y)] ?? "")), 0);
+  return spent + plannedSum;
+}
+
 export function ExpenditurePartnerEditor({
   reportId,
   onSaveStateChange,
@@ -166,6 +204,11 @@ export function ExpenditurePartnerEditor({
   const iscRef = useRef("");
   useEffect(() => { iscRef.current = iscExp; }, [iscExp]);
   const iscDirtyRef = useRef(false);
+  // Planned budgets for the remaining years (budget revisions), keyed planKey().
+  const [planned, setPlanned] = useState<Record<string, string>>({});
+  const plannedRef = useRef<Record<string, string>>({});
+  useEffect(() => { plannedRef.current = planned; }, [planned]);
+  const plannedDirtyRef = useRef<Set<string>>(new Set());
 
   // The two header rows are both sticky, so the second has to be pinned exactly
   // one first-row down. That height was hard-coded at 32px, which held only
@@ -209,6 +252,13 @@ export function ExpenditurePartnerEditor({
       const isc = d.indirect?.find((i) => i.year === d.currentYear)?.annual_expenditure;
       setIscExp(isc != null ? String(isc) : "");
       iscDirtyRef.current = false;
+      const plan: Record<string, string> = {};
+      for (const f of d.forecasts ?? []) {
+        if (f.planned_amount != null) plan[planKey(f.category_id ?? "isc", f.year)] = String(f.planned_amount);
+      }
+      setPlanned(plan);
+      plannedRef.current = plan;
+      plannedDirtyRef.current = new Set();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -240,10 +290,46 @@ export function ExpenditurePartnerEditor({
   const flush = useCallback(async () => {
     const d = dataRef.current;
     if (!d) return;
+    // Planned budgets first. A cell leaves the dirty set only once its own save
+    // has succeeded, so a failed request is retried on the next save instead of
+    // being forgotten.
+    const autoRequested = d.proposedBudget === true;
+    // Failures are collected and reported at the end, so one failing part
+    // (e.g. estimates before the migration has run) never stops the others —
+    // spending, comments and indirect support costs — from being saved.
+    let plannedFailed = false;
+    if (autoRequested && plannedDirtyRef.current.size) {
+      const keys = Array.from(plannedDirtyRef.current);
+      const results = await Promise.allSettled(keys.map(async (key) => {
+        const snap = plannedRef.current[key] ?? "";
+        const [catPart, yearPart] = key.split("-");
+        const catId = catPart === "isc" ? null : Number(catPart);
+        const year = Number(yearPart);
+        const r = await fetch("/api/expenditure", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reportId, categoryId: catId, year, planned_amount: parseAmount(snap) }),
+        });
+        if (!r.ok) throw new Error("Failed to save estimated expenditure");
+        // Typed again while saving → stays dirty for the next round.
+        if ((plannedRef.current[key] ?? "") === snap) plannedDirtyRef.current.delete(key);
+      }));
+      plannedFailed = results.some((r) => r.status === "rejected");
+    }
+
     const dirty = d.categories.filter((c) => editsRef.current[c.id]?.dirty);
-    const snapOf = (e: EditState) => JSON.stringify({ exp: e.exp, prop: e.prop, comment: e.comment });
-    const snaps = new Map(dirty.map((c) => [c.id, snapOf(editsRef.current[c.id])]));
-    await Promise.all(dirty.map((c) => {
+    // The requested total is part of the snapshot: on a budget revision it moves
+    // with the planned cells, so a row whose plan changed mid-save stays dirty.
+    const requestedOf = (catId: number) =>
+      autoRequested
+        ? requestedTotalOf(d, editsRef.current, plannedRef.current, catId)
+        : parseAmount(editsRef.current[catId]?.prop ?? "");
+    const snapOf = (catId: number) => {
+      const e = editsRef.current[catId];
+      return JSON.stringify({ exp: e.exp, prop: e.prop, comment: e.comment, req: requestedOf(catId) });
+    };
+    const snaps = new Map(dirty.map((c) => [c.id, snapOf(c.id)]));
+    const catResults = await Promise.allSettled(dirty.map((c) => {
       const e = editsRef.current[c.id];
       return fetch("/api/expenditure", {
         method: "PATCH",
@@ -255,12 +341,15 @@ export function ExpenditurePartnerEditor({
           // Only the budget-revision versions carry one. The plain page leaves
           // the field out rather than posting a null, so a figure already
           // proposed on this document survives the module being switched off.
-          ...(d.proposedBudget ? { proposed_amount: parseAmount(e.prop) } : {}),
+          // With planned budgets it is the computed total (spent + planned),
+          // stored so prints and exports keep reading one whole-period figure.
+          ...(d.proposedBudget ? { proposed_amount: requestedOf(c.id) } : {}),
           comment: e.comment || null,
         }),
       }).then((r) => { if (!r.ok) throw new Error(`Failed to save ${c.name}`); });
     }));
     // Indirect support costs: one figure on the document, saved on its own.
+    let iscFailed = false;
     if (iscDirtyRef.current) {
       const snap = iscRef.current;
       iscDirtyRef.current = false;
@@ -268,22 +357,27 @@ export function ExpenditurePartnerEditor({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId, indirect_expenditure: parseAmount(snap) }),
-      });
-      if (!res.ok) {
+      }).catch(() => null);
+      if (!res || !res.ok) {
         iscDirtyRef.current = true;
-        throw new Error("Failed to save indirect support costs");
+        iscFailed = true;
       }
     }
+    // Only rows that actually saved (and were not edited meanwhile) are clean.
+    const saved = new Set(dirty.filter((_, i) => catResults[i].status === "fulfilled").map((c) => c.id));
     setEdits((prev) => {
       const n = { ...prev };
       for (const c of dirty) {
         const cur = prev[c.id];
-        if (cur && snapOf(cur) === snaps.get(c.id)) {
+        if (cur && saved.has(c.id) && snapOf(c.id) === snaps.get(c.id)) {
           n[c.id] = { ...cur, dirty: false };
         }
       }
       return n;
     });
+    if (plannedFailed) throw new Error("Failed to save estimated expenditure");
+    if (catResults.some((r) => r.status === "rejected")) throw new Error("Failed to save expenditure");
+    if (iscFailed) throw new Error("Failed to save indirect support costs");
   }, [reportId]);
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
@@ -309,6 +403,25 @@ export function ExpenditurePartnerEditor({
     schedule();
   }
 
+  // Estimated indirect support costs for one year. Not a category, so nothing
+  // else needs re-saving.
+  function setPlannedIsc(year: number, v: string) {
+    const key = planKey("isc", year);
+    setPlanned((prev) => ({ ...prev, [key]: numericAmount(v) }));
+    plannedDirtyRef.current.add(key);
+    schedule();
+  }
+
+  // An estimated budget moves the category's requested total, so the category
+  // row is marked dirty too — that is what writes the new total back.
+  function setPlannedCell(catId: number, year: number, v: string) {
+    const key = planKey(catId, year);
+    setPlanned((prev) => ({ ...prev, [key]: numericAmount(v) }));
+    plannedDirtyRef.current.add(key);
+    setEdits((prev) => ({ ...prev, [catId]: { ...prev[catId], dirty: true } }));
+    schedule();
+  }
+
   if (loading) return <LoadingState />;
   if (error) {
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
@@ -318,9 +431,14 @@ export function ExpenditurePartnerEditor({
   const { categories, years, currentYear, indirectRate } = data;
 
   // ── Which version of the page this is ──────────────────────────────────────
-  const isUpdate = data.isUpdate === true;
   const toDate = data.currentYearToDate === true;
   const showProposed = data.proposedBudget === true;
+  // Budget revision: the requested total is ALWAYS computed — spent so far +
+  // planned for every remaining year of the project cycle — and never typed.
+  // (Before db/add-expenditure-forecasts.sql has run, planned figures cannot be
+  // saved yet; the page says so rather than falling back to manual entry.)
+  const autoRequested = showProposed;
+  const forecastYearSet = new Set(autoRequested ? data.forecastYears ?? [] : []);
   const extensionYears = data.extension?.years ?? [];
   const extensionSet = new Set(extensionYears);
   const L = frozenLayout(showProposed);
@@ -336,52 +454,53 @@ export function ExpenditurePartnerEditor({
   // being added, so the rest of the period is shown too, ending in the new
   // year(s). Without the years in between, the added year would hang off the
   // report year with a gap where the project's own remaining years should be.
-  const columnYears = extensionYears.length
+  // A budget revision does the same: the remaining years are where the money is
+  // being moved to, so each one is shown with a planned-budget cell.
+  const columnYears = extensionYears.length || autoRequested
     ? [...new Set([...visibleYears, ...years.filter((y) => y > currentYear)])].sort((a, b) => a - b)
     : visibleYears;
 
   const budFor = (year: number, catId: number) => budgetMap[year]?.[catId] ?? null;
+  // A plannable year has no spending column: it is budgeted, not reported.
   const expFor = (year: number, catId: number): number | null =>
-    year === currentYear ? parseAmount(edits[catId]?.exp ?? "") : (storedExpMap[year]?.[catId] ?? null);
+    forecastYearSet.has(year) ? null
+    : year === currentYear ? parseAmount(edits[catId]?.exp ?? "") : (storedExpMap[year]?.[catId] ?? null);
   const approvedTotal = (catId: number) => years.reduce((a, y) => a + num(budFor(y, catId)), 0);
   const totalExp = (catId: number) => years.reduce((a, y) => a + num(expFor(y, catId)), 0);
-  // The proposed new budget is a whole-period figure, so it is simply what the
-  // partner typed on this row — nothing to sum across years.
-  const proposedFor = (catId: number) => parseAmount(edits[catId]?.prop ?? "");
+  const plannedFor = (year: number, catId: number) => parseAmount(planned[planKey(catId, year)] ?? "");
+  const plannedTotal = (catId: number) => [...forecastYearSet].reduce((a, y) => a + num(plannedFor(y, catId)), 0);
+  // The new requested total budget. On a budget revision with planned budgets
+  // it is spent so far + planned for the rest of the period; otherwise (DB not
+  // migrated yet) it is what the partner typed on the row.
+  const proposedFor = (catId: number): number | null =>
+    autoRequested ? totalExp(catId) + plannedTotal(catId) : parseAmount(edits[catId]?.prop ?? "");
 
   // Column sums for the computed rows.
   const sumApprovedTotal = categories.reduce((a, c) => a + approvedTotal(c.id), 0);
   const sumExpTotal = categories.reduce((a, c) => a + totalExp(c.id), 0);
   const sumProposedTotal = categories.reduce((a, c) => a + num(proposedFor(c.id)), 0);
+  const sumPlannedTotal = categories.reduce((a, c) => a + plannedTotal(c.id), 0);
   const sumApproved = (y: number) => categories.reduce((a, c) => a + num(budFor(y, c.id)), 0);
   const sumExp = (y: number) => categories.reduce((a, c) => a + num(expFor(y, c.id)), 0);
+  const sumPlanned = (y: number) => categories.reduce((a, c) => a + num(plannedFor(y, c.id)), 0);
 
   // ── Indirect support costs ─────────────────────────────────────────────────
   //
-  // On an update the row is its own thing: what was SPENT on indirect support
-  // costs is entered year by year and the total is the sum of those entries —
-  // nothing else. It is never derived from what the categories spent, so a year
-  // with no figure entered contributes nothing and shows blank rather than a
-  // number nobody typed.
-  //
-  // (An annual report's row is untouched: approved and spent alike still follow
-  // the rate, exactly as the page always worked.)
+  // The same on annual / final reports and updates: what was SPENT on indirect
+  // support costs is entered year by year (the reported year here; earlier
+  // years on their own documents). The reported year counts what is typed —
+  // blank until something is entered. An earlier year without an entered
+  // figure (closed before ISC could be entered) counts at the rate on that
+  // year's spending. Estimated years count nothing as spent.
   const iscFor = (y: number): number | null => {
-    if (!isUpdate) return sumExp(y) * indirectRate;
-    return y === currentYear ? parseAmount(iscExp) : (storedIscMap[y] ?? null);
+    if (forecastYearSet.has(y)) return null; // estimated year: nothing reported
+    if (y === currentYear) return parseAmount(iscExp);
+    // A past year without an entered figure was closed by an annual report,
+    // which never stores one: it shows the rate on the spending of that year,
+    // so that is what the year counts with here too.
+    return storedIscMap[y] ?? (sumExp(y) > 0 ? sumExp(y) * indirectRate : null);
   };
   const iscTotal = years.reduce((a, y) => a + num(iscFor(y)), 0);
-
-  // THE RULE. A budget revision reallocates the grant between categories; it
-  // cannot change its size. So the new requested project costs sub total has to
-  // come back to the approved one, and the gap is shown until it does. Indirect
-  // support costs stand outside the reallocation — they follow the sub total at
-  // the project's rate, which is why the check sits at sub total level.
-  // Nothing is flagged until the partner has requested something: an untouched
-  // column is a table not yet filled in, not a mistake.
-  const proposedStarted = categories.some((c) => proposedFor(c.id) !== null);
-  const budgetGap = sumProposedTotal - sumApprovedTotal;
-  const budgetMismatch = showProposed && proposedStarted && Math.abs(budgetGap) >= 0.005;
 
   // THE ISC CEILING. The claim may not come to more than the indirect support
   // costs the project was granted — the rate on the APPROVED project costs,
@@ -390,30 +509,63 @@ export function ExpenditurePartnerEditor({
   // than planned does not shrink the indirect support costs allowed, and
   // spending more does not stretch them.
   const iscCeiling = sumApprovedTotal * indirectRate;
-  const iscOverClaimed = isUpdate && iscTotal - iscCeiling >= 0.005;
 
-  // OVERSPEND ACROSS CATEGORIES. Per category, how far total spending has run
-  // past that category's budget; underspend is not netted off, because money
-  // saved on one line does not license overspending on another. Indirect support
-  // costs are not a category and stay out of it. CRAFd looks at the budget past
-  // 10% of the project costs, the steering committee past 20%.
+  // OVERSPEND ACROSS CATEGORIES. Per category, how far it runs past its
+  // budget; underspend is not netted off, because money saved on one line does
+  // not license overspending on another. Indirect support costs are not a
+  // category and stay out of it. CRAFd looks at the budget past 10% of the
+  // project costs, the steering committee past 20%.
   //
-  // ON A BUDGET REVISION the budget to measure against is the one being asked
-  // for, not the one being replaced: a category is only overspent if it runs
-  // past the NEW requested total. A category with nothing requested yet keeps
-  // the approved figure as its reference, so a half-filled column does not read
-  // as the whole project being overspent.
+  // What "runs past" means depends on the version:
+  //   • planned budgets — the new requested total (spent + planned) against the
+  //     approved total: the reallocation being asked for. The requested total
+  //     can never be below spending, so measuring spending against it would
+  //     never show anything.
+  //   • typed requested budget (DB not migrated) — spending against the typed
+  //     figure where there is one, otherwise against the approved total.
+  //   • no budget revision — spending against the approved total.
   const budgetRef = (catId: number) =>
-    (showProposed ? proposedFor(catId) : null) ?? approvedTotal(catId);
-  const usingRequested = showProposed && proposedStarted;
-  const sumBudgetRef = categories.reduce((a, c) => a + budgetRef(c.id), 0);
-  const overspendByCategory = new Map(
-    categories.map((c) => [c.id, Math.max(0, totalExp(c.id) - budgetRef(c.id))])
-  );
+    (showProposed && !autoRequested ? parseAmount(edits[catId]?.prop ?? "") : null) ?? approvedTotal(catId);
+  const overspendFor = (catId: number) =>
+    autoRequested
+      ? Math.max(0, num(proposedFor(catId)) - approvedTotal(catId))
+      : Math.max(0, totalExp(catId) - budgetRef(catId));
+  const overspendByCategory = new Map(categories.map((c) => [c.id, overspendFor(c.id)]));
   const overspendTotal = [...overspendByCategory.values()].reduce((a, v) => a + v, 0);
-  const overspendShare = sumBudgetRef > 0 ? (overspendTotal / sumBudgetRef) * 100 : 0;
+  const overspendBase = autoRequested
+    ? sumApprovedTotal
+    : categories.reduce((a, c) => a + budgetRef(c.id), 0);
+  const overspendShare = overspendBase > 0 ? (overspendTotal / overspendBase) * 100 : 0;
   const overspendLevel: "none" | "crafd" | "steering" =
-    !isUpdate || overspendShare <= 10 ? "none" : overspendShare > 20 ? "steering" : "crafd";
+    overspendShare <= 10 ? "none" : overspendShare > 20 ? "steering" : "crafd";
+
+  // ── The four summary boxes (updates) ───────────────────────────────────────
+  // 1. Project-cost budget left: approved project costs less what has been spent
+  //    and — on a budget revision — what is planned for the rest of the period.
+  //    That is the money still free to move between categories.
+  const budgetLeft = sumApprovedTotal - sumExpTotal - (autoRequested ? sumPlannedTotal : 0);
+  // 2. Indirect support cost budget left: approved ceiling less what was spent.
+  const plannedIsc = (y: number) => parseAmount(planned[planKey("isc", y)] ?? "");
+  const iscPlannedTotal = [...forecastYearSet].reduce((a, y) => a + num(plannedIsc(y)), 0);
+  //    On a budget revision the planned indirect support costs count too.
+  const iscLeft = iscCeiling - iscTotal - (autoRequested ? iscPlannedTotal : 0);
+  // The ISC row's new requested total: spent so far + estimated (budget
+  // revisions), like a category's.
+  const iscRequested = iscTotal + (autoRequested ? iscPlannedTotal : 0);
+  // 4. Indirect support costs as a share of the APPROVED project costs: ISC
+  //    spent (plus, on a budget revision, the estimated ISC for the remaining
+  //    years) divided by the approved project costs. It grows as ISC is spent
+  //    or estimated, and may reach the project's rate (e.g. 7%) at most.
+  const iscCounted = iscTotal + (autoRequested ? iscPlannedTotal : 0);
+  const iscShare = sumApprovedTotal > 0 ? (iscCounted / sumApprovedTotal) * 100 : null;
+  const iscShareAllowed = indirectRate * 100;
+  const pct = (v: number) => `${v.toFixed(1)}%`;
+
+  // Columns each year spans: the report's three (approved / spent / difference)
+  // or the approved budget alone, plus a planned-budget column where the year
+  // can still be planned.
+  // A plannable year: approved annual budget | planned annual budget | difference.
+  const yearSpan = (y: number) => (forecastYearSet.has(y) || hasReport(y) ? 3 : 1);
 
   const withIndirect = (sub: number, mult: number) => sub * mult; // sub, indirect, or total via mult
 
@@ -433,7 +585,7 @@ export function ExpenditurePartnerEditor({
   // focus after every single keystroke. A plain call just returns the rows.
   function computedRow({
     label, strong, flag, hint,
-    approvedT, expT, proposedT, proposedTitle, approvedYear, expYear, expInput,
+    approvedT, expT, proposedT, proposedTitle, approvedYear, expYear, expInput, plannedYear, planInput,
   }: {
     label: string;
     strong?: boolean;
@@ -447,6 +599,10 @@ export function ExpenditurePartnerEditor({
     approvedYear: (y: number) => number;
     expYear: (y: number) => number | null;
     expInput?: { value: string; onChange: (v: string) => void };
+    /** Estimated-budget columns; rows without one (or a null) leave them blank. */
+    plannedYear?: (y: number) => number | null;
+    /** Makes the planned cell editable (indirect support costs). */
+    planInput?: (y: number) => { value: string; onChange: (v: string) => void };
   }) {
     const bg =
       flag === "error" ? "bg-red-50" :
@@ -470,15 +626,39 @@ export function ExpenditurePartnerEditor({
         <td style={L.fz("diff")} className={cn("px-3 py-2 text-right border-t", !showProposed && "border-r", bg)}><Num value={approvedT - expT} kind="diff" /></td>
         {showProposed && (
           <>
-            <td style={L.fz("prop")} className={cn("px-3 py-2 text-right border-l border-t", bg)} title={proposedTitle}>
+            <td style={L.fz("prop")} className={cn("px-3 py-2 text-right border-l border-r border-t", bg)} title={proposedTitle}>
               <Num value={proposedT} kind={flag || strong ? "strong" : "plain"} />
             </td>
-            <td style={L.fz("pdiff")} className={cn("px-3 py-2 text-right border-r border-t", bg)}><Num value={proposedT - expT} kind="diff" /></td>
           </>
         )}
         <td className={cn("border-l border-t", bg)} />
         {columnYears.map((y) => {
           const ap = approvedYear(y);
+          // Estimated year: approved | estimated | difference. The ISC row's
+          // estimate is editable; the sub total and total show the sums.
+          if (forecastYearSet.has(y)) {
+            const pl = plannedYear ? plannedYear(y) : null;
+            return (
+              <Fragment key={y}>
+                <td className={cn("px-2 py-2 text-right border-l border-t", extensionSet.has(y) && EXTENSION_CELL)}><Num value={ap} kind="approved" /></td>
+                {planInput ? (
+                  <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
+                    <Input
+                      value={planInput(y).value}
+                      onChange={(e) => planInput(y).onChange(e.target.value)}
+                      inputMode="decimal"
+                      placeholder="0"
+                      className="h-8 text-sm text-right tabular-nums"
+                      aria-label={`Estimated indirect support costs ${y}`}
+                    />
+                  </td>
+                ) : (
+                  <td className="px-2 py-2 text-right border-t">{pl !== null ? <Num value={pl} kind={strong ? "strong" : "plain"} /> : null}</td>
+                )}
+                <td className="px-2 py-2 text-right border-t">{pl !== null ? <Num value={ap - pl} kind="diff" /> : null}</td>
+              </Fragment>
+            );
+          }
           if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} extension={extensionSet.has(y)} />;
           const ex = expYear(y);
           return (
@@ -503,44 +683,52 @@ export function ExpenditurePartnerEditor({
           <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
         </div>
       )}
-      {/* No banner for the extended time frame: the added years announce
-          themselves as tinted "· extension" columns in the table. */}
-      {budgetMismatch && (
-        <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm text-red-900">
-          <span className="font-medium">The new requested total budget must still add up to the approved budget.</span>{" "}
-          A budget revision moves money between categories; it cannot change the size of the grant. The requested
-          project costs sub total is {formatAmount(sumProposedTotal)} against {formatAmount(sumApprovedTotal)} approved
-          — {budgetGap > 0 ? `${formatAmount(budgetGap)} too much` : `${formatAmount(-budgetGap)} short`}. Indirect
-          support costs are not part of the reallocation: they stay at the approved {formatAmount(iscCeiling)}.
+      {/* Four summary boxes in place of the old notices. Boxes 1 and 2 are the
+          money still free to move — green while there is some, red once it is
+          overspent; box 3 follows the 10% / 20% thresholds; box 4 compares the
+          indirect support costs with the most the rate allows. Shown on annual
+          and final reports and on updates alike. */}
+        <div className="shrink-0 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Just the figures. A sentence appears only when categories or the
+              indirect support costs are overspent. */}
+          <SummaryBox
+            label="Non-ISC Budget (Remaining)"
+            value={formatAmount(budgetLeft) || "0"}
+            tone={budgetLeft < -0.005 ? "bad" : "good"}
+          />
+          <SummaryBox
+            label="ISC Budget (Remaining)"
+            value={formatAmount(iscLeft) || "0"}
+            tone={iscLeft < -0.005 ? "bad" : "good"}
+            note={iscLeft < -0.005 ? "Indirect support costs are above the approved amount. CRAFd will be in contact." : undefined}
+          />
+          <SummaryBox
+            label="Categories Overspent"
+            value={pct(overspendShare)}
+            tone={overspendTotal <= 0.005 ? "good" : overspendLevel === "none" ? "warn" : "bad"}
+            note={
+              overspendLevel === "steering"
+                ? "Above 20%: the budget needs steering committee approval. CRAFd will be in contact."
+                : overspendLevel === "crafd"
+                  ? "Above 10%: CRAFd will be in contact to review the budget."
+                  : undefined
+            }
+          />
+          <SummaryBox
+            label="ISC of Total Spent"
+            value={iscShare === null ? "—" : pct(iscShare)}
+            tone={iscShare === null ? "neutral" : iscShare - iscShareAllowed > 0.05 ? "bad" : "good"}
+            note={
+              iscShare !== null && iscShare - iscShareAllowed > 0.05
+                ? `Above the allowed ${pct(iscShareAllowed)}. CRAFd will be in contact.`
+                : undefined
+            }
+          />
         </div>
-      )}
-      {/* The claim is above the indirect support costs granted. A flag, not a
-          block: the figure still saves. */}
-      {iscOverClaimed && (
-        <div className="shrink-0 rounded-lg border border-crafd-yellow-400 bg-crafd-yellow-100 px-4 py-2.5 text-sm text-crafd-grey-800">
-          <span className="font-medium">Indirect support costs are above what was approved.</span>{" "}
-          {formatAmount(iscTotal)} has been reported in total, against {formatAmount(iscCeiling)} approved
-          ({Math.round(indirectRate * 100)}% of the approved project costs) — {formatAmount(iscTotal - iscCeiling)} too much.
-        </div>
-      )}
-      {/* Overspend across categories. Thresholds are on the approved project
-          costs; CRAFd takes it from here, so neither message asks for an action. */}
-      {overspendLevel !== "none" && (
-        <div
-          className={cn(
-            "shrink-0 rounded-lg border px-4 py-2.5 text-sm",
-            overspendLevel === "steering"
-              ? "border-red-300 bg-red-50 text-red-900"
-              : "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800"
-          )}
-        >
-          <span className="font-medium">
-            Categories are overspent by {formatAmount(overspendTotal)} — {overspendShare.toFixed(1)}% of the{" "}
-            {usingRequested ? "newly requested" : "approved"} project costs.
-          </span>{" "}
-          {overspendLevel === "steering"
-            ? "Above 20%, so the steering committee has to approve the budget. CRAFd will be in touch about the next steps — nothing further is needed from you here."
-            : "Above 10%, so CRAFd needs to check the budget. CRAFd will be in touch about the next steps — nothing further is needed from you here."}
+      {showProposed && data.forecastsAvailable !== true && (
+        <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs text-red-900">
+          Estimated expenditure cannot be saved on this database yet — the administrator needs to run{" "}
+          <code>db/add-expenditure-forecasts.sql</code>.
         </div>
       )}
     <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
@@ -548,7 +736,7 @@ export function ExpenditurePartnerEditor({
         <thead>
           <tr className="text-xs" ref={headRowRef}>
             <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 border-r border-b align-bottom", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
-            <th colSpan={showProposed ? 5 : 3} style={fillHeight ? { position: "sticky", left: L.left("app"), top: 0, zIndex: 40 } : { position: "sticky", left: L.left("app"), zIndex: 30 }} className={cn("px-2 py-2 text-center border-r border-b", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "h-8")}>Total</th>
+            <th colSpan={showProposed ? 4 : 3} style={fillHeight ? { position: "sticky", left: L.left("app"), top: 0, zIndex: 40 } : { position: "sticky", left: L.left("app"), zIndex: 30 }} className={cn("px-2 py-2 text-center border-r border-b", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "h-8")}>Total</th>
             <th
               rowSpan={2}
               className={cn(
@@ -565,11 +753,11 @@ export function ExpenditurePartnerEditor({
             {/* nowrap: a year label that wrapped would make this row taller
                 than the row below expects, and the two would overlap. */}
             {columnYears.map((y) => (
-              <th key={y} colSpan={hasReport(y) ? 3 : 1} className={cn("px-2 py-2 text-center border-l border-b whitespace-nowrap", HEAD_DIVIDER, HEAD_COLOR, HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : extensionSet.has(y) ? EXTENSION_HEAD : HEAD_BG, fillHeight && "sticky top-0 z-30 h-8")}>
+              <th key={y} colSpan={yearSpan(y)} className={cn("px-2 py-2 text-center border-l border-b whitespace-nowrap", HEAD_DIVIDER, HEAD_COLOR, HEAD_TEXT, y === currentYear ? CURRENT_YEAR_HEAD : extensionSet.has(y) ? EXTENSION_HEAD : HEAD_BG, fillHeight && "sticky top-0 z-30 h-8")}>
                 {y}
                 {/* The year being reported is only part of a year unless this
                     update is also the annual report. */}
-                {y === currentYear && toDate && <span className="ml-1 font-normal normal-case">· to date</span>}
+                {y === currentYear && toDate && !forecastYearSet.has(y) && <span className="ml-1 font-normal normal-case">· to date</span>}
                 {extensionSet.has(y) && <span className="ml-1 font-normal normal-case">· extension</span>}
               </th>
             ))}
@@ -584,14 +772,21 @@ export function ExpenditurePartnerEditor({
             </th>
             {showProposed && (
               <>
-                <th style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)} className={cn("px-2 py-1.5 text-right border-l border-b", HEAD_DIVIDER, CURRENT_YEAR_HEAD, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>New requested total budget</th>
-                <th style={fillHeight ? { ...L.fz("pdiff", 40), top: headRowHeight } : L.fz("pdiff", 30)} className={cn("px-2 py-1.5 text-right border-r border-b", HEAD_DIVIDER, SUBHEAD_BG, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}>Difference in new budget</th>
+                <th
+                  style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)}
+                  className={cn("px-2 py-1.5 text-right border-l border-r border-b", HEAD_DIVIDER, CURRENT_YEAR_HEAD, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}
+                  title={autoRequested ? "Calculated: total expenditure so far + the estimated annual expenditure for the remaining years." : undefined}
+                >
+                  New requested total budget
+                </th>
               </>
             )}
             {columnYears.map((y) =>
-              hasReport(y)
-                ? <FragmentYearHead key={y} current={y === currentYear} toDate={y === currentYear && toDate} fillHeight={fillHeight} top={headRowHeight} />
-                : <ApprovedOnlyHead key={y} fillHeight={fillHeight} extension={extensionSet.has(y)} top={headRowHeight} />
+              forecastYearSet.has(y)
+                ? <PlannedYearHead key={y} current={y === currentYear} extension={extensionSet.has(y)} fillHeight={fillHeight} top={headRowHeight} />
+                : hasReport(y)
+                  ? <FragmentYearHead key={y} current={y === currentYear} toDate={y === currentYear && toDate} fillHeight={fillHeight} top={headRowHeight} />
+                  : <ApprovedOnlyHead key={y} fillHeight={fillHeight} extension={extensionSet.has(y)} top={headRowHeight} />
             )}
           </tr>
         </thead>
@@ -604,7 +799,7 @@ export function ExpenditurePartnerEditor({
             // triangle says "this category is over its approved budget", which
             // is worth seeing long before the 10% notice appears.
             const over = overspendByCategory.get(c.id) ?? 0;
-            const overspent = isUpdate && over > 0;
+            const overspent = over > 0.005;
             return (
               <tr key={c.id}>
                 <td style={L.fz("cat")} className="px-3 py-2 border-r border-t bg-card">
@@ -612,11 +807,13 @@ export function ExpenditurePartnerEditor({
                     className="inline-flex items-center gap-1"
                     title={
                       overspent
-                        ? `Overspent by ${formatAmount(over)} against the ${
-                            showProposed && proposedFor(c.id) !== null
-                              ? "new requested total budget"
-                              : "approved total budget"
-                          }.`
+                        ? autoRequested
+                          ? `The new requested total is ${formatAmount(over)} above the approved total budget.`
+                          : `Overspent by ${formatAmount(over)} against the ${
+                              showProposed && parseAmount(edits[c.id]?.prop ?? "") !== null
+                                ? "new requested total budget"
+                                : "approved total budget"
+                            }.`
                         : undefined
                     }
                   >
@@ -631,20 +828,15 @@ export function ExpenditurePartnerEditor({
                 <td style={L.fz("diff")} className={cn("px-2 py-2 text-right border-t bg-card", !showProposed && "border-r")}><Num value={approvedT - expT} kind="diff" /></td>
                 {showProposed && (
                   <>
-                    {/* The one editable cell in the Total block: what the partner
-                        asks to spend on this category over the whole project. */}
-                    <td style={L.fz("prop")} className="px-1 py-1 text-right border-l border-t bg-crafd-yellow/10">
-                      <Input
-                        value={edits[c.id]?.prop ?? ""}
-                        onChange={(e) => update(c.id, { prop: numericAmount(e.target.value) })}
-                        inputMode="decimal"
-                        placeholder="0"
-                        className="h-8 text-sm text-right tabular-nums"
-                        aria-label={`New requested total budget for ${c.name}`}
-                      />
+                    {/* Calculated, never typed: spent so far + planned for the
+                        remaining years of the project cycle. */}
+                    <td
+                      style={L.fz("prop")}
+                      className="px-2 py-2 text-right border-l border-r border-t bg-card"
+                      title={`Spent ${formatAmount(expT) || "0"} + estimated ${formatAmount(plannedTotal(c.id)) || "0"}`}
+                    >
+                      <Num value={proposedT} kind="strong" />
                     </td>
-                    {/* Deviation of what has been spent from what is now proposed. */}
-                    <td style={L.fz("pdiff")} className="px-2 py-2 text-right border-r border-t bg-card"><Num value={num(proposedT) - expT} kind="diff" /></td>
                   </>
                 )}
                 <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
@@ -657,6 +849,30 @@ export function ExpenditurePartnerEditor({
                 </td>
                 {columnYears.map((y) => {
                     const ap = budFor(y, c.id);
+                    // Plannable year: approved | planned (editable) | difference.
+                    if (forecastYearSet.has(y)) {
+                      const pl = plannedFor(y, c.id);
+                      return (
+                        <Fragment key={y}>
+                          <td className={cn("px-2 py-2 text-right border-l border-t", extensionSet.has(y) && EXTENSION_CELL)}>
+                            <Num value={ap} kind="approved" />
+                          </td>
+                          <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
+                            <Input
+                              value={planned[planKey(c.id, y)] ?? ""}
+                              onChange={(e) => setPlannedCell(c.id, y, e.target.value)}
+                              inputMode="decimal"
+                              placeholder="0"
+                              className="h-8 text-sm text-right tabular-nums"
+                              aria-label={`Estimated annual expenditure ${y} for ${c.name}`}
+                            />
+                          </td>
+                          <td className="px-2 py-2 text-right border-t">
+                            <Num value={pl === null ? null : num(ap) - pl} kind="diff" />
+                          </td>
+                        </Fragment>
+                      );
+                    }
                     // Years without a report show only the approved annual budget.
                     if (!hasReport(y)) return <ApprovedOnlyCell key={y} approved={ap} extension={extensionSet.has(y)} />;
                     const editable = y === currentYear;
@@ -678,9 +894,7 @@ export function ExpenditurePartnerEditor({
               );
             })}
             {/* The sub total carries the overspend verdict and nothing else:
-                orange past 10%, red past 20%. The reallocation rule has its own
-                notice above the table, which is where it stays — two different
-                flags on one row would say less, not more. */}
+                orange past 10%, red past 20% (the boxes above say the rest). */}
             {computedRow({
               label: "Project costs sub total",
               flag:
@@ -695,40 +909,86 @@ export function ExpenditurePartnerEditor({
               proposedT: sumProposedTotal,
               approvedYear: (y) => sumApproved(y),
               expYear: (y) => sumExp(y),
+              plannedYear: (y) => sumPlanned(y),
             })}
-            {/* Approved indirect costs follow the rate; what was spent on them is
-                entered for the reported year and summed across the years. The
-                REQUESTED figure is pinned to the approved one — the grant size
-                cannot change, so neither can the indirect support costs, and a
-                cell that moved while the categories were being retyped only
-                invited confusion. */}
+            {/* Approved indirect costs follow the rate. What was spent on them is
+                entered (or, for years closed by an annual report, follows the
+                rate on that year's spending). On a budget revision the
+                REQUESTED figure works like a category's: spent so far + the
+                estimated indirect support costs for the remaining years. */}
             {computedRow({
               label: `Indirect support costs (${Math.round(indirectRate * 100)}%)`,
-              flag: iscOverClaimed ? "error" : undefined,
+              flag: iscLeft < -0.005 ? "error" : undefined,
               hint: "More has been reported than the approved indirect support costs.",
               approvedT: withIndirect(sumApprovedTotal, indirectRate),
               expT: iscTotal,
-              proposedT: iscCeiling,
-              proposedTitle: `Fixed at ${Math.round(indirectRate * 100)}% of the approved project costs — a budget revision cannot change it.`,
+              proposedT: iscRequested,
+              proposedTitle: `Spent ${formatAmount(iscTotal) || "0"} + estimated ${formatAmount(iscPlannedTotal) || "0"}`,
               approvedYear: (y) => withIndirect(sumApproved(y), indirectRate),
               expYear: (y) => iscFor(y),
-              expInput: isUpdate ? { value: iscExp, onChange: setIsc } : undefined,
+              expInput: { value: iscExp, onChange: setIsc },
+              // Estimated years: the indirect support costs are estimated year by year too.
+              plannedYear: (y) => plannedIsc(y),
+              planInput: (y) => ({ value: planned[planKey("isc", y)] ?? "", onChange: (v) => setPlannedIsc(y, v) }),
             })}
             {computedRow({
               label: "Total",
               strong: true,
               approvedT: withIndirect(sumApprovedTotal, 1 + indirectRate),
               expT: sumExpTotal + iscTotal,
-              // Requested project costs plus the fixed indirect support costs:
-              // once the categories add back up, this lands on the approved total.
-              proposedT: sumProposedTotal + iscCeiling,
+              // Requested project costs plus the requested indirect support costs.
+              proposedT: sumProposedTotal + iscRequested,
               approvedYear: (y) => withIndirect(sumApproved(y), 1 + indirectRate),
               expYear: (y) => sumExp(y) + num(iscFor(y)),
+              plannedYear: (y) => sumPlanned(y) + num(plannedIsc(y)),
             })}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+// One summary box above the table. Green while there is money left (or the
+// figure is within its limit), red once it is overspent; amber for "worth a
+// look but not yet a problem".
+function SummaryBox({
+  label, value, tone, note,
+}: {
+  label: string;
+  value: string;
+  tone: "good" | "warn" | "bad" | "neutral";
+  /** Shown only when something needs attention (an overspend). */
+  note?: string;
+}) {
+  const styles = {
+    good: "border-green-200 bg-green-50 text-green-800",
+    warn: "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800",
+    bad: "border-red-200 bg-red-50 text-red-800",
+    neutral: "border-border bg-card text-foreground",
+  }[tone];
+  return (
+    <div className={cn("rounded-lg border px-4 py-2.5", styles)} role="status">
+      <div className="text-xs font-medium opacity-75">{label}</div>
+      <div className="text-xl font-semibold tabular-nums leading-tight mt-0.5">{value}</div>
+      {note && <div className="mt-1 text-xs leading-snug">{note}</div>}
+    </div>
+  );
+}
+
+// Header sub-cells for a plannable year on a budget revision (a remaining
+// project year, an extension year, or the reported year when this update does
+// not close it): approved annual budget | planned annual budget | difference.
+function PlannedYearHead({ current = false, extension = false, fillHeight = false, top }: { current?: boolean; extension?: boolean; fillHeight?: boolean; top: number }) {
+  const sticky = fillHeight && "sticky z-30";
+  const style = fillHeight ? { position: "sticky" as const, top } : undefined;
+  const bg = current ? CURRENT_YEAR_HEAD : extension ? EXTENSION_HEAD : SUBHEAD_BG;
+  return (
+    <>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Approved annual budget</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[110px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Estimated annual expenditure</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Difference</th>
+    </>
   );
 }
 

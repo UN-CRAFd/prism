@@ -62,6 +62,23 @@ async function hasIndirectColumn(): Promise<boolean> {
   return hasIndirectCache;
 }
 
+// Planned budgets for the remaining years (budget revisions), shipped in
+// db/add-expenditure-forecasts.sql. Without it the page cannot plan ahead and
+// says so; everything else keeps working.
+let hasForecastCache: boolean | null = null;
+
+async function hasForecastTable(): Promise<boolean> {
+  if (hasForecastCache !== null) return hasForecastCache;
+  const rows = await query<{ table_name: string }>(
+    `SELECT table_name
+       FROM information_schema.tables
+      WHERE table_schema = 'reporting_platform'
+        AND table_name   = 'expenditure_forecasts'`
+  );
+  hasForecastCache = rows.length === 1;
+  return hasForecastCache;
+}
+
 // Flat cross-report listing (admin "Full Data" view): one row per expenditure
 // entry (a report's spend in a category) — i.e. one row per year-entry, with the
 // matching approved budget for that category+year joined in.
@@ -247,11 +264,11 @@ export async function GET(req: NextRequest) {
 
     // Indirect support costs actually spent, per year — the same documents the
     // expenditure rows come from, read off the report row rather than a category
-    // entry. Updates only: on an annual report the row stays derived from the
-    // rate, exactly as before. A year with no figure is simply absent, and the
-    // page falls back to the rate for it.
+    // entry. Reports and updates alike: ISC spent is entered year by year on
+    // both. A year with no figure is simply absent, and the page falls back to
+    // the rate on that year's spending for it.
     const indirect =
-      isUpdate && (await hasIndirectColumn())
+      (await hasIndirectColumn())
         ? await query<{ year: number; annual_expenditure: string | null }>(
             `SELECT CASE WHEN r.id = $2 THEN $3::int ELSE r.year END AS year,
                     r.indirect_expenditure AS annual_expenditure
@@ -262,6 +279,27 @@ export async function GET(req: NextRequest) {
             [project_id, reportId, currentYear]
           )
         : [];
+
+    // ── Planning ahead (budget revisions) ─────────────────────────────────
+    // The new requested total is worked out, not typed: spending of the closed
+    // years plus what the partner plans per year from here on. So every year
+    // still to come is plannable — the rest of the project period and any year
+    // an extension adds — and, when this update does not close the current
+    // year (it is not also the annual report), the current year too: it is
+    // shown as approved | planned | difference, with no spending column.
+    const forecastsAvailable = proposedBudget && (await hasForecastTable());
+    const toDate = isUpdate && !standsInForAnnualReport;
+    const forecastYears = proposedBudget
+      ? years.filter((y) => y > currentYear || (toDate && y === currentYear))
+      : [];
+    const forecasts = forecastsAvailable
+      ? await query<{ category_id: number; year: number; planned_amount: string | null }>(
+          `SELECT category_id, year, planned_amount
+             FROM reporting_platform.expenditure_forecasts
+            WHERE report_id = $1`,
+          [reportId]
+        )
+      : [];
 
     return NextResponse.json({
       indirectRate: Number(indirect_cost_rate),
@@ -285,6 +323,9 @@ export async function GET(req: NextRequest) {
       isUpdate,
       // The page's version (see the note at the top of this file).
       proposedBudget,
+      forecastsAvailable,
+      forecastYears,
+      forecasts: forecasts.map((f) => ({ ...f, planned_amount: toAmount(f.planned_amount) })),
       extension: {
         months: extensionMonths,
         years: extensionYears,
@@ -307,7 +348,8 @@ export async function PATCH(req: NextRequest) {
   // Indirect support costs are not a budget category, so they are saved on their
   // own: { reportId, indirect_expenditure } with no categoryId.
   const sentIndirect = Object.prototype.hasOwnProperty.call(body, "indirect_expenditure");
-  if (!reportId || (!categoryId && !sentIndirect)) {
+  const sentPlanned = Object.prototype.hasOwnProperty.call(body, "planned_amount");
+  if (!reportId || (!categoryId && !sentIndirect && !sentPlanned)) {
     return NextResponse.json(
       { error: "reportId and either categoryId or indirect_expenditure required" },
       { status: 400 }
@@ -318,6 +360,60 @@ export async function PATCH(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardReport(session, reportId as string | number, { requireOpen: true });
   if (gate) return gate;
+
+  // A planned budget for one category in one future year:
+  // { reportId, categoryId, year, planned_amount }. categoryId null = the
+  // planned indirect support costs for that year.
+  if (sentPlanned) {
+    const year = Number(body.year);
+    const isc = categoryId === null || categoryId === undefined;
+    if (!Number.isInteger(year) || year < 2020 || year > 2060 || (!isc && !Number.isInteger(Number(categoryId)))) {
+      return NextResponse.json({ error: "A valid year (and categoryId, unless indirect support costs) is required" }, { status: 400 });
+    }
+    const planned = toAmount(body.planned_amount);
+    if (planned !== null && planned < 0) {
+      return NextResponse.json({ error: "Planned budget cannot be negative" }, { status: 400 });
+    }
+    try {
+      if (!(await hasForecastTable())) {
+        return NextResponse.json(
+          { error: "Planned budgets are not available on this database — run db/add-expenditure-forecasts.sql" },
+          { status: 400 }
+        );
+      }
+      // Only a project update carries a budget revision.
+      const kind = await query<{ data_type: string }>(
+        `SELECT data_type FROM reporting_platform.reports WHERE id = $1`,
+        [reportId]
+      );
+      if (kind[0]?.data_type !== "update") {
+        return NextResponse.json({ error: "Planned budgets belong to project updates" }, { status: 400 });
+      }
+      // The two unique indexes are partial, so the conflict target names the
+      // matching predicate.
+      const rows = isc
+        ? await query(
+            `INSERT INTO reporting_platform.expenditure_forecasts (report_id, category_id, year, planned_amount)
+             VALUES ($1, NULL, $2, $3)
+             ON CONFLICT (report_id, year) WHERE category_id IS NULL DO UPDATE
+               SET planned_amount = EXCLUDED.planned_amount
+             RETURNING category_id, year, planned_amount`,
+            [reportId, year, planned]
+          )
+        : await query(
+            `INSERT INTO reporting_platform.expenditure_forecasts (report_id, category_id, year, planned_amount)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (report_id, category_id, year) WHERE category_id IS NOT NULL DO UPDATE
+               SET planned_amount = EXCLUDED.planned_amount
+             RETURNING category_id, year, planned_amount`,
+            [reportId, categoryId, year, planned]
+          );
+      return NextResponse.json(rows[0]);
+    } catch (err) {
+      logger.error("PATCH /api/expenditure (planned) error:", err);
+      return NextResponse.json({ error: "Request failed" }, { status: 500 });
+    }
+  }
 
   if (sentIndirect) {
     try {

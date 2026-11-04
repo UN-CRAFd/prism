@@ -31,6 +31,7 @@ export const REPORT_SCOPED_TABLES = [
   "surveys",
   "workplan_entries",
   "expenditure_entries",
+  "expenditure_forecasts",
   "transfer_data",
   "complementary_data",
 ] as const;

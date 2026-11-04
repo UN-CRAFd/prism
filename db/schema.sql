@@ -860,6 +860,29 @@ CREATE TRIGGER expenditure_entries_updated_at
     BEFORE UPDATE ON expenditure_entries
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
+-- Budget revisions: the budget a partner plans to spend per category in each
+-- remaining project year (and in years a no cost extension adds). The new
+-- requested total = spent so far + planned; it is also written back to
+-- expenditure_entries.proposed_amount. category_id NULL = the planned indirect
+-- support costs for that year. See db/add-expenditure-forecasts.sql.
+CREATE TABLE IF NOT EXISTS expenditure_forecasts (
+    id              SERIAL        PRIMARY KEY,
+    report_id       INTEGER       NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    category_id     INTEGER       REFERENCES expenditure_categories(id) ON DELETE CASCADE,
+    year            SMALLINT      NOT NULL CHECK (year BETWEEN 2020 AND 2060),
+    planned_amount  NUMERIC(15,2) CHECK (planned_amount IS NULL OR planned_amount >= 0),
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS expenditure_forecasts_category_uq
+    ON expenditure_forecasts(report_id, category_id, year) WHERE category_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS expenditure_forecasts_isc_uq
+    ON expenditure_forecasts(report_id, year) WHERE category_id IS NULL;
+DROP TRIGGER IF EXISTS expenditure_forecasts_updated_at ON expenditure_forecasts;
+CREATE TRIGGER expenditure_forecasts_updated_at
+    BEFORE UPDATE ON expenditure_forecasts
+    FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
 -- ── HACT recommendations (per project) ──────────────────────────────────────
 -- One running list per project, maintained by CRAF'd on /admin/hact-recommendations
 -- and shown on the HACT page of every project update. The partner writes only

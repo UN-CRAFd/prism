@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, guardProject, forbidden } from "@/lib/authz";
+import { requireSession, guardProject, forbidden, guardProjectOpen } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // Standalone signatories for the Signatures tab. Not linked to partner_contacts.
@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProject(session, project_id as string | number);
   if (gate) return gate;
+  const openGate = await guardProjectOpen(session, project_id as string | number);
+  if (openGate) return openGate;
 
   try {
     const maxRow = await query<{ max: number | null }>(
@@ -106,6 +108,8 @@ export async function PATCH(req: NextRequest) {
     }
     const gate = await guardProject(session, existing[0].project_id);
     if (gate) return gate;
+    const openGate = await guardProjectOpen(session, existing[0].project_id);
+    if (openGate) return openGate;
 
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -152,6 +156,8 @@ export async function DELETE(req: NextRequest) {
     }
     const gate = await guardProject(session, existing[0].project_id);
     if (gate) return gate;
+    const openGate = await guardProjectOpen(session, existing[0].project_id);
+    if (openGate) return openGate;
 
     await query(`DELETE FROM reporting_platform.prodoc_signatories WHERE id = $1`, [id]);
     return NextResponse.json({ ok: true });

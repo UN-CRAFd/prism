@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardProject, forbidden, resolvePartnerId } from "@/lib/authz";
+import { requireSession, requireAdmin, guardProject, forbidden, resolvePartnerId, guardProjectOpen } from "@/lib/authz";
 import type { Session } from "@/lib/session";
 import { logger } from "@/lib/logger";
 
@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
   }
   const gate = await guardProject(session, projectId as string | number);
   if (gate) return gate;
+  const openGate = await guardProjectOpen(session, projectId as string | number);
+  if (openGate) return openGate;
 
   const contactId = party === "contact" ? Number(body.contact_id) : null;
   if (party === "contact") {
@@ -154,6 +156,8 @@ export async function DELETE(req: NextRequest) {
     if (party === "contact" && session.role === "admin") return forbidden();
     const gate = await guardProject(session, project_id);
     if (gate) return gate;
+    const openGate = await guardProjectOpen(session, project_id);
+    if (openGate) return openGate;
     // A partner may only un-sign their own contact's signature.
     if (party === "contact" && !(await callerOwnsContact(session, contact_id!))) {
       return forbidden();

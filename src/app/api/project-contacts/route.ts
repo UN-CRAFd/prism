@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardProject, guardProjectRow } from "@/lib/authz";
+import { requireSession, requireAdmin, guardProject, guardProjectRow, guardProjectOpen, guardProjectRowOpen } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
 
@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProject(session, project_id as string | number);
   if (gate) return gate;
+  const openGate = await guardProjectOpen(session, project_id as string | number);
+  if (openGate) return openGate;
 
   const rawRoles = typeof body.roles === "string" ? body.roles : null;
   if (rawRoles) {
@@ -173,6 +175,8 @@ export async function PATCH(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProjectRow(session, "project_contacts", id as string | number);
   if (gate) return gate;
+  const openGate = await guardProjectRowOpen(session, "project_contacts", id as string | number);
+  if (openGate) return openGate;
 
   const updates: string[] = [];
   const values: unknown[] = [id];
@@ -215,6 +219,8 @@ export async function DELETE(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProjectRow(session, "project_contacts", id);
   if (gate) return gate;
+  const openGate = await guardProjectRowOpen(session, "project_contacts", id);
+  if (openGate) return openGate;
 
   try {
     await query(`DELETE FROM reporting_platform.project_contacts WHERE id = $1`, [id]);

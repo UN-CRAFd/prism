@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
-import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
+import { requireSession, requireAdmin, guardProject, guardProjectOpen } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 
@@ -61,6 +61,8 @@ export async function PUT(
     if (session instanceof NextResponse) return session;
     const gate = await guardProject(session, id);
     if (gate) return gate;
+    const openGate = await guardProjectOpen(session, id);
+    if (openGate) return openGate;
 
     const body = await request.json();
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireSession, guardProject, guardProjectRow } from "@/lib/authz";
+import { requireSession, guardProject, guardProjectRow, guardProjectOpen, guardProjectRowOpen } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import {
   isDocumentType, MAX_DOC_BYTES, MAX_DOC_MB, isAllowedDocExtension,
@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProject(session, projectId as string);
   if (gate) return gate;
+  const openGate = await guardProjectOpen(session, projectId as string);
+  if (openGate) return openGate;
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -125,6 +127,8 @@ export async function PATCH(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProjectRow(session, "project_documents", id as string | number);
   if (gate) return gate;
+  const openGate = await guardProjectRowOpen(session, "project_documents", id as string | number);
+  if (openGate) return openGate;
 
   // Only metadata fields are editable; the file itself is immutable
   // (re-upload to replace it).
@@ -173,6 +177,8 @@ export async function DELETE(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProjectRow(session, "project_documents", id);
   if (gate) return gate;
+  const openGate = await guardProjectRowOpen(session, "project_documents", id);
+  if (openGate) return openGate;
 
   try {
     await query(`DELETE FROM reporting_platform.project_documents WHERE id = $1`, [id]);

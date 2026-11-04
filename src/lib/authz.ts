@@ -373,3 +373,37 @@ export async function guardPartnerRow(
   if (!session.org || !rowId) return forbidden();
   return (await orgOwnsPartnerRow(session.org, table, rowId)) ? null : forbidden();
 }
+
+// Partners may only write ProDoc-level data while the project's ProDoc is Open.
+// Admins are never status-locked. Returns null when the write may proceed.
+export async function guardProjectOpen(
+  session: Session,
+  projectId: number | string
+): Promise<NextResponse | null> {
+  if (session.role === "admin") return null;
+  const rows = await query<{ status: string }>(
+    `SELECT status FROM reporting_platform.reports
+      WHERE project_id = $1 AND data_type = 'prodoc' LIMIT 1`,
+    [projectId]
+  );
+  if (rows.length && rows[0].status === "Open") return null;
+  return NextResponse.json(
+    { error: "This project document has been submitted and is locked for editing." },
+    { status: 409 }
+  );
+}
+
+// Same check for handlers that receive a row id instead of a project id.
+export async function guardProjectRowOpen(
+  session: Session,
+  table: "project_documents" | "project_contacts",
+  id: number | string
+): Promise<NextResponse | null> {
+  if (session.role === "admin") return null;
+  const rows = await query<{ project_id: number }>(
+    `SELECT project_id FROM reporting_platform.${table} WHERE id = $1`,
+    [id]
+  );
+  if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return guardProjectOpen(session, rows[0].project_id);
+}

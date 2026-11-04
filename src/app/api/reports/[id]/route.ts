@@ -49,22 +49,14 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const session = await requireSession();
+    // Admin-only: partners authorise reports through /api/overview, which
+    // enforces the Open-report lock. This route must never accept partner writes.
+    const session = await requireAdmin();
     if (session instanceof NextResponse) return session;
     const gate = await guardReport(session, id);
     if (gate) return gate;
 
     const body = await request.json();
-
-    // Partners cannot change status — only the submit endpoint may do that.
-    if (body.status !== undefined && session.role !== "admin") {
-      return forbidden();
-    }
-
-    // Partners cannot move their own deadline.
-    if (body.report_submission_date !== undefined && session.role !== "admin") {
-      return forbidden();
-    }
 
     await loadOptionOverrides(); // editable report statuses reflect admin overrides
     const validStatuses = new Set(optionValues("reportStatus"));
@@ -77,6 +69,18 @@ export async function PUT(
       if (body[field] === undefined) continue;
       if (field === "status" && !validStatuses.has(body[field] as string)) {
         return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
+      }
+      if (field === "year") {
+        const y = Number(body.year);
+        if (!Number.isInteger(y) || y < 2020 || y > 2050) {
+          return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+        }
+        setClauses.push(`year = $${idx++}`);
+        values.push(y);
+        continue;
+      }
+      if (field === "authorized" && typeof body.authorized !== "boolean") {
+        return NextResponse.json({ error: "authorized must be true or false" }, { status: 400 });
       }
       setClauses.push(`${field} = $${idx++}`);
       values.push(body[field]);

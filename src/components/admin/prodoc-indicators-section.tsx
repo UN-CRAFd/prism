@@ -301,7 +301,7 @@ export function ProdocIndicatorsSection({
           <thead>
             <tr>
               <th className={headCell + " w-8 text-right pr-3"} style={headShadow}>#</th>
-              <th className={headCell + " w-full"} style={headShadow}>Indicators</th>
+              <th className={headCell + " w-full"} style={headShadow}>Indicator</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.baselineValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.baselineYear}</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>

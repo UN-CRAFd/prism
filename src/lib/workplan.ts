@@ -175,7 +175,7 @@ export function resultOptions(activities: {
     if (!seenObjectives.has(num)) {
       seenObjectives.add(num);
       const text = a.objective_text?.trim();
-      out.push({ key: `objective:${num}`, label: text ? `${num}. Objective: ${text}` : `${num}. Objective`, kind: "objective" });
+      out.push({ key: `objective:${num}`, label: text ? `${num}. Output: ${text}` : `${num}. Output`, kind: "objective" });
     }
   }
   return out;

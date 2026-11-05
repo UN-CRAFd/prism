@@ -65,7 +65,7 @@ function LinkedResultsPicker({
         <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             {selected.length === 0
-              ? <span className="text-muted-foreground py-0.5">Select outcome / objective</span>
+              ? <span className="text-muted-foreground py-0.5">Select outcome / output</span>
               : selected.map((key) => (
                   <span key={key} className="line-clamp-1 font-medium">{options.find((o) => o.key === key)?.label ?? key}</span>
                 ))}
@@ -285,7 +285,7 @@ export function ProdocIndicatorsSection({
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.baselineYear}</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.targetYear}</th>
-              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / objective</th>
+              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / output</th>
               {type === "custom" && <th className={headCell + " w-24 text-right"} style={headShadow} />}
             </tr>
           </thead>

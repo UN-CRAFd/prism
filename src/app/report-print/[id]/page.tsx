@@ -812,7 +812,7 @@ export default function ReportPrintPage() {
                                 fontWeight: 600, fontSize: 10.5, color: "#374151", background: "#f0f0ee",
                                 padding: "4px 8px 4px 20px", borderBottom: `1px solid ${LINE}`,
                               }}>
-                                {obj.num ? `${obj.num}. Objective: ` : ""}{obj.text || ""}
+                                {obj.num ? `${obj.num}. Output: ` : ""}{obj.text || ""}
                               </td>
                             </tr>
                           )}
@@ -860,7 +860,7 @@ export default function ReportPrintPage() {
                     <div key={oi} style={{ marginBottom: 6 }}>
                       {(obj.num || obj.text) && (
                         <div style={{ fontWeight: 600, fontSize: 11.5, color: "#374151", padding: "3px 0 3px 12px" }}>
-                          {obj.num ? `${obj.num}. Objective: ` : ""}{obj.text || ""}
+                          {obj.num ? `${obj.num}. Output: ` : ""}{obj.text || ""}
                         </div>
                       )}
                       {obj.activities.map((a, ai) => {

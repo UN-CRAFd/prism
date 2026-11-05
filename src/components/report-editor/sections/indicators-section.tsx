@@ -122,7 +122,7 @@ export function IndicatorsSection({
         ]}
         pastSubCols={pastSubCols}
         trailingCols={[
-          { label: "Linked outcome / objective", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
+          { label: "Linked outcome / output", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
         ]}
       >
         <tbody>

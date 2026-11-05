@@ -592,10 +592,10 @@ export function GeneralInfoAdminEditor({
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${isAdmin ? "lg:grid-cols-6" : "lg:grid-cols-5"} gap-4 items-end`}>
           {isAdmin && (
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.mptfoNumber}</label>
+              <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.mptfoNumber}</label>
               <Input
                 value={form.mptfo_project_number}
                 onChange={(e) => setField("mptfo_project_number", e.target.value)}
@@ -610,7 +610,7 @@ export function GeneralInfoAdminEditor({
               server-side (ADMIN_ONLY_FIELDS in /api/projects/[id]). */}
           {isAdmin && (
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{g.fields.status}</label>
+              <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.status}</label>
               <Select value={form.status} onValueChange={(v) => setField("status", v)}>
                 <SelectTrigger className="w-full text-sm">
                   <SelectValue />
@@ -625,7 +625,7 @@ export function GeneralInfoAdminEditor({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.grantSize}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.grantSize}</label>
             <Input
               type="text"
               inputMode="decimal"
@@ -649,7 +649,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.startDate}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.startDate}</label>
             <DateInput
               value={form.project_start_date}
               onChange={(v) => setField("project_start_date", v)}
@@ -658,7 +658,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.durationMonths}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.durationMonths}</label>
             <Input
               type="text" inputMode="numeric"
               value={form.project_duration_months}
@@ -668,7 +668,7 @@ export function GeneralInfoAdminEditor({
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.expectedEndDate}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.expectedEndDate}</label>
             <Input
               type="text"
               readOnly
@@ -681,7 +681,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.geographicScope}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.geographicScope}</label>
             <Select
               value={form.geographic_scope || GEO_SCOPE_NONE}
               onValueChange={(v) => setField("geographic_scope", v === GEO_SCOPE_NONE ? "" : v)}

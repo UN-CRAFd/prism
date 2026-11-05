@@ -968,11 +968,19 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     }
   }
 
-  // Wrapper for autosave editors so noteEdit() fires when a save starts.
-  function handleSaveStateChange(state: SaveState) {
+  // Wrapper for autosave editors so the edit clock resets when a save starts.
+  // Must keep a stable identity: child grids re-send their own state from effects
+  // keyed on this callback, which would overwrite "saved" with "idle" each render.
+  // Only touches refs and state setters, so noteEdit's logic is inlined with [] deps.
+  const handleSaveStateChange = useCallback((state: SaveState) => {
     setEditorSaveState(state);
-    if (state === "saving") noteEdit();
-  }
+    if (state === "saving") {
+      lastEditRef.current = Date.now();
+      if (lockPhaseRef.current === "warning") {
+        setLockPhase("held"); lockPhaseRef.current = "held";
+      }
+    }
+  }, []);
 
   const prevSaveStateRef = useRef<SaveState | null>(null);
   useEffect(() => {

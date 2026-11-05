@@ -54,15 +54,17 @@ function LinkedResultsPicker({
   options,
   selected,
   onChange,
+  missing = false,
 }: {
   options: ResultOption[];
   selected: string[];
   onChange: (keys: string[]) => Promise<void>;
+  missing?: boolean; // no outcome or output is linked
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50">
+        <button className={"w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50" + (missing ? " border-crafd-yellow-400" : "")}>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             {selected.length === 0
               ? <span className="text-muted-foreground py-0.5">Select outcome / output</span>
@@ -377,6 +379,7 @@ export function ProdocIndicatorsSection({
                       <LinkedResultsPicker
                         options={resultOptions(activities)}
                         selected={values.linked_results}
+                        missing={!readOnly && !(values.linked_results?.length)}
                         onChange={async (linked_results) => {
                           updateValues(line.id, { linked_results });
                           await onUpdateValues(line.id, { ...valuesFor(line), linked_results });

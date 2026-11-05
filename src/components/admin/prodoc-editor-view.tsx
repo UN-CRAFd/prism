@@ -785,21 +785,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       });
       if (!indicatorRes.ok) throw new Error("Failed to update indicator");
       const updated = await indicatorRes.json();
-      const lineRes = await fetch("/api/indicator-data", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: lineId,
-          baseline_value: patch.baseline_value,
-          baseline_year: patch.baseline_year,
-          target_value: patch.target_value,
-          target_year: patch.target_year,
-        }),
-      });
-      if (!lineRes.ok) {
-        const errData = await lineRes.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to update indicator values");
-      }
       setIndicatorLines((prev) => prev.map((line) => line.id === lineId
         ? {
             ...line,
@@ -807,10 +792,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             indicator_description: updated.description,
             means_of_verification: updated.means_of_verification,
             cycle: updated.cycle,
-            baseline_value: patch.baseline_value,
-            baseline_year: patch.baseline_year,
-            target_value: patch.target_value,
-            target_year: patch.target_year,
           }
         : line));
       handleSaveStateChange("saved");

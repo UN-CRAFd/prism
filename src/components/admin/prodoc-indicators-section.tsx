@@ -333,14 +333,14 @@ export function ProdocIndicatorsSection({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
                       <Input
                         inputMode="numeric"
                         value={values.baseline_year ?? ""}
-                        disabled={readOnly}
+                        disabled={readOnly || !!isEditing}
                         onChange={(e) => updateYear(line.id, "baseline", e.target.value)}
                         onBlur={() => saveValues(line)}
                         placeholder={labels.indicators.columns.baselineYear}
@@ -353,14 +353,14 @@ export function ProdocIndicatorsSection({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
                       <Input
                         inputMode="numeric"
                         value={values.target_year ?? ""}
-                        disabled={readOnly}
+                        disabled={readOnly || !!isEditing}
                         onChange={(e) => updateYear(line.id, "target", e.target.value)}
                         onBlur={() => saveValues(line)}
                         placeholder={labels.indicators.columns.targetYear}
@@ -373,7 +373,7 @@ export function ProdocIndicatorsSection({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className={readOnly ? "pointer-events-none opacity-50" : ""}>
+                    <div className={readOnly || isEditing ? "pointer-events-none opacity-50" : ""}>
                       <LinkedResultsPicker
                         options={resultOptions(activities)}
                         selected={values.linked_results}

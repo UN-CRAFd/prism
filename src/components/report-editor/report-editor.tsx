@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, FileQuestion, Lock, AlertTriangle, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { cn, projectSlug } from "@/lib/utils";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
@@ -840,7 +841,7 @@ export function ReportEditor({
         {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (() => {
           const instruction = labels.tabInstructions[params.section as keyof typeof labels.tabInstructions];
           return typeof instruction === "string" && instruction.trim() !== "" ? (
-            <Notice variant="info" className="mb-4">{instruction}</Notice>
+            <Notice variant="info" className="mb-4">{formatInstruction(instruction)}</Notice>
           ) : null;
         })()}
 

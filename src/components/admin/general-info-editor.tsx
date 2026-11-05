@@ -21,6 +21,7 @@ import { cn, formatAmount } from "@/lib/utils";
 import { Plus, Trash2, Users, FileText, Pencil, Check, X } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import { optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
 import { useCharLimits } from "@/lib/use-char-limits";
@@ -570,7 +571,7 @@ export function GeneralInfoAdminEditor({
 
       {!readOnly && (
         <Notice variant="info" className="order-first">
-          {labels.tabInstructions.general}
+          {formatInstruction(labels.tabInstructions.general)}
         </Notice>
       )}
 

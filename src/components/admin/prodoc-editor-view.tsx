@@ -12,6 +12,7 @@ import { HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matri
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import { PRODOC_SECTIONS } from "@/lib/prodoc-sections";
 import { numericYear, isValidYear } from "@/lib/numeric-input";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
@@ -1447,10 +1448,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         {selectedProdocId && !readOnly &&
           ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
           <Notice variant="info" className="mb-4">
-            {selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
+            {formatInstruction(
+              selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
               : selectedSection === "risk" ? labels.tabInstructions.prodocRisk
               : selectedSection === "expenditure" ? labels.tabInstructions.prodocBudgets
-              : labels.tabInstructions.prodocWorkplan}
+              : labels.tabInstructions.prodocWorkplan)}
           </Notice>
         )}
 

@@ -326,9 +326,9 @@ export function ProdocIndicatorsSection({
                               <InfoPopover description={line.indicator_description} meansOfVerification={line.means_of_verification} />
                             </span>
                           </p>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {line.category && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{line.category}</span>}
-                            {line.cycle && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {line.category && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{line.category}</span>}
+                            {line.cycle && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{cycleLabel(line.cycle)}</span>}
                           </div>
                         </div>
                       </div>

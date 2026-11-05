@@ -1571,7 +1571,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                         {risk.risk_category && risk.risk_category.length > 0 && (
                                           <div className="mt-1.5 flex flex-wrap gap-1">
                                             {risk.risk_category.map((cat) => (
-                                              <span key={cat} className="inline-flex items-center rounded-md bg-crafd-grey-100 px-2.5 py-1 text-sm font-medium text-crafd-grey-800">
+                                              <span key={cat} className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">
                                                 {cat}
                                               </span>
                                             ))}

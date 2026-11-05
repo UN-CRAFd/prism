@@ -282,7 +282,7 @@ export function TrancheScheduleEditor({
                           </button>
                         </span>
                       </th>
-                      <th className={cn("text-left px-4 py-2 w-36", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
+                      <th className={cn("text-left px-4 py-2 whitespace-nowrap w-36", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
                         {g.tranches.columns.releaseDate}
                       </th>
                       <th className={cn("text-left px-4 py-2 w-72 min-w-[200px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
@@ -337,12 +337,12 @@ export function TrancheScheduleEditor({
                               disabled={readOnly}
                             />
                           </td>
-                          <td className="px-4 py-3 align-middle w-36">
+                          <td className="px-4 py-3 align-middle w-44 min-w-[160px]">
                             <DateInput
                               value={releaseDate}
                               onChange={(v) => setCell(org.id, tn, { release_date: v })}
                               disabled={readOnly}
-                              className={cn(needsDate && "border-crafd-yellow-400")}
+                              className={cn("min-w-[140px]", needsDate && "border-crafd-yellow-400")}
                               aria-label={`Tranche ${tn} release date for ${org.name}`}
                             />
                           </td>

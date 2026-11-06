@@ -59,7 +59,16 @@ export async function PUT(
     const body = await request.json();
 
     await loadOptionOverrides(); // editable report statuses reflect admin overrides
-    const validStatuses = new Set(optionValues("reportStatus"));
+    // Project documents have their own workflow list (Open / Under Review /
+    // Approved); reports and project updates use the report-status list.
+    let validStatuses = new Set(optionValues("reportStatus"));
+    if (body.status !== undefined) {
+      const kind = await query<{ data_type: string }>(
+        `SELECT data_type FROM reporting_platform.reports WHERE id = $1`,
+        [id]
+      );
+      if (kind[0]?.data_type === "prodoc") validStatuses = new Set(optionValues("prodocStatus"));
+    }
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
@@ -156,6 +165,37 @@ export async function PUT(
         },
         client
       );
+
+      // Approving a project document puts the project into "Ongoing" — in this same
+      // transaction and logged like any other status change — provided that status
+      // exists in the (admin-editable) project status options.
+      if (data_type === "prodoc" && newStatus === "Approved" && optionValues("projectStatus").includes("Ongoing")) {
+        const proj = await client.query<{ status: string | null; project_title: string }>(
+          `SELECT status, project_title FROM reporting_platform.projects WHERE id = $1 FOR UPDATE`,
+          [project_id]
+        );
+        if (proj.rows.length && proj.rows[0].status !== "Ongoing") {
+          await client.query(
+            `UPDATE reporting_platform.projects SET status = 'Ongoing' WHERE id = $1`,
+            [project_id]
+          );
+          await logStatusChange(
+            {
+              entity_type: "project",
+              entity_id: project_id,
+              entity_label: proj.rows[0].project_title,
+              project_id,
+              from_status: proj.rows[0].status,
+              to_status: "Ongoing",
+              actor_role: session.role,
+              actor_org: session.org ?? null,
+              actor_name: (body.actor_name as string | undefined) ?? null,
+              reason: (body.reason as string | undefined) ?? "Project document approved",
+            },
+            client
+          );
+        }
+      }
 
       await client.query("COMMIT");
       return NextResponse.json(updateResult.rows[0]);

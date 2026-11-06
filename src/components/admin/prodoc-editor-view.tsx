@@ -71,7 +71,7 @@ interface Prodoc {
 
   project_start_date: string | null;
   project_duration_months: number | null;
-  status: string | null; // Open | Under Review | Closed — gates editability
+  status: string | null; // Open | Under Review | Approved (legacy: Closed) — gates editability
 }
 
 interface Risk {
@@ -375,12 +375,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }, [selectedSection, selectedProdocId]);
 
   // Status → who can edit (same rule as reports):
-  //   Open → admin + partner · Under Review → admin only · Closed → no one
+  //   Open → admin + partner · Under Review → admin only · Approved (or legacy
+  //   Closed) → no one
   // Computed here (before lock effects) so the acquire effect can depend on it.
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
   const statusReadOnly =
     !!selectedDoc &&
     (selectedDoc.status === "Closed" ||
+      selectedDoc.status === "Approved" ||
       (selectedDoc.status === "Under Review" && isPartner));
 
   // ── Editor lock effects ──────────────────────────────────────────────

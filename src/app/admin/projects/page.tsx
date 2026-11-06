@@ -527,8 +527,8 @@ export default function ProjectsPage() {
     setTimeout(() => setPrintingId(null), 1500);
   }
 
-  // Set the prodoc's editable status (Open / Under Review / Closed) — same
-  // status model as reports. Opens the StatusChangeDialog to collect a name
+  // Set the prodoc's workflow status (Open / Under Review / Approved). Approving
+  // also moves the project to Ongoing (done server-side in the same request). Opens the StatusChangeDialog to collect a name
   // and reason before applying. Optimistic; persisted via PUT /api/reports/:id.
   function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
     setPendingStatusChange({
@@ -544,6 +544,9 @@ export default function ProjectsPage() {
     const { projectId, prodocId, status } = pendingStatusChange;
     setPendingStatusChange(null);
     setProdocByProject((prev) => ({ ...prev, [projectId]: { ...prev[projectId], id: prodocId, status } }));
+    if (status === "Approved" && optionValues("projectStatus").includes("Ongoing")) {
+      setProjects((ps) => ps.map((p) => (p.id === projectId ? { ...p, status: "Ongoing" } : p)));
+    }
     await fetch(`/api/reports/${prodocId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -569,7 +572,7 @@ export default function ProjectsPage() {
           [p.project_title, p.short_name, p.partner_short_name, p.partner_long_name, p.mptfo_project_number]
             .some((v) => v?.toLowerCase().includes(q)))
     );
-    const prodocOrder = optionValues("reportStatus");
+    const prodocOrder = optionValues("prodocStatus");
     const statusOrder = optionValues("projectStatus");
     return sortBy(
       matched,
@@ -636,7 +639,7 @@ export default function ProjectsPage() {
         />
         <FilterSelect
           icon={CircleDot}
-          label="Status"
+          label="Project Status"
           value={filterStatus}
           onChange={setFilterStatus}
           allLabel="All statuses"
@@ -645,12 +648,12 @@ export default function ProjectsPage() {
         />
         <FilterSelect
           icon={FileText}
-          label="ProDoc"
+          label="Project Workflow"
           value={filterProdocStatus}
           onChange={setFilterProdocStatus}
           allLabel="All"
           width={140}
-          options={optionValues("reportStatus").map((s) => ({ value: s, label: s }))}
+          options={optionValues("prodocStatus").map((s) => ({ value: s, label: s }))}
         />
         {scopes.length > 0 && (
           <FilterSelect
@@ -765,13 +768,13 @@ export default function ProjectsPage() {
                 <TableHead className="w-10 text-right">#</TableHead>
                 <SortableHead label="Partner" column="partner_short_name" {...sortProps} />
                 <SortableHead label="Project title" column="project_title" {...sortProps} />
-                <SortableHead label="Status" column="status" className="w-48" {...sortProps} />
+                <SortableHead label="Project Status" column="status" className="w-48" {...sortProps} />
                 <SortableHead label="Archive" column="archived" {...sortProps} />
                 <SortableHead label="MPTFO #" column="mptfo_project_number" {...sortProps} />
                 <SortableHead label="Grant size" column="grant_size_usd" align="right" className="text-right" {...sortProps} />
                 <SortableHead label="Duration" column="project_duration_months" {...sortProps} />
                 <SortableHead label="Scope" column="geographic_scope" {...sortProps} />
-                <SortableHead label="ProDoc" column="prodoc" {...sortProps} />
+                <SortableHead label="Project Workflow" column="prodoc" {...sortProps} />
                 <SortableHead label="Progress" column="progress" {...sortProps} />
                 <SortableHead label="Last edited" column="last_edited" {...sortProps} />
                 <TableHead className="w-12" />
@@ -856,7 +859,10 @@ export default function ProjectsPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {optionValues("reportStatus").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          {/* A legacy status no longer in the list (e.g. Closed) stays
+                              visible so the cell never renders blank. */}
+                          {(optionValues("prodocStatus").includes(pd.status) ? optionValues("prodocStatus") : [...optionValues("prodocStatus"), pd.status])
+                            .map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     ) : <Dash />}

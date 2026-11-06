@@ -329,6 +329,7 @@ body::-webkit-scrollbar {
 .rte-content table,
 .rich-html table {
   border-collapse: collapse;
+  table-layout: fixed;
   width: 100%;
   margin: 0 0 0.5rem;
   font-size: 0.95em;
@@ -342,6 +343,8 @@ body::-webkit-scrollbar {
   text-align: left;
   vertical-align: top;
   min-width: 2.5rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .rte-content th,
 .rich-html th {

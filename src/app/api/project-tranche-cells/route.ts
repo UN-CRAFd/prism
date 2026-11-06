@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
-import { requireSession, guardProject } from "@/lib/authz";
+import { requireSession, guardProject, guardProjectOpen } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
 // Tranche matrix cells for the project document. Each cell is one position in a
@@ -100,6 +100,8 @@ export async function PUT(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   const gate = await guardProject(session, project_id as string | number);
   if (gate) return gate;
+  const openGate = await guardProjectOpen(session, project_id as string | number);
+  if (openGate) return openGate;
 
   const client = await pool.connect();
   try {

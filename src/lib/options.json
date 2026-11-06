@@ -33,12 +33,22 @@
   },
   "reportStatus": {
     "label": "Report status",
-    "description": "Workflow status of a report or project document (Open / Under Review / Closed).",
+    "description": "Workflow status of a report or project update (Open / Under Review / Closed). Project documents have their own list.",
     "kind": "flat",
     "items": [
       { "value": "Open", "label": "Open" },
       { "value": "Under Review", "label": "Under Review" },
       { "value": "Closed", "label": "Closed" }
+    ]
+  },
+  "prodocStatus": {
+    "label": "Project document status",
+    "description": "Workflow status of a project document (ProDoc): Open / Under Review / Approved. Reports and project updates use the Report status list instead.",
+    "kind": "flat",
+    "items": [
+      { "value": "Open", "label": "Open" },
+      { "value": "Under Review", "label": "Under Review" },
+      { "value": "Approved", "label": "Approved" }
     ]
   },
   "reportType": {

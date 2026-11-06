@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import type { ComboboxItem } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR } from "@/components/report-editor/matrix-table";
-import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import labels from "@/lib/labels";
 import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
 import { cycleLabel, CYCLE_KEYS, DEFAULT_CYCLE } from "@/lib/indicators";
@@ -54,18 +53,20 @@ function LinkedResultsPicker({
   options,
   selected,
   onChange,
+  missing = false,
 }: {
   options: ResultOption[];
   selected: string[];
   onChange: (keys: string[]) => Promise<void>;
+  missing?: boolean; // no outcome or output is linked
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50">
+        <button className={"w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50" + (missing ? " border-crafd-yellow-400" : "")}>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             {selected.length === 0
-              ? <span className="text-muted-foreground py-0.5">Select outcome / objective</span>
+              ? <span className="text-muted-foreground py-0.5">Select outcome / output</span>
               : selected.map((key) => (
                   <span key={key} className="line-clamp-1 font-medium">{options.find((o) => o.key === key)?.label ?? key}</span>
                 ))}
@@ -123,7 +124,6 @@ export function ProdocIndicatorsSection({
   fillHeight: boolean;
   activities: ContributorActivity[];
 }) {
-  const [table, setTable] = useState<IndicatorTableKey>("standard");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<ProdocIndicatorEdit | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -136,6 +136,29 @@ export function ProdocIndicatorsSection({
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">>>({});
   const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
+  // New-row feedback: after a custom indicator is created, scroll to its row and
+  // flash it. The new row is detected by its id first appearing in `lines`.
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const awaitingNewRef = useRef(false);
+  const knownIdsRef = useRef<Set<number> | null>(null);
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const known = knownIdsRef.current;
+    knownIdsRef.current = new Set(lines.map((l) => l.id));
+    if (!known || !awaitingNewRef.current) return;
+    const added = lines.filter((l) => !known.has(l.id) && !l.is_standard);
+    if (added.length === 0) return;
+    awaitingNewRef.current = false;
+    const newId = added[added.length - 1].id;
+    rowRefs.current.get(newId)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    setHighlightId(newId);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightId(null), 1000);
+  }, [lines]);
+
+  useEffect(() => () => { if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current); }, []);
 
   function startEdit(line: ProdocIndicatorLine) {
     setEditingId(line.id);
@@ -232,9 +255,13 @@ export function ProdocIndicatorsSection({
   async function submitCreate() {
     if (!createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()) return;
     setCreatingBusy(true);
+    awaitingNewRef.current = true;
     try {
       await onCreate(createName.trim(), createDescription.trim(), createMeansOfVerification.trim(), createCycle);
       cancelCreate();
+    } catch (e) {
+      awaitingNewRef.current = false;
+      throw e;
     } finally {
       setCreatingBusy(false);
     }
@@ -247,8 +274,10 @@ export function ProdocIndicatorsSection({
   // the frozen heads on the workplan / expenditure / risk tabs.
   const headCell = `sticky top-0 z-10 ${HEAD_BG} px-4 py-3 text-left whitespace-nowrap ${HEAD_COLOR} ${HEAD_TEXT}`;
   const headShadow = { boxShadow: `inset 0 -1px 0 ${HEAD_DIVIDER_COLOR}` };
+  // Actions column header: same cell with tight horizontal padding.
+  const headCellTight = headCell.replace(" px-4 ", " px-2 ");
 
-  function renderTable(tableLines: ProdocIndicatorLine[], type: "standard" | "custom", footer?: React.ReactNode) {
+  function renderTable(tableLines: ProdocIndicatorLine[], footer?: React.ReactNode) {
     return (
       // Two nested elements with different jobs. The outer one is an invisible layout
       // slot: `flex-1 min-h-0` claims whatever height the tab has left, which is what
@@ -272,31 +301,27 @@ export function ProdocIndicatorsSection({
           <thead>
             <tr>
               <th className={headCell + " w-8 text-right pr-3"} style={headShadow}>#</th>
-              <th className={headCell} style={headShadow}>
-                <span className="inline-flex items-center gap-1.5">
-                  {type === "standard" ? labels.indicators.columns.standardIndicator : labels.indicators.columns.customIndicator}
-                  <InfoPopover description={type === "standard"
-                    ? "These are standard indicators used across all CRAF'd-supported projects."
-                    : "These are custom indicators specific to this project document."}
-                  />
-                </span>
-              </th>
+              <th className={headCell + " w-full"} style={headShadow}>Indicator</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.baselineValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.baselineYear}</th>
               <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.targetYear}</th>
-              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / objective</th>
-              {type === "custom" && <th className={headCell + " w-24 text-right"} style={headShadow} />}
+              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / output</th>
+              <th className={headCellTight + " w-16 text-right"} style={headShadow} />
             </tr>
           </thead>
           <tbody className="divide-y">
             {tableLines.length === 0 ? (
-              <tr><td colSpan={type === "custom" ? 8 : 7} className="px-4 py-8 text-center text-sm text-muted-foreground">{type === "standard" ? "No standard indicators added yet." : "No custom indicators added yet."}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">No indicators added yet.</td></tr>
             ) : tableLines.map((line, idx) => {
               const isEditing = editingId === line.id && draft;
               const values = valuesFor(line);
               return (
-                <tr key={line.id} className="align-top transition-colors hover:bg-muted/20">
+                <tr
+                  key={line.id}
+                  ref={(el) => { if (el) rowRefs.current.set(line.id, el); else rowRefs.current.delete(line.id); }}
+                  className={"align-top transition-colors duration-700 hover:bg-muted/20" + (highlightId === line.id ? " bg-crafd-yellow-100" : "")}
+                >
                   <td className="px-4 py-3 w-8 text-right text-xs tabular-nums text-muted-foreground align-top">{idx + 1}.</td>
                   <td className="px-4 py-3">
                     {isEditing ? (
@@ -324,23 +349,24 @@ export function ProdocIndicatorsSection({
                               <InfoPopover description={line.indicator_description} meansOfVerification={line.means_of_verification} />
                             </span>
                           </p>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {line.category && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{line.category}</span>}
-                            {line.cycle && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{cycleLabel(line.cycle)}</span>}
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {line.category && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{line.category}</span>}
+                            {line.cycle && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{cycleLabel(line.cycle)}</span>}
+                            <span className={"inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap " + (line.is_standard ? "border-crafd-grey-100 bg-crafd-grey-100 text-crafd-grey-800" : "border-crafd-yellow bg-crafd-yellow-600 text-crafd-grey-900")}>{line.is_standard ? "Standard" : "Custom"}</span>
                           </div>
                         </div>
                       </div>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
                       <Input
                         inputMode="numeric"
                         value={values.baseline_year ?? ""}
-                        disabled={readOnly}
+                        disabled={readOnly || !!isEditing}
                         onChange={(e) => updateYear(line.id, "baseline", e.target.value)}
                         onBlur={() => saveValues(line)}
                         placeholder={labels.indicators.columns.baselineYear}
@@ -353,14 +379,14 @@ export function ProdocIndicatorsSection({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
                       <Input
                         inputMode="numeric"
                         value={values.target_year ?? ""}
-                        disabled={readOnly}
+                        disabled={readOnly || !!isEditing}
                         onChange={(e) => updateYear(line.id, "target", e.target.value)}
                         onBlur={() => saveValues(line)}
                         placeholder={labels.indicators.columns.targetYear}
@@ -372,11 +398,12 @@ export function ProdocIndicatorsSection({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className={readOnly ? "pointer-events-none opacity-50" : ""}>
+                  <td className="py-3 pl-4 pr-2">
+                    <div className={"w-full " + (readOnly || isEditing ? "pointer-events-none opacity-50" : "")}>
                       <LinkedResultsPicker
                         options={resultOptions(activities)}
                         selected={values.linked_results}
+                        missing={!readOnly && !(values.linked_results?.length)}
                         onChange={async (linked_results) => {
                           updateValues(line.id, { linked_results });
                           await onUpdateValues(line.id, { ...valuesFor(line), linked_results });
@@ -384,15 +411,17 @@ export function ProdocIndicatorsSection({
                       />
                     </div>
                   </td>
-                  {type === "custom" && (
-                    <td className="px-4 py-3">
+                  {line.is_standard ? (
+                    <td className="px-2 py-3" />
+                  ) : (
+                    <td className="px-2 py-3">
                       {isEditing ? (
                         <div className="flex items-center justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => save(line)} disabled={savingId === line.id || !draft.name.trim()}>{savingId === line.id ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}</Button>
                           <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setDraft(null); }} disabled={savingId === line.id}>{labels.common.cancel}</Button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center justify-end gap-2">
                           <button disabled={readOnly} onClick={() => startEdit(line)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" title="Edit indicator" aria-label={`Edit indicator ${line.indicator_name}`}><Pencil className="size-3.5" /></button>
                           <button disabled={readOnly || deletingId === line.id} onClick={async () => { setDeletingId(line.id); try { await onDelete(line.id); } finally { setDeletingId(null); } }} className="text-muted-foreground hover:text-destructive disabled:opacity-40" title="Remove indicator" aria-label={`Remove indicator ${line.indicator_name}`}>{deletingId === line.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}</button>
                         </div>
@@ -413,9 +442,9 @@ export function ProdocIndicatorsSection({
   const standardLines = lines.filter((line) => line.is_standard);
   const customLines = lines.filter((line) => !line.is_standard);
 
-  // Adding only ever creates a customised project indicator, so this rides with
-  // that table only — tucked under its bottom-right corner, with the create form
-  // opening downwards from there. The CRAF'd standard library is the controlled
+  // Adding only ever creates a customised project indicator — tucked under the
+  // table's bottom-right corner, with the create form opening downwards from
+  // there. The CRAF'd standard library is the controlled
   // vocabulary and is curated from the admin indicators page.
   //
   // Kept mounted when the document is read-only instead of hidden: the surrounding
@@ -463,16 +492,7 @@ export function ProdocIndicatorsSection({
 
   return (
     <div className={"flex flex-col gap-4 " + (fillHeight ? "flex-1 min-h-0" : "")}>
-      <div className="flex shrink-0 justify-end">
-        <IndicatorTableSwitch
-          value={table}
-          onChange={setTable}
-          standardCount={standardLines.length}
-          customCount={customLines.length}
-        />
-      </div>
-      {table === "standard" && renderTable(standardLines, "standard")}
-      {table === "custom" && renderTable(customLines, "custom", addIndicatorFooter)}
+      {renderTable([...standardLines, ...customLines], addIndicatorFooter)}
     </div>
   );
 }

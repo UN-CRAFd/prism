@@ -16,7 +16,6 @@ import {
   CalendarDays,
   Building2,
   Plus,
-  Trash2,
   CircleDot,
   FolderKanban,
   Tags,
@@ -35,6 +34,7 @@ import {
   ReportStatusSelect,
   ReportAuthCell,
   ReportProgressCell,
+  ReportRowMenu,
   CreateReportForm,
   useReportCompletion,
 } from "@/components/admin/report-components";
@@ -145,6 +145,11 @@ export default function ProjectUpdatesPage() {
 
   // Completion per update (Progress column).
   const completion = useReportCompletion(reports);
+
+  // Keep the list in step after the submission date is edited from the row menu.
+  function handleDateChanged(id: number, date: string) {
+    setReports((prev) => prev.map((x) => (x.id === id ? { ...x, report_submission_date: date } : x)));
+  }
 
   // Keep the list in step after a status change from a table row.
   function handleStatusChanged(id: number, status: ReportRow["status"]) {
@@ -428,16 +433,8 @@ export default function ProjectUpdatesPage() {
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={r.last_edited ? formatDate(r.last_edited) : undefined}>
                     {r.last_edited ? timeAgo(r.last_edited) : "—"}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleDelete(r)}
-                        className="rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <ReportRowMenu report={r} onDelete={() => handleDelete(r)} onDateChanged={handleDateChanged} />
                   </TableCell>
                 </TableRow>
               ))}

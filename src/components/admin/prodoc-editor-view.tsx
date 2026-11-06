@@ -12,6 +12,7 @@ import { HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matri
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import { PRODOC_SECTIONS } from "@/lib/prodoc-sections";
 import { numericYear, isValidYear } from "@/lib/numeric-input";
 import { WorkplanAdminEditor } from "@/components/workplan-grid";
@@ -70,7 +71,7 @@ interface Prodoc {
 
   project_start_date: string | null;
   project_duration_months: number | null;
-  status: string | null; // Open | Under Review | Closed — gates editability
+  status: string | null; // Open | Under Review | Approved (legacy: Closed) — gates editability
 }
 
 interface Risk {
@@ -374,12 +375,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }, [selectedSection, selectedProdocId]);
 
   // Status → who can edit (same rule as reports):
-  //   Open → admin + partner · Under Review → admin only · Closed → no one
+  //   Open → admin + partner · Under Review → admin only · Approved (or legacy
+  //   Closed) → no one
   // Computed here (before lock effects) so the acquire effect can depend on it.
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
   const statusReadOnly =
     !!selectedDoc &&
     (selectedDoc.status === "Closed" ||
+      selectedDoc.status === "Approved" ||
       (selectedDoc.status === "Under Review" && isPartner));
 
   // ── Editor lock effects ──────────────────────────────────────────────
@@ -785,21 +788,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       });
       if (!indicatorRes.ok) throw new Error("Failed to update indicator");
       const updated = await indicatorRes.json();
-      const lineRes = await fetch("/api/indicator-data", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: lineId,
-          baseline_value: patch.baseline_value,
-          baseline_year: patch.baseline_year,
-          target_value: patch.target_value,
-          target_year: patch.target_year,
-        }),
-      });
-      if (!lineRes.ok) {
-        const errData = await lineRes.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to update indicator values");
-      }
       setIndicatorLines((prev) => prev.map((line) => line.id === lineId
         ? {
             ...line,
@@ -807,10 +795,6 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             indicator_description: updated.description,
             means_of_verification: updated.means_of_verification,
             cycle: updated.cycle,
-            baseline_value: patch.baseline_value,
-            baseline_year: patch.baseline_year,
-            target_value: patch.target_value,
-            target_year: patch.target_year,
           }
         : line));
       handleSaveStateChange("saved");
@@ -968,11 +952,19 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     }
   }
 
-  // Wrapper for autosave editors so noteEdit() fires when a save starts.
-  function handleSaveStateChange(state: SaveState) {
+  // Wrapper for autosave editors so the edit clock resets when a save starts.
+  // Must keep a stable identity: child grids re-send their own state from effects
+  // keyed on this callback, which would overwrite "saved" with "idle" each render.
+  // Only touches refs and state setters, so noteEdit's logic is inlined with [] deps.
+  const handleSaveStateChange = useCallback((state: SaveState) => {
     setEditorSaveState(state);
-    if (state === "saving") noteEdit();
-  }
+    if (state === "saving") {
+      lastEditRef.current = Date.now();
+      if (lockPhaseRef.current === "warning") {
+        setLockPhase("held"); lockPhaseRef.current = "held";
+      }
+    }
+  }, []);
 
   const prevSaveStateRef = useRef<SaveState | null>(null);
   useEffect(() => {
@@ -1277,7 +1269,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // body scrolls rather than scrolling with the whole page.
   const fillHeight =
     !!selectedProdocId &&
-    ["workplan", "indicators"].includes(selectedSection);
+    ["workplan", "indicators", "risk"].includes(selectedSection);
 
   const nextSection = (() => {
     const i = sections.findIndex((s) => s.value === selectedSection);
@@ -1295,6 +1287,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   // redraws it. Opaque bg keeps scrolled rows from showing through.
   const stickyHead = fillHeight ? "sticky top-0 z-10 bg-neutral-100" : "";
   const stickyHeadStyle = fillHeight ? { boxShadow: "inset 0 -1px 0 var(--border)" } : undefined;
+  // The new-risk entry row pins to the bottom of the scroll box so it stays
+  // visible however many risks scroll above it (opaque bg, top edge redrawn).
+  const stickyFoot = fillHeight ? "sticky bottom-0 z-10 bg-neutral-50" : "";
+  const stickyFootStyle = fillHeight ? { boxShadow: "inset 0 1px 0 var(--border)" } : undefined;
 
   return (
     // Reuse the report editor's comment thread system for the project document:
@@ -1454,10 +1450,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         {selectedProdocId && !readOnly &&
           ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
           <Notice variant="info" className="mb-4">
-            {selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
+            {formatInstruction(
+              selectedSection === "indicators" ? labels.tabInstructions.prodocIndicators
               : selectedSection === "risk" ? labels.tabInstructions.prodocRisk
               : selectedSection === "expenditure" ? labels.tabInstructions.prodocBudgets
-              : labels.tabInstructions.prodocWorkplan}
+              : labels.tabInstructions.prodocWorkplan)}
           </Notice>
         )}
 
@@ -1514,7 +1511,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
             )}
 
             {visitedRef.current.has("risk") && (
-              <div hidden={selectedSection !== "risk"} className="space-y-3">
+              <div hidden={selectedSection !== "risk"} className={cn(fillHeight ? "flex flex-col flex-1 min-h-0 gap-3" : "space-y-3")}>
                 {loadingRisk && risks.length === 0 ? (
                   <LoadingState className="py-8" />
                 ) : risks.length === 0 && !showAddRiskRow ? (
@@ -1522,17 +1519,17 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                     {labels.adminEditor.emptyRisks}
                   </div>
                 ) : (
-                  <div className="rounded-xl border bg-card overflow-hidden overflow-x-auto">
+                  <div className={cn("rounded-xl border bg-card overflow-auto min-h-0", !fillHeight && "max-h-[28rem]")}>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className={cn("border-b", HEAD_BG)}>
-                          <th className={cn("text-left px-4 py-3 w-8", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.number}</th>
-                          <th className={cn("text-left px-4 py-3 w-96", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.risk}</th>
-                          <th className={cn("text-left px-4 py-3 w-32", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.likelihood}</th>
-                          <th className={cn("text-left px-4 py-3 w-32", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.impact}</th>
-                          <th className={cn("text-left px-4 py-3 w-28", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.riskLevel}</th>
-                          <th className={cn("text-left px-4 py-3", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.approvedMitigation}</th>
-                          <th className={cn("text-right px-4 py-3 w-28", HEAD_COLOR, HEAD_TEXT)}>{labels.risk.columns.actions}</th>
+                          <th className={cn("text-left px-4 py-3 w-8", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.number}</th>
+                          <th className={cn("text-left px-4 py-3 w-96", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.risk}</th>
+                          <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.likelihood}</th>
+                          <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.impact}</th>
+                          <th className={cn("text-left px-4 py-3 w-28", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.riskLevel}</th>
+                          <th className={cn("text-left px-4 py-3", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.approvedMitigation}</th>
+                          <th className={cn("text-right px-4 py-3 w-28", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -1582,7 +1579,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                         {risk.risk_category && risk.risk_category.length > 0 && (
                                           <div className="mt-1.5 flex flex-wrap gap-1">
                                             {risk.risk_category.map((cat) => (
-                                              <span key={cat} className="inline-flex items-center rounded-md bg-crafd-grey-100 px-2.5 py-1 text-sm font-medium text-crafd-grey-800">
+                                              <span key={cat} className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">
                                                 {cat}
                                               </span>
                                             ))}
@@ -1644,31 +1641,34 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                         {showAddRiskRow && (
                           <>
                             <tr className="bg-muted/10">
-                              <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{risks.length + 1}.</td>
-                              <td className="px-4 py-3 align-top">
+                              <td className={cn("px-4 py-3 text-xs font-mono text-muted-foreground align-top", stickyFoot)} style={stickyFootStyle}>{risks.length + 1}.</td>
+                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className="flex flex-col gap-2">
                                   <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => { setNewRiskName(e.target.value); if (newRiskErrors.name) setNewRiskErrors((p) => ({ ...p, name: false })); }} className={cn("text-sm", newRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />
                                   <Textarea placeholder={labels.placeholders.riskDescription} value={newRiskDescription} onChange={(e) => { setNewRiskDescription(e.target.value); if (newRiskErrors.description) setNewRiskErrors((p) => ({ ...p, description: false })); }} className={cn("text-sm min-h-[60px] resize-y", newRiskErrors.description && "border-destructive focus-visible:ring-destructive")} />
                                   <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
+                                  {(newRiskErrors.name || newRiskErrors.description || newRiskErrors.likelihood || newRiskErrors.impact) && (
+                                    <p className="text-xs text-destructive">Add a name, description, likelihood and impact to save this risk.</p>
+                                  )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 align-top">
+                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className={cn(newRiskErrors.likelihood && "rounded-md ring-1 ring-destructive")}>
                                   <ScaleSelect kind="likelihood" value={newRiskLikelihood} onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
                                 </div>
                               </td>
-                              <td className="px-4 py-3 align-top">
+                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className={cn(newRiskErrors.impact && "rounded-md ring-1 ring-destructive")}>
                                   <ScaleSelect kind="impact" value={newRiskImpact} onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
                                 </div>
                               </td>
-                              <td className="px-4 py-3 align-top">
+                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <RiskLevelBadge likelihood={newRiskLikelihood} impact={newRiskImpact} />
                               </td>
-                              <td className="px-4 py-3 align-top">
+                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <Textarea placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="text-sm min-h-[80px] resize-y" />
                               </td>
-                              <td className="px-4 py-3 align-top">
+                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className="flex items-center justify-end gap-2">
                                   <Button size="sm" variant="outline" onClick={handleRiskAdd} disabled={addingRisk}>
                                     {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
@@ -1677,15 +1677,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                 </div>
                               </td>
                             </tr>
-                            {(newRiskErrors.name || newRiskErrors.description || newRiskErrors.likelihood || newRiskErrors.impact) && (
-                              <tr className="bg-muted/10">
-                                <td />
-                                <td colSpan={6} className="px-4 pb-3 pt-0">
-                                  <p className="text-xs text-destructive">Add a name, description, likelihood and impact to save this risk.</p>
-                                </td>
-                              </tr>
-                            )}
-                          </>
+                            </>
                         )}
                       </tbody>
                     </table>

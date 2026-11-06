@@ -4,6 +4,22 @@ import labels from "@/lib/labels";
 // bar and the sidebar sub-menu so the two can never drift. `value` is the URL
 // segment used in /partner/report-editor/[project]/[year]/[section].
 
+// Optional sections: an empty one counts as complete (not every project uses
+// them), so they are left out of the progress percentage — numerator and
+// denominator — or a brand-new report would already read as 14% done. The sidebar
+// shows no completion tick for them either (empty ≠ done). Their per-section
+// completion itself, which blocks submit while a row is half-filled, is unaffected.
+const OPTIONAL_PROGRESS_SECTIONS = ["transfers", "complementary"];
+export const countsTowardProgress = (sectionValue: string) => !OPTIONAL_PROGRESS_SECTIONS.includes(sectionValue);
+
+// The sections an update's progress is measured over: its unlocked sections minus
+// the optional ones — unless that leaves nothing (an update that unlocks only
+// Transfers and/or Complementary), in which case they count so it can reach 100%.
+export function progressSections(unlocked: string[]): string[] {
+  const counted = unlocked.filter(countsTowardProgress);
+  return counted.length > 0 ? counted : unlocked;
+}
+
 export type ReportSectionGroup = "Qualitative" | "Quantitative";
 
 export interface ReportSection {

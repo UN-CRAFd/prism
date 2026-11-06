@@ -52,6 +52,9 @@ export function RichTextEditor({
   disabled,
   maxChars,
   onUploadImage,
+  tools,
+  onSubmit,
+  autoFocus,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -66,6 +69,13 @@ export function RichTextEditor({
   // and file-drop. The callback receives the File and must return a URL string (the
   // image URL to insert). Without this prop the editor behaves exactly as today.
   onUploadImage?: (file: File) => Promise<string>;
+  // When set, only these toolbar commands are offered and pasted content is
+  // reduced to plain text, so nothing outside the allowed formatting (lists,
+  // tables, images) can sneak in. Omit for the full editor.
+  tools?: ToolButton["command"][];
+  // Cmd/Ctrl+Enter calls this (e.g. to post a comment).
+  onSubmit?: () => void;
+  autoFocus?: boolean;
 }) {
   const readOnly = useReadOnly();
   const ro = disabled ?? readOnly;
@@ -76,6 +86,12 @@ export function RichTextEditor({
   const lastValue = useRef<string>(" ");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const buttons = tools ? BUTTONS.filter((b) => tools.includes(b.command)) : BUTTONS;
+
+  useEffect(() => {
+    if (autoFocus && !ro) ref.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
@@ -159,7 +175,7 @@ export function RichTextEditor({
     >
       {!ro && (
         <div className="flex items-center gap-0.5 border-b border-input bg-muted/40 px-1.5 py-1">
-          {BUTTONS.map((b) => (
+          {buttons.map((b) => (
             <button
               key={b.command}
               type="button"
@@ -211,7 +227,18 @@ export function RichTextEditor({
         data-placeholder={placeholder}
         onInput={emit}
         onBlur={emit}
+        onKeyDown={(e) => {
+          if (onSubmit && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
         onPaste={(e) => {
+          if (tools) {
+            e.preventDefault();
+            document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+            return;
+          }
           if (!onUploadImage) return;
           const items = Array.from(e.clipboardData.items);
           const imageItem = items.find((item) => item.type.startsWith("image/"));

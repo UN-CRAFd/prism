@@ -14,6 +14,7 @@ import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matri
 import { Loader2, Upload, FileText, Download, Trash2 } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import {
   documentTypes, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
 } from "@/lib/documents";
@@ -141,7 +142,7 @@ export function DocumentsEditor({
 
       {!readOnly && (
         <Notice variant="info">
-          {labels.tabInstructions.documents}
+          {formatInstruction(labels.tabInstructions.documents)}
         </Notice>
       )}
 

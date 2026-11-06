@@ -1,6 +1,7 @@
 /**
  * Single source of truth for the report STATUS badge colours
- * (Open / Under Review / Closed). This is REPORT status — distinct from the
+ * (Open / Under Review / Closed; project documents use Open / Under Review /
+ * Approved). This is REPORT status — distinct from the
  * indicator status colours in ./indicators.ts.
  *
  * Two visual variants exist: the default "light" badge (used on the admin
@@ -18,6 +19,7 @@ export const LIGHT_STATUS_STYLES: Record<string, string> = {
   Open:           "bg-crafd-yellow-100 text-crafd-grey-800 border-crafd-yellow-600",
   "Under Review": "bg-crafd-grey-100 text-crafd-grey-800 border-crafd-grey-200",
   Closed:         "bg-white text-crafd-grey-400 border-crafd-grey-100",
+  Approved:       "bg-green-50 text-green-900 border-green-200",
 };
 
 // Icon colour per status, shared by the admin report + project-update lists.
@@ -25,12 +27,14 @@ export const REPORT_STATUS_ICON_COLORS: Record<string, string> = {
   Open:           "text-crafd-yellow-900",
   "Under Review": "text-crafd-grey-600",
   Closed:         "text-crafd-grey-400",
+  Approved:       "text-green-600",
 };
 
 const DARK_STATUS_STYLES: Record<string, string> = {
   Open:           "bg-crafd-yellow-600 text-crafd-grey-900",
   "Under Review": "bg-crafd-grey-100 text-crafd-grey-900",
   Closed:         "bg-crafd-grey-100 text-crafd-grey-900",
+  Approved:       "bg-green-100 text-green-900",
 };
 
 export function reportStatusStyle(

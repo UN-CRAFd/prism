@@ -15,6 +15,7 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import { SDG_GOALS, getSdgGoal, getSdgTarget, sdgIconPath } from "@/lib/sdg";
 import { optionValues, optionItems } from "@/lib/options";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 
 // ── SDG Targets editor ────────────────────────────────────────────────────────
 // Project-level SDG Target focus on the project document. Pick SDG targets
@@ -135,7 +136,7 @@ export function SdgTargetsEditor({
 
       {!readOnly && (
         <Notice variant="info">
-          {labels.tabInstructions.sdg}
+          {formatInstruction(labels.tabInstructions.sdg)}
         </Notice>
       )}
 

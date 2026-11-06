@@ -32,7 +32,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
+import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath, countsTowardProgress } from "@/lib/report-sections";
 import { UPDATE_SECTIONS, updateSectionGroups } from "@/lib/update-sections";
 import { DOC_ID_PARAM, documentPath, documentTitle, firstUnlockedSection, resolveDocument } from "@/lib/project-updates";
 import { PRODOC_SECTIONS, partnerProdocSections } from "@/lib/prodoc-sections";
@@ -484,7 +484,7 @@ export function AppSidebar() {
                 )}
               >
                 <span className="flex-1 truncate">{s.label}</span>
-                {sectionComplete[s.value] && (
+                {countsTowardProgress(s.value) && sectionComplete[s.value] && (
                   <Check className="size-3.5 shrink-0 text-green-600" />
                 )}
               </Link>
@@ -529,7 +529,7 @@ export function AppSidebar() {
                   )}
                 >
                   <span className="flex-1 truncate">{s.label}</span>
-                  {updateSectionComplete[s.value] && (
+                  {countsTowardProgress(s.value) && updateSectionComplete[s.value] && (
                     <Check className="size-3.5 shrink-0 text-green-600" />
                   )}
                 </Link>
@@ -950,13 +950,18 @@ export function AppSidebar() {
                   }
 
                   // All reports, grouped by project (A–Z), newest year first.
-                  const byProject = new Map<number, { label: string; rows: SidebarReport[] }>();
+                  const byProject = new Map<number, { projectId: number; label: string; rows: SidebarReport[] }>();
                   for (const r of reports) {
-                    const g = byProject.get(r.project_id) ?? { label: r.project_short_name || r.project_title, rows: [] };
+                    const g = byProject.get(r.project_id) ?? { projectId: r.project_id, label: r.project_short_name || r.project_title, rows: [] };
                     g.rows.push(r);
                     byProject.set(r.project_id, g);
                   }
-                  const groups = Array.from(byProject.values()).sort((x, y) => x.label.localeCompare(y.label));
+                  // Only the open report's project is shown; if the open report
+                  // can't be matched to a project, fall back to every group.
+                  const allGroups = Array.from(byProject.values()).sort((x, y) => x.label.localeCompare(y.label));
+                  const groups = adminActiveReport
+                    ? allGroups.filter((g) => g.projectId === adminActiveReport.project_id)
+                    : allGroups;
                   return (
                     <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">
                       {groups.map((g, gi) => (
@@ -1003,7 +1008,12 @@ export function AppSidebar() {
                     rows.push(u);
                     byProject.set(u.project_title, rows);
                   }
-                  const groups = Array.from(byProject.entries()).sort((x, y) => x[0].localeCompare(y[0]));
+                  // Only the open update's project is shown; if the open update
+                  // can't be matched to a project, fall back to every group.
+                  const allGroups = Array.from(byProject.entries()).sort((x, y) => x[0].localeCompare(y[0]));
+                  const groups = adminActiveUpdate
+                    ? allGroups.filter(([title]) => title === adminActiveUpdate.project_title)
+                    : allGroups;
                   const linkFor = (u: UpdateSidebarReport) =>
                     documentPath(
                       "/admin/project-update-editor",
@@ -1083,7 +1093,11 @@ export function AppSidebar() {
                   // All project documents (one per project), A–Z by project title. Only the open one
                   // is bold (no fill) and expands to its tabs, admin-only ones included.
                   const label = (p: SidebarReport) => p.project_title;
-                  const sorted = prodocItems.slice().sort((x, y) => label(x).localeCompare(label(y)));
+                  // Only the open project document is shown; if it can't be matched
+                  // to a project yet, fall back to the full list.
+                  const sorted = prodocItems
+                    .filter((p) => !openProdocRow || reportSlug(p) === openProdocSlug)
+                    .sort((x, y) => label(x).localeCompare(label(y)));
                   const openTitle = (p: SidebarReport) => p.project_title;
                   return (
                     <div className="mt-1 mb-2 ml-4 flex flex-col gap-0.5 pl-2">

@@ -49,25 +49,26 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const session = await requireSession();
+    // Admin-only: partners authorise reports through /api/overview, which
+    // enforces the Open-report lock. This route must never accept partner writes.
+    const session = await requireAdmin();
     if (session instanceof NextResponse) return session;
     const gate = await guardReport(session, id);
     if (gate) return gate;
 
     const body = await request.json();
 
-    // Partners cannot change status — only the submit endpoint may do that.
-    if (body.status !== undefined && session.role !== "admin") {
-      return forbidden();
-    }
-
-    // Partners cannot move their own deadline.
-    if (body.report_submission_date !== undefined && session.role !== "admin") {
-      return forbidden();
-    }
-
     await loadOptionOverrides(); // editable report statuses reflect admin overrides
-    const validStatuses = new Set(optionValues("reportStatus"));
+    // Project documents have their own workflow list (Open / Under Review /
+    // Approved); reports and project updates use the report-status list.
+    let validStatuses = new Set(optionValues("reportStatus"));
+    if (body.status !== undefined) {
+      const kind = await query<{ data_type: string }>(
+        `SELECT data_type FROM reporting_platform.reports WHERE id = $1`,
+        [id]
+      );
+      if (kind[0]?.data_type === "prodoc") validStatuses = new Set(optionValues("prodocStatus"));
+    }
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
@@ -77,6 +78,18 @@ export async function PUT(
       if (body[field] === undefined) continue;
       if (field === "status" && !validStatuses.has(body[field] as string)) {
         return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
+      }
+      if (field === "year") {
+        const y = Number(body.year);
+        if (!Number.isInteger(y) || y < 2020 || y > 2050) {
+          return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+        }
+        setClauses.push(`year = $${idx++}`);
+        values.push(y);
+        continue;
+      }
+      if (field === "authorized" && typeof body.authorized !== "boolean") {
+        return NextResponse.json({ error: "authorized must be true or false" }, { status: 400 });
       }
       setClauses.push(`${field} = $${idx++}`);
       values.push(body[field]);
@@ -152,6 +165,37 @@ export async function PUT(
         },
         client
       );
+
+      // Approving a project document puts the project into "Ongoing" — in this same
+      // transaction and logged like any other status change — provided that status
+      // exists in the (admin-editable) project status options.
+      if (data_type === "prodoc" && newStatus === "Approved" && optionValues("projectStatus").includes("Ongoing")) {
+        const proj = await client.query<{ status: string | null; project_title: string }>(
+          `SELECT status, project_title FROM reporting_platform.projects WHERE id = $1 FOR UPDATE`,
+          [project_id]
+        );
+        if (proj.rows.length && proj.rows[0].status !== "Ongoing") {
+          await client.query(
+            `UPDATE reporting_platform.projects SET status = 'Ongoing' WHERE id = $1`,
+            [project_id]
+          );
+          await logStatusChange(
+            {
+              entity_type: "project",
+              entity_id: project_id,
+              entity_label: proj.rows[0].project_title,
+              project_id,
+              from_status: proj.rows[0].status,
+              to_status: "Ongoing",
+              actor_role: session.role,
+              actor_org: session.org ?? null,
+              actor_name: (body.actor_name as string | undefined) ?? null,
+              reason: (body.reason as string | undefined) ?? "Project document approved",
+            },
+            client
+          );
+        }
+      }
 
       await client.query("COMMIT");
       return NextResponse.json(updateResult.rows[0]);

@@ -9,6 +9,7 @@ import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
+import { progressSections } from "@/lib/report-sections";
 
 type UpdateReport = Report & { unlocked_sections?: string[] };
 
@@ -48,7 +49,7 @@ export default function ProjectUpdatesPage() {
           .then((res) => res.json())
           .then((data) => {
             const sections: Record<string, boolean> = data.sections ?? {};
-            const unlocked = u.unlocked_sections ?? [];
+            const unlocked = progressSections(u.unlocked_sections ?? []);
             const completed = unlocked.filter((k) => sections[k] === true).length;
             return { id: u.id, completed, total: unlocked.length };
           })

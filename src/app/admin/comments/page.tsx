@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import { cn, projectSlug, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared";
 import { CommentContextBadges } from "@/components/comment-context-badges";
+import { toDisplayHtml, richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels";
 
 interface AdminComment {
@@ -37,6 +38,47 @@ function toSlug(c: AdminComment): string {
   return projectSlug(c.project_short_name, c.project_title);
 }
 
+// Edit box: same rich-text setup as the comment popover (bold / italic / underline
+// / link, plain-text paste, Cmd/Ctrl+Enter to save). It keeps its own draft so
+// typing doesn't re-render the page — the cards below are components defined
+// inside the page, and a page re-render per keystroke would remount the editor.
+function CommentEditBox({
+  initial,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  initial: string;
+  busy: boolean;
+  onSave: (body: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const blank = richTextLength(value.trim()) === 0;
+  const save = () => { if (!blank) onSave(value); };
+  return (
+    <div
+      className="space-y-2"
+      onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
+    >
+      <RichTextEditor
+        value={value}
+        onChange={setValue}
+        tools={["bold", "italic", "underline", "createLink"]}
+        autoFocus
+        onSubmit={save}
+        className="text-sm [--rte-min-height:72px]"
+      />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={onCancel}>{labels.common.cancel}</Button>
+        <Button size="sm" onClick={save} disabled={busy || blank}>
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCommentsPage() {
   const router = useRouter();
   const confirm = useConfirm();
@@ -45,7 +87,6 @@ export default function AdminCommentsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [draft, setDraft] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -98,22 +139,22 @@ export default function AdminCommentsPage() {
     }
   }
 
-  function startEdit(c: AdminComment) { setEditingId(c.id); setDraft(c.body); }
-  function cancelEdit() { setEditingId(null); setDraft(""); }
-  async function saveEdit(id: number) {
-    const body = draft.trim();
-    if (body) await patch(id, { body });
+  function startEdit(c: AdminComment) { setEditingId(c.id); }
+  function cancelEdit() { setEditingId(null); }
+  async function saveEdit(id: number, raw: string) {
+    const body = raw.trim();
+    if (richTextLength(body) > 0) await patch(id, { body });
     cancelEdit();
   }
 
-  // Confirm = CRAF'd marks it addressed (→ Archived). Deny/Reopen = not
+  // Confirm = CRAF'd resolves it (→ Resolved). Deny/Reopen = not
   // addressed → also reset the partner's confirmation so it reappears as
   // outstanding on their side (back to Sent out).
   const confirmAddressed = (c: AdminComment) => patch(c.id, { resolved: true });
   const denyAddressed = (c: AdminComment) => patch(c.id, { resolved: false, partner_addressed: false });
   const reopen = denyAddressed;
 
-  // resolved = CRAF'd confirmed → Archived. Otherwise split by whether the
+  // resolved = CRAF'd confirmed → Resolved. Otherwise split by whether the
   // partner has marked it addressed yet.
   const { completed, sentOut, archived } = useMemo(() => {
     const completed: AdminComment[] = [];
@@ -137,23 +178,9 @@ export default function AdminCommentsPage() {
           <MessageSquare className={cn("size-4 mt-0.5 shrink-0", archived ? "text-muted-foreground/50" : "text-crafd-yellow-900")} />
           <div className="flex-1 min-w-0">
             {editing ? (
-              <div className="space-y-2">
-                <Textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  className="text-sm min-h-[72px] resize-y"
-                  autoFocus
-                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit(c.id); if (e.key === "Escape") cancelEdit(); }}
-                />
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={cancelEdit}>{labels.common.cancel}</Button>
-                  <Button size="sm" onClick={() => saveEdit(c.id)} disabled={busy || !draft.trim()}>
-                    {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
-                  </Button>
-                </div>
-              </div>
+              <CommentEditBox initial={c.body} busy={busy} onSave={(body) => saveEdit(c.id, body)} onCancel={cancelEdit} />
             ) : (
-              <p className={cn("text-sm", archived && "line-through text-muted-foreground")}>{c.body}</p>
+              <div className={cn("rich-html text-sm", archived && "line-through text-muted-foreground")} dangerouslySetInnerHTML={{ __html: toDisplayHtml(c.body) }} />
             )}
 
             <div className={cn("flex items-center justify-between gap-2 mt-2", archived && "opacity-80")}>
@@ -266,11 +293,11 @@ export default function AdminCommentsPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Archive className="size-4 text-muted-foreground" />
-                <h2 className="t-heading-section">Archived</h2>
+                <h2 className="t-heading-section">Resolved</h2>
                 <span className="text-xs text-muted-foreground">confirmed by CRAF&apos;d · {archived.length}</span>
               </div>
               {archived.length === 0 ? (
-                <p className="text-sm text-muted-foreground px-1">Nothing archived yet.</p>
+                <p className="text-sm text-muted-foreground px-1">Nothing resolved yet.</p>
               ) : (
                 <div className="space-y-2.5">{archived.map((c) => <CommentCard key={c.id} c={c} />)}</div>
               )}

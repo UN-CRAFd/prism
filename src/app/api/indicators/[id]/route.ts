@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireAdmin, requireSession } from "@/lib/authz";
+import { requireAdmin, requireSession, resolvePartnerId } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { isValidCycle } from "@/lib/indicators";
 
@@ -12,9 +12,11 @@ const ALLOWED_FIELDS = [
   "cycle",
 ] as const;
 
-// PUT /api/indicators/[id] — partial update of a library indicator. Indicators are
-// a shared global vocabulary, so editing an existing one is admin-only (partners
-// may create new customs but not rewrite entries other projects depend on).
+// PUT /api/indicators/[id] — partial update of a library indicator.
+// Admins may edit any indicator. Partners may edit a CUSTOM indicator only when
+// every document it appears in belongs to a project they lead or co-implement,
+// and every one of those documents is still Open. Partners may only change
+// name, description, means_of_verification and cycle.
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -24,9 +26,8 @@ export async function PUT(
     const session = await requireSession();
     if (session instanceof NextResponse) return session;
 
-    // Custom indicators (is_standard = false) may be edited by any authenticated
-    // session. Standard indicators are the controlled vocabulary and are admin-only.
-    // Check the DB value — never trust the request body.
+    // Standard indicators are admin-only; custom ones are checked for ownership
+    // below. Always check the DB value — never trust the request body.
     const indicator = await query<{ is_standard: boolean; description: string | null; means_of_verification: string | null }>(
       `SELECT is_standard, description, means_of_verification FROM reporting_platform.indicators WHERE id = $1`,
       [id]
@@ -37,8 +38,47 @@ export async function PUT(
     if (indicator[0].is_standard && session.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    if (session.role !== "admin") {
+      const partnerId = await resolvePartnerId(session);
+      if (partnerId == null) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const usage = await query<{ total: number; allowed: number }>(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (
+                  WHERE r.status = 'Open'
+                    AND (p.partner_id = $2
+                         OR EXISTS (SELECT 1 FROM reporting_platform.project_editors pe
+                                     WHERE pe.project_id = p.id AND pe.partner_id = $2))
+                )::int AS allowed
+           FROM reporting_platform.indicator_data d
+           JOIN reporting_platform.reports  r ON r.id = d.report_id
+           JOIN reporting_platform.projects p ON p.id = r.project_id
+          WHERE d.indicator_id = $1`,
+        [id, partnerId]
+      );
+      const { total, allowed } = usage[0];
+      if (total === 0 || allowed !== total) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
 
     const body = await request.json();
+    if (session.role !== "admin") {
+      const PARTNER_FIELDS = ["name", "description", "means_of_verification", "cycle"];
+      const notAllowed = Object.keys(body).filter((k) => !PARTNER_FIELDS.includes(k));
+      if (notAllowed.length) {
+        return NextResponse.json({ error: `Not allowed to edit: ${notAllowed.join(", ")}` }, { status: 403 });
+      }
+    }
+    if ("name" in body && (typeof body.name !== "string" || body.name.trim() === "")) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+    for (const f of ["description", "means_of_verification"]) {
+      if (f in body && body[f] !== null && typeof body[f] !== "string") {
+        return NextResponse.json({ error: `${f} must be text` }, { status: 400 });
+      }
+    }
 
     if ("cycle" in body && !isValidCycle(body.cycle)) {
       return NextResponse.json({ error: "Invalid cycle" }, { status: 400 });

@@ -630,11 +630,10 @@ bundle.
 - The DB role password lives in `db/roles.sql` once filled in — treat that file as
   a secret; do not commit the real value.
 
-> ⚠️ **The checked-out `.env` contains real-looking credentials** (a dev DB host,
-> `prism_app` password, a second `DATABASE_URL` with another role's password, and
-> `ADMIN_PASSWORD=password2024`). `.env` is git-ignored (verified: not tracked),
-> so it is not in history, but it is present on disk. Treat these as live secrets:
-> rotate anything that has been shared, and never commit `.env`. See §11/§12.
+> ⚠️ **Never commit `.env`.** It holds live credentials and is git-ignored.
+> Production secrets (`SESSION_SECRET`, `MAGIC_LINK_SECRET`, database
+> credentials) are set only in Vercel's environment variables. Never write
+> real secret values in this README or anywhere else in the repo. See §11/§12.
 
 ### 7.4 Environments
 

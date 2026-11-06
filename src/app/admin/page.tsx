@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { reportStatusStyle } from "@/lib/reports";
 import { projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { CommentContextBadges } from "@/components/comment-context-badges";
+import { toDisplayHtml } from "@/lib/richtext";
 import type { Report } from "@/lib/types";
 
 type ReportRow = Report;
@@ -289,7 +290,7 @@ export default function AdminHomePage() {
                     >
                       <MessageSquare className="size-4 mt-0.5 shrink-0 text-crafd-yellow-900" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm line-clamp-2">{c.body}</p>
+                        <div className="rich-html text-sm line-clamp-2" dangerouslySetInnerHTML={{ __html: toDisplayHtml(c.body) }} />
                         <CommentContextBadges
                           partner={shortName(c.partner_short_name)}
                           reportType={c.report_type}

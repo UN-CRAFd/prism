@@ -80,11 +80,13 @@ export async function GET(req: NextRequest) {
         });
       }),
 
-      // Indicators — every line has a baseline and a target.
+      // Indicators — every line has a baseline and a target, and is linked to at
+      // least one outcome or output (objective) from the workplan.
       query<Row>(
         `SELECT COUNT(*)::int AS total,
                 COUNT(*) FILTER (WHERE baseline_value IS NOT NULL AND baseline_value <> ''
-                                   AND target_value  IS NOT NULL AND target_value  <> '')::int AS ok
+                                   AND target_value  IS NOT NULL AND target_value  <> ''
+                                   AND COALESCE(cardinality(linked_results), 0) > 0)::int AS ok
            FROM reporting_platform.indicator_data WHERE report_id = $1`,
         [prodocId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),

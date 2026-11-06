@@ -237,6 +237,9 @@ export function LabelsEditor() {
                               className="text-sm"
                             />
                           )}
+                          {leaf.path.startsWith("tabInstructions.") && (
+                            <p className="mt-1 text-xs text-muted-foreground">Use **bold** and [link text](https://…) for formatting.</p>
+                          )}
                         </div>
                       );
                     })}

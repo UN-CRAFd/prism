@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import { useCharLimits } from "@/lib/use-char-limits";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ export function NarrativesAdminEditor({
 
       {!readOnly && (
         <Notice variant="info">
-          {labels.tabInstructions.narratives}
+          {formatInstruction(labels.tabInstructions.narratives)}
         </Notice>
       )}
 

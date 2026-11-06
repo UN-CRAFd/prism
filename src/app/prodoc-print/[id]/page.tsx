@@ -674,7 +674,7 @@ export default function ProdocPrintPage() {
                                 padding: "4px 8px 4px 20px",
                                 borderBottom: `1px solid ${LINE}`,
                               }}>
-                                {obj.num ? `${obj.num}. Objective: ` : ""}{obj.text || ""}
+                                {obj.num ? `${obj.num}. Output: ` : ""}{obj.text || ""}
                               </td>
                             </tr>
                           )}
@@ -715,7 +715,7 @@ export default function ProdocPrintPage() {
                     <div key={oi} style={{ marginBottom: 6 }}>
                       {(obj.num || obj.text) && (
                         <div style={{ fontWeight: 600, fontSize: 11.5, color: "#374151", padding: "3px 0 3px 12px", marginBottom: 3 }}>
-                          {obj.num ? `${obj.num}. Objective: ` : ""}{obj.text || ""}
+                          {obj.num ? `${obj.num}. Output: ` : ""}{obj.text || ""}
                         </div>
                       )}
                       <Table

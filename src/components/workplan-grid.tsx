@@ -20,8 +20,8 @@ import {
 import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Trash2, Check, FileQuestion, ChevronRight, ChevronDown } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,16 @@ import {
 const AGENT_DELIM = " | ";
 function parseAgents(v: string) { return v.split(AGENT_DELIM).map((s) => s.trim()).filter(Boolean); }
 function joinAgents(vs: string[]) { return vs.join(AGENT_DELIM); }
+// Short name for display: "ABBR: Full name" shows as "ABBR".
+function agentAbbr(tok: string) { return tok.split(":")[0].trim(); }
+// One selected partner per line, so several partners grow the cell downwards.
+function AgentStack({ tokens, className }: { tokens: string[]; className?: string }) {
+  return (
+    <span className={cn("flex flex-col items-start", className)}>
+      {tokens.map((t) => <span key={t} className="break-words">{agentAbbr(t)}</span>)}
+    </span>
+  );
+}
 
 // Sticky header edges drawn as inset box-shadow, not CSS borders: with
 // border-collapse the collapsed borders don't travel with a sticky cell and
@@ -560,7 +570,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 </td>
               );
               const agentCell = (
-                <td rowSpan={rowSpan} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ?? "—"}</td>
+                <td rowSpan={rowSpan} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ? <AgentStack tokens={parseAgents(a.implementing_agent)} /> : "—"}</td>
               );
 
               return (
@@ -573,7 +583,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                   {showObjective && (
                     <tr className="bg-crafd-yellow-100 border-y">
                       <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-crafd-grey-900">
-                        {a.objective_num ? `${a.objective_num}. Objective: ` : ""}{a.objective_text}
+                        {a.objective_num ? `${a.objective_num}. Output: ` : ""}{a.objective_text}
                       </td>
                     </tr>
                   )}
@@ -1097,7 +1107,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
         objective_text: template?.objective_text ?? "",
         activity_num: "",
         activity_text: "",
-        implementing_agent: defaultAgent ?? "",
+        implementing_agent: "",
         planned_quarters: [],
         sort_order: 0,
         dirty: true,
@@ -1125,7 +1135,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
             key: newKey, id: null, clusterId: template?.clusterId ?? 0, sectionId,
             outcome: template?.outcome ?? "", objective_num: template?.objective_num ?? "",
             objective_text: template?.objective_text ?? "", activity_num: "", activity_text: "",
-            implementing_agent: defaultAgent ?? "", planned_quarters: [], sort_order: 0, dirty: true, rev: 0,
+            implementing_agent: "", planned_quarters: [], sort_order: 0, dirty: true, rev: 0,
           };
           return normalize([...prev.slice(0, lastIdx + 1), reRow, ...prev.slice(lastIdx + 1)]);
         });
@@ -1152,7 +1162,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
         objective_text: "",
         activity_num: "",
         activity_text: "",
-        implementing_agent: defaultAgent ?? "",
+        implementing_agent: "",
         planned_quarters: [],
         sort_order: 0,
         dirty: true,
@@ -1179,7 +1189,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
           const reRow: AdminRow = {
             key: newKey, id: null, clusterId, sectionId: newSectionId,
             outcome: template?.outcome ?? "", objective_num: "", objective_text: "",
-            activity_num: "", activity_text: "", implementing_agent: defaultAgent ?? "",
+            activity_num: "", activity_text: "", implementing_agent: "",
             planned_quarters: [], sort_order: 0, dirty: true, rev: 0,
           };
           const next = lastIdx >= 0 ? [...prev.slice(0, lastIdx + 1), reRow, ...prev.slice(lastIdx + 1)] : [...prev, reRow];
@@ -1203,7 +1213,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
       objective_text: "",
       activity_num: "",
       activity_text: "",
-      implementing_agent: defaultAgent ?? "",
+      implementing_agent: "",
       planned_quarters: [],
       sort_order: 0,
       dirty: true,
@@ -1243,7 +1253,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const activities = rowsRef.current.filter((r) => r.sectionId === sectionId);
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
-    if (!await confirm({ message: `Delete this Objective and its ${label}?` })) return;
+    if (!await confirm({ message: `Delete this Output and its ${label}?` })) return;
     const capturedRows = activities;
     const capturedIndices = activities.map((r) => rowsRef.current.findIndex((x) => x.key === r.key));
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
@@ -1257,7 +1267,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     const activities = rowsRef.current.filter((r) => r.clusterId === clusterId);
     const count = activities.length;
     const label = count === 1 ? "1 activity" : `${count} activities`;
-    if (!await confirm({ message: `Delete this Outcome and all its Objectives and ${label}?` })) return;
+    if (!await confirm({ message: `Delete this Outcome and all its Outputs and ${label}?` })) return;
     const capturedRows = activities;
     const capturedIndices = activities.map((r) => rowsRef.current.findIndex((x) => x.key === r.key));
     const ids = activities.filter((r) => r.id != null).map((r) => r.id);
@@ -1295,26 +1305,38 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   // (+[status]+[comment] in partner mode) + [delete].
   const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
 
+  // Add controls use the platform's standard add button (as "Add risk" on the
+  // ProDoc Risk tab), each on its own row. Every level reuses the padding
+  // structure of its own row so the buttons step in outcome → output → activity.
+  const addTierBar = (label: string, onAdd: () => void, level: "outcome" | "output" | "activity") => {
+    const button = (
+      <Button type="button" variant="outline" size="sm" onClick={onAdd} disabled={readOnly} className="gap-1">
+        <Plus className="size-4" />{label}
+      </Button>
+    );
+    // Outcome row: td px-3, chevron first.
+    if (level === "outcome") return <div className="px-3 py-1.5">{button}</div>;
+    // Output row: td pl-8 + inner border-l-2 pl-3, chevron first.
+    if (level === "output") {
+      return (
+        <div className="pl-8 pr-3 py-1.5">
+          <div className="border-l-2 border-transparent pl-3">{button}</div>
+        </div>
+      );
+    }
+    // Activity row: td px-3 + w-10 number column + gap-2, textarea next.
+    return (
+      <div className="px-3 py-1.5">
+        <div className="flex gap-2">
+          <span className="w-10 shrink-0" />
+          {button}
+        </div>
+      </div>
+    );
+  };
+
   // Sits at the foot of the table, where the new outcome actually appears.
-  // A light outlined control carrying the number the outcome will take, so it
-  // reads as the next one in the sequence rather than a detached control.
-  const addOutcomeBar = (
-    <button
-      type="button"
-      onClick={addOutcome}
-      disabled={readOnly}
-      className={cn(
-        "group flex w-full items-center gap-2 border border-dashed border-crafd-grey-200 bg-white px-3 py-2.5 text-left text-crafd-grey-600 transition-colors",
-        "disabled:opacity-30 disabled:cursor-not-allowed",
-        !readOnly && "hover:border-crafd-yellow hover:bg-crafd-yellow-50 hover:text-crafd-grey-900",
-      )}
-    >
-      <Plus className="size-4 shrink-0 text-current" />
-      <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
-        Add outcome {clusters.length + 1}
-      </span>
-    </button>
-  );
+  const addOutcomeBar = addTierBar("Add outcome", addOutcome, "outcome");
 
   return (
     <div className={cn(fillHeight ? "flex flex-col gap-5 flex-1 min-h-0" : "space-y-5")}>
@@ -1339,7 +1361,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
             No outcomes yet. Add one to start building the workplan.
           </div>
-          <div className="overflow-hidden rounded-xl border">{addOutcomeBar}</div>
+          <div>{addOutcomeBar}</div>
         </>
       ) : (
         <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
@@ -1383,9 +1405,6 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           placeholder="Outcome heading…"
                           className="h-7 flex-1 text-sm bg-white text-crafd-grey-900 placeholder:text-crafd-grey-400"
                         />
-                        <Button onClick={() => addObjective(cluster.clusterId)} variant="secondary" size="sm" className="h-7 shrink-0 gap-1">
-                          <Plus className="size-3.5" /> Objective
-                        </Button>
                         <button
                           onClick={() => deleteCluster(cluster.clusterId)}
                           className="text-crafd-grey-800 hover:text-destructive transition-colors shrink-0"
@@ -1405,24 +1424,21 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           type="button"
                           onClick={() => setCollapsedSections((p) => ({ ...p, [sec.sectionId]: !p[sec.sectionId] }))}
                           className="shrink-0 text-crafd-grey-600 hover:text-crafd-grey-900 transition-colors"
-                          aria-label={collapsedSections[sec.sectionId] ? "Expand objective" : "Collapse objective"}
+                          aria-label={collapsedSections[sec.sectionId] ? "Expand output" : "Collapse output"}
                         >
                           {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                         </button>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Objective</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Output</span>
                         <Input
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}
-                          placeholder="Objective description…"
+                          placeholder="Output description…"
                           className="h-7 flex-1 text-sm bg-white"
                         />
-                        <Button onClick={() => addActivity(sec.sectionId)} variant="outline" size="sm" className="h-7 shrink-0 gap-1">
-                          <Plus className="size-3.5" /> Activity
-                        </Button>
                         <button
                           onClick={() => deleteObjective(sec.sectionId)}
                           className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                          aria-label="Delete objective"
+                          aria-label="Delete output"
                         >
                           <Trash2 className="size-4" />
                         </button>
@@ -1432,14 +1448,14 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
                   {!collapsedSections[sec.sectionId] && sec.rows.map((row) => {
                     const activityCell = (
-                      <td rowSpan={partnerMode ? 2 : 1} className="px-3 py-2 align-top border-r">
-                        <div className="flex gap-2">
+                      <td rowSpan={partnerMode ? 2 : 1} className="px-3 py-2 align-top border-r h-px">
+                        <div className="flex gap-2 h-full">
                           <span className="text-xs font-mono text-muted-foreground pt-2 w-10 shrink-0">{row.activity_num}</span>
                           <Textarea
                             value={row.activity_text}
                             onChange={(e) => updateRow(row.key, { activity_text: e.target.value })}
                             placeholder="Activity description…"
-                            className="text-sm min-h-[36px] resize-y flex-1"
+                            className="text-sm min-h-[36px] h-full resize-y flex-1"
                           />
                           {/* Per-activity comment thread — only once the activity has
                               been persisted (an unsaved row has no id to key on). */}
@@ -1470,11 +1486,11 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                         <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm text-left flex items-center justify-between gap-1 truncate">
-                                <span className={cn("truncate", !selected.length && "text-muted-foreground")}>
-                                  {selected.length ? selected.join(", ") : "Project partner"}
-                                </span>
-                                <ChevronDown className="size-3 shrink-0 opacity-50" />
+                              <button className={cn("min-h-8 w-full rounded-md border border-input bg-transparent px-2 py-0.5 text-sm text-left flex justify-between gap-1", selected.length > 1 ? "items-start" : "items-center")}>
+                                {selected.length
+                                  ? <AgentStack tokens={selected} className="leading-5" />
+                                  : <span className="text-muted-foreground">Project partner</span>}
+                                <ChevronDown className={cn("size-3 shrink-0 opacity-50", selected.length > 1 && "mt-1.5")} />
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="min-w-[180px]">
@@ -1613,8 +1629,18 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                       </Fragment>
                     );
                   })}
+                  {!collapsedSections[sec.sectionId] && (
+                    <tr>
+                      <td colSpan={totalCols} className="p-0">{addTierBar("Add activity", () => addActivity(sec.sectionId), "activity")}</td>
+                    </tr>
+                  )}
                 </Fragment>
                   ))}
+                  {!collapsedClusters[cluster.clusterId] && (
+                    <tr>
+                      <td colSpan={totalCols} className="p-0">{addTierBar("Add output", () => addObjective(cluster.clusterId), "output")}</td>
+                    </tr>
+                  )}
                 </Fragment>
               ))}
               <tr>

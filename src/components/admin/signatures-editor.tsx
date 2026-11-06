@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Loader2, Users, ShieldCheck, Trash2 } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
+import { formatInstruction } from "@/lib/format-instruction";
 import { ROLE_SIGNATORY } from "@/lib/contact-roles";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
@@ -160,7 +161,7 @@ export function SignaturesEditor({
 
       {!readOnly && (
         <Notice variant="info">
-          {labels.tabInstructions.signatures}
+          {formatInstruction(labels.tabInstructions.signatures)}
         </Notice>
       )}
 

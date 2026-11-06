@@ -144,8 +144,8 @@ export function CommentsProvider({
   );
 }
 
-// Inline comment affordance for a single item. Admins add/archive/delete;
-// partners only see the icon when a comment exists and can mark it resolved.
+// Inline comment affordance for a single item. Admins add/resolve/delete;
+// partners only see the icon when a comment exists and can mark it addressed.
 // `readOnly` makes controls non-interactive; `role` decides which controls appear.
 // `itemId` null attaches to the section.
 export function ItemComments({ section, itemId }: { section: string; itemId?: number | null }) {
@@ -224,8 +224,8 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   const list = commentsFor(section, itemId ?? null);
   // Replies are threaded beneath their parent; they don't count as top-level comments.
   const allReplies = list.filter((c) => c.parent_id !== null);
-  // Archived (resolved) comments are hidden from the main list for both roles.
-  // Admins get a collapsed disclosure at the bottom to view and un-archive them.
+  // Resolved comments are hidden from the main list for both roles.
+  // Admins get a collapsed disclosure at the bottom to view and reopen them.
   const mainList = list.filter((c) => c.parent_id === null && !c.resolved);
   const archivedList = list.filter((c) => c.parent_id === null && c.resolved);
   // Badge goes amber while there are open, unacknowledged top-level comments.
@@ -329,7 +329,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                           <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>
                               {formatDate(c.created_at)}
-                              {c.partner_addressed && ` · resolved by ${c.partner_long_name ?? c.partner_short_name ?? "partner"}`}
+                              {c.partner_addressed && ` · addressed by ${c.partner_long_name ?? c.partner_short_name ?? "partner"}`}
                             </span>
                             {role === "partner" ? (
                               c.partner_addressed ? (
@@ -338,18 +338,18 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                 </Button>
                               ) : (
                                 <Button size="sm" className="h-5 px-1.5 gap-1 text-xs" onClick={() => setAddressed(c.id, true)}>
-                                  <Check className="size-3" /> Resolve
+                                  <Check className="size-3" /> Mark as addressed
                                 </Button>
                               )
                             ) : (
                               <span className="flex items-center gap-1.5">
-                                {c.author_role === "admin" && !c.partner_addressed && (
+                                {c.author_role === "admin" && (
                                   <button type="button" onClick={() => { setEditingId(c.id); setEditDraft(c.body); }} disabled={readOnly} className="hover:text-foreground transition-colors disabled:opacity-40">
                                     Edit
                                   </button>
                                 )}
                                 <Button size="sm" variant="outline" className="h-5 px-1.5 text-xs" onClick={() => setResolved(c.id, true)} disabled={readOnly}>
-                                  Archive
+                                  Resolve
                                 </Button>
                                 <button type="button" onClick={() => remove(c.id)} title="Delete" disabled={readOnly} className="hover:text-destructive transition-colors disabled:opacity-40">
                                   <Trash2 className="size-3.5" />
@@ -387,7 +387,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                   <p className="whitespace-pre-wrap break-words text-xs">{r.body}</p>
                                   <div className="mt-0.5 flex items-center justify-between text-xs text-muted-foreground">
                                     <span>{r.author_role === "admin" ? "CRAF'd" : (r.author ?? "Partner")} · {formatDate(r.created_at)}</span>
-                                    {((role === "partner" && r.author_role === "partner") || (role === "admin" && r.author_role === "admin" && !readOnly)) && !c.partner_addressed && (
+                                    {((role === "partner" && r.author_role === "partner") || (role === "admin" && r.author_role === "admin" && !readOnly)) && (
                                       <span className="flex items-center gap-1.5">
                                         <button type="button" className="hover:text-foreground transition-colors disabled:opacity-40" onClick={() => { setEditingId(r.id); setEditDraft(r.body); }}>
                                           Edit
@@ -404,43 +404,41 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                           ))}
                         </div>
                       )}
-                      {/* Reply affordance — not gated by readOnly; hidden when thread is resolved */}
-                      {!c.partner_addressed && (
-                        <div className="mt-1.5">
-                          {openReplyId === c.id ? (
-                            <div className="space-y-1">
-                              <Textarea
-                                value={replyDraft}
-                                onChange={(e) => setReplyDraft(e.target.value)}
-                                placeholder="Write a reply…"
-                                className="text-xs min-h-[44px] resize-none"
-                                autoFocus
-                                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitReply(c.id); }}
-                              />
-                              <div className="flex items-center justify-between">
-                                <button
-                                  type="button"
-                                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                  onClick={() => { setOpenReplyId(null); setReplyDraft(""); }}
-                                >
-                                  Cancel
-                                </button>
-                                <Button size="sm" className="h-6 text-xs" onClick={() => submitReply(c.id)} disabled={replyBusy || !replyDraft.trim()}>
-                                  {replyBusy ? <Loader2 className="size-3 animate-spin" /> : "Reply"}
-                                </Button>
-                              </div>
+                      {/* Reply affordance — not gated by readOnly; replying stays open once a partner marks it addressed */}
+                      <div className="mt-1.5">
+                        {openReplyId === c.id ? (
+                          <div className="space-y-1">
+                            <Textarea
+                              value={replyDraft}
+                              onChange={(e) => setReplyDraft(e.target.value)}
+                              placeholder="Write a reply…"
+                              className="text-xs min-h-[44px] resize-none"
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitReply(c.id); }}
+                            />
+                            <div className="flex items-center justify-between">
+                              <button
+                                type="button"
+                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={() => { setOpenReplyId(null); setReplyDraft(""); }}
+                              >
+                                Cancel
+                              </button>
+                              <Button size="sm" className="h-6 text-xs" onClick={() => submitReply(c.id)} disabled={replyBusy || !replyDraft.trim()}>
+                                {replyBusy ? <Loader2 className="size-3 animate-spin" /> : "Reply"}
+                              </Button>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={() => { setOpenReplyId(c.id); setReplyDraft(""); }}
-                            >
-                              Reply
-                            </button>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={() => { setOpenReplyId(c.id); setReplyDraft(""); }}
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -452,7 +450,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                     onClick={() => setArchivedOpen((o) => !o)}
                     className="w-full text-left text-xs text-muted-foreground hover:text-foreground transition-colors px-0.5 py-0.5"
                   >
-                    {archivedOpen ? "▾" : "▸"} Archived ({archivedList.length})
+                    {archivedOpen ? "▾" : "▸"} Resolved ({archivedList.length})
                   </button>
                   {archivedOpen && (
                     <div className="mt-1.5 space-y-1.5">
@@ -462,7 +460,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                           <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>{formatDate(c.created_at)}</span>
                             <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-xs" onClick={() => setResolved(c.id, false)} disabled={readOnly}>
-                              <RotateCcw className="size-3" /> Unarchive
+                              <RotateCcw className="size-3" /> Reopen
                             </Button>
                           </div>
                         </div>

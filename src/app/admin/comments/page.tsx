@@ -106,14 +106,14 @@ export default function AdminCommentsPage() {
     cancelEdit();
   }
 
-  // Confirm = CRAF'd marks it addressed (→ Archived). Deny/Reopen = not
+  // Confirm = CRAF'd resolves it (→ Resolved). Deny/Reopen = not
   // addressed → also reset the partner's confirmation so it reappears as
   // outstanding on their side (back to Sent out).
   const confirmAddressed = (c: AdminComment) => patch(c.id, { resolved: true });
   const denyAddressed = (c: AdminComment) => patch(c.id, { resolved: false, partner_addressed: false });
   const reopen = denyAddressed;
 
-  // resolved = CRAF'd confirmed → Archived. Otherwise split by whether the
+  // resolved = CRAF'd confirmed → Resolved. Otherwise split by whether the
   // partner has marked it addressed yet.
   const { completed, sentOut, archived } = useMemo(() => {
     const completed: AdminComment[] = [];
@@ -266,11 +266,11 @@ export default function AdminCommentsPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Archive className="size-4 text-muted-foreground" />
-                <h2 className="t-heading-section">Archived</h2>
+                <h2 className="t-heading-section">Resolved</h2>
                 <span className="text-xs text-muted-foreground">confirmed by CRAF&apos;d · {archived.length}</span>
               </div>
               {archived.length === 0 ? (
-                <p className="text-sm text-muted-foreground px-1">Nothing archived yet.</p>
+                <p className="text-sm text-muted-foreground px-1">Nothing resolved yet.</p>
               ) : (
                 <div className="space-y-2.5">{archived.map((c) => <CommentCard key={c.id} c={c} />)}</div>
               )}

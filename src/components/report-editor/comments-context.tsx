@@ -4,9 +4,59 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from "react-dom";
 import { MessageSquare, MessageSquarePlus, Check, Trash2, Loader2, RotateCcw } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { toDisplayHtml, richTextLength } from "@/lib/richtext";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+
+// Comment bodies are rich text limited to bold, italic, underline and links. They
+// are shown through the same sanitised rendering narratives use (toDisplayHtml +
+// .rich-html), which also turns older plain-text comments into paragraphs / line
+// breaks with any markup escaped.
+const COMMENT_TOOLS = ["bold", "italic", "underline", "createLink"] as ("bold" | "italic" | "underline" | "createLink")[];
+const isBlank = (v: string) => richTextLength(v.trim()) === 0;
+
+function CommentBody({ html, className }: { html: string; className?: string }) {
+  return <div className={cn("rich-html break-words", className)} dangerouslySetInnerHTML={{ __html: toDisplayHtml(html) }} />;
+}
+
+// ── Draggable / resizable comment panel ──────────────────────────────────────
+// The popover is a floating panel: its header drags it, the bottom-right corner
+// resizes it, and it is always clamped to stay fully inside the viewport. Only the
+// size is remembered (per browser); the position resets each time it opens.
+const PANEL_MARGIN = 8;
+const PANEL_MIN_W = 320;
+const PANEL_MIN_H = 240;
+const PANEL_SIZE_KEY = "prism-comment-panel-size";
+
+interface PanelRect { left: number; top: number; width: number; height: number }
+
+const clampNum = (v: number, min: number, max: number) => Math.min(Math.max(v, min), Math.max(max, min));
+
+function clampRect(r: PanelRect): PanelRect {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const width = clampNum(r.width, Math.min(PANEL_MIN_W, vw - 2 * PANEL_MARGIN), vw - 2 * PANEL_MARGIN);
+  const height = clampNum(r.height, Math.min(PANEL_MIN_H, vh - 2 * PANEL_MARGIN), vh - 2 * PANEL_MARGIN);
+  return {
+    width,
+    height,
+    left: clampNum(r.left, PANEL_MARGIN, vw - PANEL_MARGIN - width),
+    top: clampNum(r.top, PANEL_MARGIN, vh - PANEL_MARGIN - height),
+  };
+}
+
+function loadPanelSize(): { w: number; h: number } {
+  try {
+    const p = JSON.parse(localStorage.getItem(PANEL_SIZE_KEY) ?? "null");
+    if (p && Number.isFinite(p.w) && Number.isFinite(p.h)) return { w: p.w, h: p.h };
+  } catch { /* storage unavailable or corrupt — use the default */ }
+  return { w: 320, h: 380 };
+}
+
+function savePanelSize(w: number, h: number) {
+  try { localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify({ w, h })); } catch { /* ignore */ }
+}
 
 export interface ItemComment {
   id: number;
@@ -164,40 +214,40 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
   const [editBusy, setEditBusy] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   // The popover is rendered in a portal (see below) so the table's overflow-x-auto
-  // wrapper can't clip it; this tracks where to anchor it to the trigger button.
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  // wrapper can't clip it. `rect` is its on-screen box, always inside the viewport.
+  const [rect, setRect] = useState<PanelRect | null>(null);
+  const rectRef = useRef<PanelRect | null>(null);
+  rectRef.current = rect;
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   // Both admins and partners open/close the popover with a click. Dismiss via
   // clicking the trigger again, clicking outside the panel, or pressing Escape.
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const POPOVER_WIDTH = 320; // w-80
-
-  const reposition = useCallback(() => {
+  // Initial placement: beside the trigger (right edges aligned, below it — or above
+  // when there is no room), then shifted fully on-screen.
+  useLayoutEffect(() => {
+    if (!open) { setRect(null); return; }
     const el = btnRef.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    const margin = 8;
-    const panelHeight = panelRef.current?.offsetHeight ?? 0;
-    // Anchor below the button, then clamp so the panel stays within the viewport
-    // even when the trigger scrolls off-screen.
-    const preferred = r.bottom + 4;
-    const maxTop = window.innerHeight - panelHeight - margin;
-    const top = Math.min(Math.max(preferred, margin), Math.max(maxTop, margin));
-    const right = Math.max(margin, window.innerWidth - r.right);
-    setPos({ top, right });
-  }, []);
+    const b = el.getBoundingClientRect();
+    const size = loadPanelSize();
+    const fit = clampRect({ left: 0, top: 0, width: size.w, height: size.h });
+    let top = b.bottom + 4;
+    if (top + fit.height > window.innerHeight - PANEL_MARGIN) {
+      const above = b.top - 4 - fit.height;
+      if (above >= PANEL_MARGIN) top = above;
+    }
+    setRect(clampRect({ left: b.right - fit.width, top, width: fit.width, height: fit.height }));
+  }, [open]);
 
-  useLayoutEffect(() => {
+  // Keep the panel inside the viewport when the window is resized.
+  useEffect(() => {
     if (!open) return;
-    reposition();
-    // Follow the button while the underlying table / page scrolls.
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
-    return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-    };
-  }, [open, reposition]);
+    const onResize = () => setRect((r) => (r ? clampRect(r) : r));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -239,7 +289,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
 
   async function submit() {
     const body = draft.trim();
-    if (!body) return;
+    if (isBlank(body)) return;
     setBusy(true);
     try { await add(section, itemId ?? null, body); setDraft(""); }
     finally { setBusy(false); }
@@ -247,7 +297,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
 
   async function submitReply(parentId: number) {
     const body = replyDraft.trim();
-    if (!body) return;
+    if (isBlank(body)) return;
     setReplyBusy(true);
     try {
       await add(section, itemId ?? null, body, parentId);
@@ -260,7 +310,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
 
   async function saveEdit(id: number) {
     const body = editDraft.trim();
-    if (!body) return;
+    if (isBlank(body)) return;
     setEditBusy(true);
     try {
       await updateBody(id, body);
@@ -290,14 +340,33 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
         {mainList.length > 0 && <span className="tabular-nums font-medium">{mainList.length}</span>}
       </button>
 
-      {open && pos && typeof document !== "undefined" && createPortal(
+      {open && rect && typeof document !== "undefined" && createPortal(
         <>
           <div
             ref={panelRef}
-            className="fixed z-50 w-80 rounded-lg border bg-popover shadow-lg text-popover-foreground"
-            style={{ top: pos.top, right: pos.right, width: POPOVER_WIDTH }}
+            className="fixed z-50 flex flex-col rounded-lg border bg-popover shadow-lg text-popover-foreground"
+            style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
           >
-            <div className="max-h-64 overflow-y-auto p-3 space-y-2">
+            {/* Drag handle */}
+            <div
+              className="shrink-0 cursor-move select-none touch-none border-b px-3 py-1.5"
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                const d = dragRef.current;
+                if (!d) return;
+                setRect((r) => (r ? clampRect({ ...r, left: e.clientX - d.dx, top: e.clientY - d.dy }) : r));
+              }}
+              onPointerUp={() => { dragRef.current = null; }}
+              onPointerCancel={() => { dragRef.current = null; }}
+            >
+              <span className="text-xs font-medium text-muted-foreground">Comments</span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
               {mainList.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2 text-center">No comments yet.</p>
               ) : (
@@ -307,25 +376,26 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                     <div key={c.id} className={cn("rounded-md border px-2.5 py-2 text-xs", c.partner_addressed ? "bg-muted/40 opacity-70" : "bg-card")}>
                       {role === "admin" && c.author_role === "admin" && editingId === c.id ? (
                         <div className="space-y-1">
-                          <Textarea
+                          <RichTextEditor
                             value={editDraft}
-                            onChange={(e) => setEditDraft(e.target.value)}
-                            className="text-xs min-h-[56px] resize-none"
+                            onChange={setEditDraft}
+                            tools={COMMENT_TOOLS}
                             autoFocus
-                            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit(c.id); }}
+                            onSubmit={() => saveEdit(c.id)}
+                            className="text-xs [--rte-min-height:56px]"
                           />
                           <div className="flex items-center justify-between">
                             <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setEditingId(null)}>
                               Cancel
                             </button>
-                            <Button size="sm" className="h-6 text-xs" onClick={() => saveEdit(c.id)} disabled={editBusy || !editDraft.trim()}>
+                            <Button size="sm" className="h-6 text-xs" onClick={() => saveEdit(c.id)} disabled={editBusy || isBlank(editDraft)}>
                               {editBusy ? <Loader2 className="size-3 animate-spin" /> : "Save"}
                             </Button>
                           </div>
                         </div>
                       ) : (
                         <>
-                                                    <p className="whitespace-pre-wrap break-words">{c.body}</p>
+                                                    <CommentBody html={c.body} />
                           <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>
                               {formatDate(c.created_at)}
@@ -366,25 +436,26 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                             <div key={r.id}>
                               {editingId === r.id ? (
                                 <div className="space-y-1">
-                                  <Textarea
+                                  <RichTextEditor
                                     value={editDraft}
-                                    onChange={(e) => setEditDraft(e.target.value)}
-                                    className="text-xs min-h-[44px] resize-none"
+                                    onChange={setEditDraft}
+                                    tools={COMMENT_TOOLS}
                                     autoFocus
-                                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit(r.id); }}
+                                    onSubmit={() => saveEdit(r.id)}
+                                    className="text-xs [--rte-min-height:44px]"
                                   />
                                   <div className="flex items-center justify-between">
                                     <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setEditingId(null)}>
                                       Cancel
                                     </button>
-                                    <Button size="sm" className="h-6 text-xs" onClick={() => saveEdit(r.id)} disabled={editBusy || !editDraft.trim()}>
+                                    <Button size="sm" className="h-6 text-xs" onClick={() => saveEdit(r.id)} disabled={editBusy || isBlank(editDraft)}>
                                       {editBusy ? <Loader2 className="size-3 animate-spin" /> : "Save"}
                                     </Button>
                                   </div>
                                 </div>
                               ) : (
                                 <>
-                                  <p className="whitespace-pre-wrap break-words text-xs">{r.body}</p>
+                                  <CommentBody html={r.body} className="text-xs" />
                                   <div className="mt-0.5 flex items-center justify-between text-xs text-muted-foreground">
                                     <span>{r.author_role === "admin" ? "CRAF'd" : (r.author ?? "Partner")} · {formatDate(r.created_at)}</span>
                                     {((role === "partner" && r.author_role === "partner") || (role === "admin" && r.author_role === "admin" && !readOnly)) && (
@@ -408,13 +479,14 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                       <div className="mt-1.5">
                         {openReplyId === c.id ? (
                           <div className="space-y-1">
-                            <Textarea
+                            <RichTextEditor
                               value={replyDraft}
-                              onChange={(e) => setReplyDraft(e.target.value)}
+                              onChange={setReplyDraft}
                               placeholder="Write a reply…"
-                              className="text-xs min-h-[44px] resize-none"
+                              tools={COMMENT_TOOLS}
                               autoFocus
-                              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitReply(c.id); }}
+                              onSubmit={() => submitReply(c.id)}
+                              className="text-xs [--rte-min-height:44px]"
                             />
                             <div className="flex items-center justify-between">
                               <button
@@ -424,7 +496,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                               >
                                 Cancel
                               </button>
-                              <Button size="sm" className="h-6 text-xs" onClick={() => submitReply(c.id)} disabled={replyBusy || !replyDraft.trim()}>
+                              <Button size="sm" className="h-6 text-xs" onClick={() => submitReply(c.id)} disabled={replyBusy || isBlank(replyDraft)}>
                                 {replyBusy ? <Loader2 className="size-3 animate-spin" /> : "Reply"}
                               </Button>
                             </div>
@@ -456,7 +528,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                     <div className="mt-1.5 space-y-1.5">
                       {archivedList.map((c) => (
                         <div key={c.id} className="rounded-md border px-2.5 py-2 text-xs bg-muted/40 opacity-70">
-                          <p className="whitespace-pre-wrap break-words text-muted-foreground">{c.body}</p>
+                          <CommentBody html={c.body} className="text-muted-foreground" />
                           <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>{formatDate(c.created_at)}</span>
                             <Button size="sm" variant="outline" className="h-5 px-1.5 gap-1 text-xs" onClick={() => setResolved(c.id, false)} disabled={readOnly}>
@@ -471,21 +543,61 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
               )}
             </div>
             {!readOnly && (
-              <div className="border-t p-2.5 space-y-2">
-                <Textarea
+              <div className="shrink-0 border-t p-2.5 space-y-2">
+                <RichTextEditor
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={setDraft}
                   placeholder="Add a comment…"
-                  className="text-xs min-h-[56px] resize-none"
-                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+                  tools={COMMENT_TOOLS}
+                  onSubmit={submit}
+                  className="text-xs [--rte-min-height:56px]"
                 />
                 <div className="flex justify-end">
-                  <Button size="sm" className="h-7 text-xs" onClick={submit} disabled={busy || !draft.trim()}>
+                  <Button size="sm" className="h-7 text-xs" onClick={submit} disabled={busy || isBlank(draft)}>
                     {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Comment"}
                   </Button>
                 </div>
               </div>
             )}
+            {/* Resize handle (bottom-right corner) */}
+            <div
+              className="absolute bottom-0 right-0 size-3 cursor-se-resize touch-none"
+              title="Resize"
+              aria-hidden
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                resizeRef.current = { x: e.clientX, y: e.clientY, w: rect.width, h: rect.height };
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                const st = resizeRef.current;
+                if (!st) return;
+                setRect((r) => {
+                  if (!r) return r;
+                  // Grow/shrink from the bottom-right corner; the top-left stays put
+                  // and the far edges stop at the viewport margin.
+                  const maxW = window.innerWidth - PANEL_MARGIN - r.left;
+                  const maxH = window.innerHeight - PANEL_MARGIN - r.top;
+                  return {
+                    ...r,
+                    width: clampNum(st.w + e.clientX - st.x, Math.min(PANEL_MIN_W, maxW), maxW),
+                    height: clampNum(st.h + e.clientY - st.y, Math.min(PANEL_MIN_H, maxH), maxH),
+                  };
+                });
+              }}
+              onPointerUp={() => {
+                resizeRef.current = null;
+                const r = rectRef.current;
+                if (r) savePanelSize(r.width, r.height);
+              }}
+              onPointerCancel={() => { resizeRef.current = null; }}
+            >
+              <svg viewBox="0 0 16 16" className="size-3 text-muted-foreground/60" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M6 14 14 6M10 14l4-4" />
+              </svg>
+            </div>
           </div>
         </>,
         document.body

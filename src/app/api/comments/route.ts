@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow, editorProjectIds } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { sanitizeRichText } from "@/lib/sanitize";
+import { looksLikeHtml } from "@/lib/richtext";
+
+// Bodies may carry the editor's rich text (bold / italic / underline / links), so
+// HTML is sanitised on the way in, exactly like narratives. Plain-text bodies —
+// which every renderer escapes itself — are stored untouched.
+function cleanBody(raw: string): string {
+  return looksLikeHtml(raw) ? (sanitizeRichText(raw) ?? "").trim() : raw;
+}
 
 // Comments on report items (polymorphic — see migrations/032).
 //   GET ?reportId=<id>                → all comments for a report (editor)
@@ -222,7 +231,7 @@ export async function POST(req: NextRequest) {
 
   const reportId = Number(body.reportId);
   const section = typeof body.section === "string" ? body.section : "";
-  const text = typeof body.body === "string" ? body.body.trim() : "";
+  const text = typeof body.body === "string" ? cleanBody(body.body.trim()) : "";
   if (!reportId || !section || !text) {
     return NextResponse.json({ error: "reportId, section and body are required" }, { status: 400 });
   }
@@ -317,7 +326,7 @@ export async function PATCH(req: NextRequest) {
   const sets: string[] = [];
   const values: unknown[] = [];
   let i = 1;
-  if (typeof body.body === "string") { sets.push(`body = $${i++}`); values.push(body.body.trim()); }
+  if (typeof body.body === "string") { sets.push(`body = $${i++}`); values.push(cleanBody(body.body.trim())); }
   if (typeof body.resolved === "boolean") { sets.push(`resolved = $${i++}`); values.push(body.resolved); }
   if (typeof body.partner_addressed === "boolean") { sets.push(`partner_addressed = $${i++}`); values.push(body.partner_addressed); }
   if (sets.length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

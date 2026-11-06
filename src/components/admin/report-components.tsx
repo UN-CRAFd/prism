@@ -48,6 +48,7 @@ import {
 import { UpdateModuleMatrix } from "@/components/admin/update-module-matrix";
 import { documentTitle, nextUpdateIndex } from "@/lib/project-updates";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
+import { progressSections } from "@/lib/report-sections";
 
 const YEARS = [2023, 2024, 2025, 2026];
 
@@ -242,8 +243,9 @@ export function useReportCompletion(rows: { id: number; data_type?: string; unlo
             let total: number;
             if (row.data_type === "update" && row.unlocked_sections) {
               const sections = data.sections ?? {};
-              total = row.unlocked_sections.length;
-              done = row.unlocked_sections.filter((k) => sections[k] === true).length;
+              const counted = progressSections(row.unlocked_sections);
+              total = counted.length;
+              done = counted.filter((k) => sections[k] === true).length;
             } else {
               done = data.completed ?? 0;
               total = data.totalSections ?? 0;

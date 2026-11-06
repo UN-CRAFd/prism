@@ -32,7 +32,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath } from "@/lib/report-sections";
+import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath, countsTowardProgress } from "@/lib/report-sections";
 import { UPDATE_SECTIONS, updateSectionGroups } from "@/lib/update-sections";
 import { DOC_ID_PARAM, documentPath, documentTitle, firstUnlockedSection, resolveDocument } from "@/lib/project-updates";
 import { PRODOC_SECTIONS, partnerProdocSections } from "@/lib/prodoc-sections";
@@ -484,7 +484,7 @@ export function AppSidebar() {
                 )}
               >
                 <span className="flex-1 truncate">{s.label}</span>
-                {sectionComplete[s.value] && (
+                {countsTowardProgress(s.value) && sectionComplete[s.value] && (
                   <Check className="size-3.5 shrink-0 text-green-600" />
                 )}
               </Link>
@@ -529,7 +529,7 @@ export function AppSidebar() {
                   )}
                 >
                   <span className="flex-1 truncate">{s.label}</span>
-                  {updateSectionComplete[s.value] && (
+                  {countsTowardProgress(s.value) && updateSectionComplete[s.value] && (
                     <Check className="size-3.5 shrink-0 text-green-600" />
                   )}
                 </Link>

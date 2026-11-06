@@ -3,12 +3,14 @@ import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { workplanTypeCodeSql } from "@/lib/workplan";
+import { countsTowardProgress } from "@/lib/report-sections";
 
 // Report completion, per section.
 //
 //   • `sections`      — { [sectionValue]: boolean } map used for sidebar checkmarks.
-//   • `completed`     — number of sections that are true.
-//   • `totalSections` — total number of sections.
+//   • `completed`     — number of progress-counting sections that are true.
+//   • `totalSections` — number of progress-counting sections (the optional
+//                       Transfers and Complementary sections are excluded).
 //
 // A section is "complete" only when it is actually filled out — an empty section
 // is never complete (so the checkmark means "done", not "nothing to do").
@@ -210,8 +212,11 @@ export async function GET(req: NextRequest) {
       testimonials,
     };
 
-    const completed = Object.values(sections).filter(Boolean).length;
-    const totalSections = Object.keys(sections).length;
+    // The progress figures leave out the optional sections (see countsTowardProgress);
+    // `sections` itself still carries every section for ticks and submit blocking.
+    const counted = Object.entries(sections).filter(([key]) => countsTowardProgress(key));
+    const completed = counted.filter(([, ok]) => ok).length;
+    const totalSections = counted.length;
 
     return NextResponse.json({ sections, completed, totalSections });
   } catch (err) {

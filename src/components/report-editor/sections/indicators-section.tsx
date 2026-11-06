@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +10,6 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
-import { IndicatorTableSwitch, type IndicatorTableKey } from "@/components/report-editor/indicator-table-switch";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
@@ -72,20 +71,16 @@ export function IndicatorsSection({
   activities,
 }: IndicatorsSectionProps) {
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear, "indicators");
-  const [table, setTable] = useState<IndicatorTableKey>("standard");
 
+  // One table: the standard indicators first, then the project's custom ones.
   const standardRows = indicatorRows.filter((row) => row.is_standard);
   const projectRows = indicatorRows.filter((row) => !row.is_standard);
 
-  const renderIndicatorTable = (rows: IndicatorMatrixRow[], tableType: "standard" | "project") => {
-    const tableDescription = tableType === "standard"
-      ? "These are standard indicators which are used across all CRAF'd-supported projects."
-      : "These are custom indicators added for this project specifically.";
-
+  const renderIndicatorTable = (rows: IndicatorMatrixRow[]) => {
     // An empty table keeps its box, border and frozen header and says so on a row
-    // inside — same as the project document's indicator tables. A separate dashed
-    // placeholder would make the two boxes look unlike each other exactly when one
-    // of them is empty. 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
+    // inside — same as the project document's indicator table. A separate dashed
+    // placeholder would make the empty state look unlike the populated one.
+    // 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
     const emptyColSpan = 3
       + visibleYears.reduce((acc, y) => acc + (y === indicatorCurrentYear ? 3 : 2), 0)
       + 1;
@@ -102,12 +97,7 @@ export function IndicatorsSection({
         minWidth={IND_FROZEN_WIDTH}
         leadingCols={[
           {
-            label: (
-              <div className="flex items-center gap-1.5">
-                {tableType === "standard" ? labels.indicators.columns.standardIndicator : labels.indicators.columns.customIndicator}
-                <InfoPopover description={tableDescription} triggerTitle={`${tableType === "standard" ? "Standard" : "Custom project"} indicator table information`} />
-              </div>
-            ),
+            label: "Indicator",
             style: ifz("ind", 30),
           },
           { label: labels.indicators.columns.baseline, style: ifz("baseline", 30) },
@@ -129,9 +119,7 @@ export function IndicatorsSection({
           {rows.length === 0 && (
             <tr>
               <td colSpan={emptyColSpan} className="border-t px-4 py-8 text-center text-sm text-muted-foreground">
-                {tableType === "standard"
-                  ? "No CRAFd standard indicators are attached yet."
-                  : "No project indicators added yet."}
+                No indicators added yet.
               </td>
             </tr>
           )}
@@ -161,18 +149,19 @@ export function IndicatorsSection({
                           <ItemComments section="indicators" itemId={row.currentLineId} />
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1.5">
-                          {row.category && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{row.category}</span>}
-                          {row.cycle && <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{cycleLabel(row.cycle)}</span>}
+                          {row.category && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{row.category}</span>}
+                          {row.cycle && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{cycleLabel(row.cycle)}</span>}
+                          <span className={"inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap " + (row.is_standard ? "border-crafd-grey-100 bg-crafd-grey-100 text-crafd-grey-800" : "border-crafd-yellow bg-crafd-yellow-600 text-crafd-grey-900")}>{row.is_standard ? "Standard" : "Custom"}</span>
                         </div>
                       </>
                     </div>
                   </div>
                 </td>
                 <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
-                  <ValueYear value={tableType === "project" ? state.baseline_value : row.baseline_value} year={tableType === "project" ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />
+                  <ValueYear value={!row.is_standard ? state.baseline_value : row.baseline_value} year={!row.is_standard ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />
                 </td>
                 <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
-                  <ValueYear value={tableType === "project" ? state.target_value : row.target_value} year={tableType === "project" ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
+                  <ValueYear value={!row.is_standard ? state.target_value : row.target_value} year={!row.is_standard ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
                 </td>
 
                 {visibleYears.map((year) => {
@@ -248,28 +237,17 @@ export function IndicatorsSection({
 
   return (
     // Same shape as the project document's indicators tab. fillHeight: the section
-    // claims the tab's remaining height and never scrolls itself — the chosen table
+    // claims the tab's remaining height and never scrolls itself — the table
     // claims that height and scrolls internally, so the page stays put.
-    // No wrapper around each table: MatrixTableShell brings its own layout slot, and
+    // No wrapper around the table: MatrixTableShell brings its own layout slot, and
     // a second one would break the `max-h-full` cap by giving the card an
     // auto-height parent to measure against.
     <div className={cn("flex flex-col gap-4", fillHeight && "flex-1 min-h-0")}>
-      {/* Past-year chips keep the left of the row; the table switch sits on the
-          right. PastYearChips renders nothing when there are no past years, so
-          the switch is pushed right with ml-auto rather than justify-between. */}
+      {/* Past-year chips keep the left of the row. */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
-        <div className="ml-auto">
-          <IndicatorTableSwitch
-            value={table}
-            onChange={setTable}
-            standardCount={standardRows.length}
-            customCount={projectRows.length}
-          />
-        </div>
       </div>
-      {table === "standard" && renderIndicatorTable(standardRows, "standard")}
-      {table === "custom" && renderIndicatorTable(projectRows, "project")}
+      {renderIndicatorTable([...standardRows, ...projectRows])}
     </div>
   );
 }

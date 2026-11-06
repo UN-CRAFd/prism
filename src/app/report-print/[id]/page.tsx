@@ -123,8 +123,6 @@ interface ExpenditureData {
   years: number[];
   budgets: { category_id: number; year: number; approved_amount: string | null }[];
   expenditure: { category_id: number; year: number; annual_expenditure: string | null; comment: string | null }[];
-  /** Indirect support costs entered per year (absent where none was entered). */
-  indirect?: { year: number; annual_expenditure: number | string | null }[];
 }
 
 interface RiskRow {
@@ -950,11 +948,6 @@ export default function ReportPrintPage() {
                 {(() => {
                   const totalBudget = expCats.reduce((s, c) => s + budgetAt(c.id, expCurrentYear), 0);
                   const totalSpent = expCats.reduce((s, c) => s + expAt(c.id, expCurrentYear), 0);
-                  // ISC spent: the figure entered for the year, as in the
-                  // editor; the rate on the spending only when none was entered.
-                  const enteredIsc = expenditure?.indirect?.find((i) => i.year === expCurrentYear)?.annual_expenditure;
-                  const iscBudget = totalBudget * expRate;
-                  const iscSpent = enteredIsc != null && enteredIsc !== "" ? num(enteredIsc) : totalSpent * expRate;
                   return (
                     <>
                       <tr style={{ background: "#fafafa", fontWeight: 600 }}>
@@ -972,19 +965,19 @@ export default function ReportPrintPage() {
                           <td style={{ padding: "6px 8px", borderBottom: `1px solid ${LINE}`, verticalAlign: "middle" }}>
                             Indirect support costs ({Math.round(expRate * 100)}%)
                           </td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{formatUsd(iscBudget)}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{formatUsd(iscSpent)}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}`, color: iscBudget - iscSpent < 0 ? "#b91c1c" : undefined }}>
-                            {formatUsd(iscBudget - iscSpent)}
+                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{formatUsd(totalBudget * expRate)}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}` }}>{formatUsd(totalSpent * expRate)}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", borderBottom: `1px solid ${LINE}`, color: (totalBudget - totalSpent) * expRate < 0 ? "#b91c1c" : undefined }}>
+                            {formatUsd((totalBudget - totalSpent) * expRate)}
                           </td>
                         </tr>
                       )}
                       <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
                         <td style={{ padding: "6px 8px", borderTop: `1px solid ${LINE}`, verticalAlign: "middle" }}>Total</td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalBudget + iscBudget)}</td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalSpent + iscSpent)}</td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, color: totalBudget + iscBudget - totalSpent - iscSpent < 0 ? "#b91c1c" : undefined }}>
-                          {formatUsd(totalBudget + iscBudget - totalSpent - iscSpent)}
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalBudget * (1 + expRate))}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}` }}>{formatUsd(totalSpent * (1 + expRate))}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", borderTop: `1px solid ${LINE}`, color: (totalBudget - totalSpent) * (1 + expRate) < 0 ? "#b91c1c" : undefined }}>
+                          {formatUsd((totalBudget - totalSpent) * (1 + expRate))}
                         </td>
                       </tr>
                     </>

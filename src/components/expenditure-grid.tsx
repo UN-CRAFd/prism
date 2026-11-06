@@ -431,6 +431,7 @@ export function ExpenditurePartnerEditor({
   const { categories, years, currentYear, indirectRate } = data;
 
   // ── Which version of the page this is ──────────────────────────────────────
+  const isUpdate = data.isUpdate === true;
   const toDate = data.currentYearToDate === true;
   const showProposed = data.proposedBudget === true;
   // Budget revision: the requested total is ALWAYS computed — spent so far +
@@ -486,15 +487,20 @@ export function ExpenditurePartnerEditor({
 
   // ── Indirect support costs ─────────────────────────────────────────────────
   //
-  // The same on annual / final reports and updates: what was SPENT on indirect
-  // support costs is entered year by year (the reported year here; earlier
-  // years on their own documents). The reported year counts what is typed —
-  // blank until something is entered. An earlier year without an entered
-  // figure (closed before ISC could be entered) counts at the rate on that
-  // year's spending. Estimated years count nothing as spent.
+  // What was SPENT on indirect support costs is entered for the reported year
+  // (on annual / final reports and updates alike; earlier years on their own
+  // documents). On an update the reported year counts what is typed — blank
+  // until something is entered. On an annual / final report the year follows
+  // the rate on its spending, as it always did, until a figure is typed. An
+  // earlier year without an entered figure counts at the rate on that year's
+  // spending. Estimated years count nothing as spent.
   const iscFor = (y: number): number | null => {
     if (forecastYearSet.has(y)) return null; // estimated year: nothing reported
-    if (y === currentYear) return parseAmount(iscExp);
+    if (y === currentYear) {
+      const typed = parseAmount(iscExp);
+      if (typed !== null || isUpdate) return typed;
+      return sumExp(y) * indirectRate;
+    }
     // A past year without an entered figure was closed by an annual report,
     // which never stores one: it shows the rate on the spending of that year,
     // so that is what the year counts with here too.
@@ -537,7 +543,7 @@ export function ExpenditurePartnerEditor({
     : categories.reduce((a, c) => a + budgetRef(c.id), 0);
   const overspendShare = overspendBase > 0 ? (overspendTotal / overspendBase) * 100 : 0;
   const overspendLevel: "none" | "crafd" | "steering" =
-    overspendShare <= 10 ? "none" : overspendShare > 20 ? "steering" : "crafd";
+    !isUpdate || overspendShare <= 10 ? "none" : overspendShare > 20 ? "steering" : "crafd";
 
   // ── The four summary boxes (updates) ───────────────────────────────────────
   // 1. Project-cost budget left: approved project costs less what has been spent
@@ -686,8 +692,9 @@ export function ExpenditurePartnerEditor({
       {/* Four summary boxes in place of the old notices. Boxes 1 and 2 are the
           money still free to move — green while there is some, red once it is
           overspent; box 3 follows the 10% / 20% thresholds; box 4 compares the
-          indirect support costs with the most the rate allows. Shown on annual
-          and final reports and on updates alike. */}
+          indirect support costs with the most the rate allows. Updates only:
+          the annual and final report's page is unchanged. */}
+      {isUpdate && (
         <div className="shrink-0 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {/* Just the figures. A sentence appears only when categories or the
               indirect support costs are overspent. */}
@@ -725,6 +732,7 @@ export function ExpenditurePartnerEditor({
             }
           />
         </div>
+      )}
       {showProposed && data.forecastsAvailable !== true && (
         <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs text-red-900">
           Estimated expenditure cannot be saved on this database yet — the administrator needs to run{" "}
@@ -799,7 +807,7 @@ export function ExpenditurePartnerEditor({
             // triangle says "this category is over its approved budget", which
             // is worth seeing long before the 10% notice appears.
             const over = overspendByCategory.get(c.id) ?? 0;
-            const overspent = over > 0.005;
+            const overspent = isUpdate && over > 0.005;
             return (
               <tr key={c.id}>
                 <td style={L.fz("cat")} className="px-3 py-2 border-r border-t bg-card">
@@ -918,7 +926,7 @@ export function ExpenditurePartnerEditor({
                 estimated indirect support costs for the remaining years. */}
             {computedRow({
               label: `Indirect support costs (${Math.round(indirectRate * 100)}%)`,
-              flag: iscLeft < -0.005 ? "error" : undefined,
+              flag: isUpdate && iscLeft < -0.005 ? "error" : undefined,
               hint: "More has been reported than the approved indirect support costs.",
               approvedT: withIndirect(sumApprovedTotal, indirectRate),
               expT: iscTotal,

@@ -32,6 +32,9 @@ import {
   CheckCircle2,
   Clock,
   MoreHorizontal,
+  Pencil,
+  Printer,
+  Trash2,
 } from "lucide-react";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { StatusPill } from "@/components/partner/status-pill";
@@ -265,6 +268,72 @@ export function useReportCompletion(rows: { id: number; data_type?: string; unlo
   return completion;
 }
 
+// Row "…" menu for the Project Reports and Project Updates tables — the same
+// trigger as the Projects table's row menu. Edit changes the submission date only
+// (project, type and year are fixed once a report exists). Lives in the table's
+// own click-stopping cell, so using it never opens the row.
+export function ReportRowMenu({
+  report,
+  onDelete,
+  onDateChanged,
+}: {
+  report: ReportRow;
+  onDelete: () => void;
+  onDateChanged: (id: number, date: string) => void;
+}) {
+  const [dateOpen, setDateOpen] = useState(false);
+
+  async function handleSaveDate(date: string): Promise<string | null> {
+    if (!date) return "Submission date is required";
+    const res = await fetch(`/api/reports/${report.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_submission_date: date }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.error || "Failed to update submission date";
+    }
+    onDateChanged(report.id, date);
+    setDateOpen(false);
+    return null;
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          title="More actions"
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setDateOpen(true)}>
+            <Pencil />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => window.open(`/report-print/${report.id}?auto=1`, "_blank")}>
+            <Printer />
+            Print
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ChangeDateDialog
+        open={dateOpen}
+        currentDate={report.report_submission_date ?? null}
+        onCancel={() => setDateOpen(false)}
+        onSave={handleSaveDate}
+      />
+    </>
+  );
+}
+
 // The card used by the Reports grid and, with the three optional props below,
 // by the Project Updates grid: an update is the same object with its own type
 // badges, its own editor and its own wording. Left alone, every prop keeps the
@@ -494,11 +563,14 @@ export function CreateReportForm({
       setLoadingYears(true);
       try {
         const res = await fetch(`/api/expenditure-budgets?projectId=${projectId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setProjectYears(data.years || []);
-          setYear(String(data.years?.[data.years.length - 1] || ""));
-        }
+        // Only real years count: a project without dates can come back with
+        // null / 0 / NaN entries, which must not turn into picker options.
+        const raw: unknown[] = res.ok ? ((await res.json()).years ?? []) : [];
+        const valid = Array.from(
+          new Set(raw.filter((y): y is number => Number.isInteger(y) && (y as number) >= 2000 && (y as number) <= 2100))
+        ).sort((a, b) => a - b);
+        setProjectYears(valid);
+        setYear(valid.length ? String(valid[valid.length - 1]) : "");
       } catch (e) {
         console.error("Failed to load project years:", e);
       } finally {
@@ -507,22 +579,6 @@ export function CreateReportForm({
     };
     loadYears();
   }, [projectId]);
-
-  // Documents are not always filed inside the project's own time frame — a final
-  // report can land after it closes, an update can look back before it opened.
-  // So the picker offers YEAR_PADDING years either side of the project's range
-  // (the range itself comes from project_year_range in the database).
-  const YEAR_PADDING = 5;
-  const yearOptions = useMemo(() => {
-    const now = new Date().getFullYear();
-    const first = projectYears.length ? Math.min(...projectYears) : now;
-    const last = projectYears.length ? Math.max(...projectYears) : now;
-    const from = first - YEAR_PADDING;
-    const to = last + YEAR_PADDING;
-    return Array.from({ length: to - from + 1 }, (_, i) => from + i);
-  }, [projectYears]);
-
-  const withinProject = (y: number) => projectYears.includes(y);
 
   // The name the new update will get ("2027-BR-TR-AR", or "… (2)" if the project
   // already has that exact name for the year). Preview only — the API assigns
@@ -552,6 +608,16 @@ export function CreateReportForm({
     reset();
     onClose();
   }
+
+  // Every field on this form is required; Create stays disabled until all are set.
+  const dateLabel = dataType === "update" ? "Due date" : "Submission date";
+  const hasDate = dataType === "report" || dataType === "update";
+  const missing = [
+    !projectId && "Project",
+    dataType === "report" && !reportType && "Report type",
+    !year && "Year",
+    hasDate && !submissionDate && dateLabel,
+  ].filter((m): m is string => !!m);
 
   async function handleSubmit() {
     setFormError(null);
@@ -619,6 +685,7 @@ export function CreateReportForm({
       editMode={false}
       onCancel={handleClose}
       onSubmit={handleSubmit}
+      submitDisabled={missing.length > 0}
     >
       <div className="space-y-4">
         <div className={`grid w-full gap-4 ${dataType === "prodoc" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"}`}>
@@ -651,18 +718,17 @@ export function CreateReportForm({
           )}
 
           <Field label="Year" required>
-            <Select value={year} onValueChange={setYear} disabled={!projectId || loadingYears}>
+            <Select value={year} onValueChange={setYear} disabled={!projectId || loadingYears || projectYears.length === 0}>
               <SelectTrigger className="w-full"><SelectValue placeholder={loadingYears ? "Loading..." : "Select a year"} /></SelectTrigger>
               <SelectContent>
-                {yearOptions.map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {/* Years outside the project's own range stay selectable but
-                        are marked, so picking one is always deliberate. */}
-                    {withinProject(y) ? y : `${y} · outside project`}
-                  </SelectItem>
+                {projectYears.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {projectId && !loadingYears && projectYears.length === 0 && (
+              <p className="text-xs text-muted-foreground">Add the project&apos;s start date and duration in General Information first.</p>
+            )}
           </Field>
 
           {dataType === "update" && (
@@ -681,7 +747,7 @@ export function CreateReportForm({
           )}
 
           {(dataType === "report" || dataType === "update") && (
-            <Field label={dataType === "update" ? "Due date" : "Submission date"}>
+            <Field label={dateLabel} required>
               <DateInput
                 className="w-full"
                 value={submissionDate}
@@ -706,6 +772,9 @@ export function CreateReportForm({
               onModulesChange={setUpdateModules}
             />
           </Field>
+        )}
+        {missing.length > 0 && (
+          <p className="text-xs text-muted-foreground">Still required: {missing.join(", ")}</p>
         )}
       </div>
     </FormShell>

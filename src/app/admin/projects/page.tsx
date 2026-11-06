@@ -888,7 +888,7 @@ export default function ProjectsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
                           {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
-                          Print project document
+                          Print
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={() => startEdit(p)}>

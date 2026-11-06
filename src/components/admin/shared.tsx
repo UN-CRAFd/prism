@@ -524,6 +524,7 @@ export function FormShell({
   editMode,
   onCancel,
   onSubmit,
+  submitDisabled = false,
   children,
 }: {
   title: string;
@@ -533,6 +534,8 @@ export function FormShell({
   editMode: boolean;
   onCancel: () => void;
   onSubmit: () => void;
+  /** Extra reason to disable the submit button (e.g. required fields empty). */
+  submitDisabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -552,7 +555,7 @@ export function FormShell({
         <Button variant="outline" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-        <Button size="sm" onClick={onSubmit} disabled={saving}>
+        <Button size="sm" onClick={onSubmit} disabled={saving || submitDisabled}>
           {saving ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (

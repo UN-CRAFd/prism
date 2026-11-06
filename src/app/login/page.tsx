@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showReset, setShowReset] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -99,6 +100,21 @@ export default function LoginPage() {
                 placeholder="Enter your password"
                 className="border-transparent bg-white text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-crafd-yellow"
               />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowReset((v) => !v)}
+                  aria-expanded={showReset}
+                  className="text-xs text-neutral-300 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              {showReset && (
+                <p className="text-sm text-neutral-300">
+                  To reset your password, please contact your CRAF&apos;d focal point or email crafd@un.org.
+                </p>
+              )}
             </div>
             {error && (
               <p className="text-sm text-red-400">{error}</p>

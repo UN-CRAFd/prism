@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { imageResponseHeaders } from "@/lib/image-check";
 
 // Serves the raw bytes of an uploaded testimonial photo. Same headers and
 // permission model as /api/testimonials/[id]/photo (which serves the old
@@ -43,17 +44,15 @@ export async function GET(
 
     const photo = rows[0];
     const body = new Uint8Array(photo.photo_content!);
-    const rawName = photo.photo_file_name || "photo";
-    const asciiFallback = rawName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "");
-    const disposition = `${download ? "attachment" : "inline"}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(rawName)}`;
+    // Only real image types are served inline, with nosniff + sandbox CSP —
+    // an older row with a non-image type is sent as a download instead.
     return new NextResponse(body, {
       status: 200,
-      headers: {
-        "Content-Type": photo.photo_mime_type || "application/octet-stream",
-        "Content-Disposition": disposition,
-        "Content-Length": String(body.byteLength),
-        "Cache-Control": "private, no-store",
-      },
+      headers: imageResponseHeaders(
+        photo.photo_mime_type,
+        { inline: !download, fileName: photo.photo_file_name || "photo" },
+        body.byteLength,
+      ),
     });
   } catch (err) {
     logger.error("GET /api/testimonial-photos/[id]/file error:", err);

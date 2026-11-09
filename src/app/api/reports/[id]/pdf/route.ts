@@ -6,6 +6,7 @@ import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionItems, optionLabel } from "@/lib/options";
+import { contentDisposition } from "@/lib/content-disposition";
 
 interface SurveyRow {
   question: string;
@@ -312,7 +313,7 @@ export async function GET(
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${data.report.project_short_name || "report"}_${data.report.year}.pdf"`,
+        "Content-Disposition": contentDisposition("attachment", `${data.report.project_short_name || "report"}_${data.report.year}.pdf`),
       },
     });
   } catch (err) {

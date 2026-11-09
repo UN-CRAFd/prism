@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { PASSWORD_RULES, passwordPolicyError } from "@/lib/password-policy";
 
 // Partner setup link landing. The link lets the partner set their PRISM password
 // on first use; every subsequent visit requires re-entry of that password. On
@@ -63,8 +64,9 @@ export default function MagicLinkPage() {
     e.preventDefault();
     setError(null);
     if (phase === "setup") {
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters.");
+      const policyError = passwordPolicyError(password);
+      if (policyError) {
+        setError(policyError);
         return;
       }
       if (password !== confirm) {
@@ -145,6 +147,19 @@ export default function MagicLinkPage() {
                 className={fieldClass}
                 autoFocus
               />
+              {/* Live checklist of the password rules (setup only). */}
+              {phase === "setup" && (
+                <ul className="mt-1 space-y-0.5 text-xs" aria-label="Password requirements">
+                  {PASSWORD_RULES.map((r) => {
+                    const met = r.test(password);
+                    return (
+                      <li key={r.label} className={met ? "text-green-400" : "text-neutral-400"}>
+                        {met ? "✓" : "•"} {r.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
             {phase === "setup" && (

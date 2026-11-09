@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProjectRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { documentMimeType } from "@/lib/documents";
+import { contentDisposition } from "@/lib/content-disposition";
 
 // Single-file download for a project document. Streams the stored bytes with a
 // Content-Disposition so the browser downloads it under its original name.
@@ -36,14 +38,18 @@ export async function GET(
     const doc = rows[0];
     // pg returns bytea as a Node Buffer; hand its bytes to the Response body.
     const body = new Uint8Array(doc.content);
-    // Quote-escape the filename for the header.
-    const safeName = doc.file_name.replace(/"/g, "'");
+    // Always a download (never rendered in the browser), typed by its
+    // extension rather than the stored upload-time claim, with nosniff. The
+    // file name works in any script (Arabic, Chinese, …) — see
+    // lib/content-disposition.
     return new NextResponse(body, {
       status: 200,
       headers: {
-        "Content-Type": doc.mime_type || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${safeName}"`,
+        "Content-Type": documentMimeType(doc.file_name),
+        "Content-Disposition": contentDisposition("attachment", doc.file_name),
         "Content-Length": String(body.byteLength),
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
         "Cache-Control": "private, no-store",
       },
     });

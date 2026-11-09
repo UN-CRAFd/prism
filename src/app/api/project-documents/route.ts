@@ -3,7 +3,7 @@ import { query } from "@/lib/db";
 import { requireSession, guardProject, guardProjectRow, guardProjectOpen, guardProjectRowOpen } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import {
-  isDocumentType, MAX_DOC_BYTES, MAX_DOC_MB, isAllowedDocExtension,
+  isDocumentType, MAX_DOC_BYTES, MAX_DOC_MB, isAllowedDocExtension, checkDocumentUpload,
 } from "@/lib/documents";
 import { loadOptionOverrides } from "@/lib/option-settings";
 
@@ -89,6 +89,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    // The content must really be what the extension says (a renamed web page
+    // or program is rejected); the stored type comes from the extension.
+    const checked = checkDocumentUpload(file.name, buffer);
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
     const uploadedBy = session.org || (session.role === "admin" ? "Administrator" : null);
     const rows = await query(
       `INSERT INTO reporting_platform.project_documents
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest) {
         docName,
         docDate,
         file.name,
-        file.type || null,
+        checked.mimeType,
         file.size,
         buffer,
         uploadedBy,

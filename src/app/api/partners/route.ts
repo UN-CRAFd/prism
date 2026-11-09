@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { lockedPartnerIds } from "@/lib/login-throttle";
 
 export async function GET() {
   const session = await requireSession();
@@ -24,7 +25,11 @@ export async function GET() {
       ORDER BY p.short_name`,
       scoped ? [session.org] : []
     );
-    return NextResponse.json(rows);
+    if (scoped) return NextResponse.json(rows);
+    // Admins also see which accounts are locked after too many wrong passwords
+    // (unlocked by "Reset password").
+    const locked = await lockedPartnerIds();
+    return NextResponse.json(rows.map((r) => ({ ...r, locked: locked.has(Number(r.id)) })));
   } catch (err) {
     logger.error("GET /api/partners error:", err);
     return NextResponse.json({ error: "Failed to load partners" }, { status: 500 });

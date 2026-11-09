@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { LabelsEditor } from "@/components/admin/labels-editor";
 import { OptionsEditor } from "@/components/admin/options-editor";
 import { CharLimitsEditor } from "@/components/admin/char-limits-editor";
-
-const MIN_LENGTH = 8;
+import { SupportEmailEditor } from "@/components/admin/support-email-editor";
+import { PASSWORD_RULES, passwordPolicyError } from "@/lib/password-policy";
 
 export default function AdminSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -21,9 +21,11 @@ export default function AdminSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Same rules as partner passwords (lib/password-policy), checked live.
+  const policyError = passwordPolicyError(newPassword);
   const canSubmit =
     !!currentPassword &&
-    newPassword.length >= MIN_LENGTH &&
+    !policyError &&
     newPassword === confirmPassword &&
     !saving;
 
@@ -36,8 +38,8 @@ export default function AdminSettingsPage() {
       setError("New password and confirmation do not match.");
       return;
     }
-    if (newPassword.length < MIN_LENGTH) {
-      setError(`New password must be at least ${MIN_LENGTH} characters.`);
+    if (policyError) {
+      setError(policyError);
       return;
     }
 
@@ -92,7 +94,7 @@ export default function AdminSettingsPage() {
             />
           </div>
           <div className="space-y-1 min-w-[160px] flex-1">
-            <Label htmlFor="new-password" className="text-xs">New (min {MIN_LENGTH})</Label>
+            <Label htmlFor="new-password" className="text-xs">New</Label>
             <Input
               id="new-password"
               type="password"
@@ -128,8 +130,24 @@ export default function AdminSettingsPage() {
           {!error && confirmPassword.length > 0 && confirmPassword !== newPassword && (
             <span className="text-sm text-red-600 basis-full">Passwords do not match.</span>
           )}
+          {/* Live checklist of the password rules (same as for partners). */}
+          {newPassword.length > 0 && (
+            <ul className="basis-full flex flex-wrap gap-x-4 gap-y-0.5 text-xs" aria-label="Password requirements">
+              {PASSWORD_RULES.map((r) => {
+                const met = r.test(newPassword);
+                return (
+                  <li key={r.label} className={met ? "text-green-700" : "text-muted-foreground"}>
+                    {met ? "✓" : "•"} {r.label}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           </div>
         </form>
+
+        {/* Where "Forgot password" requests from the login page are e-mailed. */}
+        <SupportEmailEditor />
 
         {/* Interface labels (left) + Dropdown options (right) */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">

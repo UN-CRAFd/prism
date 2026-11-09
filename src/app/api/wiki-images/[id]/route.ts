@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { imageResponseHeaders } from "@/lib/image-check";
 
 // Serve a wiki image by id. Any logged-in user may fetch (partners read the wiki).
 // Images are immutable once uploaded, so we send a long cache header.
@@ -33,13 +34,13 @@ export async function GET(
     }
     const img = rows[0];
     const body = new Uint8Array(img.content);
+    // Only real image types are served inline, with nosniff + sandbox CSP.
+    // Images are immutable once uploaded, so the long cache header stays.
     return new NextResponse(body, {
       status: 200,
       headers: {
-        "Content-Type": img.mime_type || "application/octet-stream",
-        "Content-Length": String(body.byteLength),
+        ...imageResponseHeaders(img.mime_type, { inline: true, fileName: img.file_name ?? "image" }, body.byteLength),
         "Cache-Control": "private, max-age=31536000, immutable",
-        "Content-Disposition": `inline; filename="${(img.file_name ?? "image").replace(/"/g, "")}"`,
       },
     });
   } catch (err) {

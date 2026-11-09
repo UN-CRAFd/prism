@@ -23,7 +23,8 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  /** `error` carries the server's message, e.g. how many attempts are left. */
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -51,24 +52,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // the live value without a stale closure.
   const showWarningRef = useRef(false);
 
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (username: string, password: string): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      if (!res.ok) return false;
-      const data = await res.json();
-      if (!data?.user) return false;
+      const data = await res.json().catch(() => null);
+      if (!res.ok) return { ok: false, error: data?.error };
+      if (!data?.user) return { ok: false };
       showWarningRef.current = false;
       setShowWarning(false);
       lastActivityRef.current = Date.now();
       setUser(data.user);
       localStorage.setItem("crafd-user", JSON.stringify(data.user));
-      return true;
+      return { ok: true };
     } catch {
-      return false;
+      return { ok: false, error: "Network error. Please try again." };
     }
   }, []);
 
@@ -118,6 +119,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearInterval(interval);
     };
   }, [user, logout]);
+
+  // A login ends on the server when the account's password is changed or reset
+  // (on any device). Check every minute and whenever the tab regains focus; if
+  // it has ended, clear the local user and return to the login page with a note.
+  useEffect(() => {
+    if (!user) return;
+    let stopped = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        if (res.status === 401 && !stopped) {
+          stopped = true;
+          setUser(null);
+          localStorage.removeItem("crafd-user");
+          window.location.replace("/login?signedOut=password");
+        }
+      } catch { /* offline: try again later */ }
+    };
+    const interval = setInterval(check, 60_000);
+    const onFocus = () => { void check(); };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [user]);
 
   function handleStaySignedIn() {
     lastActivityRef.current = Date.now();

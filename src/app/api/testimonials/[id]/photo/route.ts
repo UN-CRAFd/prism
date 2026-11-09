@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requireSession, guardRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
+import { checkImageUpload, imageResponseHeaders } from "@/lib/image-check";
 
 // Uploaded testimonial photo — bytes stored on the testimonials row (same bytea
 // mechanism as project_documents). The photo is an alternative to photo_link and
@@ -54,6 +55,9 @@ export async function POST(
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    // Real images only (see lib/image-check); the detected type is stored.
+    const image = checkImageUpload(buffer);
+    if (!image.ok) return NextResponse.json({ error: image.error }, { status: 400 });
     // Storing an upload clears any external link (mutually exclusive).
     const rows = await query(
       `UPDATE reporting_platform.testimonials
@@ -61,7 +65,7 @@ export async function POST(
               photo_size_bytes = $4, photo_link = NULL, updated_at = NOW()
         WHERE id = $5
       RETURNING ${META_SELECT}`,
-      [buffer, file.type || null, file.name, file.size, id]
+      [buffer, image.type, file.name, file.size, id]
     );
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
@@ -96,17 +100,14 @@ export async function GET(
     const photo = rows[0];
     // pg returns bytea as a Node Buffer; hand its bytes to the Response body.
     const body = new Uint8Array(photo.photo_content!);
-    const rawName = photo.photo_file_name || "photo";
-    const asciiFallback = rawName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "");
-    const disposition = `${download ? "attachment" : "inline"}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(rawName)}`;
+    // Only real image types are served inline, with nosniff + sandbox CSP.
     return new NextResponse(body, {
       status: 200,
-      headers: {
-        "Content-Type": photo.photo_mime_type || "application/octet-stream",
-        "Content-Disposition": disposition,
-        "Content-Length": String(body.byteLength),
-        "Cache-Control": "private, no-store",
-      },
+      headers: imageResponseHeaders(
+        photo.photo_mime_type,
+        { inline: !download, fileName: photo.photo_file_name || "photo" },
+        body.byteLength,
+      ),
     });
   } catch (err) {
     logger.error("GET /api/testimonials/[id]/photo error:", err);

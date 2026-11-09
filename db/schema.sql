@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS partners (
     password_hash        TEXT,                            -- scrypt:<salt>:<hash>
     mail_account         TEXT         UNIQUE,             -- optional; login also works by short_name (NULLs allowed, not unique-constrained)
     password_set_at      TIMESTAMPTZ,                     -- when the partner set their own password via a share link (NULL = not yet)
+    session_version      INTEGER      NOT NULL DEFAULT 0, -- bumped on password change/reset: logs out every earlier login (db/add-session-versions.sql)
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -1198,6 +1199,16 @@ DROP TRIGGER IF EXISTS app_settings_updated_at ON app_settings;
 CREATE TRIGGER app_settings_updated_at
     BEFORE UPDATE ON app_settings
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- Login protection: failed-attempt counters and lockouts per key ('login:<user>',
+-- 'magic:<partnerId>', 'forgot:<user>'). 5 failures lock the key for 15 minutes.
+-- See db/add-login-attempts.sql and src/lib/login-throttle.ts.
+CREATE TABLE IF NOT EXISTS login_attempts (
+    key             TEXT         PRIMARY KEY,
+    failures        INTEGER      NOT NULL DEFAULT 0,
+    last_failed_at  TIMESTAMPTZ,
+    locked_until    TIMESTAMPTZ
+);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data

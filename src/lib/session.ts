@@ -35,6 +35,9 @@ export interface Session {
   partner_id?: number | null;
   name: string;
   exp: number; // epoch ms
+  /** The account's session version at login (lib/session-version). A password
+   *  change bumps it, which invalidates this token. Absent on older tokens = 0. */
+  ver?: number;
 }
 
 export function sessionsEnabled(): boolean {
@@ -77,13 +80,14 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export async function createSessionToken(
-  input: { role: Role; org: string | null; partner_id?: number | null; name: string; exp?: number }
+  input: { role: Role; org: string | null; partner_id?: number | null; name: string; exp?: number; ver?: number }
 ): Promise<string> {
   const payload: Session = {
     role: input.role,
     org: input.org,
     partner_id: input.partner_id ?? null,
     name: input.name,
+    ver: input.ver ?? 0,
     exp: input.exp ?? Date.now() + SESSION_TTL_MS,
   };
   const body = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));

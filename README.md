@@ -624,7 +624,9 @@ bundle.
 ### 7.3 Secrets & credentials
 
 - Admin password: stored hashed (`scrypt`) in `app_settings.admin_password_hash`
-  once set via Settings; falls back to `ADMIN_PASSWORD` env until then.
+  once set via Settings; falls back to `ADMIN_PASSWORD` env until then. If it is
+  forgotten, reset it with `db/reset-admin-password.mjs` (see §11, *Admin password
+  reset*).
 - Partner passwords: `scrypt` hashes in `partners.password_hash`. Legacy plaintext
   rows are still accepted and re-hashed on next save (`password.ts:22-24`).
 - The DB role password lives in `db/roles.sql` once filled in — treat that file as
@@ -748,10 +750,52 @@ password (partners typically bootstrap their password through a magic/share link
   (matched by `lower(short_name)` OR `lower(mail_account)`). `scrypt` verification,
   constant-time compare.
 - Magic/share links (`/api/auth/magic`, page `/m/[token]`): admin-only minting of
-  an HMAC-signed `{ rid, exp }` token (90-day TTL). First visit **sets** the
-  partner's password (min 6 chars); later visits require it (min-length asymmetry
-  vs admin's 8). Links cannot be forged by editing the URL and self-expire.
+  an HMAC-signed `{ pid, exp }` token (**7-day** TTL). First visit **sets** the
+  partner's password; later visits require it. Links cannot be forged by editing
+  the URL and self-expire.
+- **Password rules** (`lib/password-policy.ts`, for partner AND admin passwords;
+  enforced server-side and shown live on the share-link page and the admin
+  Settings page): at least 8 characters, one uppercase letter, one number, one
+  special character.
+- **Guess limit** (`lib/login-throttle.ts`, table `login_attempts`): after 5 wrong
+  passwords a partner account stays **locked until a new password is issued**
+  (admin: Partners → edit → *Reset password*, then send the setup link). The
+  shared admin account is locked for 15 minutes only — it is the account that
+  unlocks everyone else.
+- **Forgot password** (login page → `/api/auth/forgot`): e-mails the CRAF'd address
+  set under Settings → *Password help requests* (needs the `SMTP_*` variables).
 - Sessions: signed httpOnly cookie, 30-day TTL, `sameSite=lax`, `secure` in prod.
+  Each login carries the account's **session version** (`lib/session-version.ts`);
+  changing or resetting a password bumps it, which **logs every earlier login of
+  that account out** on all devices.
+
+**Admin password reset (nobody can sign in as admin).**
+
+There is deliberately no way to do this from the website. It needs the
+**database admin** credentials (IT / developers), via `db/reset-admin-password.mjs`:
+
+```powershell
+# PowerShell, from the repo root — use the DATABASE admin account, not prism_app
+$env:PG_ADMIN_USER = "<database admin user>"
+$env:PG_ADMIN_PASSWORD = "<database admin password>"
+node --env-file=.env db/reset-admin-password.mjs
+```
+
+The script asks for the new admin password twice (typing is hidden), checks the
+password rules above, stores it hashed, **logs all existing admin logins out** and
+clears an admin lockout. Then sign in at `/login` with username `admin`. To reset
+the **live** site, point the `AZURE_POSTGRES_*` values at the production database
+(e.g. a separate env file) before running it. Nothing is printed or stored in
+plain text.
+
+Not every lockout needs it:
+
+- *Someone changed the admin password* → ask them for the new one (the account
+  is shared; being logged out is intended).
+- *Five wrong guesses on the admin account* → wait 15 minutes; the lock lifts
+  itself.
+- *A partner is locked out or forgot their password* → no script needed: an admin
+  uses Partners → edit → *Reset password* and sends the new setup link.
 
 **Authorization / trust boundaries.**
 
@@ -925,6 +969,8 @@ npm run start    # serve build
 npm run lint     # eslint
 psql "<owner>" -f db/schema.sql     # provision schema
 psql "<owner>" -f db/roles.sql      # provision prism_app role
+node --env-file=.env db/run-sql.mjs db/<migration>.sql   # apply a migration (needs PG_ADMIN_USER / PG_ADMIN_PASSWORD)
+node --env-file=.env db/reset-admin-password.mjs         # forgotten admin password (see §11)
 ```
 
 **"Where do I look?"**

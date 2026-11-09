@@ -29,6 +29,22 @@ interface Partner {
   mail_account: string | null;
   created_at: string;
   projects: { id: number; project_title: string; short_name: string | null }[];
+  /** Locked after too many wrong passwords; "Reset password" unlocks it. */
+  locked?: boolean;
+}
+
+const LOCKED_HINT =
+  "Locked after 5 wrong passwords. Edit the partner, click \"Reset password\", then send them the setup link.";
+
+function LockedBadge() {
+  return (
+    <span
+      className="inline-flex items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700"
+      title={LOCKED_HINT}
+    >
+      Locked
+    </span>
+  );
 }
 
 // -- Validation -------------------------------------------------------------
@@ -252,7 +268,7 @@ export default function PartnersPage() {
   async function handleResetPassword(id: number) {
     if (!await confirm({
       title: "Reset this partner's password?",
-      message: "The partner will set a new password using a new setup link. You can copy the setup link from this page. Anyone already signed in stays signed in until their session ends.",
+      message: "The partner will set a new password using a new setup link. You can copy the setup link from this page. If the account was locked after too many wrong passwords, this also unlocks it. Anyone already signed in stays signed in until their session ends.",
       variant: "destructive",
       confirmLabel: "Reset",
     })) return;
@@ -378,9 +394,12 @@ export default function PartnersPage() {
               {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
-                    {p.short_name
-                      ? <Badge variant="outline" className="text-xs font-semibold">{displayShortName(p.short_name)}</Badge>
-                      : <Dash />}
+                    <span className="inline-flex items-center gap-1.5">
+                      {p.short_name
+                        ? <Badge variant="outline" className="text-xs font-semibold">{displayShortName(p.short_name)}</Badge>
+                        : <Dash />}
+                      {p.locked && <LockedBadge />}
+                    </span>
                   </TableCell>
                   <TableCell className="font-medium">{p.long_name || <Dash />}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{p.mail_account || <Dash />}</TableCell>
@@ -431,6 +450,7 @@ export default function PartnersPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold leading-snug line-clamp-2">{p.long_name || "—"}</p>
+                      {p.locked && <div className="mt-1"><LockedBadge /></div>}
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -486,7 +506,7 @@ export default function PartnersPage() {
         >
           <p className="text-sm font-semibold">Setup link ready</p>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Send this link to the partner so they can set their password. It expires in 90 days.
+            Send this link to the partner so they can set their password. It expires in 7 days.
           </p>
           <input
             readOnly

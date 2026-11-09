@@ -51,7 +51,7 @@ export function ShareLinkDialog({
               <p className="text-xs text-muted-foreground leading-relaxed">
                 The link directs the recipient to a password page — the first visit sets the
                 partner&apos;s password; every subsequent visit requires that password to sign
-                in as the partner organization. Links are valid for 90 days.
+                in as the partner organization. Links are valid for 7 days.
               </p>
             </>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
@@ -12,15 +12,53 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [showReset, setShowReset] = useState(false);
+  // "Forgot password": idle → sending → sent (message shown) / error.
+  const [resetState, setResetState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resetMessage, setResetMessage] = useState("");
   const { login } = useAuth();
   const router = useRouter();
+  // Arrived here because the account's password was changed elsewhere
+  // (lib/auth-context redirects with ?signedOut=password).
+  const [signedOutNote, setSignedOutNote] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the URL after mount
+    setSignedOutNote(new URLSearchParams(window.location.search).get("signedOut") === "password");
+  }, []);
+
+  // E-mails CRAF'd (the address set on the admin Settings page) for this username.
+  async function handleForgot() {
+    if (!username.trim()) {
+      setResetState("error");
+      setResetMessage("Please enter your username first, then click \"Forgot password\".");
+      return;
+    }
+    setResetState("sending");
+    setResetMessage("");
+    try {
+      const res = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setResetState("sent");
+        setResetMessage(data?.message ?? "CRAF'd has been contacted and will be in touch. This might take a moment.");
+      } else {
+        setResetState("error");
+        setResetMessage(data?.error ?? "We could not contact CRAF'd automatically. Please email crafd@un.org.");
+      }
+    } catch {
+      setResetState("error");
+      setResetMessage("Network error. Please try again.");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const success = await login(username, password);
-    if (success) {
+    const result = await login(username, password);
+    if (result.ok) {
       const stored = localStorage.getItem("crafd-user");
       const user = stored ? JSON.parse(stored) : null;
       if (user?.role === "admin") {
@@ -29,7 +67,8 @@ export default function LoginPage() {
         router.push("/partner");
       }
     } else {
-      setError("Invalid username or password");
+      // The server says how many attempts are left, or that the account is locked.
+      setError(result.error ?? "Invalid username or password");
     }
   }
 
@@ -74,6 +113,12 @@ export default function LoginPage() {
             If you don&apos;t have an account, please contact the CRAF&apos;d Secretariat.
           </p>
 
+          {signedOutNote && (
+            <p className="text-sm text-crafd-yellow mb-6" role="status">
+              You have been signed out because the password for this account was changed. Please sign in with the new password.
+            </p>
+          )}
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="username" className="text-white text-sm">
@@ -103,16 +148,16 @@ export default function LoginPage() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowReset((v) => !v)}
-                  aria-expanded={showReset}
-                  className="text-xs text-neutral-300 hover:underline"
+                  onClick={handleForgot}
+                  disabled={resetState === "sending" || resetState === "sent"}
+                  className="text-xs text-neutral-300 hover:underline disabled:opacity-60 disabled:no-underline"
                 >
-                  Forgot password?
+                  {resetState === "sending" ? "Contacting CRAF'd…" : "Forgot password"}
                 </button>
               </div>
-              {showReset && (
-                <p className="text-sm text-neutral-300">
-                  To reset your password, please contact your CRAF&apos;d focal point or email crafd@un.org.
+              {resetMessage && (
+                <p className={resetState === "error" ? "text-sm text-red-400" : "text-sm text-neutral-200"} role="status">
+                  {resetMessage}
                 </p>
               )}
             </div>

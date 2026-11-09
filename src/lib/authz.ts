@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { SESSION_COOKIE, verifySessionToken, type Session } from "@/lib/session";
+import { adminVersion, partnerVersion } from "@/lib/session-version";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Route-level authorization. The middleware already blocks unauthenticated calls
@@ -19,7 +20,23 @@ const IDENT = /^[a-z_][a-z0-9_]*$/;
 
 export async function getSession(): Promise<Session | null> {
   const store = await cookies();
-  return verifySessionToken(store.get(SESSION_COOKIE)?.value);
+  const session = await verifySessionToken(store.get(SESSION_COOKIE)?.value);
+  if (!session) return null;
+  // A password change bumps the account's session version: a login issued
+  // before it (any device) no longer counts. A deleted partner's logins end too.
+  try {
+    if (session.role === "admin") {
+      return (session.ver ?? 0) === (await adminVersion()) ? session : null;
+    }
+    const pid = await resolvePartnerId(session);
+    if (pid == null) return null;
+    const current = await partnerVersion(pid);
+    return current !== null && (session.ver ?? 0) === current ? session : null;
+  } catch {
+    // The database being unreachable must not lock everyone out of reading
+    // the error message; the route's own queries will fail anyway.
+    return session;
+  }
 }
 
 function unauthorized() {

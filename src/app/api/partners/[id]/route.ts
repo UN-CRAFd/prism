@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { clearFailures, partnerKey } from "@/lib/login-throttle";
+import { bumpPartnerVersion } from "@/lib/session-version";
 
 const ALLOWED_FIELDS: Record<string, string> = {
   short_name: "short_name",
@@ -32,6 +34,11 @@ export async function PUT(
         [id]
       );
       if (rows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 });
+      // A reset is how a locked account is unlocked: the partner sets a new
+      // password through the next share link.
+      await clearFailures(partnerKey(id));
+      // …and everyone still signed in with the old password is logged out.
+      await bumpPartnerVersion(id);
       return NextResponse.json({ ok: true });
     }
 

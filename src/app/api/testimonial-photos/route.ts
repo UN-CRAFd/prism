@@ -4,6 +4,7 @@ import { requireSession, guardReport, guardRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { badRequest, invalidJson, serverError } from "@/lib/http";
 import { MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
+import { checkImageUpload } from "@/lib/image-check";
 
 // Photos attached to testimonials. Each row in testimonial_photos has EITHER a
 // photo_link (external URL) OR an uploaded file (bytes in photo_content). The
@@ -124,13 +125,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `Image exceeds the ${MAX_PHOTO_MB} MB limit` }, { status: 400 });
       }
       const buffer = Buffer.from(await file.arrayBuffer());
+      // Real images only: the content must be a PNG, JPEG or WebP, whatever
+      // the file is called or claims to be. The detected type is stored.
+      const image = checkImageUpload(buffer);
+      if (!image.ok) return NextResponse.json({ error: image.error }, { status: 400 });
       const rows = await query(
         `INSERT INTO reporting_platform.testimonial_photos
            (testimonial_id, photo_content, photo_mime_type, photo_file_name, photo_size_bytes,
             photo_label, photo_credits, sort_order)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING ${PHOTO_COLS}`,
-        [testimonialId, buffer, file.type || null, file.name, file.size,
+        [testimonialId, buffer, image.type, file.name, file.size,
          photoLabel || null, photoCredits || null, nextSort]
       );
       return NextResponse.json(rows[0], { status: 201 });

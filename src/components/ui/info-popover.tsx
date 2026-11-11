@@ -9,11 +9,13 @@ export function InfoPopover({
   meansOfVerification,
   triggerTitle = "Indicator details",
   descriptionHeading = "What it measures",
+  secondaryHeading = "How it's verified",
 }: {
   description?: string | null;
   meansOfVerification?: string | null;
   triggerTitle?: string;
   descriptionHeading?: string;
+  secondaryHeading?: string;
 }) {
   const hasContent = !!(description || meansOfVerification);
   const [open, setOpen] = useState(false);
@@ -109,7 +111,7 @@ export function InfoPopover({
             )}
             {meansOfVerification && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">How it&apos;s verified</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{secondaryHeading}</p>
                 <p className="text-sm leading-snug">{meansOfVerification}</p>
               </div>
             )}

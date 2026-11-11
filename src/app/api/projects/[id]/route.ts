@@ -3,12 +3,14 @@ import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject, guardProjectOpen } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
+import { ADMIN_ONLY_CLASSIFICATION_FIELDS, stripAdminOnlyProjectFields } from "@/lib/project-fields";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
   "mptfo_project_number", "grant_size_usd", "project_start_date", "project_duration_months", "geographic_scope",
   "keyword",
   "universal_markers", "optional_markers", "fund_specific_markers", "indirect_cost_rate",
+  "allocation_modality", "investment_type", "investment_theme", "gender_equality_marker",
 ];
 
 // Fields only an admin may write. `partner_id` would let a partner reassign the
@@ -21,6 +23,7 @@ const ALLOWED_FIELDS = [
 // the request body.
 const ADMIN_ONLY_FIELDS = new Set([
   "partner_id", "short_name", "status", "indirect_cost_rate", "mptfo_project_number",
+  ...ADMIN_ONLY_CLASSIFICATION_FIELDS,
 ]);
 
 export async function GET(
@@ -44,7 +47,8 @@ export async function GET(
     if (rows.length === 0) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
-    return NextResponse.json(rows[0]);
+    const row = rows[0] as Record<string, unknown>;
+    return NextResponse.json(session.role === "admin" ? row : stripAdminOnlyProjectFields(row));
   } catch (err) {
     logger.error("GET /api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to load project" }, { status: 500 });
@@ -138,7 +142,7 @@ export async function PUT(
       }
 
       await client.query("COMMIT");
-      return NextResponse.json(row);
+      return NextResponse.json(session.role === "admin" || !row ? row : stripAdminOnlyProjectFields(row));
     } catch (e) {
       await client.query("ROLLBACK").catch(() => {});
       throw e;

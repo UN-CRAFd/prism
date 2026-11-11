@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, editorProjectIds } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { stripAdminOnlyProjectFields } from "@/lib/project-fields";
 
 // The one project document every project owns is a reports row with
 // data_type='prodoc'. Its year is cosmetic (a prodoc is not tied to a reporting
@@ -54,7 +55,8 @@ export async function GET() {
        ORDER BY p.short_name, pr.project_title`,
       values
     );
-    return NextResponse.json(rows);
+    // Partners never receive the admin-only classification fields.
+    return NextResponse.json(scoped ? (rows as Record<string, unknown>[]).map(stripAdminOnlyProjectFields) : rows);
   } catch (err) {
     logger.error("GET /api/projects error:", err);
     return NextResponse.json({ error: "Failed to load projects" }, { status: 500 });

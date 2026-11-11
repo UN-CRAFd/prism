@@ -406,7 +406,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
     ],
   },
   {
-    value: "workplan", label: "Workplan", endpoint: "/api/workplan", reportIdKey: "report_id", minWidth: 1400,
+    value: "workplan", label: "Work Plan", endpoint: "/api/workplan", reportIdKey: "report_id", minWidth: 1400,
     columns: [
       ...leadCols,
       { header: "Objective", headClass: "w-[150px]", cell: (r) => { const t = activityText(r.objective_num, r.objective_text); return t ? <p className="break-words text-xs">{t.replace(/^Activity /, "")}</p> : DASH; } },
@@ -418,7 +418,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
     ],
   },
   {
-    value: "expenditure", label: "Expenditure", endpoint: "/api/expenditure", reportIdKey: "report_id", minWidth: 1000,
+    value: "expenditure", label: "Budget", endpoint: "/api/expenditure", reportIdKey: "report_id", minWidth: 1000,
     columns: [
       ...leadCols,
       { header: "Category", headClass: "w-[220px]", cell: (r) => <p className="break-words font-medium">{r.category_name as string}</p> },

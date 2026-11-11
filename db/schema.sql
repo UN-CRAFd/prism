@@ -130,6 +130,10 @@ CREATE TABLE IF NOT EXISTS projects (
     universal_markers       TEXT,
     optional_markers        TEXT,
     fund_specific_markers   TEXT,
+    allocation_modality     TEXT,          -- admin-only (options: allocationModality)
+    investment_type         TEXT,          -- admin-only (options: investmentType)
+    investment_theme        TEXT,          -- admin-only (options: investmentTheme; admins add/delete inline)
+    gender_equality_marker  TEXT,          -- GEM0..GEM3 (options: genderEqualityMarker)
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
     archived                BOOLEAN       NOT NULL DEFAULT FALSE,  -- hidden from the admin Projects overview by default (Active/Archived filter)
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -1200,8 +1204,9 @@ CREATE TRIGGER app_settings_updated_at
     BEFORE UPDATE ON app_settings
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
 
--- Login protection: failed-attempt counters and lockouts per key ('login:<user>',
--- 'magic:<partnerId>', 'forgot:<user>'). 5 failures lock the key for 15 minutes.
+-- Login protection: failed-attempt counters and lockouts per key
+-- ('login:partner:<id>', 'login:name:<username>', 'login:admin'). 5 failures lock
+-- a partner until a new password is issued, the admin account for 15 minutes.
 -- See db/add-login-attempts.sql and src/lib/login-throttle.ts.
 CREATE TABLE IF NOT EXISTS login_attempts (
     key             TEXT         PRIMARY KEY,
@@ -1209,6 +1214,17 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     last_failed_at  TIMESTAMPTZ,
     locked_until    TIMESTAMPTZ
 );
+
+-- Monthly package & security check results (scripts/security-check.mjs), shown
+-- on the admin Security page. See db/add-security-checks.sql.
+CREATE TABLE IF NOT EXISTS security_checks (
+    id       SERIAL       PRIMARY KEY,
+    run_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    source   TEXT         NOT NULL DEFAULT 'script',
+    status   TEXT         NOT NULL CHECK (status IN ('ok', 'attention', 'action')),
+    report   JSONB        NOT NULL
+);
+CREATE INDEX IF NOT EXISTS security_checks_run_at_idx ON security_checks (run_at DESC);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed data

@@ -3,6 +3,8 @@ import { query } from "@/lib/db";
 import { requireSession, requireAdmin } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { DEFAULT_CYCLE, isValidCycle } from "@/lib/indicators";
+import { loadOptionOverrides } from "@/lib/option-settings";
+import { optionValues } from "@/lib/options";
 
 // GET /api/indicators
 //   Returns the shared indicator vocabulary to any authenticated caller.
@@ -108,6 +110,17 @@ export async function POST(req: NextRequest) {
     cycleValue = body.cycle;
   }
 
+  // Category is optional; when given it must be one of the configured indicator
+  // categories (the same list standard indicators use, e.g. "Access & Usage").
+  let categoryValue: string | null = null;
+  if (body.category) {
+    await loadOptionOverrides();
+    if (typeof body.category !== "string" || !optionValues("indicatorCategory").includes(body.category)) {
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    }
+    categoryValue = body.category;
+  }
+
   try {
     const rows = await query(
       `INSERT INTO reporting_platform.indicators
@@ -119,7 +132,7 @@ export async function POST(req: NextRequest) {
         name,
         description || null,
         meansOfVerification || null,
-        body.category || null,
+        categoryValue,
         cycleValue,
         isStandard,
       ]

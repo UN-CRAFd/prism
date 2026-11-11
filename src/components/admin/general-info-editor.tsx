@@ -18,14 +18,15 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn, formatAmount } from "@/lib/utils";
-import { Plus, Trash2, Users, FileText, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, Users, FileText, Pencil, Check, X, Tags, Lock } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
-import { optionValues } from "@/lib/options";
+import { optionItems, optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
 import { useCharLimits } from "@/lib/use-char-limits";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { InvestmentThemeSelect } from "@/components/admin/investment-theme-select";
 
 const ORG_NAME_MAX = 300;
 
@@ -37,6 +38,14 @@ const ORG_NAME_MAX = 300;
 
 const g = labels.generalInfo;
 const GEO_SCOPE_NONE = "__none__";
+const OPTION_NONE = "__none__";
+
+// Option values for a dropdown, plus the stored value if it was since removed
+// from the list (so the Select still shows it instead of going blank).
+function withCurrent(key: string, current: string): string[] {
+  const vals = optionValues(key);
+  return current && !vals.includes(current) ? [...vals, current] : vals;
+}
 
 // Editable project columns, kept as strings in local form state. Follows the FMP
 // General Information flow: title, applicants, description, geographic scope,
@@ -46,6 +55,10 @@ const FIELD_KEYS = [
   "project_title", "mptfo_project_number", "status",
   "grant_size_usd", "project_start_date", "project_duration_months",
   "geographic_scope", "description",
+  // Classification: the first three are admin-only (hidden from partners; the
+  // API strips/ignores them for non-admins). The Gender Equality Marker is
+  // partner-editable.
+  "allocation_modality", "investment_type", "investment_theme", "gender_equality_marker",
 ] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
 type Form = Record<FieldKey, string>;
@@ -54,6 +67,7 @@ const EMPTY_FORM: Form = {
   project_title: "", mptfo_project_number: "", status: "Ongoing",
   grant_size_usd: "", project_start_date: "", project_duration_months: "",
   geographic_scope: "", description: "",
+  allocation_modality: "", investment_type: "", investment_theme: "", gender_equality_marker: "",
 };
 
 // Add whole months to a YYYY-MM-DD date, returning YYYY-MM-DD. Computed in UTC so
@@ -109,6 +123,10 @@ function coerce(key: FieldKey, value: string): unknown {
     case "project_start_date":
     case "mptfo_project_number":
     case "geographic_scope":
+    case "allocation_modality":
+    case "investment_type":
+    case "investment_theme":
+    case "gender_equality_marker":
     case "description": return value.trim() === "" ? null : value;
     default: return value; // project_title (NOT NULL), status (enum)
   }
@@ -219,6 +237,10 @@ export function GeneralInfoAdminEditor({
           project_duration_months: p.project_duration_months != null ? String(p.project_duration_months) : "",
           geographic_scope: p.geographic_scope ?? "",
           description: p.description ?? "",
+          allocation_modality: p.allocation_modality ?? "",
+          investment_type: p.investment_type ?? "",
+          investment_theme: p.investment_theme ?? "",
+          gender_equality_marker: p.gender_equality_marker ?? "",
         };
         setForm(loaded);
         savedRef.current = { ...loaded };
@@ -701,7 +723,14 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.description}</label>
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.description}</label>
+            <InfoPopover
+              description={g.descriptionInstruction}
+              triggerTitle={g.fields.description}
+              descriptionHeading="Description"
+            />
+          </div>
           <RichTextEditor
             value={form.description}
             onChange={(html) => setField("description", html)}
@@ -774,6 +803,101 @@ export function GeneralInfoAdminEditor({
               <Plus className="size-3.5 mr-1" />Add
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* Classification — admin-only allocation/investment fields, plus the
+          Gender Equality Marker that partners fill in. Sits between the
+          project data card and Contacts (same order-1, later in the DOM). */}
+      <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Tags className="size-4 text-muted-foreground" />
+          <h3 className="t-heading-editor">{g.classificationHeading}</h3>
+        </div>
+
+        {isAdmin && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="size-3" />
+              <span>{g.adminOnlyNote}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{g.fields.allocationModality}</label>
+                <Select
+                  value={form.allocation_modality || OPTION_NONE}
+                  onValueChange={(v) => setField("allocation_modality", v === OPTION_NONE ? "" : v)}
+                >
+                  <SelectTrigger className="w-full text-sm">
+                    <SelectValue placeholder={g.placeholders.select} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OPTION_NONE} className="text-muted-foreground">{g.placeholders.none}</SelectItem>
+                    {withCurrent("allocationModality", form.allocation_modality).map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{g.fields.investmentType}</label>
+                <Select
+                  value={form.investment_type || OPTION_NONE}
+                  onValueChange={(v) => setField("investment_type", v === OPTION_NONE ? "" : v)}
+                >
+                  <SelectTrigger className="w-full text-sm">
+                    <SelectValue placeholder={g.placeholders.select} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OPTION_NONE} className="text-muted-foreground">{g.placeholders.none}</SelectItem>
+                    {withCurrent("investmentType", form.investment_type).map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{g.fields.investmentTheme}</label>
+                <InvestmentThemeSelect
+                  value={form.investment_theme}
+                  onChange={(v) => setField("investment_theme", v)}
+                  placeholder={g.placeholders.investmentTheme}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-muted-foreground">{g.fields.genderEqualityMarker}</label>
+            <InfoPopover
+              description={g.genderEqualityMarkerDescription}
+              meansOfVerification={g.genderEqualityMarkerAssessment}
+              triggerTitle={g.fields.genderEqualityMarker}
+              descriptionHeading="What it means"
+              secondaryHeading="How to assess it"
+            />
+          </div>
+          <Select
+            value={form.gender_equality_marker || OPTION_NONE}
+            onValueChange={(v) => setField("gender_equality_marker", v === OPTION_NONE ? "" : v)}
+          >
+            <SelectTrigger className="w-full text-sm">
+              <SelectValue placeholder={g.placeholders.select} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={OPTION_NONE} className="text-muted-foreground">{g.placeholders.none}</SelectItem>
+              {optionItems("genderEqualityMarker").map((it) => (
+                <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+              ))}
+              {form.gender_equality_marker && !optionItems("genderEqualityMarker").some((it) => it.value === form.gender_equality_marker) && (
+                <SelectItem value={form.gender_equality_marker}>{form.gender_equality_marker}</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

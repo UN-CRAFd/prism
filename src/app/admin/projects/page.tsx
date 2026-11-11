@@ -975,7 +975,7 @@ export default function ProjectsPage() {
                 {validAdd > 0 && (
                   <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
                     New end date <span className="font-semibold text-foreground tabular-nums">{formatDate(projectEndDate(start, newDuration))}</span> · {newDuration} months total.
-                    <br />Budget and workplan periods update automatically; the grant amount is unchanged.
+                    <br />Budget and work plan periods update automatically; the grant amount is unchanged.
                   </p>
                 )}
 

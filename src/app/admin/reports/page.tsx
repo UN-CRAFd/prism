@@ -279,7 +279,7 @@ export default function ReportsPage() {
           projects={projects}
           dataType="report"
           onRefresh={loadData}
-          title="New report"
+          title="Create a new report"
         />
 
         {loading ? (

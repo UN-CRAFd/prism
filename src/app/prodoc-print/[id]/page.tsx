@@ -614,7 +614,7 @@ export default function ProdocPrintPage() {
 
         {/* ── Workplan ── */}
         {data.activities.length > 0 && (
-          <Section title="Workplan">
+          <Section title="Work Plan">
             {wpQuarters.length > 0 ? (
               <table data-block style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5, tableLayout: "fixed" }}>
                 <colgroup>

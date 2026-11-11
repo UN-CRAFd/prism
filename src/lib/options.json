@@ -21,6 +21,52 @@
       { "value": "Signatory", "label": "Signatory" }
     ]
   },
+  "allocationModality": {
+    "label": "Allocation modality",
+    "description": "How a project's funding was allocated (admin-only, in General Info).",
+    "kind": "flat",
+    "items": [
+      { "value": "Open Call", "label": "Open Call" },
+      { "value": "Closed Call", "label": "Closed Call" },
+      { "value": "Targeted Allocation", "label": "Targeted Allocation" }
+    ]
+  },
+  "investmentType": {
+    "label": "Investment type",
+    "description": "Investment type of a project (admin-only, in General Info).",
+    "kind": "flat",
+    "items": [
+      { "value": "Data Sets & Commons", "label": "Data Sets & Commons" },
+      { "value": "Infrastructure & Platforms", "label": "Infrastructure & Platforms" },
+      { "value": "Crisis Analytics & Insights", "label": "Crisis Analytics & Insights" },
+      { "value": "Human Capital & Know-how", "label": "Human Capital & Know-how" },
+      { "value": "Standards & Coordination", "label": "Standards & Coordination" },
+      { "value": "Learning & Exchange", "label": "Learning & Exchange" },
+      { "value": "Direct Cost", "label": "Direct Cost" }
+    ]
+  },
+  "investmentTheme": {
+    "label": "Investment theme",
+    "description": "Investment theme of a project (admin-only, in General Info). Admins can also add and delete themes directly in the General Info editor.",
+    "kind": "flat",
+    "items": [
+      { "value": "Conflict", "label": "Conflict" },
+      { "value": "Climate", "label": "Climate" },
+      { "value": "Fragility", "label": "Fragility" },
+      { "value": "Gender", "label": "Gender" }
+    ]
+  },
+  "genderEqualityMarker": {
+    "label": "Gender Equality Marker",
+    "description": "Gender Equality Marker of a project (in General Info, editable by partners).",
+    "kind": "keyed",
+    "items": [
+      { "value": "GEM0", "label": "GEM0 - The Key Activity is not expected to contribute to GEWE" },
+      { "value": "GEM1", "label": "GEM1 - The Key Activity contributes to GEWE in a limited way" },
+      { "value": "GEM2", "label": "GEM2 - GEWE is a significant objective of the Key Activity's overall intent" },
+      { "value": "GEM3", "label": "GEM3 - GEWE is the principal objective of the Key Activity" }
+    ]
+  },
   "geographicScope": {
     "label": "Geographic scope",
     "description": "Geographic scope of a project (in General Info).",
@@ -89,8 +135,8 @@
     ]
   },
   "workplanStatus": {
-    "label": "Workplan status",
-    "description": "Progress status for a workplan activity, ordered best to worst. The optional description shows beside the status name in the dropdown.",
+    "label": "Work Plan status",
+    "description": "Progress status for a work plan activity, ordered best to worst. The optional description shows beside the status name in the dropdown.",
     "kind": "flat",
     "hasDescription": true,
     "items": [
@@ -111,7 +157,7 @@
     ]
   },
   "workplanUpdateType": {
-    "label": "Workplan update types",
+    "label": "Work Plan update types",
     "description": "Update-window types. The value is a short code (e.g. TR) shown in row labels; the label is the full name.",
     "kind": "keyed",
     "items": [

@@ -39,8 +39,8 @@ const REPORT_DOWNLOAD_SECTIONS = [
   { value: "testimonials",      label: "Testimonials" },
   { value: "risk",              label: "Risk Management" },
   { value: "indicators",        label: "Indicators" },
-  { value: "workplan",          label: "Workplan" },
-  { value: "expenditure",       label: "Expenditure" },
+  { value: "workplan",          label: "Work Plan" },
+  { value: "expenditure",       label: "Budget" },
   { value: "transfers",         label: "Transfers" },
   { value: "complementary",     label: "Complementary Funding" },
 ];
@@ -49,8 +49,8 @@ const REPORT_DOWNLOAD_SECTIONS = [
 // meaningful when the export includes prodocs.
 const PRODOC_DOWNLOAD_SECTIONS = [
   { value: "prodoc_narratives",  label: "Narratives" },
-  { value: "prodoc_workplan",    label: "Baseline Workplan" },
-  { value: "prodoc_budgets",     label: "Baseline Budgets" },
+  { value: "prodoc_workplan",    label: "Baseline Work Plan" },
+  { value: "prodoc_budgets",     label: "Baseline Budget" },
 ];
 
 type ExportType = "report" | "prodoc" | "both";

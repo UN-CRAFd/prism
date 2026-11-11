@@ -104,9 +104,9 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
     modules: [{ value: "indicators", label: "Indicators", section: "indicators" }],
   },
   {
-    label: "Expenditure",
+    label: "Budget",
     modules: [
-      { value: "expenditure",        label: "Expenditure (actual spending)",      section: "expenditure" },
+      { value: "expenditure",        label: "Budget (actual spending)",           section: "expenditure" },
       { value: "expenditure_budget", label: "+ proposed new budget",              section: "expenditure" },
       { value: "expenditure_months", label: "+ extended time frame by {months} months", section: "expenditure" },
     ],

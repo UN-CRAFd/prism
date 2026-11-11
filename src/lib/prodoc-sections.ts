@@ -7,9 +7,9 @@ export const PRODOC_SECTIONS: { value: string; label: string; muted?: boolean; a
   { value: "workplan", get label() { return labels.sections.workplan; } },
   { value: "indicators", get label() { return labels.sections.indicators; } },
   { value: "risk", get label() { return labels.sections.risk; } },
-  // "Budgets" is the prodoc-editor label for the expenditure section (the report
-  // editor keeps "Expenditure"); it sits after the workplan tab here.
-  { value: "expenditure", label: "Budgets" },
+  // Same "Budget" label as the report editor (labels.sections.expenditure); it
+  // sits after the workplan tab here.
+  { value: "expenditure", get label() { return labels.sections.expenditure; } },
   { value: "signatures", get label() { return labels.sections.signatures; }, adminOnly: true },
   { value: "documents", get label() { return labels.sections.documents; } },
 ];

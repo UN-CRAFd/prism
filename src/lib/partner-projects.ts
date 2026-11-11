@@ -1,10 +1,12 @@
 import type { Report } from "@/lib/types";
 import { projectSlug, formatDate } from "@/lib/utils";
+import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface FeedbackComment {
   id: number;
+  report_id?: number;
   project_id: number;
   section: string;
   body: string;
@@ -13,13 +15,13 @@ export interface FeedbackComment {
   partner_addressed: boolean;
   year: number;
   report_type: "annual" | "final" | null;
-  data_type: "report" | "prodoc";
+  data_type: "report" | "prodoc" | "update";
   project_title: string;
   project_short_name: string | null;
 }
 
 export interface ProjectAction {
-  type: "report" | "prodoc";
+  type: "report" | "prodoc" | "update";
   label: string;
   href: string;
   // Report actions
@@ -56,11 +58,15 @@ export interface PartnerProject {
   role: "lead" | "implementing";
   prodoc: Report;
   reports: Report[];
+  updates: UpdateDoc[];
   actions: ProjectAction[];
   timeline: TimelineEvent[];
   isPast: boolean;
   hasOverdue: boolean;    // any report action is past its due date
 }
+
+// A project update (reports row with data_type = "update").
+export type UpdateDoc = Report & { unlocked_sections?: string[] | null; update_types?: string[] | null; update_index?: string | null };
 
 interface SessionUser {
   id: string;
@@ -96,7 +102,8 @@ export function buildPartnerProjects(
   reports: Report[],
   prodocs: Report[],
   comments: FeedbackComment[],
-  user: SessionUser
+  user: SessionUser,
+  updates: UpdateDoc[] = []
 ): PartnerProject[] {
   const isLead = (r: Report) =>
     r.partner_short_name.toLowerCase() === user.id.toLowerCase() ||
@@ -106,6 +113,12 @@ export function buildPartnerProjects(
   for (const r of reports) {
     if (!reportsByProject.has(r.project_id)) reportsByProject.set(r.project_id, []);
     reportsByProject.get(r.project_id)!.push(r);
+  }
+
+  const updatesByProject = new Map<number, UpdateDoc[]>();
+  for (const u of updates) {
+    if (!updatesByProject.has(u.project_id)) updatesByProject.set(u.project_id, []);
+    updatesByProject.get(u.project_id)!.push(u);
   }
 
   const commentsByProject = new Map<number, FeedbackComment[]>();
@@ -127,6 +140,8 @@ export function buildPartnerProjects(
     const slug = projectSlug(prodoc.project_short_name, prodoc.project_title);
     const projectReports = (reportsByProject.get(prodoc.project_id) ?? [])
       .sort((a, b) => a.year - b.year);
+    const projectUpdates = (updatesByProject.get(prodoc.project_id) ?? [])
+      .sort((a, b) => a.year - b.year || a.id - b.id);
     const projectComments = commentsByProject.get(prodoc.project_id) ?? [];
     const openComments = projectComments.filter((c) => !c.partner_addressed && !c.resolved);
 
@@ -149,6 +164,23 @@ export function buildPartnerProjects(
         });
       }
     }
+    // Open project updates requested by CRAF'd are to-dos too.
+    for (const u of projectUpdates) {
+      if (u.status !== "Open") continue;
+      const dueDate = u.report_submission_date ? new Date(u.report_submission_date) : null;
+      const overdue = dueDate != null && dueDate < today;
+      const dueSoon = dueDate != null && !overdue && dueDate <= thirtyDaysOut;
+      actions.push({
+        type: "update",
+        label: `Complete Project Update ${updateName(u)}`,
+        href: documentPath("/partner/project-updates", { ...u, data_type: "update" }, slug, firstUnlockedSection(u.unlocked_sections)),
+        dueDateFormatted: u.report_submission_date ? formatDate(u.report_submission_date) : null,
+        overdue,
+        dueSoon,
+        prodocStatus: null,
+        commentCount: openComments.filter((c) => c.report_id === u.id).length,
+      });
+    }
     if (prodoc.status === "Open") {
       actions.push({
         type: "prodoc",
@@ -163,7 +195,7 @@ export function buildPartnerProjects(
     }
 
     const hasOverdue = actions.some((a) => a.overdue);
-    const timeline = buildProjectTimeline(prodoc, projectReports);
+    const timeline = buildProjectTimeline(prodoc, projectReports, projectUpdates);
 
     // isPast: end date before today AND no actions
     let isPast = false;
@@ -183,6 +215,7 @@ export function buildPartnerProjects(
       role: isLead(prodoc) ? "lead" : "implementing",
       prodoc,
       reports: projectReports,
+      updates: projectUpdates,
       actions,
       timeline,
       isPast,
@@ -193,7 +226,13 @@ export function buildPartnerProjects(
   return result.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-function buildProjectTimeline(prodoc: Report, reports: Report[]): TimelineEvent[] {
+// "2027-BR-TR" style name; the generic fallback already reads "Project Update 2027".
+function updateName(u: UpdateDoc): string {
+  const t = documentTitle({ ...u, data_type: "update" });
+  return t.startsWith("Project Update ") ? t.slice("Project Update ".length) : t;
+}
+
+function buildProjectTimeline(prodoc: Report, reports: Report[], updates: UpdateDoc[] = []): TimelineEvent[] {
   const today = new Date();
   const events: TimelineEvent[] = [];
 
@@ -244,7 +283,11 @@ function buildProjectTimeline(prodoc: Report, reports: Report[]): TimelineEvent[
     : new Date(8640000000000000 - 1);
 
   // Report deadlines — no-deadline reports use the sentinel
-  for (const r of reports) {
+  const deadlineDocs: { r: Report; label: string }[] = [
+    ...reports.map((r) => ({ r, label: reportName(r.year, r.report_type) })),
+    ...updates.map((u) => ({ r: u as Report, label: `Project Update ${updateName(u)}` })),
+  ];
+  for (const { r, label } of deadlineDocs) {
     const submitted = r.status !== "Open";
     const hasDeadline = !!r.report_submission_date;
     const deadlineDate = hasDeadline ? new Date(r.report_submission_date!) : null;
@@ -264,7 +307,7 @@ function buildProjectTimeline(prodoc: Report, reports: Report[]): TimelineEvent[
     }
 
     events.push({
-      label: reportName(r.year, r.report_type),
+      label,
       type: "deadline",
       date: "",
       description,

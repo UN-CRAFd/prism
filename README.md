@@ -612,6 +612,7 @@ v4 theme).
 | `ADMIN_PASSWORD` | Admin login fallback | Also the fallback for the session and magic-link secrets. |
 | `SESSION_SECRET` | HMAC key for session cookie | Strongly recommended; independent of `ADMIN_PASSWORD` so rotating the admin password doesn't kill sessions. |
 | `MAGIC_LINK_SECRET` | HMAC key for share links | Falls back to `ADMIN_PASSWORD`. |
+| `SECURITY_CHECK_TOKEN` | Lets the monthly security check deliver its results (`/api/security-checks/report`) | At least 32 random characters; the same value is stored as a GitHub Actions secret. Without it the endpoint refuses everything. See §11, *Monthly security check*. |
 | `NODE_ENV` | `production` toggles `secure` cookies, suppresses debug logs. |
 
 **`ADMIN_PASSWORD` is triple-purposed** (admin login + session-signing fallback +
@@ -762,8 +763,9 @@ password (partners typically bootstrap their password through a magic/share link
   (admin: Partners → edit → *Reset password*, then send the setup link). The
   shared admin account is locked for 15 minutes only — it is the account that
   unlocks everyone else.
-- **Forgot password** (login page → `/api/auth/forgot`): e-mails the CRAF'd address
-  set under Settings → *Password help requests* (needs the `SMTP_*` variables).
+- **Forgot password** (login page): only shows who to contact — "Please contact
+  your CRAF'd focal point or email crafd@un.org. They will send you a new login
+  link." PRISM sends no e-mails.
 - Sessions: signed httpOnly cookie, 30-day TTL, `sameSite=lax`, `secure` in prod.
   Each login carries the account's **session version** (`lib/session-version.ts`);
   changing or resetting a password bumps it, which **logs every earlier login of
@@ -826,6 +828,56 @@ data can never be committed or served statically.
   and matches `IDENT`.
 - The triple-purposed `ADMIN_PASSWORD` and the checked-out `.env` credentials
   (§7.3) — rotate and split secrets for real deployments.
+
+**Monthly security check (admin → Security).**
+
+Once a month the platform is checked and the result is shown on the admin
+**Security** page: date of the last check, overall verdict, a list of what needs
+**immediate action** (with how to fix it), what should be fixed soon, all
+platform checks, package results and the history of the last 12 runs.
+
+- **Package checks** — `scripts/security-check.mjs` runs `npm audit` (separating
+  packages the live site uses from development-only tools) and `npm outdated`,
+  then POSTs the results to `/api/security-checks/report`.
+- **Platform checks** — run by the app itself when the results arrive
+  (`lib/security-check.ts`): signing keys set/long enough/distinct, no
+  `ADMIN_PASSWORD` left, admin password hashed, no plain-text partner passwords,
+  login-protection migrations applied, version log append-only, least-privilege
+  DB account, uniqueness rules present, locked partner accounts. Only "set / not
+  set" is ever recorded — never secret values.
+- **Levels** — *Action* (live-site package with a critical/high vulnerability, a
+  missing signing key, plain-text passwords, editable audit log, …), *Attention*
+  (moderate vulnerabilities, a Next.js update, a missing DB rule, …), *Info*.
+- **Schedule** — `.github/workflows/monthly-security-check.yml` runs at 06:00 UTC
+  on the 1st of each month (and via *Actions → Monthly security check → Run
+  workflow*). The run is marked failed when immediate action is needed, so
+  GitHub notifies the repository's watchers. GitHub pauses scheduled workflows
+  in repositories with no activity for 60 days — the Security page warns when
+  the last check is older than 35 days.
+- **"Re-check platform now"** on the Security page re-runs only the platform
+  checks (e.g. right after running a migration), reusing the latest package
+  results.
+
+Setup (once):
+
+1. Run `node --env-file=.env db/run-sql.mjs db/add-security-checks.sql`.
+2. Create a token of at least 32 random characters, e.g.
+   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`, and
+   set it as `SECURITY_CHECK_TOKEN` in the **server's** environment variables
+   (then redeploy/restart).
+3. On GitHub: *Settings → Secrets and variables → Actions* → add `PRISM_URL`
+   (the live address) and `SECURITY_CHECK_TOKEN` (the same token).
+4. Trigger the first run: *Actions → Monthly security check → Run workflow*.
+
+Run by hand (PowerShell, repo root, after `npm install`):
+
+```powershell
+$env:PRISM_URL = "https://<PRISM address>"   # or http://localhost:3000
+$env:SECURITY_CHECK_TOKEN = "<the token>"
+node scripts/security-check.mjs
+```
+
+Without `PRISM_URL` / `SECURITY_CHECK_TOKEN` the script only prints the results.
 
 ---
 

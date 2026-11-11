@@ -7,7 +7,7 @@ import labels from "@/lib/labels";
 import { ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { buildPartnerProjects } from "@/lib/partner-projects";
-import type { FeedbackComment, PartnerProject } from "@/lib/partner-projects";
+import type { FeedbackComment, PartnerProject, UpdateDoc } from "@/lib/partner-projects";
 import type { Report } from "@/lib/types";
 import { HorizontalTimeline } from "@/components/partner/horizontal-timeline";
 import { ActionRow } from "@/components/partner/project-rows";
@@ -18,6 +18,7 @@ export default function PartnerHomePage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [prodocs, setProdocs] = useState<Report[]>([]);
   const [comments, setComments] = useState<FeedbackComment[]>([]);
+  const [updates, setUpdates] = useState<UpdateDoc[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -30,19 +31,21 @@ export default function PartnerHomePage() {
       fetch("/api/reports?data_type=report").then((r) => r.json()).catch(() => []),
       fetch("/api/reports?data_type=prodoc").then((r) => r.json()).catch(() => []),
       fetch(`/api/comments?partnerShortName=${org}`).then((r) => r.json()).catch(() => []),
-    ]).then(([rpts, pdocs, cmts]) => {
+      fetch("/api/reports?data_type=update").then((r) => r.json()).catch(() => []),
+    ]).then(([rpts, pdocs, cmts, upds]) => {
       if (cancelled) return;
       setReports(Array.isArray(rpts) ? rpts : []);
       setProdocs(Array.isArray(pdocs) ? pdocs : []);
       setComments(Array.isArray(cmts) ? cmts : []);
+      setUpdates(Array.isArray(upds) ? upds : []);
       setDataLoaded(true);
     });
     return () => { cancelled = true; };
   }, [user]);
 
   const allProjects = useMemo(
-    () => (user ? buildPartnerProjects(reports, prodocs, comments, user) : []),
-    [reports, prodocs, comments, user]
+    () => (user ? buildPartnerProjects(reports, prodocs, comments, user, updates) : []),
+    [reports, prodocs, comments, user, updates]
   );
 
   const currentProjects = useMemo(() => allProjects.filter((p) => !p.isPast), [allProjects]);

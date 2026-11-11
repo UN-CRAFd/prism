@@ -14,7 +14,9 @@ const PUBLIC_API = new Set([
   "/api/auth/login",
   "/api/auth/magic",
   "/api/auth/logout",
-  "/api/auth/forgot", // "Forgot password" on the login page (rate-limited)
+  // Monthly security check results from scripts/security-check.mjs. No browser
+  // session; the route itself requires the SECURITY_CHECK_TOKEN bearer token.
+  "/api/security-checks/report",
 ]);
 
 // APIs only the admin (CRAF'd Secretariat) may call — bulk export/import of every

@@ -483,7 +483,7 @@ export function LinkedActivityPicker({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
         {activities.length === 0 && (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan activities yet.</div>
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No work plan activities yet.</div>
         )}
         {activities.map((a) => {
           const checked = selected.includes(a.id);

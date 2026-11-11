@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { Layers, ShieldCheck } from "lucide-react";
+import { FileText, Layers, ShieldCheck } from "lucide-react";
 import { combinedUpdateNote } from "@/lib/update-justifications";
 import { formatDate, formatUsd } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -77,6 +77,10 @@ export function OverviewSection({
       )}
 
       <div className="rounded-xl border bg-card p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 text-muted-foreground" />
+          <h3 className="t-heading-editor">{labels.generalInfo.detailsHeading}</h3>
+        </div>
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             These project details are managed by the CRAF&apos;d Secretariat.

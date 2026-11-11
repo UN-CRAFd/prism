@@ -743,7 +743,7 @@ export default function ReportPrintPage() {
         </Section>
 
         {/* ── Workplan ── */}
-        <Section title="Workplan" error={sectionErrors["workplan"]}>
+        <Section title="Work Plan" error={sectionErrors["workplan"]}>
           {wpActivities.length > 0 ? (
             wpQuarters.length > 0 ? (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5, tableLayout: "fixed" }}>
@@ -917,7 +917,7 @@ export default function ReportPrintPage() {
         </Section>
 
         {/* ── Expenditure ── */}
-        <Section title="Expenditure" error={sectionErrors["expenditure"]}>
+        <Section title="Budget" error={sectionErrors["expenditure"]}>
           {expenditure && expCats.length > 0 && expCurrentYear != null ? (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>

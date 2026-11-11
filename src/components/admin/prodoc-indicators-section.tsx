@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { InfoPopover } from "@/components/ui/info-popover";
 import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
+import { optionValues } from "@/lib/options";
 import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
 import { cycleLabel, CYCLE_KEYS, DEFAULT_CYCLE } from "@/lib/indicators";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
@@ -76,7 +77,7 @@ function LinkedResultsPicker({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 w-[380px] overflow-auto">
         {options.length === 0 && (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">No workplan results yet.</div>
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No work plan results yet.</div>
         )}
         {options.map((opt) => {
           const checked = selected.includes(opt.key);
@@ -99,6 +100,8 @@ function LinkedResultsPicker({
   );
 }
 
+const CATEGORY_NONE = "__none__";
+
 export function ProdocIndicatorsSection({
   lines,
   indicatorItems,
@@ -115,7 +118,7 @@ export function ProdocIndicatorsSection({
   lines: ProdocIndicatorLine[];
   indicatorItems: ComboboxItem[];
   onAdd: (item: ComboboxItem) => Promise<void>;
-  onCreate: (name: string, description: string, meansOfVerification: string, cycle: string) => Promise<void>;
+  onCreate: (name: string, description: string, meansOfVerification: string, cycle: string, category: string | null) => Promise<void>;
   onEdit: (indicatorId: number, lineId: number, patch: ProdocIndicatorEdit) => Promise<void>;
   onUpdateValues: (lineId: number, values: Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">) => Promise<void>;
   onDelete: (lineId: number) => Promise<void>;
@@ -133,6 +136,8 @@ export function ProdocIndicatorsSection({
   const [createDescription, setCreateDescription] = useState("");
   const [createMeansOfVerification, setCreateMeansOfVerification] = useState("");
   const [createCycle, setCreateCycle] = useState<string>(DEFAULT_CYCLE);
+  // Optional category, same list as the standard indicators (e.g. Access & Usage).
+  const [createCategory, setCreateCategory] = useState<string>(CATEGORY_NONE);
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">>>({});
   const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
@@ -250,6 +255,7 @@ export function ProdocIndicatorsSection({
     setCreateDescription("");
     setCreateMeansOfVerification("");
     setCreateCycle(DEFAULT_CYCLE);
+    setCreateCategory(CATEGORY_NONE);
   }
 
   async function submitCreate() {
@@ -257,7 +263,7 @@ export function ProdocIndicatorsSection({
     setCreatingBusy(true);
     awaitingNewRef.current = true;
     try {
-      await onCreate(createName.trim(), createDescription.trim(), createMeansOfVerification.trim(), createCycle);
+      await onCreate(createName.trim(), createDescription.trim(), createMeansOfVerification.trim(), createCycle, createCategory === CATEGORY_NONE ? null : createCategory);
       cancelCreate();
     } catch (e) {
       awaitingNewRef.current = false;
@@ -471,6 +477,17 @@ export function ProdocIndicatorsSection({
             <Input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="flex-[2]" autoFocus />
             <Textarea value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="min-h-9 flex-[2] resize-y text-sm" />
             <Textarea value={createMeansOfVerification} onChange={(e) => setCreateMeansOfVerification(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="min-h-9 flex-[2] resize-y text-sm" />
+            <Select value={createCategory} onValueChange={setCreateCategory}>
+              <SelectTrigger className="h-9 w-44 shrink-0" aria-label="Category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CATEGORY_NONE} className="text-muted-foreground">No category</SelectItem>
+                {optionValues("indicatorCategory").map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={createCycle} onValueChange={setCreateCycle}>
               <SelectTrigger className="h-9 w-36 shrink-0">
                 <SelectValue />

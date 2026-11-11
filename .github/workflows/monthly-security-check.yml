@@ -1,0 +1,46 @@
+# Monthly package & security check of PRISM.
+#
+# On the 1st of every month (and on demand via "Run workflow"), this checks the
+# packages in package-lock.json for known vulnerabilities and updates, then
+# sends the results to PRISM. PRISM adds its own platform checks and stores
+# everything on the admin "Security" page, including what needs immediate
+# action. See scripts/security-check.mjs and the README ("Monthly security check").
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   PRISM_URL             the live PRISM address, e.g. https://prism.example.org
+#   SECURITY_CHECK_TOKEN  the same value as the SECURITY_CHECK_TOKEN server setting
+#
+# The run is marked as failed when immediate action is needed, so GitHub
+# notifies the repository's watchers by e-mail.
+
+name: Monthly security check
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of every month
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Exactly the versions in package-lock.json; no install scripts are run.
+      - run: npm ci --ignore-scripts
+
+      - name: Check packages and send the results to PRISM
+        env:
+          PRISM_URL: ${{ secrets.PRISM_URL }}
+          SECURITY_CHECK_TOKEN: ${{ secrets.SECURITY_CHECK_TOKEN }}
+          SECURITY_CHECK_SOURCE: scheduled
+        run: node scripts/security-check.mjs

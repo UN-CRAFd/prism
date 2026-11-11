@@ -1,14 +1,11 @@
 -- Login protection: limit password guesses
 --
--- One row per throttled key, e.g. 'login:acled' (password login by username),
--- 'magic:12' (share-link password for partner 12) or 'forgot:acled' (forgot-
--- password requests). After 5 failed password attempts the key is locked for
--- 15 minutes; a successful login clears it. Rows hold no passwords, only the
--- counter and the lock time.
---
--- The CRAF'd address that "Forgot password" requests are sent to is stored in
--- the existing app_settings table (key 'support_email'), set on the admin
--- Settings page — no schema change is needed for it.
+-- One row per throttled key, e.g. 'login:partner:12' (a partner account; the
+-- login page and the share-link page share it), 'login:name:<username>' (a
+-- username that matches no account) or 'login:admin'. After 5 failed password
+-- attempts a partner key stays locked until a new password is issued; the
+-- admin key is locked for 15 minutes. A successful login clears the key. Rows
+-- hold no passwords, only the counter and the lock time.
 --
 -- Optional for the app code: until this has run, logins work but are not
 -- limited. The check is cached at module load, so restart the app afterwards.

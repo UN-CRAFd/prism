@@ -198,7 +198,6 @@ export function TrancheScheduleEditor({
     activeCells.filter((c) => c.tranche_number === trancheNumber).reduce((sum, c) => sum + cellAmount(c), 0);
 
   // Warn when any active cell has amount > 0 but no release date.
-  const missingReleaseDate = activeCells.some((c) => cellAmount(c) > 0 && !c.release_date);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const setCell = (orgId: number, tranche: number, patch: { amount?: string; date_description?: string; release_date?: string }) => {
@@ -382,10 +381,6 @@ export function TrancheScheduleEditor({
             </tfoot>
           </table>
         </div>
-      )}
-
-      {missingReleaseDate && (
-        <p className="text-sm text-crafd-grey-800">{g.tranches.missingReleaseDate}</p>
       )}
 
       <FundingSummary kind="tranche" requested={grantSize} total={trancheTotal} />

@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { LabelsEditor } from "@/components/admin/labels-editor";
 import { OptionsEditor } from "@/components/admin/options-editor";
 import { CharLimitsEditor } from "@/components/admin/char-limits-editor";
-import { SupportEmailEditor } from "@/components/admin/support-email-editor";
 import { PASSWORD_RULES, passwordPolicyError } from "@/lib/password-policy";
 
 export default function AdminSettingsPage() {
@@ -145,9 +144,6 @@ export default function AdminSettingsPage() {
           )}
           </div>
         </form>
-
-        {/* Where "Forgot password" requests from the login page are e-mailed. */}
-        <SupportEmailEditor />
 
         {/* Interface labels (left) + Dropdown options (right) */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">

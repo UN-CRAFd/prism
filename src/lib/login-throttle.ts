@@ -112,7 +112,7 @@ export async function lockedPartnerIds(): Promise<Set<number>> {
 
 const LOCKED_FOR_GOOD =
   `Your account has been locked after ${MAX_ATTEMPTS} failed attempts. ` +
-  `Click "Forgot password" and CRAF'd will send you a new password link.`;
+  `Please contact your CRAF'd focal point or email crafd@un.org — they will send you a new login link.`;
 
 /** The message shown after a wrong password. */
 export function attemptsLeftMessage(

@@ -311,7 +311,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     setError(null);
     try {
       const res = await fetch(`/api/workplan?reportId=${reportId}`);
-      if (!res.ok) throw new Error("Failed to load workplan");
+      if (!res.ok) throw new Error("Failed to load work plan");
       const d: WorkplanMatrix = await res.json();
       setData(d);
       const prog: Record<number, ProgressState> = {};
@@ -449,7 +449,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
         <FileQuestion className="size-8 opacity-30" />
-        <p className="text-sm">The workplan timeline has not been configured for this project yet.</p>
+        <p className="text-sm">The work plan timeline has not been configured for this project yet.</p>
       </div>
     );
   }
@@ -458,7 +458,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
         <FileQuestion className="size-8 opacity-30" />
-        <p className="text-sm">No workplan activities have been defined for this project yet.</p>
+        <p className="text-sm">No work plan activities have been defined for this project yet.</p>
       </div>
     );
   }
@@ -771,9 +771,9 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
         fetch(partnerMode ? `/api/workplan?reportId=${reportId}` : `/api/workplan-activities?projectId=${projectId}`),
         fetch(`/api/project-organizations?project_id=${projectId}&type=participating`),
       ]);
-      if (activitiesResult.status === "rejected") throw new Error("Failed to load workplan structure");
+      if (activitiesResult.status === "rejected") throw new Error("Failed to load work plan structure");
       const res = activitiesResult.value;
-      if (!res.ok) throw new Error("Failed to load workplan structure");
+      if (!res.ok) throw new Error("Failed to load work plan structure");
 
       if (orgsResult.status === "fulfilled" && orgsResult.value.ok) {
         try {

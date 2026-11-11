@@ -1104,14 +1104,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     finally { setAddingIndicator(false); }
   }
 
-  async function handleProdocIndicatorCreate(name: string, description: string, meansOfVerification: string, cycle: string) {
+  async function handleProdocIndicatorCreate(name: string, description: string, meansOfVerification: string, cycle: string, category: string | null) {
     setAddingIndicator(true);
     setError(null);
     try {
       const res = await fetch("/api/indicators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, means_of_verification: meansOfVerification, cycle, is_standard: false }),
+        body: JSON.stringify({ name, description, means_of_verification: meansOfVerification, cycle, category, is_standard: false }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

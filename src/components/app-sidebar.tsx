@@ -30,6 +30,7 @@ import {
   Target,
   ListChecks,
   ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { REPORT_SECTIONS, REPORT_SECTION_GROUPS, GROUP_STYLES, parseReportPath, parseUpdatePath, countsTowardProgress } from "@/lib/report-sections";
@@ -107,8 +108,13 @@ const adminNavGroups: { heading?: string; items: AdminNavItem[] }[] = [
       { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
     ],
   },
-  // Settings sits on its own at the bottom, outside any group.
-  { items: [{ href: "/admin/settings", label: "Settings", icon: Settings }] },
+  // Security and Settings sit on their own at the bottom, outside any group.
+  {
+    items: [
+      { href: "/admin/security", label: "Security", icon: ShieldAlert },
+      { href: "/admin/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 interface SidebarReport {

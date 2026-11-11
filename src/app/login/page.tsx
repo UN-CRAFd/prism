@@ -12,9 +12,8 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  // "Forgot password": idle → sending → sent (message shown) / error.
-  const [resetState, setResetState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  const [resetMessage, setResetMessage] = useState("");
+  // "Forgot password" only shows who to contact — no e-mail is sent.
+  const [showReset, setShowReset] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
   // Arrived here because the account's password was changed elsewhere
@@ -24,35 +23,6 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the URL after mount
     setSignedOutNote(new URLSearchParams(window.location.search).get("signedOut") === "password");
   }, []);
-
-  // E-mails CRAF'd (the address set on the admin Settings page) for this username.
-  async function handleForgot() {
-    if (!username.trim()) {
-      setResetState("error");
-      setResetMessage("Please enter your username first, then click \"Forgot password\".");
-      return;
-    }
-    setResetState("sending");
-    setResetMessage("");
-    try {
-      const res = await fetch("/api/auth/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setResetState("sent");
-        setResetMessage(data?.message ?? "CRAF'd has been contacted and will be in touch. This might take a moment.");
-      } else {
-        setResetState("error");
-        setResetMessage(data?.error ?? "We could not contact CRAF'd automatically. Please email crafd@un.org.");
-      }
-    } catch {
-      setResetState("error");
-      setResetMessage("Network error. Please try again.");
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -148,16 +118,18 @@ export default function LoginPage() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={handleForgot}
-                  disabled={resetState === "sending" || resetState === "sent"}
-                  className="text-xs text-neutral-300 hover:underline disabled:opacity-60 disabled:no-underline"
+                  onClick={() => setShowReset((v) => !v)}
+                  aria-expanded={showReset}
+                  className="text-xs text-neutral-300 hover:underline"
                 >
-                  {resetState === "sending" ? "Contacting CRAF'd…" : "Forgot password"}
+                  Forgot password
                 </button>
               </div>
-              {resetMessage && (
-                <p className={resetState === "error" ? "text-sm text-red-400" : "text-sm text-neutral-200"} role="status">
-                  {resetMessage}
+              {showReset && (
+                <p className="text-sm text-neutral-200" role="status">
+                  Please contact your CRAF&apos;d focal point or email{" "}
+                  <a href="mailto:crafd@un.org" className="underline hover:text-white">crafd@un.org</a>.
+                  They will send you a new login link.
                 </p>
               )}
             </div>

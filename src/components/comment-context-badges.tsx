@@ -21,7 +21,7 @@ function sectionLabelFor(section: string): string | undefined {
 // The prodoc editor relabels a couple of sections vs the report editor, so a
 // prodoc comment's badge matches what the partner sees in that editor.
 const PRODOC_SECTION_LABEL: Record<string, string> = {
-  expenditure: "Budgets",
+  expenditure: "Budget",
 };
 
 // Shared context strip shown below a comment's text on both the admin and partner

@@ -502,7 +502,7 @@ export async function POST(request: Request) {
       unlockedSections = modulesToSections(updateModules);
       if (unlockedSections.length === 0) {
         return NextResponse.json(
-          { error: "The selected modules unlock no editor section — include a Work Plan, Expenditure or Risk module" },
+          { error: "The selected modules unlock no editor section — include a Work Plan, Budget or Risk module" },
           { status: 400 }
         );
       }

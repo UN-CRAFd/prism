@@ -227,16 +227,33 @@ export function ProdocIndicatorsSection({
     }));
   }
 
+  // The row's values as they should be sent: a side whose year is currently
+  // invalid keeps its last persisted year (from the line itself, not the draft),
+  // so the invalid year is skipped while everything else in the row still saves.
+  function savableValues(line: ProdocIndicatorLine) {
+    const errs = yearErrors[line.id];
+    return {
+      ...valuesFor(line),
+      ...(errs?.baseline ? { baseline_year: line.baseline_year } : {}),
+      ...(errs?.target ? { target_year: line.target_year } : {}),
+    };
+  }
+
   async function saveValues(line: ProdocIndicatorLine) {
     const errs = yearErrors[line.id];
-    if (errs?.baseline || errs?.target) return;
-    const values = valuesFor(line);
+    const values = savableValues(line);
     setSavingId(line.id);
     try {
       await onUpdateValues(line.id, values);
+      // Clear the row's drafts, except an invalid year: that draft stays so the
+      // value remains visible (red outline) until the user corrects it.
       setValueDrafts((current) => {
         const next = { ...current };
-        delete next[line.id];
+        const kept: Partial<(typeof current)[number]> = {};
+        if (errs?.baseline && current[line.id]?.baseline_year !== undefined) kept.baseline_year = current[line.id].baseline_year;
+        if (errs?.target && current[line.id]?.target_year !== undefined) kept.target_year = current[line.id].target_year;
+        if (Object.keys(kept).length > 0) next[line.id] = kept as (typeof current)[number];
+        else delete next[line.id];
         return next;
       });
     } finally {
@@ -376,12 +393,9 @@ export function ProdocIndicatorsSection({
                         onChange={(e) => updateYear(line.id, "baseline", e.target.value)}
                         onBlur={() => saveValues(line)}
                         placeholder={labels.indicators.columns.baselineYear}
-                        className={"h-8" + (yearErrors[line.id]?.baseline ? " border-destructive" : "")}
-                        title={yearErrors[line.id]?.baseline ? "Year must be a whole number between 2000 and 2050" : undefined}
+                        className={"h-8" + (yearErrors[line.id]?.baseline ? " border-destructive focus-visible:ring-destructive" : "")}
+                        aria-invalid={yearErrors[line.id]?.baseline || undefined}
                       />
-                      {yearErrors[line.id]?.baseline && (
-                        <p className="mt-0.5 text-xs text-destructive">Invalid number</p>
-                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -396,12 +410,9 @@ export function ProdocIndicatorsSection({
                         onChange={(e) => updateYear(line.id, "target", e.target.value)}
                         onBlur={() => saveValues(line)}
                         placeholder={labels.indicators.columns.targetYear}
-                        className={"h-8" + (yearErrors[line.id]?.target ? " border-destructive" : "")}
-                        title={yearErrors[line.id]?.target ? "Year must be a whole number between 2000 and 2050" : undefined}
+                        className={"h-8" + (yearErrors[line.id]?.target ? " border-destructive focus-visible:ring-destructive" : "")}
+                        aria-invalid={yearErrors[line.id]?.target || undefined}
                       />
-                      {yearErrors[line.id]?.target && (
-                        <p className="mt-0.5 text-xs text-destructive">Invalid number</p>
-                      )}
                     </div>
                   </td>
                   <td className="py-3 pl-4 pr-2">
@@ -412,7 +423,7 @@ export function ProdocIndicatorsSection({
                         missing={!readOnly && !(values.linked_results?.length)}
                         onChange={async (linked_results) => {
                           updateValues(line.id, { linked_results });
-                          await onUpdateValues(line.id, { ...valuesFor(line), linked_results });
+                          await onUpdateValues(line.id, { ...savableValues(line), linked_results });
                         }}
                       />
                     </div>

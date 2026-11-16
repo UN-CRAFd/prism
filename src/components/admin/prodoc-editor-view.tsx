@@ -1532,8 +1532,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.likelihood}</th>
                           <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.impact}</th>
                           <th className={cn("text-left px-4 py-3 w-28", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.riskLevel}</th>
-                          <th className={cn("text-left px-4 py-3", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.approvedMitigation}</th>
-                          <th className={cn("text-right px-4 py-3 w-28", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.actions}</th>
+                          <th className={cn("text-left pl-4 pr-2 py-3", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.approvedMitigation}</th>
+                          <th className={cn("text-left px-4 py-3 w-[1%] whitespace-nowrap", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -1601,13 +1601,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                   <td className="px-4 py-3 align-top">
                                     <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
                                   </td>
-                                  <td className="px-4 py-3 align-top">
+                                  <td className="pl-4 pr-2 py-3 align-top">
                                     {risk.approved_mitigation
                                       ? <ClampedText text={risk.approved_mitigation} className="text-sm text-muted-foreground" expanded={expandedRiskIds.has(risk.id)} onToggle={() => toggleRiskExpanded(risk.id)} />
                                       : <span className="text-sm text-muted-foreground/40">—</span>}
                                   </td>
                                   <td className="px-4 py-3 align-top">
-                                    <div className="flex items-center justify-end gap-2">
+                                    <div className="flex items-center justify-start gap-2">
                                       <button onClick={() => { setEditingRiskId(risk.id); setEditingRiskName(risk.risk_name); setEditingRiskDescription(risk.risk_description ?? ""); setEditingRiskCategory(risk.risk_category ?? []); setEditingRiskApprovedMitigation(risk.approved_mitigation ?? ""); setEditRiskErrors({ name: false, description: false }); }} className="text-muted-foreground hover:text-foreground transition-colors">
                                         <Pencil className="size-3.5" />
                                       </button>
@@ -1658,26 +1658,28 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className={cn(newRiskErrors.likelihood && "rounded-md ring-1 ring-destructive")}>
-                                  <ScaleSelect kind="likelihood" value={newRiskLikelihood} onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
+                                  <ScaleSelect kind="likelihood" value={newRiskLikelihood} placeholder="Likelihood" onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
                                 </div>
                               </td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className={cn(newRiskErrors.impact && "rounded-md ring-1 ring-destructive")}>
-                                  <ScaleSelect kind="impact" value={newRiskImpact} onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
+                                  <ScaleSelect kind="impact" value={newRiskImpact} placeholder="Impact" onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
                                 </div>
                               </td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <RiskLevelBadge likelihood={newRiskLikelihood} impact={newRiskImpact} />
                               </td>
-                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
-                                <Textarea placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="text-sm min-h-[80px] resize-y" />
-                              </td>
-                              <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button size="sm" variant="outline" onClick={handleRiskAdd} disabled={addingRisk}>
-                                    {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={() => { setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false }); }}>{labels.common.cancel}</Button>
+                              {/* Mitigation and Actions merged for the draft row: the textarea at full
+                                  width, Save / Cancel underneath — so the Actions column keeps its width. */}
+                              <td colSpan={2} className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
+                                <div className="space-y-2">
+                                  <Textarea placeholder={labels.placeholders.approvedMitigation} value={newRiskApprovedMitigation} onChange={(e) => setNewRiskApprovedMitigation(e.target.value)} className="text-sm min-h-[80px] resize-y" />
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button size="sm" variant="outline" onClick={handleRiskAdd} disabled={addingRisk}>
+                                      {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => { setShowAddRiskRow(false); setNewRiskName(""); setNewRiskDescription(""); setNewRiskCategory([]); setNewRiskLikelihood(null); setNewRiskImpact(null); setNewRiskApprovedMitigation(""); setNewRiskErrors({ name: false, description: false, likelihood: false, impact: false }); }}>{labels.common.cancel}</Button>
+                                  </div>
                                 </div>
                               </td>
                             </tr>

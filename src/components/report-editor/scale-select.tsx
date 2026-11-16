@@ -72,11 +72,14 @@ export function ScaleSelect({
   value,
   onValueChange,
   disabled,
+  placeholder = "—",
 }: {
   kind: ScaleKind;
   value: number | null;
   onValueChange: (value: number | null) => void;
   disabled?: boolean;
+  /** Shown in the trigger while nothing is chosen. */
+  placeholder?: string;
 }) {
   const config = KIND_CONFIG[kind];
   return (
@@ -88,7 +91,7 @@ export function ScaleSelect({
       <SelectTrigger className="w-fit h-8 px-2 gap-1.5">
         {value != null
           ? config.badge(value)
-          : <span className="text-muted-foreground text-sm px-1">—</span>}
+          : <span className="text-muted-foreground text-sm px-1">{placeholder}</span>}
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>

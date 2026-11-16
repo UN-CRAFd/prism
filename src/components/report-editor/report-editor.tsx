@@ -585,8 +585,14 @@ export function ReportEditor({
     pushMapEdit(setRiskStates, riskStates, id, patch, { dirty: true });
   }
 
-  async function handleRiskAdd() {
-    if (!newRiskName.trim() || !reportId) return;
+  // Resolves true once the risk was created, so the section can close its draft row.
+  // `assessment` (the draft row's likelihood / impact) is written onto the new risk
+  // exactly as the table's own likelihood / impact selects do: into riskStates as
+  // updated_likelihood / updated_impact with dirty = true, which autosave then sends
+  // as a PATCH to /api/risk. (Calling updateRisk right after the create would read a
+  // stale riskStates, so the entry is built here, where the created risk is known.)
+  async function handleRiskAdd(assessment?: { updated_likelihood: number | null; updated_impact: number | null }): Promise<boolean> {
+    if (!newRiskName.trim() || !reportId) return false;
     setAddingRisk(true);
     setError(null);
     try {
@@ -609,18 +615,21 @@ export function ReportEditor({
           risk_name: created.risk_name,
           risk_description: created.risk_description ?? "",
           risk_category: created.risk_category ?? [],
-          updated_likelihood: created.updated_likelihood,
-          updated_impact: created.updated_impact,
+          updated_likelihood: assessment?.updated_likelihood ?? created.updated_likelihood,
+          updated_impact: assessment?.updated_impact ?? created.updated_impact,
           updated_mitigation: created.updated_mitigation ?? "",
           project_revision: created.project_revision,
-          dirty: false,
+          dirty: assessment != null,
         },
       }));
+      if (assessment) parentAutosave.schedule();
       setNewRiskName("");
       setNewRiskDescription("");
       setNewRiskCategory([]);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
+      return false;
     } finally {
       setAddingRisk(false);
     }

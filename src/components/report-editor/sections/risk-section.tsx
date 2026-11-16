@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ export interface RiskSectionProps {
   newRiskCategory: string[];
   setNewRiskCategory: (v: string[]) => void;
   addingRisk: boolean;
-  handleRiskAdd: () => void;
+  handleRiskAdd: (assessment?: { updated_likelihood: number | null; updated_impact: number | null }) => Promise<boolean>;
 
   updateRisk: (id: number, patch: Partial<RiskState>) => void;
   handleRiskDelete: (id: number) => Promise<void>;
@@ -127,6 +127,40 @@ export function RiskSection({
   const [draftDescription, setDraftDescription] = useState("");
   const [draftCategory, setDraftCategory] = useState<string[]>([]);
 
+  // The draft row for a new risk: opened by "Add risk", nothing is created until
+  // Save. Its field values live in the parent (newRisk*), as the old form's did.
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [addTried, setAddTried] = useState(false);
+  const [newLikelihood, setNewLikelihood] = useState<number | null>(null);
+  const [newImpact, setNewImpact] = useState<number | null>(null);
+  const draftRowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (showAddRow) draftRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [showAddRow]);
+
+  async function saveNewRisk() {
+    if (!newRiskName.trim() || !newRiskDescription.trim() || newLikelihood == null || newImpact == null) {
+      setAddTried(true);
+      return;
+    }
+    if (await handleRiskAdd({ updated_likelihood: newLikelihood, updated_impact: newImpact })) {
+      setShowAddRow(false);
+      setAddTried(false);
+      setNewLikelihood(null);
+      setNewImpact(null);
+    }
+  }
+
+  function cancelNewRisk() {
+    setShowAddRow(false);
+    setAddTried(false);
+    setNewLikelihood(null);
+    setNewImpact(null);
+    setNewRiskName("");
+    setNewRiskDescription("");
+    setNewRiskCategory([]);
+  }
+
   const [shownChips, updateShownChips] = useStickySet<string>("risk-history-chips");
 
   function toggleChip(key: string) {
@@ -180,18 +214,6 @@ export function RiskSection({
 
   return (
     <div className="space-y-4">
-      {/* Add-a-risk form */}
-      <div className="flex flex-wrap gap-2">
-        <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => setNewRiskName(e.target.value)} className="flex-1 min-w-[200px]" />
-        <Input placeholder={labels.placeholders.riskDescription} value={newRiskDescription} onChange={(e) => setNewRiskDescription(e.target.value)} className="flex-1 min-w-[200px]" />
-        <div className="flex-1 min-w-[160px]">
-          <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
-        </div>
-        <Button variant="add" onClick={handleRiskAdd} disabled={addingRisk || !newRiskName.trim()} size="sm" className="shrink-0">
-          {addingRisk ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.adminEditor.add}</>}
-        </Button>
-      </div>
-
       {/* Comparison chips — only when there is history to show */}
       {showChipsRow && (
         <div className="flex items-center gap-2 flex-wrap">
@@ -214,7 +236,7 @@ export function RiskSection({
         </div>
       )}
 
-      {risks.length === 0 ? (
+      {risks.length === 0 && !showAddRow ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
           {labels.partnerEditor.emptyRisks}
         </div>
@@ -429,8 +451,68 @@ export function RiskSection({
                   </tr>
                 );
               })}
+
+              {/* Draft row for a new risk — nothing is created until Save. */}
+              {showAddRow && (
+                <tr ref={draftRowRef} className="align-top bg-muted/10">
+                  <td className="px-3 py-3 border-t">
+                    <span className="text-xs font-mono text-muted-foreground">{risks.length + 1}.</span>
+                  </td>
+                  {/* One full-width form cell spanning every column after the row number
+                      (risk + comparison chips shown + updated-assessment + revision +
+                      actions), so it always reaches the right edge. */}
+                  <td colSpan={1 + selectedChipKeys.length * 2 + (isAdmin ? 4 : 3) + 2} className="px-3 py-3 border-t border-l">
+                    {/* w-0 + min-w-full: fills the cell exactly but adds nothing to the
+                        table's column sizing, so the form can never push past the table. */}
+                    <div className="w-0 min-w-full space-y-2">
+                      <Input
+                        value={newRiskName}
+                        onChange={(e) => setNewRiskName(e.target.value)}
+                        placeholder={labels.placeholders.riskName}
+                        className={cn("text-sm h-8", addTried && !newRiskName.trim() && "border-destructive focus-visible:ring-destructive")}
+                        autoFocus
+                      />
+                      <Textarea
+                        value={newRiskDescription}
+                        onChange={(e) => setNewRiskDescription(e.target.value)}
+                        placeholder={labels.placeholders.riskDescription}
+                        className={cn("text-sm min-h-[60px] resize-y", addTried && !newRiskDescription.trim() && "border-destructive focus-visible:ring-destructive")}
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="w-64 max-w-full">
+                            <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
+                          </div>
+                          <div className={cn(addTried && newLikelihood == null && "rounded-md ring-1 ring-destructive")}>
+                            <ScaleSelect kind="likelihood" value={newLikelihood} onValueChange={setNewLikelihood} placeholder="Likelihood" />
+                          </div>
+                          <div className={cn(addTried && newImpact == null && "rounded-md ring-1 ring-destructive")}>
+                            <ScaleSelect kind="impact" value={newImpact} onValueChange={setNewImpact} placeholder="Impact" />
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={saveNewRisk} disabled={addingRisk}>
+                            {addingRisk ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelNewRisk} disabled={addingRisk}>{labels.common.cancel}</Button>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Below the table, right-aligned, like the project document's Risk tab. Hidden
+          while the draft row is open (one draft at a time). */}
+      {!showAddRow && (
+        <div className="flex justify-end">
+          <Button type="button" variant="add" size="sm" onClick={() => setShowAddRow(true)} className="gap-1">
+            <Plus className="size-4" />Add risk
+          </Button>
         </div>
       )}
     </div>

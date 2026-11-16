@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,6 +139,9 @@ export function ProdocIndicatorsSection({
   // Optional category, same list as the standard indicators (e.g. Access & Usage).
   const [createCategory, setCreateCategory] = useState<string>(CATEGORY_NONE);
   const [creatingBusy, setCreatingBusy] = useState(false);
+  // Set once Save has been tried, so missing required fields get a red outline.
+  const [createTried, setCreateTried] = useState(false);
+  const draftRowRef = useRef<HTMLTableRowElement>(null);
   const [valueDrafts, setValueDrafts] = useState<Record<number, Pick<ProdocIndicatorEdit, "baseline_value" | "baseline_year" | "target_value" | "target_year" | "linked_results">>>({});
   const [yearErrors, setYearErrors] = useState<Record<number, { baseline: boolean; target: boolean }>>({});
   // New-row feedback: after a custom indicator is created, scroll to its row and
@@ -164,6 +167,11 @@ export function ProdocIndicatorsSection({
   }, [lines]);
 
   useEffect(() => () => { if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current); }, []);
+
+  // Bring the draft row into view when it opens (it is the last row of the table).
+  useEffect(() => {
+    if (creating) draftRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [creating]);
 
   function startEdit(line: ProdocIndicatorLine) {
     setEditingId(line.id);
@@ -268,6 +276,7 @@ export function ProdocIndicatorsSection({
 
   function cancelCreate() {
     setCreating(false);
+    setCreateTried(false);
     setCreateName("");
     setCreateDescription("");
     setCreateMeansOfVerification("");
@@ -276,7 +285,10 @@ export function ProdocIndicatorsSection({
   }
 
   async function submitCreate() {
-    if (!createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()) return;
+    if (!createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()) {
+      setCreateTried(true);
+      return;
+    }
     setCreatingBusy(true);
     awaitingNewRef.current = true;
     try {
@@ -334,7 +346,7 @@ export function ProdocIndicatorsSection({
             </tr>
           </thead>
           <tbody className="divide-y">
-            {tableLines.length === 0 ? (
+            {tableLines.length === 0 && !creating ? (
               <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">No indicators added yet.</td></tr>
             ) : tableLines.map((line, idx) => {
               const isEditing = editingId === line.id && draft;
@@ -454,6 +466,53 @@ export function ProdocIndicatorsSection({
                 </tr>
               );
             })}
+            {/* Draft row for a new custom indicator — nothing is created until Save. */}
+            {creating && (
+              <tr ref={draftRowRef} className="align-top bg-muted/10">
+                <td className="px-4 py-3 w-8 text-right text-xs tabular-nums text-muted-foreground align-top">{tableLines.length + 1}.</td>
+                {/* One full-width form cell spanning every column after the row number. */}
+                <td colSpan={7} className="px-4 py-3">
+                  <div className="flex flex-col gap-2">
+                    <Input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={labels.placeholders.indicatorName} className={createTried && !createName.trim() ? "border-destructive focus-visible:ring-destructive" : undefined} autoFocus />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Textarea value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className={"min-h-[64px] resize-y" + (createTried && !createDescription.trim() ? " border-destructive focus-visible:ring-destructive" : "")} />
+                      <Textarea value={createMeansOfVerification} onChange={(e) => setCreateMeansOfVerification(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className={"min-h-[64px] resize-y" + (createTried && !createMeansOfVerification.trim() ? " border-destructive focus-visible:ring-destructive" : "")} />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex gap-1.5">
+                        <Select value={createCategory} onValueChange={setCreateCategory}>
+                          <SelectTrigger className="h-8 w-44" aria-label="Category">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={CATEGORY_NONE} className="text-muted-foreground">No category</SelectItem>
+                            {optionValues("indicatorCategory").map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={createCycle} onValueChange={setCreateCycle}>
+                          <SelectTrigger className="h-8 w-36">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CYCLE_KEYS.map((k) => (
+                              <SelectItem key={k} value={k}>{cycleLabel(k)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={submitCreate} disabled={creatingBusy}>
+                          {creatingBusy ? <Loader2 className="size-3 animate-spin" /> : labels.adminEditor.save}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelCreate} disabled={creatingBusy}>{labels.common.cancel}</Button>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -465,9 +524,9 @@ export function ProdocIndicatorsSection({
   const standardLines = lines.filter((line) => line.is_standard);
   const customLines = lines.filter((line) => !line.is_standard);
 
-  // Adding only ever creates a customised project indicator — tucked under the
-  // table's bottom-right corner, with the create form opening downwards from
-  // there. The CRAF'd standard library is the controlled
+  // Adding only ever creates a customised project indicator — "Add indicator" sits
+  // under the table's bottom-right corner and opens a draft row at the end of the
+  // table. The CRAF'd standard library is the controlled
   // vocabulary and is curated from the admin indicators page.
   //
   // Kept mounted when the document is read-only instead of hidden: the surrounding
@@ -477,54 +536,16 @@ export function ProdocIndicatorsSection({
   // to read-only — with no hint that the control still exists and that "Start
   // editing" brings it back.
   const addIndicatorFooter = (
-    <div className="flex shrink-0 flex-col items-end gap-2">
-      {/* Hidden while the form is open — the form has its own Cancel. */}
-      {!creating && (
+    // Hidden while the draft row is open — one draft at a time, and the row has its
+    // own Save / Cancel.
+    !creating && (
+      <div className="flex shrink-0 justify-end">
         <Button type="button" variant="add" size="sm" onClick={() => openCreate("")} className="gap-1">
           <Plus className="size-4" />
           Add indicator
         </Button>
-      )}
-      {creating && (
-        <div className="flex w-full flex-col gap-2 rounded-lg border bg-muted/20 p-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{labels.adminEditor.createIndicator}</p>
-            <Button variant="ghost" size="sm" onClick={cancelCreate} className="h-7 px-2 text-muted-foreground">
-              <X className="mr-1 size-4" />{labels.adminEditor.cancel ?? "Cancel"}
-            </Button>
-          </div>
-          <div className="flex items-start gap-2">
-            <Input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={labels.placeholders.indicatorName} className="flex-[2]" autoFocus />
-            <Textarea value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} placeholder={labels.placeholders.indicatorDescription} className="min-h-9 flex-[2] resize-y text-sm" />
-            <Textarea value={createMeansOfVerification} onChange={(e) => setCreateMeansOfVerification(e.target.value)} placeholder={labels.placeholders.meansOfVerification} className="min-h-9 flex-[2] resize-y text-sm" />
-            <Select value={createCategory} onValueChange={setCreateCategory}>
-              <SelectTrigger className="h-9 w-44 shrink-0" aria-label="Category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={CATEGORY_NONE} className="text-muted-foreground">No category</SelectItem>
-                {optionValues("indicatorCategory").map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={createCycle} onValueChange={setCreateCycle}>
-              <SelectTrigger className="h-9 w-36 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CYCLE_KEYS.map((k) => (
-                  <SelectItem key={k} value={k}>{cycleLabel(k)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="add" onClick={submitCreate} disabled={creatingBusy || !createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()} size="sm" className="shrink-0">
-              {creatingBusy ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="mr-1 size-4" />{labels.adminEditor.add}</>}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    )
   );
 
   return (

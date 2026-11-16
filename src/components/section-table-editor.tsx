@@ -882,6 +882,7 @@ export function SectionTableEditor({
   const canAdd = max === undefined || rows.length < max;
 
   return (
+    <div className="space-y-3">
     <div className="overflow-x-auto rounded-xl border">
       <table className="w-full table-fixed text-sm">
         <thead>
@@ -1023,13 +1024,15 @@ export function SectionTableEditor({
           )}
         </tbody>
       </table>
-      {canAdd && (
-        <div className="px-4 py-3 border-t">
-          <Button onClick={addRow} variant="add" size="sm" className="gap-1.5">
-            <Plus className="size-3.5" /> {addLabel}
-          </Button>
-        </div>
-      )}
+    </div>
+    {/* Below the table, right-aligned — like the project document's Add buttons. */}
+    {canAdd && (
+      <div className="flex justify-end">
+        <Button onClick={addRow} variant="add" size="sm" className="gap-1">
+          <Plus className="size-4" />{addLabel}
+        </Button>
+      </div>
+    )}
     </div>
   );
 }

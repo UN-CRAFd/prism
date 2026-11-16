@@ -235,11 +235,6 @@ export function TrancheScheduleEditor({
           <Coins className="size-4 text-muted-foreground" />
           <h3 className="t-heading-editor">{g.tranches.heading}</h3>
         </div>
-        {participatingOrgs.length > 0 && (
-          <Button onClick={addTrancheColumn} size="sm" variant="add" className="shrink-0">
-            <Plus className="size-4 mr-1" />Add more tranches
-          </Button>
-        )}
       </div>
       <p className="text-xs text-muted-foreground">{g.tranches.description}</p>
 
@@ -254,6 +249,7 @@ export function TrancheScheduleEditor({
           Add participating organisations in General information first.
         </div>
       ) : (
+        <>
         <div className="rounded-xl border overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -381,6 +377,13 @@ export function TrancheScheduleEditor({
             </tfoot>
           </table>
         </div>
+        {/* Below the table, right-aligned — like the other Add buttons. */}
+        <div className="flex justify-end">
+          <Button onClick={addTrancheColumn} size="sm" variant="add" className="gap-1">
+            <Plus className="size-4" />Add more tranches
+          </Button>
+        </div>
+        </>
       )}
 
       <FundingSummary kind="tranche" requested={grantSize} total={trancheTotal} />

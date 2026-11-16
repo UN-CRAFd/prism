@@ -532,11 +532,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
 
   return (
     <div className={cn("space-y-4", props.fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
-      {/* Add a blank row — the partner fills every field inline below */}
       <div className="flex items-center gap-4 flex-wrap">
-        <Button variant="add" onClick={onAdd} disabled={adding} size="sm">
-          {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{config.labels.addEntry}</>}
-        </Button>
         <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
       </div>
 
@@ -688,6 +684,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             </tfoot>
         </MatrixTableShell>
       )}
+
+      {/* Add a blank row — the partner fills every field inline above. Below the
+          table, right-aligned, like the project document's Add buttons. */}
+      <div className="flex shrink-0 justify-end">
+        <Button variant="add" onClick={onAdd} disabled={adding} size="sm" className="gap-1">
+          {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4" />{config.labels.addEntry}</>}
+        </Button>
+      </div>
     </div>
   );
 }

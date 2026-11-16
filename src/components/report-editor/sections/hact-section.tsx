@@ -329,9 +329,11 @@ export function HactSection({
       )}
 
       {canEditAll && !loading && (
-        <Button size="sm" variant="add" onClick={addRow} disabled={adding}>
-          <Plus className="size-3.5" /> Add recommendation
-        </Button>
+        <div className="flex justify-end">
+          <Button size="sm" variant="add" onClick={addRow} disabled={adding} className="gap-1">
+            <Plus className="size-4" />Add recommendation
+          </Button>
+        </div>
       )}
     </div>
   );

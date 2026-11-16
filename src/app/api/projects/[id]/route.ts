@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject, guardProjectOpen } from "@/lib/authz";
 import { sanitizeRichText } from "@/lib/sanitize";
+import { isGrantSizeOutOfRange } from "@/lib/grant-limits";
 import { logger } from "@/lib/logger";
 import { ADMIN_ONLY_CLASSIFICATION_FIELDS, stripAdminOnlyProjectFields } from "@/lib/project-fields";
 
@@ -72,6 +73,15 @@ export async function PUT(
 
     if (body.description !== undefined) {
       body.description = sanitizeRichText(body.description as string);
+    }
+
+    // projects.grant_size_usd is NUMERIC(15,2); cap it before it reaches the UPDATE.
+    if (body.grant_size_usd !== undefined && body.grant_size_usd !== null
+        && isGrantSizeOutOfRange(Number(body.grant_size_usd))) {
+      return NextResponse.json(
+        { error: "Requested funding amount must be between 0 and 1,000,000,000 USD." },
+        { status: 400 }
+      );
     }
 
     const setClauses: string[] = [];

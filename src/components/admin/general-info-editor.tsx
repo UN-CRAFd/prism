@@ -15,6 +15,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
+import { isGrantSizeOutOfRange } from "@/lib/grant-limits";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn, formatAmount } from "@/lib/utils";
@@ -279,6 +280,10 @@ export function GeneralInfoAdminEditor({
     const savedKeys: FieldKey[] = [];
     for (const key of FIELD_KEYS) {
       if (snapshot[key] === savedRef.current[key]) continue;
+      // An out-of-range funding amount is shown with a red outline and left out of
+      // the save, so the other fields still save; it is sent once it is valid again
+      // (it stays "changed" against savedRef until then).
+      if (key === "grant_size_usd" && isGrantSizeOutOfRange(parseAmount(snapshot[key]))) continue;
       payload[key] = coerce(key, snapshot[key]);
       savedKeys.push(key);
     }
@@ -298,6 +303,8 @@ export function GeneralInfoAdminEditor({
 
   const { schedule, flushNow } = useAutosave(flush, { onStateChange: onSaveStateChange });
   useEffect(() => () => { flushNow(); }, [flushNow]);
+
+  const grantInvalid = isGrantSizeOutOfRange(parseAmount(form.grant_size_usd));
 
   const setField = (key: FieldKey, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -662,12 +669,13 @@ export function GeneralInfoAdminEditor({
               onBlur={() => {
                 setGrantFocused(false);
                 const parsed = parseAmount(form.grant_size_usd);
-                if (form.grant_size_usd.trim() !== "" && !isNaN(parsed)) {
+                if (form.grant_size_usd.trim() !== "" && !isNaN(parsed) && !grantInvalid) {
                   setField("grant_size_usd", String(parsed));
                 }
               }}
               placeholder={g.placeholders.grantSize}
-              className="text-sm"
+              className={"text-sm" + (grantInvalid ? " border-destructive focus-visible:ring-destructive" : "")}
+              aria-invalid={grantInvalid || undefined}
             />
           </div>
 

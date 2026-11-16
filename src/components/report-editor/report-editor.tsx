@@ -751,7 +751,9 @@ export function ReportEditor({
   const prevSaveStateRef = useRef<SaveState | null>(null);
   useEffect(() => {
     if (displaySaveState === "saved" && prevSaveStateRef.current !== "saved" && reportId)
-      fetchCompletion(reportId);
+      // After a save only (not on load / section change): tell the sidebar, which
+      // keeps its own copy of the ticks, to refetch.
+      fetchCompletion(reportId).then(() => window.dispatchEvent(new Event("prism:completion-changed")));
     prevSaveStateRef.current = displaySaveState;
   }, [displaySaveState, reportId, fetchCompletion]);
 

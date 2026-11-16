@@ -333,6 +333,14 @@ export function AppSidebar() {
   // Refetched when the section path changes so a check appears once a section is
   // filled out and the user navigates on.
   const [sectionComplete, setSectionComplete] = useState<Record<string, boolean>>({});
+  // Bumped when an editor reports that a save changed completion, so the tick
+  // effects below refetch without waiting for a URL change.
+  const [completionTick, setCompletionTick] = useState(0);
+  useEffect(() => {
+    const onChange = () => setCompletionTick((t) => t + 1);
+    window.addEventListener("prism:completion-changed", onChange);
+    return () => window.removeEventListener("prism:completion-changed", onChange);
+  }, []);
   const [prodocSectionComplete, setProdocSectionComplete] = useState<{ projectId: number; sections: Record<string, boolean> } | null>(null);
   const [reportSectionsCollapsed, setReportSectionsCollapsed] = useState(false);
   const [prodocSectionsCollapsed, setProdocSectionsCollapsed] = useState(false);
@@ -425,7 +433,7 @@ export function AppSidebar() {
       .then((r) => r.json())
       .then((d) => setSectionComplete(d.sections ?? {}))
       .catch(() => {});
-  }, [activeReportId, pathname]);
+  }, [activeReportId, pathname, completionTick]);
 
   useEffect(() => {
     if (openProdocRow == null) { setProdocSectionComplete(null); return; }
@@ -434,7 +442,7 @@ export function AppSidebar() {
       .then((r) => r.json())
       .then((d) => setProdocSectionComplete({ projectId, sections: d.sections ?? {} }))
       .catch(() => {});
-  }, [openProdocRow?.project_id, pathname]);
+  }, [openProdocRow?.project_id, pathname, completionTick]);
 
   // Tab list of an open project document, with completion ticks. Shared by the
   // partner and admin sidebars (the admin one also passes the admin-only tabs).
@@ -553,7 +561,7 @@ export function AppSidebar() {
       .then((r) => r.json())
       .then((d) => setUpdateSectionComplete(d.sections ?? {}))
       .catch(() => {});
-  }, [activeUpdateId, pathname]);
+  }, [activeUpdateId, pathname, completionTick]);
 
   return (
     // `no-print` only bites under body.guide-print (see globals.css), so printing

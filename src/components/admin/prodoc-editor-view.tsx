@@ -971,7 +971,11 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     if (editorSaveState === "saved" && prevSaveStateRef.current !== "saved" && completionProjectId != null)
       fetch(`/api/prodoc-completion?projectId=${completionProjectId}`)
         .then((r) => r.json())
-        .then((d) => setSectionComplete(d.sections ?? {}))
+        .then((d) => {
+          setSectionComplete(d.sections ?? {});
+          // The sidebar keeps its own copy of the ticks; tell it to refetch.
+          window.dispatchEvent(new Event("prism:completion-changed"));
+        })
         .catch(() => {});
     prevSaveStateRef.current = editorSaveState;
   }, [editorSaveState, completionProjectId]);

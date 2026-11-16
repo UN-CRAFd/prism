@@ -615,7 +615,7 @@ export function GeneralInfoAdminEditor({
           />
         </div>
 
-        <div className={`grid grid-cols-2 sm:grid-cols-3 ${isAdmin ? "lg:grid-cols-6" : "lg:grid-cols-5"} gap-4 items-end`}>
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-5"} gap-4 items-end`}>
           {isAdmin && (
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.mptfoNumber}</label>

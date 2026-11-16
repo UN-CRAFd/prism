@@ -236,7 +236,7 @@ export function TrancheScheduleEditor({
           <h3 className="t-heading-editor">{g.tranches.heading}</h3>
         </div>
         {participatingOrgs.length > 0 && (
-          <Button onClick={addTrancheColumn} size="sm" variant="outline" className="shrink-0">
+          <Button onClick={addTrancheColumn} size="sm" variant="add" className="shrink-0">
             <Plus className="size-4 mr-1" />Add more tranches
           </Button>
         )}

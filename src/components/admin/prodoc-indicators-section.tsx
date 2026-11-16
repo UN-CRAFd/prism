@@ -478,10 +478,13 @@ export function ProdocIndicatorsSection({
   // editing" brings it back.
   const addIndicatorFooter = (
     <div className="flex shrink-0 flex-col items-end gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={() => creating ? cancelCreate() : openCreate("")} className="gap-1">
-        {creating ? <X className="size-4" /> : <Plus className="size-4" />}
-        {creating ? "Cancel" : "Add indicator"}
-      </Button>
+      {/* Hidden while the form is open — the form has its own Cancel. */}
+      {!creating && (
+        <Button type="button" variant="add" size="sm" onClick={() => openCreate("")} className="gap-1">
+          <Plus className="size-4" />
+          Add indicator
+        </Button>
+      )}
       {creating && (
         <div className="flex w-full flex-col gap-2 rounded-lg border bg-muted/20 p-3">
           <div className="flex items-center justify-between">
@@ -515,7 +518,7 @@ export function ProdocIndicatorsSection({
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={submitCreate} disabled={creatingBusy || !createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()} size="sm" className="shrink-0">
+            <Button variant="add" onClick={submitCreate} disabled={creatingBusy || !createName.trim() || !createDescription.trim() || !createMeansOfVerification.trim()} size="sm" className="shrink-0">
               {creatingBusy ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="mr-1 size-4" />{labels.adminEditor.add}</>}
             </Button>
           </div>

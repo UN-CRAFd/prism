@@ -1689,7 +1689,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 )}
                 {!showAddRiskRow && !readOnly && (
                   <div className="flex justify-end">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setShowAddRiskRow(true)} className="gap-1">
+                    <Button type="button" variant="add" size="sm" onClick={() => setShowAddRiskRow(true)} className="gap-1">
                       <Plus className="size-4" />Add risk
                     </Button>
                   </div>
@@ -1769,12 +1769,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         {selectedProdocId && (
           <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
             {prevSection ? (
-              <Button variant="outline" onClick={() => handleSectionChange(prevSection.value)}>
+              <Button variant="nav" onClick={() => handleSectionChange(prevSection.value)}>
                 <ChevronLeft className="size-4" /> Back: {prevSection.label}
               </Button>
             ) : <div />}
             {nextSection ? (
-              <Button variant="outline" onClick={() => handleSectionChange(nextSection.value)}>
+              <Button variant="nav" onClick={() => handleSectionChange(nextSection.value)}>
                 Next: {nextSection.label}
                 <ChevronRight className="size-4" />
               </Button>

@@ -781,7 +781,7 @@ export function GeneralInfoAdminEditor({
               exclude={participatingOrgs.map((o) => o.name)}
               className="flex-1"
             />
-            <Button size="sm" variant="outline" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
+            <Button size="sm" variant="add" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
               <Plus className="size-3.5 mr-1" />Add
             </Button>
           </div>
@@ -814,7 +814,7 @@ export function GeneralInfoAdminEditor({
               searchPlaceholder="Search or type a new name…"
               className="flex-1"
             />
-            <Button size="sm" variant="outline" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg}>
+            <Button size="sm" variant="add" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg}>
               <Plus className="size-3.5 mr-1" />Add
             </Button>
           </div>
@@ -980,7 +980,7 @@ export function GeneralInfoAdminEditor({
                 placeholder="Roles (optional)"
                 className="h-8 text-sm w-56"
               />
-              <Button size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
+              <Button variant="add" size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
               <button
                 type="button"
                 onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); }}

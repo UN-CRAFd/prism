@@ -309,7 +309,7 @@ export function GuideEditor() {
           placeholder={labels.guideEditor.newSectionTitle}
           className="flex-1"
         />
-        <Button onClick={handleAdd} disabled={adding || !draftTitle.trim()} className="shrink-0">
+        <Button variant="add" onClick={handleAdd} disabled={adding || !draftTitle.trim()} className="shrink-0">
           {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{labels.guideEditor.addSection}</>}
         </Button>
       </div>

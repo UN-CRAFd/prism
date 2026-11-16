@@ -182,7 +182,7 @@ export function SdgTargetsEditor({
             </SelectContent>
           </Select>
 
-          <Button onClick={addTarget} disabled={!pickTarget} size="sm" className="shrink-0">
+          <Button variant="add" onClick={addTarget} disabled={!pickTarget} size="sm" className="shrink-0">
             <Plus className="size-4 mr-1" />{labels.adminEditor.add}
           </Button>
         </div>

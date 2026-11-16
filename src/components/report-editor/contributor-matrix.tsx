@@ -534,7 +534,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
     <div className={cn("space-y-4", props.fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       {/* Add a blank row — the partner fills every field inline below */}
       <div className="flex items-center gap-4 flex-wrap">
-        <Button onClick={onAdd} disabled={adding} size="sm">
+        <Button variant="add" onClick={onAdd} disabled={adding} size="sm">
           {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4 mr-1" />{config.labels.addEntry}</>}
         </Button>
         <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />

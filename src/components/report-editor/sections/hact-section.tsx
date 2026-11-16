@@ -329,7 +329,7 @@ export function HactSection({
       )}
 
       {canEditAll && !loading && (
-        <Button size="sm" variant="outline" onClick={addRow} disabled={adding}>
+        <Button size="sm" variant="add" onClick={addRow} disabled={adding}>
           <Plus className="size-3.5" /> Add recommendation
         </Button>
       )}

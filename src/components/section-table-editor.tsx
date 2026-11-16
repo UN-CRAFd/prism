@@ -563,7 +563,7 @@ function TestimonialPhotosField({
               />
               <Button
                 size="sm"
-                variant="outline"
+                variant="add"
                 className="h-7 text-xs shrink-0 gap-1"
                 onClick={addLinkPhoto}
                 disabled={addBusy || !addLink.trim()}
@@ -1025,7 +1025,7 @@ export function SectionTableEditor({
       </table>
       {canAdd && (
         <div className="px-4 py-3 border-t">
-          <Button onClick={addRow} variant="outline" size="sm" className="gap-1.5">
+          <Button onClick={addRow} variant="add" size="sm" className="gap-1.5">
             <Plus className="size-3.5" /> {addLabel}
           </Button>
         </div>

@@ -1310,7 +1310,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
   // structure of its own row so the buttons step in outcome → output → activity.
   const addTierBar = (label: string, onAdd: () => void, level: "outcome" | "output" | "activity") => {
     const button = (
-      <Button type="button" variant="outline" size="sm" onClick={onAdd} disabled={readOnly} className="gap-1">
+      <Button type="button" variant="add" size="sm" onClick={onAdd} disabled={readOnly} className="gap-1">
         <Plus className="size-4" />{label}
       </Button>
     );

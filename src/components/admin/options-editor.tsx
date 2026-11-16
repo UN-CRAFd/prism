@@ -361,7 +361,7 @@ export function OptionsEditor() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => addRow(key)}>
+                      <Button variant="add" size="sm" onClick={() => addRow(key)}>
                         <Plus className="size-4 mr-1.5" /> Add option
                       </Button>
                       {modified && (

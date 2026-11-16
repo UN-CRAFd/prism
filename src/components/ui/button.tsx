@@ -20,6 +20,13 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-crafd-grey-100 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Back / Next navigation: light CRAF'd yellow. The border matches the fill so
+        // the box is the same size as the outlined buttons it replaces.
+        nav:
+          "border border-crafd-yellow-200 bg-crafd-yellow-200 text-black hover:border-crafd-yellow-light hover:bg-crafd-yellow-light",
+        // "Add" actions: white with a solid outline that darkens, and warms, on hover.
+        add:
+          "border border-crafd-grey-400 bg-white text-black hover:border-crafd-grey-600 hover:bg-crafd-yellow-50",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

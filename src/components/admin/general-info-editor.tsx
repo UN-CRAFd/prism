@@ -15,7 +15,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAutosave, type SaveState } from "@/components/autosave";
-import { isGrantSizeOutOfRange } from "@/lib/grant-limits";
+import { isGrantSizeOutOfRange, MAX_GRANT_SIZE_USD } from "@/lib/grant-limits";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn, formatAmount } from "@/lib/utils";
@@ -654,7 +654,7 @@ export function GeneralInfoAdminEditor({
             </div>
           )}
 
-          <div className="space-y-1.5">
+          <div className="relative space-y-1.5">
             <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.grantSize}</label>
             <Input
               type="text"
@@ -677,6 +677,13 @@ export function GeneralInfoAdminEditor({
               className={"text-sm" + (grantInvalid ? " border-destructive focus-visible:ring-destructive" : "")}
               aria-invalid={grantInvalid || undefined}
             />
+            {/* Absolutely positioned so the hint never changes this cell's height
+                (the grid is items-end — the inputs must stay aligned). */}
+            {grantInvalid && (
+              <p className="absolute left-0 top-full mt-0.5 text-xs text-destructive whitespace-nowrap">
+                Max. {MAX_GRANT_SIZE_USD.toLocaleString("en-US")} USD
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">

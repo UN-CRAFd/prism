@@ -396,6 +396,9 @@ export function ProdocIndicatorsSection({
                         className={"h-8" + (yearErrors[line.id]?.baseline ? " border-destructive focus-visible:ring-destructive" : "")}
                         aria-invalid={yearErrors[line.id]?.baseline || undefined}
                       />
+                      {yearErrors[line.id]?.baseline && (
+                        <p className="mt-0.5 text-xs text-destructive">Enter a year between 2000 and 2050</p>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -413,6 +416,9 @@ export function ProdocIndicatorsSection({
                         className={"h-8" + (yearErrors[line.id]?.target ? " border-destructive focus-visible:ring-destructive" : "")}
                         aria-invalid={yearErrors[line.id]?.target || undefined}
                       />
+                      {yearErrors[line.id]?.target && (
+                        <p className="mt-0.5 text-xs text-destructive">Enter a year between 2000 and 2050</p>
+                      )}
                     </div>
                   </td>
                   <td className="py-3 pl-4 pr-2">

@@ -19,7 +19,7 @@ import { isGrantSizeOutOfRange, MAX_GRANT_SIZE_USD } from "@/lib/grant-limits";
 import { numericAmount, clampDuration } from "@/lib/numeric-input";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn, formatAmount } from "@/lib/utils";
-import { Plus, Trash2, Users, FileText, Pencil, Check, X, Tags, Lock } from "lucide-react";
+import { Plus, Trash2, Users, Loader2, FileText, Pencil, Check, X, Tags, Lock } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
@@ -173,7 +173,8 @@ export function GeneralInfoAdminEditor({
   const [pendingContactOrg, setPendingContactOrg] = useState("");
   const [pendingContactJobTitle, setPendingContactJobTitle] = useState("");
   const [pendingContactRoles, setPendingContactRoles] = useState<string[]>([]);
-  const [pendingContactError, setPendingContactError] = useState<string | null>(null);
+  const [pendingContactErrors, setPendingContactErrors] = useState({ name: false, email: false, organisation: false });
+  const [showAddContactRow, setShowAddContactRow] = useState(false);
   const [participatingOrgs, setParticipatingOrgs] = useState<OrgRow[]>([]);
   const [implementingOrgs, setImplementingOrgs] = useState<OrgRow[]>([]);
   const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
@@ -428,7 +429,18 @@ export function GeneralInfoAdminEditor({
           },
         });
       }
+      setShowAddContactRow(false);
     } finally { setAddingContact(false); }
+  }
+
+  function cancelAddContact() {
+    setPendingContactName(null);
+    setPendingContactEmail("");
+    setPendingContactOrg("");
+    setPendingContactJobTitle("");
+    setPendingContactRoles([]);
+    setPendingContactErrors({ name: false, email: false, organisation: false });
+    setShowAddContactRow(false);
   }
 
   function handleContactCreate(name: string) {
@@ -437,17 +449,21 @@ export function GeneralInfoAdminEditor({
     setPendingContactOrg("");
     setPendingContactJobTitle("");
     setPendingContactRoles([]);
-    setPendingContactError(null);
+    setPendingContactErrors({ name: false, email: false, organisation: false });
     setError(null);
   }
 
   async function commitPendingContact() {
+    const errs = {
+      name: !pendingContactName?.trim(),
+      email: !pendingContactEmail.trim(),
+      organisation: !pendingContactOrg.trim(),
+    };
+    if (errs.name || errs.email || errs.organisation) { setPendingContactErrors(errs); return; }
     if (!pendingContactName) return;
-    if (!pendingContactEmail.trim()) { setPendingContactError("Email is required."); return; }
-    if (!pendingContactOrg.trim()) { setPendingContactError("Organisation is required."); return; }
     const owningPartnerId = partnerId;
     if (!owningPartnerId) return;
-    setAddingContact(true); setPendingContactError(null); setError(null);
+    setAddingContact(true); setPendingContactErrors({ name: false, email: false, organisation: false }); setError(null);
     try {
       const res = await fetch("/api/partner-contacts", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -486,12 +502,7 @@ export function GeneralInfoAdminEditor({
           },
         });
       }
-      setPendingContactName(null);
-      setPendingContactEmail("");
-      setPendingContactOrg("");
-      setPendingContactJobTitle("");
-      setPendingContactRoles([]);
-      setPendingContactError(null);
+      cancelAddContact();
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setAddingContact(false); }
   }
@@ -923,79 +934,7 @@ export function GeneralInfoAdminEditor({
           <h3 className="t-heading-editor">{g.contactsHeading}</h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 max-w-2xl">
-          <div className="flex-1 min-w-[16rem]">
-            <Combobox
-              items={comboItems}
-              placeholder={g.contactSearchPlaceholder}
-              onSelect={handleContactSelect}
-              onCreate={handleContactCreate}
-              createLabel={g.createContact}
-              busy={addingContact}
-            />
-          </div>
-        </div>
-
-        {pendingContactName && (
-          <div className="rounded-lg border bg-muted/30 px-3 py-3 space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Details for <strong>{pendingContactName}</strong>
-              <span className="ml-2 text-xs">* required</span>
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex-1 min-w-[11rem]">
-                <Input
-                  value={pendingContactEmail}
-                  onChange={(e) => setPendingContactEmail(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
-                  placeholder="name@example.org *"
-                  type="email"
-                  className="h-8 text-sm"
-                  autoFocus
-                  aria-label="Email"
-                />
-              </div>
-              <div className="flex-1 min-w-[11rem]">
-                <Combobox
-                  items={orgSuggestions}
-                  value={pendingContactOrg}
-                  onChange={setPendingContactOrg}
-                  placeholder="Organisation *"
-                />
-              </div>
-              <div className="flex-1 min-w-[10rem]">
-                <Input
-                  value={pendingContactJobTitle}
-                  onChange={(e) => setPendingContactJobTitle(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); } }}
-                  placeholder="Job title (optional)"
-                  className="h-8 text-sm"
-                  aria-label="Job title"
-                />
-              </div>
-              <MultiSelect
-                staticItems={CONTACT_ROLES}
-                value={pendingContactRoles}
-                onChange={setPendingContactRoles}
-                placeholder="Roles (optional)"
-                className="h-8 text-sm w-56"
-              />
-              <Button variant="add" size="sm" onClick={commitPendingContact} disabled={addingContact}>Add</Button>
-              <button
-                type="button"
-                onClick={() => { setPendingContactName(null); setPendingContactEmail(""); setPendingContactOrg(""); setPendingContactJobTitle(""); setPendingContactRoles([]); setPendingContactError(null); }}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-            </div>
-            {pendingContactError && (
-              <p className="text-xs text-destructive">{pendingContactError}</p>
-            )}
-          </div>
-        )}
-
-        {contacts.length === 0 ? (
+        {contacts.length === 0 && !showAddContactRow ? (
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
             {g.emptyContacts}
           </div>
@@ -1117,8 +1056,106 @@ export function GeneralInfoAdminEditor({
                     </td>
                   </tr>
                 ))}
+                {showAddContactRow && (
+                  <tr className="bg-muted/10">
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-2">
+                        {pendingContactName === null ? (
+                          <div className={cn(pendingContactErrors.name && "rounded-md ring-1 ring-destructive")}>
+                            <Combobox
+                              items={comboItems}
+                              placeholder={g.contactSearchPlaceholder}
+                              onSelect={handleContactSelect}
+                              onCreate={handleContactCreate}
+                              createLabel={g.createContact}
+                              busy={addingContact}
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={splitName(pendingContactName).first}
+                                onChange={(e) => { setPendingContactName(joinName(e.target.value, splitName(pendingContactName).last)); if (pendingContactErrors.name) setPendingContactErrors((p) => ({ ...p, name: false })); }}
+                                onKeyDown={(e) => { if (e.key === "Escape") cancelAddContact(); }}
+                                placeholder={g.contactFirstName}
+                                className={cn("h-8 flex-1 min-w-0 text-sm font-medium", pendingContactErrors.name && "border-destructive focus-visible:ring-destructive")}
+                                aria-label={g.contactFirstName}
+                                autoFocus
+                              />
+                              <Input
+                                value={splitName(pendingContactName).last}
+                                onChange={(e) => { setPendingContactName(joinName(splitName(pendingContactName).first, e.target.value)); if (pendingContactErrors.name) setPendingContactErrors((p) => ({ ...p, name: false })); }}
+                                onKeyDown={(e) => { if (e.key === "Escape") cancelAddContact(); }}
+                                placeholder={g.contactLastName}
+                                className={cn("h-8 flex-1 min-w-0 text-sm font-medium", pendingContactErrors.name && "border-destructive focus-visible:ring-destructive")}
+                                aria-label={g.contactLastName}
+                              />
+                            </div>
+                            <Input
+                              value={pendingContactEmail}
+                              onChange={(e) => { setPendingContactEmail(e.target.value); if (pendingContactErrors.email) setPendingContactErrors((p) => ({ ...p, email: false })); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") cancelAddContact(); }}
+                              placeholder={`${g.contactEmail} *`}
+                              type="email"
+                              className={cn("h-8 text-sm", pendingContactErrors.email && "border-destructive focus-visible:ring-destructive")}
+                              aria-label={g.contactEmail}
+                            />
+                            <Input
+                              value={pendingContactJobTitle}
+                              onChange={(e) => setPendingContactJobTitle(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") cancelAddContact(); }}
+                              placeholder={`${g.contactRole} (optional)`}
+                              className="h-8 text-sm"
+                              aria-label={g.contactRole}
+                            />
+                          </>
+                        )}
+                        {(pendingContactErrors.name || pendingContactErrors.email || pendingContactErrors.organisation) && (
+                          <p className="text-xs text-destructive">Add a name, email and organisation to save this contact.</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {pendingContactName !== null && (
+                        <div className={cn(pendingContactErrors.organisation && "rounded-md ring-1 ring-destructive")}>
+                          <Combobox
+                            items={orgSuggestions}
+                            value={pendingContactOrg}
+                            onChange={(v) => { setPendingContactOrg(v); if (pendingContactErrors.organisation) setPendingContactErrors((p) => ({ ...p, organisation: false })); }}
+                            placeholder="Organisation"
+                          />
+                        </div>
+                      )}
+                    </td>
+                    <td colSpan={2} className="px-4 py-3 align-top">
+                      <div className="space-y-2">
+                        <MultiSelect
+                          staticItems={CONTACT_ROLES}
+                          value={pendingContactRoles}
+                          onChange={setPendingContactRoles}
+                          placeholder="Roles (optional)"
+                          className="h-8 text-sm"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={commitPendingContact} disabled={addingContact}>
+                            {addingContact ? <Loader2 className="size-4 animate-spin" /> : labels.adminEditor.save}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelAddContact}>{labels.common.cancel}</Button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
+          </div>
+        )}
+        {!showAddContactRow && !readOnly && (
+          <div className="flex justify-end">
+            <Button type="button" variant="add" size="sm" onClick={() => setShowAddContactRow(true)} className="gap-1">
+              <Plus className="size-4" />Add contact
+            </Button>
           </div>
         )}
       </div>

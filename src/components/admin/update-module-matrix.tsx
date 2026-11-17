@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { cn } from "@/lib/utils";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import {
@@ -290,6 +291,9 @@ export function UpdateModuleMatrix({
                                 aria-label="Length of the extension in months"
                                 className="h-6 w-14 rounded border border-input bg-background px-1.5 text-center text-sm tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
                               />
+                              {/* The length is required whenever a months row is
+                                  included (POST /api/reports rejects it otherwise). */}
+                              {selected && <RequiredMark className="-ml-1.5" />}
                               <span className={textClass}>{after.trim()}</span>
                             </>
                           )}

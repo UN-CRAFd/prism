@@ -31,6 +31,7 @@ import { FilterChip } from "@/components/report-editor/past-year-chips";
 import { useStickySet } from "@/components/report-editor/sticky-filter";
 import { HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useReadOnly } from "@/components/ui/read-only-context";
+import { RequiredMark } from "@/components/ui/required-mark";
 import {
   workplanStatuses,
   workplanStatusColor,
@@ -531,7 +532,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             trailCols={
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[120px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[200px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
               </>
             }
@@ -1370,14 +1371,14 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[320px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity</th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[320px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>}
                 </>
               }
               trailCols={
                 <>
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[120px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update</th>}
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>}
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[200px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>}
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 px-2 py-2 w-10 align-bottom", HEAD_BG)} />
                 </>
@@ -1398,7 +1399,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                         >
                           {collapsedClusters[cluster.clusterId] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                         </button>
-                        <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-crafd-grey-900 shrink-0">{ci + 1}. Outcome</span>
+                        <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-crafd-grey-900 shrink-0">{ci + 1}. Outcome{!partnerMode && <RequiredMark />}</span>
                         <Input
                           value={cluster.outcome}
                           onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
@@ -1428,7 +1429,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                         >
                           {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                         </button>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Output</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Output{!partnerMode && <RequiredMark className="text-crafd-yellow-900" />}</span>
                         <Input
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}

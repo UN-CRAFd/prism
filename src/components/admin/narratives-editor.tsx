@@ -9,6 +9,7 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
 import { useCharLimits } from "@/lib/use-char-limits";
+import { RequiredMark } from "@/components/ui/required-mark";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per
@@ -152,7 +153,7 @@ export function NarrativesAdminEditor({
             <div className="flex items-start gap-3">
               <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
               <label className="t-heading-editor leading-snug flex-1">
-                {q.label}
+                {q.label}<RequiredMark />
               </label>
             </div>
 

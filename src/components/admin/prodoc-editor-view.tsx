@@ -30,6 +30,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { CommentsProvider, ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { ClampedText } from "@/components/report-editor/clamped-text";
@@ -1528,9 +1529,9 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                       <thead>
                         <tr className={cn("border-b", HEAD_BG)}>
                           <th className={cn("text-left px-4 py-3 w-8", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.number}</th>
-                          <th className={cn("text-left px-4 py-3 w-96", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.risk}</th>
-                          <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.likelihood}</th>
-                          <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.impact}</th>
+                          <th className={cn("text-left px-4 py-3 w-96", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.risk}<RequiredMark /></th>
+                          <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.likelihood}<RequiredMark /></th>
+                          <th className={cn("text-left px-4 py-3 w-32", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.impact}<RequiredMark /></th>
                           <th className={cn("text-left px-4 py-3 w-28", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.riskLevel}</th>
                           <th className={cn("text-left pl-4 pr-2 py-3", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.approvedMitigation}</th>
                           <th className={cn("text-left px-4 py-3 w-[1%] whitespace-nowrap", stickyHead, HEAD_COLOR, HEAD_TEXT)} style={stickyHeadStyle}>{labels.risk.columns.actions}</th>

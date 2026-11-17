@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
@@ -106,8 +107,8 @@ export function IndicatorsSection({
         years={visibleYears}
         currentYear={indicatorCurrentYear}
         subCols={[
-          { label: labels.indicators.columns.achievedValue, minWidth: "w-[100px] min-w-[100px]" },
-          { label: labels.indicators.columns.status, minWidth: "w-px whitespace-nowrap" },
+          { label: <>{labels.indicators.columns.achievedValue}<RequiredMark /></>, minWidth: "w-[100px] min-w-[100px]" },
+          { label: <>{labels.indicators.columns.status}<RequiredMark /></>, minWidth: "w-px whitespace-nowrap" },
           { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
         ]}
         pastSubCols={pastSubCols}

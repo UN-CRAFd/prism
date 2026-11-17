@@ -4,6 +4,7 @@ import { FileQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { Textarea } from "@/components/ui/textarea";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { ScaleSelect } from "@/components/report-editor/scale-select";
 import type { Survey, RowState } from "@/components/report-editor/types";
@@ -103,7 +104,7 @@ function SurveyCard({ survey, index, rowStates, updateRow }: SurveyCardProps) {
       </div>
       <div className="flex gap-6 items-start pl-8">
         <div className="shrink-0 space-y-1.5">
-          <p className="text-xs text-muted-foreground">{labels.partnerEditor.assessmentLabel}</p>
+          <p className="text-xs text-muted-foreground">{labels.partnerEditor.assessmentLabel}<RequiredMark /></p>
           <ScaleSelect
             kind="assessment"
             value={state.assessment}

@@ -27,6 +27,7 @@ import { optionItems, optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
 import { useCharLimits } from "@/lib/use-char-limits";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { InvestmentThemeSelect } from "@/components/admin/investment-theme-select";
 
 const ORG_NAME_MAX = 300;
@@ -613,7 +614,7 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.projectTitle}</label>
+          <label className="text-xs text-muted-foreground">{g.fields.projectTitle}<RequiredMark /></label>
           <Input
             value={form.project_title}
             onChange={(e) => setField("project_title", e.target.value)}
@@ -655,7 +656,7 @@ export function GeneralInfoAdminEditor({
           )}
 
           <div className="relative space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.grantSize}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.grantSize}<RequiredMark /></label>
             <Input
               type="text"
               inputMode="decimal"
@@ -687,7 +688,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.startDate}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.startDate}<RequiredMark /></label>
             <DateInput
               value={form.project_start_date}
               onChange={(v) => setField("project_start_date", v)}
@@ -696,7 +697,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.durationMonths}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.durationMonths}<RequiredMark /></label>
             <Input
               type="text" inputMode="numeric"
               value={form.project_duration_months}
@@ -719,7 +720,7 @@ export function GeneralInfoAdminEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.geographicScope}</label>
+            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.geographicScope}<RequiredMark /></label>
             <Select
               value={form.geographic_scope || GEO_SCOPE_NONE}
               onValueChange={(v) => setField("geographic_scope", v === GEO_SCOPE_NONE ? "" : v)}
@@ -739,7 +740,7 @@ export function GeneralInfoAdminEditor({
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.description}</label>
+            <label className="text-xs text-muted-foreground">{g.fields.description}<RequiredMark /></label>
             <InfoPopover
               description={g.descriptionInstruction}
               triggerTitle={g.fields.description}

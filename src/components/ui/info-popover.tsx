@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
 
@@ -18,7 +18,24 @@ export function InfoPopover({
   secondaryHeading?: string;
 }) {
   const hasContent = !!(description || meansOfVerification);
-  const [open, setOpen] = useState(false);
+  // Opens on hover/focus (standard info-icon behaviour). A click pins it open
+  // — needed on touch screens — until a second click, Escape or a click outside.
+  // Leaving the icon closes after a short delay so the pointer can move into
+  // the panel (long text scrolls there).
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const open = hovered || pinned;
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+  }, []);
+  const showHover = useCallback(() => { cancelClose(); setHovered(true); }, [cancelClose]);
+  const hideHover = useCallback(() => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setHovered(false), 150);
+  }, [cancelClose]);
+  const close = useCallback(() => { cancelClose(); setHovered(false); setPinned(false); }, [cancelClose]);
+  useEffect(() => cancelClose, [cancelClose]);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -63,7 +80,7 @@ export function InfoPopover({
     }
     // Panel is already in the DOM (rendered hidden below), so offsetHeight is readable.
     reposition();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     window.addEventListener("scroll", reposition, true);
     window.addEventListener("resize", reposition);
     window.addEventListener("keydown", onKey);
@@ -72,7 +89,7 @@ export function InfoPopover({
       window.removeEventListener("resize", reposition);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, reposition]);
+  }, [open, reposition, close]);
 
   if (!hasContent) return null;
 
@@ -82,7 +99,15 @@ export function InfoPopover({
           ref={btnRef}
           type="button"
           aria-label={triggerTitle}
-          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+          aria-expanded={open}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (pinned) close(); else { cancelClose(); setPinned(true); }
+          }}
+          onMouseEnter={showHover}
+          onMouseLeave={hideHover}
+          onFocus={showHover}
+          onBlur={hideHover}
           className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
         >
           <Info className="size-4 mt-0.5" />
@@ -90,10 +115,15 @@ export function InfoPopover({
 
       {open && typeof document !== "undefined" && createPortal(
         <>
-          {/* Backdrop only shown once positioned; panel is rendered hidden first for measurement. */}
-          {pos && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+          {/* Click-outside backdrop only while pinned: on hover it would cover
+              the icon and fire mouseleave straight away. Shown once positioned;
+              the panel is rendered hidden first for measurement. */}
+          {pos && pinned && <div className="fixed inset-0 z-40" onClick={close} />}
           <div
             ref={panelRef}
+            role="tooltip"
+            onMouseEnter={showHover}
+            onMouseLeave={hideHover}
             // max-h + overflow keep a long description reachable: the panel is
             // position:fixed, so anything spilling past the viewport edge could
             // never be scrolled to. Capping at 70vh means the measured

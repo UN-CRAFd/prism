@@ -180,6 +180,13 @@ export function GeneralInfoAdminEditor({
   const [newParticipatingOrg, setNewParticipatingOrg] = useState("");
   const [newImplementingOrg, setNewImplementingOrg] = useState("");
   const [orgError, setOrgError] = useState<string | null>(null);
+  const [showAddParticipatingOrg, setShowAddParticipatingOrg] = useState(false);
+  const [showAddImplementingOrg, setShowAddImplementingOrg] = useState(false);
+  const [participatingOrgMissing, setParticipatingOrgMissing] = useState(false);
+  const [implementingOrgMissing, setImplementingOrgMissing] = useState(false);
+  // addOrg doesn't report success, so Save records the list length it expects to grow
+  // and the effect below closes the draft once that happens.
+  const pendingOrgCloseRef = useRef<{ type: "participating" | "implementing"; prevLen: number } | null>(null);
   const [grantFocused, setGrantFocused] = useState(false);
 
   // Combined, deduplicated list of org names from both participating and
@@ -355,6 +362,28 @@ export function GeneralInfoAdminEditor({
       },
     });
   }
+
+  function saveOrgDraft(type: "participating" | "implementing") {
+    const isP = type === "participating";
+    const value = (isP ? newParticipatingOrg : newImplementingOrg).trim();
+    if (!value) { (isP ? setParticipatingOrgMissing : setImplementingOrgMissing)(true); return; }
+    pendingOrgCloseRef.current = { type, prevLen: (isP ? participatingOrgs : implementingOrgs).length };
+    addOrg(type);
+  }
+
+  function cancelAddOrg(type: "participating" | "implementing") {
+    pendingOrgCloseRef.current = null;
+    if (type === "participating") { setNewParticipatingOrg(""); setParticipatingOrgMissing(false); setShowAddParticipatingOrg(false); }
+    else { setNewImplementingOrg(""); setImplementingOrgMissing(false); setShowAddImplementingOrg(false); }
+  }
+
+  useEffect(() => {
+    const pending = pendingOrgCloseRef.current;
+    if (!pending) return;
+    const len = pending.type === "participating" ? participatingOrgs.length : implementingOrgs.length;
+    if (len > pending.prevLen) cancelAddOrg(pending.type);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participatingOrgs.length, implementingOrgs.length]);
 
   async function deleteOrg(id: number, type: "participating" | "implementing") {
     if (!await confirm({ message: "Remove this organization from the project?" })) return;
@@ -624,7 +653,7 @@ export function GeneralInfoAdminEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">{g.fields.projectTitle}</label>
+          <label className="text-sm text-muted-foreground">{g.fields.projectTitle}</label>
           <Input
             value={form.project_title}
             onChange={(e) => setField("project_title", e.target.value)}
@@ -635,8 +664,8 @@ export function GeneralInfoAdminEditor({
 
         <div className={`grid grid-cols-2 sm:grid-cols-3 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-5"} gap-4 items-end`}>
           {isAdmin && (
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.mptfoNumber}</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm text-muted-foreground">{g.fields.mptfoNumber}</label>
               <Input
                 value={form.mptfo_project_number}
                 onChange={(e) => setField("mptfo_project_number", e.target.value)}
@@ -650,8 +679,8 @@ export function GeneralInfoAdminEditor({
               The API mirrors this — non-admin `status` writes are ignored
               server-side (ADMIN_ONLY_FIELDS in /api/projects/[id]). */}
           {isAdmin && (
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.status}</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm text-muted-foreground">{g.fields.status}</label>
               <Select value={form.status} onValueChange={(v) => setField("status", v)}>
                 <SelectTrigger className="w-full text-sm">
                   <SelectValue />
@@ -665,8 +694,8 @@ export function GeneralInfoAdminEditor({
             </div>
           )}
 
-          <div className="relative space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.grantSize}</label>
+          <div className="relative flex flex-col gap-1.5">
+            <label className="text-sm text-muted-foreground">{g.fields.grantSize}</label>
             <Input
               type="text"
               inputMode="decimal"
@@ -697,8 +726,8 @@ export function GeneralInfoAdminEditor({
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.startDate}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-muted-foreground">{g.fields.startDate}</label>
             <DateInput
               value={form.project_start_date}
               onChange={(v) => setField("project_start_date", v)}
@@ -706,8 +735,8 @@ export function GeneralInfoAdminEditor({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.durationMonths}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-muted-foreground">{g.fields.durationMonths}</label>
             <Input
               type="text" inputMode="numeric"
               value={form.project_duration_months}
@@ -716,21 +745,21 @@ export function GeneralInfoAdminEditor({
               className="text-sm"
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.expectedEndDate}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-muted-foreground">{g.fields.expectedEndDate}</label>
             <Input
               type="text"
               readOnly
               tabIndex={-1}
               value={projectEndDate ? projectEndDate.split("-").reverse().join("/") : ""}
-              placeholder="—"
+              placeholder="DD/MM/YYYY"
               className="text-sm bg-muted/40 text-muted-foreground cursor-default"
               aria-label={g.fields.expectedEndDate}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground lg:whitespace-nowrap">{g.fields.geographicScope}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-muted-foreground">{g.fields.geographicScope}</label>
             <Select
               value={form.geographic_scope || GEO_SCOPE_NONE}
               onValueChange={(v) => setField("geographic_scope", v === GEO_SCOPE_NONE ? "" : v)}
@@ -750,7 +779,7 @@ export function GeneralInfoAdminEditor({
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.description}</label>
+            <label className="text-sm text-muted-foreground">{g.fields.description}</label>
             <InfoPopover
               description={g.descriptionInstruction}
               triggerTitle={g.fields.description}
@@ -769,7 +798,7 @@ export function GeneralInfoAdminEditor({
         {/* Participating Organizations list */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.participatingOrganizations}</label>
+            <label className="text-sm text-muted-foreground">{g.fields.participatingOrganizations}</label>
             <InfoPopover
               description={g.participatingOrganizationsDescription}
               triggerTitle={g.fields.participatingOrganizations}
@@ -783,25 +812,40 @@ export function GeneralInfoAdminEditor({
               <button onClick={() => deleteOrg(o.id, "participating")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
             </div>
           ))}
-          <div className="flex items-center gap-2">
-            <SearchableSelect
-              optionKey="projectPartners"
-              value={newParticipatingOrg}
-              onChange={setNewParticipatingOrg}
-              placeholder={g.placeholders.participatingOrganizations}
-              exclude={participatingOrgs.map((o) => o.name)}
-              className="flex-1"
-            />
-            <Button size="sm" variant="add" onClick={() => addOrg("participating")} disabled={!newParticipatingOrg.trim()}>
-              <Plus className="size-3.5 mr-1" />Add
-            </Button>
-          </div>
+          {showAddParticipatingOrg ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <div className={cn("flex-1 rounded-md", participatingOrgMissing && "ring-1 ring-destructive")}>
+                  <SearchableSelect
+                    optionKey="projectPartners"
+                    value={newParticipatingOrg}
+                    onChange={(v) => { setNewParticipatingOrg(v); if (v.trim()) setParticipatingOrgMissing(false); }}
+                    placeholder={g.placeholders.participatingOrganizations}
+                    exclude={participatingOrgs.map((o) => o.name)}
+                    className="w-full"
+                  />
+                </div>
+                <Button size="sm" variant="outline" onClick={() => saveOrgDraft("participating")}>{labels.adminEditor.save}</Button>
+                <Button size="sm" variant="outline" onClick={() => cancelAddOrg("participating")}>{labels.common.cancel}</Button>
+              </div>
+              {participatingOrgMissing && <p className="text-xs text-destructive">Choose an organization to add.</p>}
+            </div>
+          ) : (!readOnly || participatingOrgs.length === 0) && (
+            <div className={participatingOrgs.length === 0 ? "flex items-center justify-between gap-2" : "flex justify-end"}>
+              {participatingOrgs.length === 0 && <span className="text-xs italic text-muted-foreground">No project partners yet</span>}
+              {!readOnly && (
+                <Button type="button" variant="add" size="sm" onClick={() => setShowAddParticipatingOrg(true)} className="gap-1">
+                  <Plus className="size-4" />Add project partner
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Implementing Partners list */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.implementingPartners}</label>
+            <label className="text-sm text-muted-foreground">{g.fields.implementingPartners}</label>
             <InfoPopover
               description={g.implementingOrganizationsDescription}
               triggerTitle={g.fields.implementingPartners}
@@ -814,21 +858,36 @@ export function GeneralInfoAdminEditor({
               <button onClick={() => deleteOrg(o.id, "implementing")} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="size-3.5" /></button>
             </div>
           ))}
-          <div className="flex items-center gap-2">
-            <SearchableSelect
-              optionKey="implementingOrganizations"
-              value={newImplementingOrg}
-              onChange={setNewImplementingOrg}
-              placeholder={g.placeholders.implementingPartners}
-              exclude={implementingOrgs.map((o) => o.name)}
-              allowCustom
-              searchPlaceholder="Search or type a new name…"
-              className="flex-1"
-            />
-            <Button size="sm" variant="add" onClick={() => addOrg("implementing")} disabled={!newImplementingOrg}>
-              <Plus className="size-3.5 mr-1" />Add
-            </Button>
-          </div>
+          {showAddImplementingOrg ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <div className={cn("flex-1 rounded-md", implementingOrgMissing && "ring-1 ring-destructive")}>
+                  <SearchableSelect
+                    optionKey="implementingOrganizations"
+                    value={newImplementingOrg}
+                    onChange={(v) => { setNewImplementingOrg(v); if (v.trim()) setImplementingOrgMissing(false); }}
+                    placeholder={g.placeholders.implementingPartners}
+                    exclude={implementingOrgs.map((o) => o.name)}
+                    allowCustom
+                    searchPlaceholder="Search or type a new name…"
+                    className="w-full"
+                  />
+                </div>
+                <Button size="sm" variant="outline" onClick={() => saveOrgDraft("implementing")}>{labels.adminEditor.save}</Button>
+                <Button size="sm" variant="outline" onClick={() => cancelAddOrg("implementing")}>{labels.common.cancel}</Button>
+              </div>
+              {implementingOrgMissing && <p className="text-xs text-destructive">Choose an organization to add.</p>}
+            </div>
+          ) : (!readOnly || implementingOrgs.length === 0) && (
+            <div className={implementingOrgs.length === 0 ? "flex items-center justify-between gap-2" : "flex justify-end"}>
+              {implementingOrgs.length === 0 && <span className="text-xs italic text-muted-foreground">No implementing organizations yet</span>}
+              {!readOnly && (
+                <Button type="button" variant="add" size="sm" onClick={() => setShowAddImplementingOrg(true)} className="gap-1">
+                  <Plus className="size-4" />Add implementing organization
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -849,7 +908,7 @@ export function GeneralInfoAdminEditor({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{g.fields.allocationModality}</label>
+                <label className="text-sm text-muted-foreground">{g.fields.allocationModality}</label>
                 <Select
                   value={form.allocation_modality || OPTION_NONE}
                   onValueChange={(v) => setField("allocation_modality", v === OPTION_NONE ? "" : v)}
@@ -867,7 +926,7 @@ export function GeneralInfoAdminEditor({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{g.fields.investmentType}</label>
+                <label className="text-sm text-muted-foreground">{g.fields.investmentType}</label>
                 <Select
                   value={form.investment_type || OPTION_NONE}
                   onValueChange={(v) => setField("investment_type", v === OPTION_NONE ? "" : v)}
@@ -885,7 +944,7 @@ export function GeneralInfoAdminEditor({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{g.fields.investmentTheme}</label>
+                <label className="text-sm text-muted-foreground">{g.fields.investmentTheme}</label>
                 <InvestmentThemeSelect
                   value={form.investment_theme}
                   onChange={(v) => setField("investment_theme", v)}
@@ -898,7 +957,7 @@ export function GeneralInfoAdminEditor({
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
-            <label className="text-xs text-muted-foreground">{g.fields.genderEqualityMarker}</label>
+            <label className="text-sm text-muted-foreground">{g.fields.genderEqualityMarker}</label>
             <InfoPopover
               description={g.genderEqualityMarkerDescription}
               meansOfVerification={g.genderEqualityMarkerAssessment}

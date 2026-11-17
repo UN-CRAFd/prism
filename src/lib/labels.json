@@ -150,7 +150,7 @@
       "projectTitle": "Project name",
       "mptfoNumber": "MPTFO project number",
       "status": "Status",
-      "grantSize": "Requested funding amount",
+      "grantSize": "Requested funding (USD)",
       "startDate": "Start date",
       "durationMonths": "Duration (months)",
       "expectedEndDate": "Expected end date",
@@ -218,7 +218,7 @@
     "contactLastName": "Last name",
     "contactRole": "Job title",
     "contactEmail": "Email",
-    "emptyContacts": "No contacts linked yet. Search above to link or add one.",
+    "emptyContacts": "No contacts yet. Use “Add contact” below to link an existing contact or add a new one.",
     "columns": {
       "contact": "Contact",
       "organisation": "Organisation",

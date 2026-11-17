@@ -174,6 +174,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Documents are optional, but the partner must either upload one or confirm
+    // there is nothing to upload.
+    const docsRows = await query<{ ok: boolean }>(
+      `SELECT p.no_documents_confirmed
+              OR EXISTS (SELECT 1 FROM reporting_platform.project_documents d WHERE d.project_id = p.id)
+              AS ok
+         FROM reporting_platform.projects p WHERE p.id = $1`,
+      [projectId]
+    );
+    if (docsRows[0]?.ok !== true) {
+      return NextResponse.json(
+        { error: "In Documents, upload a document or confirm there are no documents to upload." },
+        { status: 422 }
+      );
+    }
+
     if (checkOnly) return NextResponse.json({ ok: true });
 
     const client = await pool.connect();

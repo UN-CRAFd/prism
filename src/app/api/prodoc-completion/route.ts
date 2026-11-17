@@ -14,8 +14,9 @@ import { richTextLength } from "@/lib/richtext";
 // Mirrors /api/report-completion, but project-scoped. A section is "complete"
 // only when it is actually filled out — an empty section is never complete.
 //
-// `documents` and `signatures` are deliberately absent from the map: documents
-// may legitimately stay empty, and signatures is admin-only.
+// `documents` is complete when at least one document is uploaded, or the
+// partner ticked "No documents to upload" (projects.no_documents_confirmed).
+// `signatures` is deliberately absent from the map: it is admin-only.
 //
 // Note: indicators and risk hang off the project's PRODOC report row
 // (reports.data_type = 'prodoc'), not off the project directly.
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     if (prodoc.length === 0) return NextResponse.json({ error: "Project document not found" }, { status: 404 });
     const prodocId = prodoc[0].id;
 
-    const [general, narratives, indicators, risk, expenditure, workplan] = await Promise.all([
+    const [general, narratives, indicators, risk, expenditure, workplan, documents] = await Promise.all([
       // General — required fields present and description within char limit.
       query<Row>(
         `SELECT (p.project_title IS NOT NULL AND p.project_title <> ''
@@ -149,6 +150,16 @@ export async function GET(req: NextRequest) {
            FROM reporting_platform.workplan_activities WHERE project_id = $1`,
         [projectId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
+
+      // Documents — optional: complete with ≥1 upload or an explicit
+      // "No documents to upload" confirmation.
+      query<Row>(
+        `SELECT p.no_documents_confirmed
+                OR EXISTS (SELECT 1 FROM reporting_platform.project_documents d WHERE d.project_id = p.id)
+                AS complete
+           FROM reporting_platform.projects p WHERE p.id = $1`,
+        [projectId]
+      ).then((r) => r[0]?.complete === true),
     ]);
 
     const sections: Record<string, boolean> = {
@@ -158,6 +169,7 @@ export async function GET(req: NextRequest) {
       risk,
       expenditure,
       workplan,
+      documents,
     };
 
     return NextResponse.json({ sections });

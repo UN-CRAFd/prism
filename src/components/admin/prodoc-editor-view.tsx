@@ -921,10 +921,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
   useEffect(() => {
     if (completionProjectId == null) { setSectionComplete(null); return; }
-    fetch(`/api/prodoc-completion?projectId=${completionProjectId}`)
-      .then((r) => r.json())
-      .then((d) => setSectionComplete(d.sections ?? {}))
-      .catch(() => {});
+    const load = () =>
+      fetch(`/api/prodoc-completion?projectId=${completionProjectId}`)
+        .then((r) => r.json())
+        .then((d) => setSectionComplete(d.sections ?? {}))
+        .catch(() => {});
+    load();
+    // Immediate-save tabs (e.g. Documents) announce completion changes this way.
+    window.addEventListener("prism:completion-changed", load);
+    return () => window.removeEventListener("prism:completion-changed", load);
   }, [completionProjectId, selectedSection]);
   // Lock → blocked while another session holds the lock (or while we're acquiring).
   const lockBlocking =

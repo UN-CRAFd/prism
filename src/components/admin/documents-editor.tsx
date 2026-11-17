@@ -11,7 +11,7 @@ import {
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatDate } from "@/lib/utils";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
-import { Loader2, Upload, FileText, Download, Trash2 } from "lucide-react";
+import { Loader2, Upload, FileText, Download, Trash2, CircleCheck, Undo2 } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
@@ -61,15 +61,26 @@ export function DocumentsEditor({
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // "No documents to upload" confirmation — completes the (optional) tab
+  // without an upload. Cleared server-side when a document is uploaded.
+  const [noDocsConfirmed, setNoDocsConfirmed] = useState(false);
+  const [noDocsSaving, setNoDocsSaving] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(null);
     (async () => {
       try {
-        const res = await fetch(`/api/project-documents?project_id=${projectId}`);
+        const [res, flagRes] = await Promise.all([
+          fetch(`/api/project-documents?project_id=${projectId}`),
+          fetch(`/api/project-documents/no-documents?project_id=${projectId}`),
+        ]);
         if (!res.ok) throw new Error("Failed to load documents");
+        const docs = await res.json();
+        const flag = flagRes.ok ? await flagRes.json() : { confirmed: false };
         if (cancelled) return;
-        setDocuments(await res.json());
+        setDocuments(docs);
+        setNoDocsConfirmed(flag.confirmed === true);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -78,6 +89,27 @@ export function DocumentsEditor({
     })();
     return () => { cancelled = true; };
   }, [projectId]);
+
+  // The sidebar ticks and the Submit gate keep their own completion copies.
+  function notifyCompletionChanged() {
+    window.dispatchEvent(new Event("prism:completion-changed"));
+  }
+
+  async function setNoDocuments(confirmed: boolean) {
+    setNoDocsSaving(true); setError(null);
+    try {
+      const res = await fetch("/api/project-documents/no-documents", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, confirmed }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to save"); }
+      const data = await res.json();
+      setNoDocsConfirmed(data.confirmed === true);
+      notifyCompletionChanged();
+    } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
+    finally { setNoDocsSaving(false); }
+  }
 
   function pickFile(f: File | null) {
     setError(null);
@@ -112,6 +144,8 @@ export function DocumentsEditor({
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to upload"); }
       const created: ProjectDocument = await res.json();
       setDocuments((prev) => [created, ...prev]);
+      setNoDocsConfirmed(false); // the upload clears the confirmation server-side
+      notifyCompletionChanged();
       // Reset the form for the next upload.
       setDocType(""); setDocName(""); setDocDate(""); setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -126,6 +160,7 @@ export function DocumentsEditor({
       const res = await fetch(`/api/project-documents?id=${doc.id}`, { method: "DELETE" });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to delete"); }
       setDocuments((prev) => prev.filter((x) => x.id !== doc.id));
+      notifyCompletionChanged();
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setDeletingId(null); }
   }
@@ -212,7 +247,36 @@ export function DocumentsEditor({
         </div>
 
         {documents.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">{d.empty}</div>
+          <div className="py-10 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+            {noDocsConfirmed ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 font-medium text-green-700">
+                  <CircleCheck className="size-4" />{d.noDocumentsConfirmed}
+                </span>
+                {!readOnly && (
+                  <Button variant="outline" size="sm" onClick={() => setNoDocuments(false)} disabled={noDocsSaving}>
+                    {noDocsSaving
+                      ? <Loader2 className="size-3.5 animate-spin" />
+                      : <><Undo2 className="size-3.5 mr-1.5" />{d.noDocumentsUndo}</>}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                <span>{d.empty}</span>
+                {!readOnly && (
+                  <>
+                    <span className="text-xs">{d.optionalNote}</span>
+                    <Button variant="outline" size="sm" onClick={() => setNoDocuments(true)} disabled={noDocsSaving}>
+                      {noDocsSaving
+                        ? <Loader2 className="size-3.5 animate-spin" />
+                        : <><CircleCheck className="size-3.5 mr-1.5" />{d.noDocuments}</>}
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead>

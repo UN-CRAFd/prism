@@ -333,7 +333,7 @@ export function ProdocIndicatorsSection({
       // itself. `min-h-0` lets that shrink actually happen. `overflow-auto` covers both
       // axes: the table's 1100px min-width still needs horizontal scroll when narrow.
       <div className={"flex flex-col gap-2 " + (fillHeight ? "flex-1 min-h-0" : "")}>
-      <div className={"rounded-xl border bg-card overflow-auto min-h-0 " + (fillHeight ? "" : "max-h-[28rem]")}>
+      <div className={"scroll-fade rounded-xl border bg-card overflow-auto min-h-0 " + (fillHeight ? "" : "max-h-[28rem]")}>
         <table className="w-full text-sm min-w-[1100px]">
           <thead>
             <tr>

@@ -4,7 +4,7 @@ import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matri
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-auto">
+    <div data-slot="table-container" className="scroll-fade relative w-full overflow-auto">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}

@@ -109,7 +109,7 @@ export function MatrixTableShell({
     // while the card is free to be shorter.
     <div className={cn(fillHeight && "flex-1 min-h-0", footer && "flex flex-col gap-2")}>
     <div className={cn(
-      "rounded-xl border bg-card",
+      "scroll-fade rounded-xl border bg-card",
       fillHeight
         ? (hugContent
             ? cn("overflow-auto", footer ? "min-h-0" : "max-h-full")

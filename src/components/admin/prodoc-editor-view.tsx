@@ -1529,7 +1529,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                     {labels.adminEditor.emptyRisks}
                   </div>
                 ) : (
-                  <div className={cn("rounded-xl border bg-card overflow-auto min-h-0", !fillHeight && "max-h-[28rem]")}>
+                  <div className={cn("scroll-fade rounded-xl border bg-card overflow-auto min-h-0", !fillHeight && "max-h-[28rem]")}>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className={cn("border-b", HEAD_BG)}>

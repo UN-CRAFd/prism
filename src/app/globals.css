@@ -282,6 +282,38 @@ body::-webkit-scrollbar {
   }
 }
 
+/* Scroll fade: on a vertically scrolling table box, fade the half-visible last
+   row so it's obvious there is more below. Add `scroll-fade` to the scroll
+   container (the element with overflow-auto). A sticky overlay pinned to the
+   bottom (and left, for wide tables) fades to the card colour; it doesn't take
+   space (negative margin) or catch clicks. Its opacity follows a scroll-driven
+   animation: shown while there's more to scroll, gone over the last 40px. When
+   the box doesn't scroll vertically the timeline is inactive and the base
+   opacity of 0 applies, so short tables never get a fade. Browsers without
+   scroll-driven animations (Firefox for now) simply get no fade. */
+@supports (animation-timeline: scroll()) {
+  .scroll-fade::after {
+    content: "";
+    display: block;
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    z-index: 45; /* above sticky first columns (z 30–40) */
+    height: 2.5rem;
+    margin-top: -2.5rem;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--card));
+    opacity: 0;
+    animation: scroll-fade-out linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: calc(100% - 40px) 100%;
+  }
+  @keyframes scroll-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+}
+
 /* Rich-text editor / rendered rich content (narratives, project description). */
 .rte-content {
   min-height: var(--rte-min-height, 180px);

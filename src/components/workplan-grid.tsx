@@ -518,7 +518,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
           few — so the border closes under the last row instead of running to
           the bottom of the page — and flex-shrinks to the space available, with
           its own scrollbar, once they outgrow it. */}
-      <div className={cn("rounded-xl border bg-card", fillHeight ? "min-h-0 overflow-auto" : "overflow-x-auto")}>
+      <div className={cn("scroll-fade rounded-xl border bg-card", fillHeight ? "min-h-0 overflow-auto" : "overflow-x-auto")}>
         <table className="w-full text-sm border-collapse">
           <QuarterHeader
             quarters={quarters}
@@ -1365,7 +1365,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
           <div>{addOutcomeBar}</div>
         </>
       ) : (
-        <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+        <div className={cn("scroll-fade rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
           <table className="w-full text-sm border-collapse">
             <QuarterHeader
               quarters={quarters}

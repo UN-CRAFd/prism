@@ -747,7 +747,7 @@ export function ExpenditurePartnerEditor({
       )}
     {/* Box hugs the table (w-fit) so few columns don't leave an empty bordered
         area; max-w-full keeps wide grids scrolling inside the page. */}
-    <div className={cn("w-fit max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+    <div className={cn("scroll-fade w-fit max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
       <table className="text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
           <tr className="text-xs" ref={headRowRef}>
@@ -1346,7 +1346,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
         </div>
       ) : (
         <>
-          <div className={cn("rounded-xl border", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+          <div className={cn("scroll-fade rounded-xl border", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
             <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Annual budget (USD) per category<RequiredMark /></p>
             <table className="w-full text-sm border-collapse">
               <thead>

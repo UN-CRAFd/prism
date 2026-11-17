@@ -89,7 +89,7 @@ function LinkedResultsPicker({
                 onChange(checked ? selected.filter((k) => k !== opt.key) : [...selected, opt.key])
               }
               onSelect={(e) => e.preventDefault()}
-              className={"text-xs" + (opt.kind === "outcome" ? " font-semibold" : "")}
+              className={"text-xs " + (opt.kind === "outcome" ? "" : "pl-14 [&>span:first-child]:left-8")}
             >
               <span className="line-clamp-2">{opt.label}</span>
             </DropdownMenuCheckboxItem>

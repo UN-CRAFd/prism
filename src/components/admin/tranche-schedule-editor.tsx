@@ -75,6 +75,8 @@ export function TrancheScheduleEditor({
   const participatingOrgsRef = useRef<OrgRow[]>([]);
   participatingOrgsRef.current = participatingOrgs;
   const trancheCountRef = useRef(1);
+  const scrollBoxRef = useRef<HTMLDivElement>(null);
+  const scrollToNewTrancheRef = useRef(false);
   trancheCountRef.current = trancheCount;
 
   useEffect(() => {
@@ -210,6 +212,7 @@ export function TrancheScheduleEditor({
   };
 
   const addTrancheColumn = () => {
+    scrollToNewTrancheRef.current = true;
     setTrancheCount((n) => n + 1);
     schedule();
   };
@@ -225,6 +228,13 @@ export function TrancheScheduleEditor({
     setTrancheCount((n) => n - 1);
     schedule();
   };
+
+  useEffect(() => {
+    if (!scrollToNewTrancheRef.current) return;
+    scrollToNewTrancheRef.current = false;
+    const box = scrollBoxRef.current;
+    if (box) box.scrollTo({ left: box.scrollWidth, behavior: "smooth" });
+  }, [trancheCount]);
 
   if (loading) return <LoadingState className="py-8" />;
 
@@ -250,7 +260,7 @@ export function TrancheScheduleEditor({
         </div>
       ) : (
         <>
-        <div className="rounded-xl border overflow-x-auto">
+        <div ref={scrollBoxRef} className="rounded-xl border overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className={cn("border-b", HEAD_BG)}>

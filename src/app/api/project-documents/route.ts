@@ -111,6 +111,12 @@ export async function POST(req: NextRequest) {
         uploadedBy,
       ]
     );
+    // An upload supersedes a "No documents to upload" confirmation.
+    await query(
+      `UPDATE reporting_platform.projects SET no_documents_confirmed = FALSE
+        WHERE id = $1 AND no_documents_confirmed`,
+      [projectId]
+    );
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
     logger.error("POST /api/project-documents error:", err);

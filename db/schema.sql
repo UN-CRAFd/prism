@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS projects (
     gender_equality_marker  TEXT,          -- GEM0..GEM3 (options: genderEqualityMarker)
     indirect_cost_rate      NUMERIC(5,4)  NOT NULL DEFAULT 0.07,
     archived                BOOLEAN       NOT NULL DEFAULT FALSE,  -- hidden from the admin Projects overview by default (Active/Archived filter)
+    no_documents_confirmed  BOOLEAN       NOT NULL DEFAULT FALSE,  -- partner ticked "No documents to upload" (Documents tab complete without uploads)
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );

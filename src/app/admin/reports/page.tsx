@@ -319,7 +319,7 @@ export default function ReportsPage() {
                   className={`cursor-pointer ${r.archived ? "text-muted-foreground [&_td]:opacity-70" : ""}`}
                   onClick={() => navigateToReport(r)}
                 >
-                  <TableCell className="w-10 min-w-10 max-w-10 text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="w-10 min-w-10 max-w-10 text-right text-sm tabular-nums text-crafd-grey-600">{i + 1}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-semibold">
                       {shortName(r.partner_short_name)}

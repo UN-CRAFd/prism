@@ -359,7 +359,7 @@ export function ProdocIndicatorsSection({
                   ref={(el) => { if (el) rowRefs.current.set(line.id, el); else rowRefs.current.delete(line.id); }}
                   className={"align-top transition-colors duration-700 hover:bg-muted/20" + (highlightId === line.id ? " bg-crafd-yellow-100" : "")}
                 >
-                  <td className="px-4 py-3 w-8 text-right text-xs tabular-nums text-muted-foreground align-top">{idx + 1}.</td>
+                  <td className="px-4 py-3 w-8 text-right text-sm tabular-nums text-crafd-grey-600 align-top">{idx + 1}.</td>
                   <td className="px-4 py-3">
                     {isEditing ? (
                       <div className="flex flex-col gap-1.5">
@@ -396,7 +396,7 @@ export function ProdocIndicatorsSection({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.baselineValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.baseline_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { baseline_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
@@ -406,7 +406,6 @@ export function ProdocIndicatorsSection({
                         disabled={readOnly || !!isEditing}
                         onChange={(e) => updateYear(line.id, "baseline", e.target.value)}
                         onBlur={() => saveValues(line)}
-                        placeholder={labels.indicators.columns.baselineYear}
                         className={"h-8" + (yearErrors[line.id]?.baseline ? " border-destructive focus-visible:ring-destructive" : "")}
                         aria-invalid={yearErrors[line.id]?.baseline || undefined}
                       />
@@ -416,7 +415,7 @@ export function ProdocIndicatorsSection({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} placeholder={labels.indicators.columns.targetValue} className="h-8" />
+                    <Input inputMode="decimal" value={values.target_value ?? ""} disabled={readOnly || !!isEditing} onChange={(e) => updateValues(line.id, { target_value: numericAmount(e.target.value) })} onBlur={() => saveValues(line)} className="h-8" />
                   </td>
                   <td className="px-4 py-3">
                     <div>
@@ -426,7 +425,6 @@ export function ProdocIndicatorsSection({
                         disabled={readOnly || !!isEditing}
                         onChange={(e) => updateYear(line.id, "target", e.target.value)}
                         onBlur={() => saveValues(line)}
-                        placeholder={labels.indicators.columns.targetYear}
                         className={"h-8" + (yearErrors[line.id]?.target ? " border-destructive focus-visible:ring-destructive" : "")}
                         aria-invalid={yearErrors[line.id]?.target || undefined}
                       />
@@ -475,7 +473,7 @@ export function ProdocIndicatorsSection({
             {/* Draft row for a new custom indicator — nothing is created until Save. */}
             {creating && (
               <tr ref={draftRowRef} className="align-top bg-muted/10">
-                <td className="px-4 py-3 w-8 text-right text-xs tabular-nums text-muted-foreground align-top">{tableLines.length + 1}.</td>
+                <td className="px-4 py-3 w-8 text-right text-sm tabular-nums text-crafd-grey-600 align-top">{tableLines.length + 1}.</td>
                 {/* One full-width form cell spanning every column after the row number. */}
                 <td colSpan={7} className="px-4 py-3">
                   <div className="flex flex-col gap-2">

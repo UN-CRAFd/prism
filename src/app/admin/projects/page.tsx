@@ -786,7 +786,7 @@ export default function ProjectsPage() {
                 const pd = prodocByProject[p.id];
                 return (
                 <TableRow key={p.id} className={`cursor-pointer ${p.archived ? "text-muted-foreground [&_td]:opacity-70" : ""}`} onClick={() => openProdoc(p)}>
-                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums text-crafd-grey-600">{i + 1}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-semibold">
                       {p.partner_short_name?.toUpperCase() || "—"}

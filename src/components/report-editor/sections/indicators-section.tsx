@@ -131,7 +131,7 @@ export function IndicatorsSection({
               <tr key={row.indicator_id} className="align-top">
                 <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-crafd-yellow-100")}>
                   <div className="flex items-start gap-2">
-                    <span className="shrink-0 mt-0.5 w-6 text-xs tabular-nums text-muted-foreground text-right">{idx + 1}.</span>
+                    <span className="shrink-0 mt-0.5 w-6 text-sm tabular-nums text-crafd-grey-600 text-right">{idx + 1}.</span>
                     <div className="flex-1 min-w-0">
                       <>
                         <div className="flex items-start gap-2">

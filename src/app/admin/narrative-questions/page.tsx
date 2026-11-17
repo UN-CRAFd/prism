@@ -142,7 +142,7 @@ export default function NarrativeQuestionsPage() {
                 <ul className="divide-y">
                   {questions.map((q, i) => (
                     <li key={q.id} className="flex items-start gap-3 px-5 py-3">
-                      <span className="text-xs font-mono text-muted-foreground mt-1.5 w-5 shrink-0">{i + 1}.</span>
+                      <span className="text-sm tabular-nums text-crafd-grey-600 mt-1.5 w-6 shrink-0">{i + 1}.</span>
                       {editId === q.id ? (
                         <div className="flex-1 flex flex-col gap-2">
                           <Input

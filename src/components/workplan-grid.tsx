@@ -1450,7 +1450,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                     const activityCell = (
                       <td rowSpan={partnerMode ? 2 : 1} className="px-3 py-2 align-top border-r h-px">
                         <div className="flex gap-2 h-full">
-                          <span className="text-xs font-mono text-muted-foreground pt-2 w-10 shrink-0">{row.activity_num}</span>
+                          <span className="text-xs tabular-nums text-crafd-grey-900 pt-2 w-10 shrink-0">{row.activity_num}</span>
                           <Textarea
                             value={row.activity_text}
                             onChange={(e) => updateRow(row.key, { activity_text: e.target.value })}

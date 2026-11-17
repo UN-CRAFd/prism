@@ -310,7 +310,7 @@ export function RiskSection({
                   <tr key={risk.id} className={cn("align-top transition-colors", state.dirty && "bg-crafd-yellow-100")}>
                     {/* # */}
                     <td className="px-3 py-3 border-t">
-                      <span className="text-xs font-mono text-muted-foreground">{i + 1}.</span>
+                      <span className="text-sm tabular-nums text-crafd-grey-600">{i + 1}.</span>
                     </td>
 
                     {/* Risk name + description + categories + added-year badge */}
@@ -456,7 +456,7 @@ export function RiskSection({
               {showAddRow && (
                 <tr ref={draftRowRef} className="align-top bg-muted/10">
                   <td className="px-3 py-3 border-t">
-                    <span className="text-xs font-mono text-muted-foreground">{risks.length + 1}.</span>
+                    <span className="text-sm tabular-nums text-crafd-grey-600">{risks.length + 1}.</span>
                   </td>
                   {/* One full-width form cell spanning every column after the row number
                       (risk + comparison chips shown + updated-assessment + revision +

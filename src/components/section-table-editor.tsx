@@ -931,7 +931,7 @@ export function SectionTableEditor({
         <tbody className="divide-y">
           {rows.map((row, i) => (
             <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-crafd-yellow-100")}>
-              <td className="px-4 py-3 align-top text-xs font-mono text-muted-foreground">{i + 1}.</td>
+              <td className="px-4 py-3 align-top text-sm tabular-nums text-crafd-grey-600">{i + 1}.</td>
               {fields.map((f) => (
                 <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-3 align-top">
                   {f.type === "input" ? (

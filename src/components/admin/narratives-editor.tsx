@@ -149,12 +149,7 @@ export function NarrativesAdminEditor({
               isDirty(q.key) && "border-crafd-yellow-400"
             )}
           >
-            <div className="flex items-start gap-3">
-              <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{i + 1}.</span>
-              <label className="t-heading-editor leading-snug flex-1">
-                {q.label}
-              </label>
-            </div>
+            <label className="t-heading-editor leading-snug block">{i + 1}. {q.label}</label>
 
             {/* Narrative answer */}
             <div className="space-y-1.5">

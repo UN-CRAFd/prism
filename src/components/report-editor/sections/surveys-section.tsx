@@ -97,7 +97,7 @@ function SurveyCard({ survey, index, rowStates, updateRow }: SurveyCardProps) {
       className={cn("rounded-xl border bg-card p-5 space-y-4 transition-colors", state.dirty && "border-crafd-yellow-400")}
     >
       <div className="flex items-start gap-3">
-        <span className="text-xs font-mono text-muted-foreground mt-0.5 w-5 shrink-0">{index + 1}.</span>
+        <span className="text-sm tabular-nums text-crafd-grey-600 mt-0.5 w-6 shrink-0">{index + 1}.</span>
         <p className="t-heading-question leading-snug flex-1">{survey.question}</p>
         <ItemComments section="surveys" itemId={survey.id} />
       </div>

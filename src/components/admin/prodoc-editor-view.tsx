@@ -1542,7 +1542,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                           return (
                             <Fragment key={risk.id}>
                             <tr className="transition-colors hover:bg-muted/20">
-                              <td className="px-4 py-3 text-xs font-mono text-muted-foreground align-top">{i + 1}.</td>
+                              <td className="px-4 py-3 text-sm tabular-nums text-crafd-grey-600 align-top">{i + 1}.</td>
                               {isEditing ? (
                                 <>
                                   <td className="px-4 py-3 align-top">
@@ -1645,7 +1645,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                         {showAddRiskRow && (
                           <>
                             <tr className="bg-muted/10">
-                              <td className={cn("px-4 py-3 text-xs font-mono text-muted-foreground align-top", stickyFoot)} style={stickyFootStyle}>{risks.length + 1}.</td>
+                              <td className={cn("px-4 py-3 text-sm tabular-nums text-crafd-grey-600 align-top", stickyFoot)} style={stickyFootStyle}>{risks.length + 1}.</td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className="flex flex-col gap-2">
                                   <Input placeholder={labels.placeholders.riskName} value={newRiskName} onChange={(e) => { setNewRiskName(e.target.value); if (newRiskErrors.name) setNewRiskErrors((p) => ({ ...p, name: false })); }} className={cn("text-sm", newRiskErrors.name && "border-destructive focus-visible:ring-destructive")} autoFocus />

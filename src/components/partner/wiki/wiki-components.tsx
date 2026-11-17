@@ -5,6 +5,7 @@ import { Link2, Printer } from "lucide-react";
 import { Notice } from "@/components/ui/notice";
 import labels from "@/lib/labels";
 import type { WikiTocEntry } from "@/lib/wiki";
+import { Hint } from "@/components/ui/hint";
 
 // The guide banner doubles as the printed document's title block: rather than
 // being hidden, it is restyled to plain ink-on-white by the `body.guide-print`
@@ -83,14 +84,15 @@ export function SectionHeading({
       )}
       {children}
       {anchorId && (
-        <a
-          className="wiki-anchor"
-          href={`#${anchorId}`}
-          aria-label={labels.wiki.copyLink}
-          title={labels.wiki.copyLink}
-        >
-          <Link2 className="size-4" />
-        </a>
+        <Hint label={labels.wiki.copyLink}>
+          <a
+            className="wiki-anchor"
+            href={`#${anchorId}`}
+            aria-label={labels.wiki.copyLink}
+          >
+            <Link2 className="size-4" />
+          </a>
+        </Hint>
       )}
     </h2>
   );

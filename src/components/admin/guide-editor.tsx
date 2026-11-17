@@ -11,6 +11,7 @@ import { useAutosave, AutosaveIndicator, type SaveState } from "@/components/aut
 import { richTextLength } from "@/lib/richtext";
 import { WIKI_ICON_NAMES, wikiIcon, DEFAULT_WIKI_ICON, numberWikiSections } from "@/lib/wiki";
 import labels from "@/lib/labels";
+import { Hint } from "@/components/ui/hint";
 
 // ── Guide (wiki) editor ───────────────────────────────────────────────────────
 // Admin editor for the partner-facing Guide. One card per section: title, icon,
@@ -230,47 +231,51 @@ export function GuideEditor() {
 
               <div className="flex items-center gap-2 shrink-0">
                 <div className="flex items-center rounded-md border overflow-hidden">
-                  <button
-                    onClick={() => move(s.id, -1)}
-                    disabled={i === 0}
-                    aria-label={labels.guideEditor.moveUp}
-                    title={labels.guideEditor.moveUp}
-                    className="px-2 py-2 text-muted-foreground hover:bg-muted/50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                  >
-                    <ArrowUp className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => move(s.id, 1)}
-                    disabled={i === sections.length - 1}
-                    aria-label={labels.guideEditor.moveDown}
-                    title={labels.guideEditor.moveDown}
-                    className="px-2 py-2 border-l text-muted-foreground hover:bg-muted/50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                  >
-                    <ArrowDown className="size-3.5" />
-                  </button>
+                  <Hint label={labels.guideEditor.moveUp} disabled>
+                    <button
+                      onClick={() => move(s.id, -1)}
+                      disabled={i === 0}
+                      aria-label={labels.guideEditor.moveUp}
+                      className="px-2 py-2 text-muted-foreground hover:bg-muted/50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </button>
+                  </Hint>
+                  <Hint label={labels.guideEditor.moveDown} disabled>
+                    <button
+                      onClick={() => move(s.id, 1)}
+                      disabled={i === sections.length - 1}
+                      aria-label={labels.guideEditor.moveDown}
+                      className="px-2 py-2 border-l text-muted-foreground hover:bg-muted/50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </button>
+                  </Hint>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-9"
-                  onClick={() => patchNow(s.id, { hidden: !s.hidden })}
-                  aria-label={s.hidden ? labels.guideEditor.show : labels.guideEditor.hide}
-                  title={s.hidden ? labels.guideEditor.show : labels.guideEditor.hide}
-                >
-                  {s.hidden ? <EyeOff className="size-4 text-crafd-yellow-900" /> : <Eye className="size-4" />}
-                </Button>
+                <Hint label={s.hidden ? labels.guideEditor.show : labels.guideEditor.hide}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9"
+                    onClick={() => patchNow(s.id, { hidden: !s.hidden })}
+                    aria-label={s.hidden ? labels.guideEditor.show : labels.guideEditor.hide}
+                  >
+                    {s.hidden ? <EyeOff className="size-4 text-crafd-yellow-900" /> : <Eye className="size-4" />}
+                  </Button>
+                </Hint>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-9 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDelete(s)}
-                  aria-label={labels.guideEditor.delete}
-                  title={labels.guideEditor.delete}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <Hint label={labels.guideEditor.delete}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDelete(s)}
+                    aria-label={labels.guideEditor.delete}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </Hint>
               </div>
             </div>
 
@@ -357,36 +362,37 @@ function IconPicker({
 
   return (
     <div ref={wrapRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Choose section icon"
-        title="Choose section icon"
-        className="flex size-9 items-center justify-center rounded-lg border bg-muted/40 text-foreground transition-colors hover:bg-muted"
-      >
-        <Current className="size-4.5" />
-      </button>
+      <Hint label="Choose section icon">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Choose section icon"
+          className="flex size-9 items-center justify-center rounded-lg border bg-muted/40 text-foreground transition-colors hover:bg-muted"
+        >
+          <Current className="size-4.5" />
+        </button>
+      </Hint>
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 grid w-[15rem] grid-cols-6 gap-1 rounded-lg border bg-popover p-2 shadow-lg">
           {WIKI_ICON_NAMES.map((name) => {
             const OptIcon = wikiIcon(name);
             const selected = name === value;
             return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => { onChange(name); setOpen(false); }}
-                aria-label={name}
-                title={name}
-                className={cn(
-                  "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors",
-                  selected
-                    ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800"
-                    : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <OptIcon className="size-4" />
-              </button>
+              <Hint key={name} label={name}>
+                <button
+                  type="button"
+                  onClick={() => { onChange(name); setOpen(false); }}
+                  aria-label={name}
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors",
+                    selected
+                      ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800"
+                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <OptIcon className="size-4" />
+                </button>
+              </Hint>
             );
           })}
         </div>

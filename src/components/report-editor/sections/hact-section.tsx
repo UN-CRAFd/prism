@@ -12,6 +12,7 @@ import { ItemComments } from "@/components/report-editor/comments-context";
 import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, CURRENT_YEAR_HEAD } from "@/components/report-editor/matrix-table";
 import { optionValues } from "@/lib/options";
 import { cn } from "@/lib/utils";
+import { Hint } from "@/components/ui/hint";
 
 // HACT Recommendations — the assurance findings a tranche release depends on,
 // and what the partner has done about each.
@@ -292,32 +293,35 @@ export function HactSection({
                     {canEditAll && (
                       <td className="px-1 py-2 whitespace-nowrap">
                         {editingId === r.id ? (
-                          <button
-                            type="button"
-                            onClick={() => setEditingId(null)}
-                            className="rounded p-1.5 text-green-700 hover:bg-green-50 transition-colors"
-                            title="Done editing"
-                          >
-                            <Check className="size-3.5" />
-                          </button>
+                          <Hint label="Done editing">
+                            <button aria-label="Done editing"
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="rounded p-1.5 text-green-700 hover:bg-green-50 transition-colors"
+                            >
+                              <Check className="size-3.5" />
+                            </button>
+                          </Hint>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingId(r.id)}
-                            className="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                            title="Edit recommendation"
-                          >
-                            <Pencil className="size-3.5" />
-                          </button>
+                          <Hint label="Edit recommendation">
+                            <button aria-label="Edit recommendation"
+                              type="button"
+                              onClick={() => setEditingId(r.id)}
+                              className="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            >
+                              <Pencil className="size-3.5" />
+                            </button>
+                          </Hint>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => deleteRow(r, i + 1)}
-                          className="rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          title="Delete recommendation"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        <Hint label="Delete recommendation">
+                          <button aria-label="Delete recommendation"
+                            type="button"
+                            onClick={() => deleteRow(r, i + 1)}
+                            className="rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </Hint>
                       </td>
                     )}
                   </tr>

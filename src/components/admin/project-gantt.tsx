@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { formatDate, shortName } from "@/lib/utils";
+import { Hint } from "@/components/ui/hint";
 
 export interface GanttProject {
   id: number;
@@ -142,12 +143,13 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
           <div style={{ width: LABEL_W }} className="shrink-0">
             {dated.map((d) => (
               <div key={d.id} className="h-9 flex items-center pr-3">
-                <span
-                  className="truncate text-sm font-medium"
-                  title={`${d.short_name || d.project_title}${d.partner_short_name ? ` · ${shortName(d.partner_short_name)}` : ""}`}
-                >
-                  {d.short_name || d.project_title}
-                </span>
+                <Hint label={`${d.short_name || d.project_title}${d.partner_short_name ? ` · ${shortName(d.partner_short_name)}` : ""}`}>
+                  <span
+                    className="truncate text-sm font-medium"
+                  >
+                    {d.short_name || d.project_title}
+                  </span>
+                </Hint>
               </div>
             ))}
           </div>
@@ -180,27 +182,28 @@ export function ProjectGantt({ projects, reports = [] }: { projects: GanttProjec
               const width = pct(d.end.getTime()) - left;
               return (
                 <div key={d.id} className="h-9 relative">
-                  <div
-                    style={{ left: `${left}%`, width: `${width}%`, backgroundColor: colorFor(d.partner_short_name) }}
-                    className="absolute top-1.5 h-6 rounded-md flex items-center px-2 overflow-hidden z-10 shadow-sm ring-1 ring-black/5"
-                    title={`${d.short_name || d.project_title}\n${shortName(d.partner_short_name)}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`}
-                  >
-                    <span className="truncate text-xs font-semibold text-white/95">
-                      {d.project_duration_months} mo
-                    </span>
-                  </div>
+                  <Hint label={`${d.short_name || d.project_title}\n${shortName(d.partner_short_name)}\n${formatDate(d.start)} – ${formatDate(d.end)} · ${d.project_duration_months} months`} multiline>
+                    <div
+                      style={{ left: `${left}%`, width: `${width}%`, backgroundColor: colorFor(d.partner_short_name) }}
+                      className="absolute top-1.5 h-6 rounded-md flex items-center px-2 overflow-hidden z-10 shadow-sm ring-1 ring-black/5"
+                    >
+                      <span className="truncate text-xs font-semibold text-white/95">
+                        {d.project_duration_months} mo
+                      </span>
+                    </div>
+                  </Hint>
 
                   {/* Report markers — a tick on the bar per report */}
                   {(reportsByProject.get(d.id) ?? []).map((r) => {
                     const rp = pct(reportDate(r).getTime());
                     if (rp < left || rp > left + width) return null;
                     return (
-                      <div
-                        key={r.id}
-                        style={{ left: `${rp}%` }}
-                        className="absolute top-1.5 h-6 w-0.5 -translate-x-1/2 bg-white/90 z-30"
-                        title={`${r.report_type ?? "annual"} report ${r.year}${r.report_submission_date ? ` · due ${formatDate(r.report_submission_date)}` : ""}`}
-                      />
+                      <Hint key={r.id} label={`${r.report_type ?? "annual"} report ${r.year}${r.report_submission_date ? ` · due ${formatDate(r.report_submission_date)}` : ""}`}>
+                        <div
+                          style={{ left: `${rp}%` }}
+                          className="absolute top-1.5 h-6 w-0.5 -translate-x-1/2 bg-white/90 z-30"
+                        />
+                      </Hint>
                     );
                   })}
                 </div>

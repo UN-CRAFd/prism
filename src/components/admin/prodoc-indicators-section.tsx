@@ -21,6 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
+import { Hint } from "@/components/ui/hint";
 
 export interface ProdocIndicatorLine {
   id: number;
@@ -457,8 +458,12 @@ export function ProdocIndicatorsSection({
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
-                          <button disabled={readOnly} onClick={() => startEdit(line)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" title="Edit indicator" aria-label={`Edit indicator ${line.indicator_name}`}><Pencil className="size-3.5" /></button>
-                          <button disabled={readOnly || deletingId === line.id} onClick={async () => { setDeletingId(line.id); try { await onDelete(line.id); } finally { setDeletingId(null); } }} className="text-muted-foreground hover:text-destructive disabled:opacity-40" title="Remove indicator" aria-label={`Remove indicator ${line.indicator_name}`}>{deletingId === line.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}</button>
+                          <Hint label="Edit indicator" disabled>
+                            <button disabled={readOnly} onClick={() => startEdit(line)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label={`Edit indicator ${line.indicator_name}`}><Pencil className="size-3.5" /></button>
+                          </Hint>
+                          <Hint label="Remove indicator" disabled>
+                            <button disabled={readOnly || deletingId === line.id} onClick={async () => { setDeletingId(line.id); try { await onDelete(line.id); } finally { setDeletingId(null); } }} className="text-muted-foreground hover:text-destructive disabled:opacity-40" aria-label={`Remove indicator ${line.indicator_name}`}>{deletingId === line.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}</button>
+                          </Hint>
                         </div>
                       )}
                     </td>

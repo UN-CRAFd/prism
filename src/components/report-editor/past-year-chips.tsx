@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { useStickySet } from "@/components/report-editor/sticky-filter";
+import { Hint } from "@/components/ui/hint";
 
 /**
  * `section` names the grid these chips belong to, so each one remembers its own
@@ -63,31 +64,32 @@ export function FilterChip({
   }
 
   return (
-    <span
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      onClick={activate}
-      onKeyDown={(e) => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault(); // stop Space from scrolling the grid
-        activate();
-      }}
-      title={title}
-      aria-pressed={on}
-      aria-disabled={disabled || undefined}
-      className={cn(
-        "inline-block select-none rounded-full border px-3 py-0.5 text-xs transition-colors",
-        "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        on
-          ? "bg-neutral-200 text-foreground border-neutral-300"
-          : "bg-transparent text-muted-foreground border-neutral-200 hover:border-neutral-300 hover:text-foreground",
-        disabled
-          ? "cursor-not-allowed opacity-50 hover:border-neutral-200 hover:text-muted-foreground"
-          : "cursor-pointer"
-      )}
-    >
-      {children}
-    </span>
+    <Hint label={title}>
+      <span
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        onClick={activate}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault(); // stop Space from scrolling the grid
+          activate();
+        }}
+        aria-pressed={on}
+        aria-disabled={disabled || undefined}
+        className={cn(
+          "inline-block select-none rounded-full border px-3 py-0.5 text-xs transition-colors",
+          "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          on
+            ? "bg-neutral-200 text-foreground border-neutral-300"
+            : "bg-transparent text-muted-foreground border-neutral-200 hover:border-neutral-300 hover:text-foreground",
+          disabled
+            ? "cursor-not-allowed opacity-50 hover:border-neutral-200 hover:text-muted-foreground"
+            : "cursor-pointer"
+        )}
+      >
+        {children}
+      </span>
+    </Hint>
   );
 }
 

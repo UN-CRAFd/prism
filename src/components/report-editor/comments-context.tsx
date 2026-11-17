@@ -8,6 +8,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { toDisplayHtml, richTextLength } from "@/lib/richtext";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Hint } from "@/components/ui/hint";
 
 // Comment bodies are rich text limited to bold, italic, underline and links. They
 // are shown through the same sanitised rendering narratives use (toDisplayHtml +
@@ -322,23 +323,24 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
 
   return (
     <span className="relative inline-flex align-middle">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        title={mainList.length ? `${mainList.length} comment${mainList.length > 1 ? "s" : ""}` : "Add a comment"}
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs transition-colors",
-          pendingCount > 0
-            ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800 hover:bg-crafd-yellow-200"
-            : mainList.length > 0
-            ? "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
-            : "border-transparent text-muted-foreground/50 hover:text-muted-foreground hover:border-border"
-        )}
-      >
-        {mainList.length > 0 ? <MessageSquare className="size-3.5" /> : <MessageSquarePlus className="size-3.5" />}
-        {mainList.length > 0 && <span className="tabular-nums font-medium">{mainList.length}</span>}
-      </button>
+      <Hint label={mainList.length ? `${mainList.length} comment${mainList.length > 1 ? "s" : ""}` : "Add a comment"}>
+        <button aria-label={mainList.length ? `${mainList.length} comment${mainList.length > 1 ? "s" : ""}` : "Add a comment"}
+          ref={btnRef}
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs transition-colors",
+            pendingCount > 0
+              ? "border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800 hover:bg-crafd-yellow-200"
+              : mainList.length > 0
+              ? "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
+              : "border-transparent text-muted-foreground/50 hover:text-muted-foreground hover:border-border"
+          )}
+        >
+          {mainList.length > 0 ? <MessageSquare className="size-3.5" /> : <MessageSquarePlus className="size-3.5" />}
+          {mainList.length > 0 && <span className="tabular-nums font-medium">{mainList.length}</span>}
+        </button>
+      </Hint>
 
       {open && rect && typeof document !== "undefined" && createPortal(
         <>
@@ -421,9 +423,11 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                 <Button size="sm" variant="outline" className="h-5 px-1.5 text-xs" onClick={() => setResolved(c.id, true)} disabled={readOnly}>
                                   Resolve
                                 </Button>
-                                <button type="button" onClick={() => remove(c.id)} title="Delete" disabled={readOnly} className="hover:text-destructive transition-colors disabled:opacity-40">
-                                  <Trash2 className="size-3.5" />
-                                </button>
+                                <Hint label="Delete" disabled>
+                                  <button aria-label="Delete" type="button" onClick={() => remove(c.id)} disabled={readOnly} className="hover:text-destructive transition-colors disabled:opacity-40">
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </Hint>
                               </span>
                             )}
                           </div>
@@ -463,9 +467,11 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                                         <button type="button" className="hover:text-foreground transition-colors disabled:opacity-40" onClick={() => { setEditingId(r.id); setEditDraft(r.body); }}>
                                           Edit
                                         </button>
-                                        <button type="button" onClick={() => remove(r.id)} title="Delete" className="hover:text-destructive transition-colors">
-                                          <Trash2 className="size-3" />
-                                        </button>
+                                        <Hint label="Delete">
+                                          <button aria-label="Delete" type="button" onClick={() => remove(r.id)} className="hover:text-destructive transition-colors">
+                                            <Trash2 className="size-3" />
+                                          </button>
+                                        </Hint>
                                       </span>
                                     )}
                                   </div>
@@ -560,44 +566,45 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
               </div>
             )}
             {/* Resize handle (bottom-right corner) */}
-            <div
-              className="absolute bottom-0 right-0 size-3 cursor-se-resize touch-none"
-              title="Resize"
-              aria-hidden
-              onPointerDown={(e) => {
-                if (e.button !== 0) return;
-                e.preventDefault();
-                e.stopPropagation();
-                resizeRef.current = { x: e.clientX, y: e.clientY, w: rect.width, h: rect.height };
-                e.currentTarget.setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                const st = resizeRef.current;
-                if (!st) return;
-                setRect((r) => {
-                  if (!r) return r;
-                  // Grow/shrink from the bottom-right corner; the top-left stays put
-                  // and the far edges stop at the viewport margin.
-                  const maxW = window.innerWidth - PANEL_MARGIN - r.left;
-                  const maxH = window.innerHeight - PANEL_MARGIN - r.top;
-                  return {
-                    ...r,
-                    width: clampNum(st.w + e.clientX - st.x, Math.min(PANEL_MIN_W, maxW), maxW),
-                    height: clampNum(st.h + e.clientY - st.y, Math.min(PANEL_MIN_H, maxH), maxH),
-                  };
-                });
-              }}
-              onPointerUp={() => {
-                resizeRef.current = null;
-                const r = rectRef.current;
-                if (r) savePanelSize(r.width, r.height);
-              }}
-              onPointerCancel={() => { resizeRef.current = null; }}
-            >
-              <svg viewBox="0 0 16 16" className="size-3 text-muted-foreground/60" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M6 14 14 6M10 14l4-4" />
-              </svg>
-            </div>
+            <Hint label="Resize">
+              <div aria-label="Resize"
+                className="absolute bottom-0 right-0 size-3 cursor-se-resize touch-none"
+                aria-hidden
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  resizeRef.current = { x: e.clientX, y: e.clientY, w: rect.width, h: rect.height };
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const st = resizeRef.current;
+                  if (!st) return;
+                  setRect((r) => {
+                    if (!r) return r;
+                    // Grow/shrink from the bottom-right corner; the top-left stays put
+                    // and the far edges stop at the viewport margin.
+                    const maxW = window.innerWidth - PANEL_MARGIN - r.left;
+                    const maxH = window.innerHeight - PANEL_MARGIN - r.top;
+                    return {
+                      ...r,
+                      width: clampNum(st.w + e.clientX - st.x, Math.min(PANEL_MIN_W, maxW), maxW),
+                      height: clampNum(st.h + e.clientY - st.y, Math.min(PANEL_MIN_H, maxH), maxH),
+                    };
+                  });
+                }}
+                onPointerUp={() => {
+                  resizeRef.current = null;
+                  const r = rectRef.current;
+                  if (r) savePanelSize(r.width, r.height);
+                }}
+                onPointerCancel={() => { resizeRef.current = null; }}
+              >
+                <svg viewBox="0 0 16 16" className="size-3 text-muted-foreground/60" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M6 14 14 6M10 14l4-4" />
+                </svg>
+              </div>
+            </Hint>
           </div>
         </>,
         document.body

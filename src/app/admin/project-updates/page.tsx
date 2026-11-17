@@ -41,6 +41,7 @@ import {
 import { documentPath, firstUnlockedSection } from "@/lib/project-updates";
 import { UPDATE_TYPES, updateTypeLabel, updateTypeShort } from "@/lib/update-modules";
 import { updateTypesCode } from "@/lib/update-types";
+import { Hint } from "@/components/ui/hint";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
 
@@ -395,9 +396,11 @@ export default function ProjectUpdatesPage() {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {typeBadges(r).map((b) => (
-                        <Badge key={b.text} variant="secondary" className="text-xs font-semibold" title={b.title}>
-                          {b.text}
-                        </Badge>
+                        <Hint key={b.text} label={b.title}>
+                          <Badge variant="secondary" className="text-xs font-semibold">
+                            {b.text}
+                          </Badge>
+                        </Hint>
                       ))}
                     </div>
                   </TableCell>
@@ -411,7 +414,9 @@ export default function ProjectUpdatesPage() {
                     <TooltipTrigger asChild>
                       <TableCell className="max-w-[260px] truncate text-sm">
                         {r.archived && (
-                          <Badge variant="outline" className="mr-1.5 text-xs font-normal" title="The project is archived">Archived</Badge>
+                          <Hint label="The project is archived">
+                            <Badge variant="outline" className="mr-1.5 text-xs font-normal">Archived</Badge>
+                          </Hint>
                         )}
                         {r.project_title}
                       </TableCell>
@@ -430,9 +435,11 @@ export default function ProjectUpdatesPage() {
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={r.last_edited ? formatDate(r.last_edited) : undefined}>
-                    {r.last_edited ? timeAgo(r.last_edited) : "—"}
-                  </TableCell>
+                  <Hint label={r.last_edited ? formatDate(r.last_edited) : undefined}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {r.last_edited ? timeAgo(r.last_edited) : "—"}
+                    </TableCell>
+                  </Hint>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <ReportRowMenu report={r} onDelete={() => handleDelete(r)} onDateChanged={handleDateChanged} />
                   </TableCell>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import { toDisplayHtml, toWikiDisplayHtml, richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels";
+import { Hint } from "@/components/ui/hint";
 
 // ── Rich-text editor ───────────────────────────────────────────────────────────
 // A minimal, dependency-free contentEditable editor for the project-document
@@ -176,33 +177,34 @@ export function RichTextEditor({
       {!ro && (
         <div className="flex items-center gap-0.5 border-b border-input bg-muted/40 px-1.5 py-1">
           {buttons.map((b) => (
-            <button
-              key={b.command}
-              type="button"
-              // Keep the selection alive: don't let the button steal focus.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => exec(b.command)}
-              title={b.label}
-              aria-label={b.label}
-              className="inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              <b.icon className="size-4" />
-            </button>
+            <Hint key={b.command} label={b.label}>
+              <button
+                type="button"
+                // Keep the selection alive: don't let the button steal focus.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec(b.command)}
+                aria-label={b.label}
+                className="inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <b.icon className="size-4" />
+              </button>
+            </Hint>
           ))}
           {onUploadImage && (
             <>
               <span className="mx-0.5 h-4 w-px bg-input" aria-hidden />
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                title={uploading ? "Uploading…" : "Insert image"}
-                aria-label="Insert image"
-                className="inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                {uploading ? <Loader2 className="size-4 animate-spin" /> : <ImageIcon className="size-4" />}
-              </button>
+              <Hint label={uploading ? "Uploading…" : "Insert image"} disabled>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  aria-label="Insert image"
+                  className="inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  {uploading ? <Loader2 className="size-4 animate-spin" /> : <ImageIcon className="size-4" />}
+                </button>
+              </Hint>
               <input
                 ref={fileInputRef}
                 type="file"

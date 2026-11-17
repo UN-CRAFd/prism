@@ -39,6 +39,7 @@ import {
   useReportCompletion,
 } from "@/components/admin/report-components";
 import { optionItems } from "@/lib/options";
+import { Hint } from "@/components/ui/hint";
 
 const STATUS_ORDER = ["Open", "Under Review", "Closed"];
 
@@ -334,7 +335,9 @@ export default function ReportsPage() {
                     <TooltipTrigger asChild>
                       <TableCell className="max-w-[260px] truncate text-sm">
                         {r.archived && (
-                          <Badge variant="outline" className="mr-1.5 text-xs font-normal" title="The project is archived">Archived</Badge>
+                          <Hint label="The project is archived">
+                            <Badge variant="outline" className="mr-1.5 text-xs font-normal">Archived</Badge>
+                          </Hint>
                         )}
                         {r.project_title}
                       </TableCell>
@@ -353,9 +356,11 @@ export default function ReportsPage() {
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={r.last_edited ? formatDate(r.last_edited) : undefined}>
-                    {r.last_edited ? timeAgo(r.last_edited) : "—"}
-                  </TableCell>
+                  <Hint label={r.last_edited ? formatDate(r.last_edited) : undefined}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {r.last_edited ? timeAgo(r.last_edited) : "—"}
+                    </TableCell>
+                  </Hint>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <ReportRowMenu report={r} onDelete={() => handleDelete(r)} onDateChanged={handleDateChanged} />
                   </TableCell>

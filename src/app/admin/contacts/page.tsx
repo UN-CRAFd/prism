@@ -23,6 +23,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { shortName } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
+import { Hint } from "@/components/ui/hint";
 
 const NONE = "none";
 const g = labels.generalInfo;
@@ -393,9 +394,11 @@ export default function ContactsPage() {
                               return (
                                 <div className="flex flex-wrap gap-1">
                                   {cl.map((l) => (
-                                    <Badge key={l.id} variant="outline" className="text-xs font-normal" title={l.roles ?? undefined}>
-                                      {l.project_short_name || l.project_title}
-                                    </Badge>
+                                    <Hint key={l.id} label={l.roles ?? undefined}>
+                                      <Badge variant="outline" className="text-xs font-normal">
+                                        {l.project_short_name || l.project_title}
+                                      </Badge>
+                                    </Hint>
                                   ))}
                                 </div>
                               );

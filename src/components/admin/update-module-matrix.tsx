@@ -18,6 +18,7 @@ import {
   type UpdateModule,
   type UpdateRequirements,
 } from "@/lib/update-modules";
+import { Hint } from "@/components/ui/hint";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The project-update module matrix.
@@ -349,16 +350,17 @@ export function UpdateModuleMatrix({
             : "Tick the update types this document covers; the modules follow from them. Sub-categories add up — combining columns brings in each add-on, alongside the general row."}
         </p>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={reset}
-            disabled={!canReset || saving}
-            title={editing ? "Clear every tick in the table" : "Clear all selected columns and the extension length"}
-          >
-            <RotateCcw className="size-3.5" />
-            Reset
-          </Button>
+          <Hint label={editing ? "Clear every tick in the table" : "Clear all selected columns and the extension length"} disabled>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={reset}
+              disabled={!canReset || saving}
+            >
+              <RotateCcw className="size-3.5" />
+              Reset
+            </Button>
+          </Hint>
           {canEditRequirements && (
             editing ? (
               <>

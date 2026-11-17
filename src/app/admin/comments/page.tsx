@@ -15,6 +15,7 @@ import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared
 import { CommentContextBadges } from "@/components/comment-context-badges";
 import { toDisplayHtml, richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels";
+import { Hint } from "@/components/ui/hint";
 
 interface AdminComment {
   id: number;
@@ -216,32 +217,35 @@ export default function AdminCommentsPage() {
 
           {!editing && (
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => startEdit(c)}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="Edit comment text"
-              >
-                <Pencil className="size-3.5" />
-              </button>
-              <button
-                onClick={() => router.push(
-                  c.data_type === "prodoc"
-                    ? `/admin/prodoc-editor/${toSlug(c)}/${c.section}`
-                    : `/admin/report-editor/${toSlug(c)}/${c.year}/${c.section}`
-                )}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title={c.data_type === "prodoc" ? "Open in project document editor" : "Open in report editor"}
-              >
-                <ArrowRight className="size-3.5" />
-              </button>
-              <button
-                onClick={() => handleDelete(c)}
-                disabled={busy}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors disabled:opacity-40"
-                title="Delete comment"
-              >
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-              </button>
+              <Hint label="Edit comment text">
+                <button aria-label="Edit comment text"
+                  onClick={() => startEdit(c)}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              </Hint>
+              <Hint label={c.data_type === "prodoc" ? "Open in project document editor" : "Open in report editor"}>
+                <button aria-label={c.data_type === "prodoc" ? "Open in project document editor" : "Open in report editor"}
+                  onClick={() => router.push(
+                    c.data_type === "prodoc"
+                      ? `/admin/prodoc-editor/${toSlug(c)}/${c.section}`
+                      : `/admin/report-editor/${toSlug(c)}/${c.year}/${c.section}`
+                  )}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <ArrowRight className="size-3.5" />
+                </button>
+              </Hint>
+              <Hint label="Delete comment" disabled>
+                <button aria-label="Delete comment"
+                  onClick={() => handleDelete(c)}
+                  disabled={busy}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors disabled:opacity-40"
+                >
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                </button>
+              </Hint>
             </div>
           )}
         </div>

@@ -17,6 +17,7 @@ import { FilterChip } from "@/components/report-editor/past-year-chips";
 import { useStickySet } from "@/components/report-editor/sticky-filter";
 import type { Risk, RiskState } from "@/components/report-editor/types";
 import type { RiskHistory } from "@/components/report-editor/report-editor";
+import { Hint } from "@/components/ui/hint";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -76,22 +77,23 @@ function ShareToggle({
   onToggle: (year: number, shared: boolean) => void;
 }) {
   return (
-    <span
-      role="button"
-      tabIndex={0}
-      title={shared ? "Shown to partner — click to hide" : "Hidden from partner — click to show"}
-      onClick={() => onToggle(year, !shared)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(year, !shared); }
-      }}
-      className={cn(
-        "inline-flex items-center justify-center size-5 rounded cursor-pointer transition-colors",
-        "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        shared ? "text-crafd-grey-900 hover:text-black" : "text-muted-foreground/40 hover:text-muted-foreground"
-      )}
-    >
-      {shared ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
-    </span>
+    <Hint label={shared ? "Shown to partner — click to hide" : "Hidden from partner — click to show"}>
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => onToggle(year, !shared)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(year, !shared); }
+        }}
+        className={cn(
+          "inline-flex items-center justify-center size-5 rounded cursor-pointer transition-colors",
+          "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          shared ? "text-crafd-grey-900 hover:text-black" : "text-muted-foreground/40 hover:text-muted-foreground"
+        )}
+      >
+        {shared ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+      </span>
+    </Hint>
   );
 }
 

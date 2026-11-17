@@ -78,15 +78,15 @@ export function InfoPopover({
 
   return (
     <span className="relative inline-flex align-middle">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        title={triggerTitle}
-        className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
-      >
-        <Info className="size-4 mt-0.5" />
-      </button>
+        <button
+          ref={btnRef}
+          type="button"
+          aria-label={triggerTitle}
+          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+        >
+          <Info className="size-4 mt-0.5" />
+        </button>
 
       {open && typeof document !== "undefined" && createPortal(
         <>

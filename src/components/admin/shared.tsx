@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
+import { Hint } from "@/components/ui/hint";
 
 // ── Page header ─────────────────────────────────────────────────────────────
 
@@ -227,14 +228,15 @@ export function FilterMultiSelect({
       {Icon && <Icon className="size-3.5 text-muted-foreground shrink-0" />}
       <span className="text-xs text-muted-foreground whitespace-nowrap">{label}</span>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          className="flex h-8 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-xs whitespace-nowrap shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-          style={{ width }}
-          title={selected.length ? selected.map((o) => o.label).join(joiner) : undefined}
-        >
-          <span className="min-w-0 truncate">{text}</span>
-          <ChevronDown className="size-4 shrink-0 opacity-50" />
-        </DropdownMenuTrigger>
+        <Hint label={selected.length ? selected.map((o) => o.label).join(joiner) : undefined}>
+          <DropdownMenuTrigger
+            className="flex h-8 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-xs whitespace-nowrap shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+            style={{ width }}
+          >
+            <span className="min-w-0 truncate">{text}</span>
+            <ChevronDown className="size-4 shrink-0 opacity-50" />
+          </DropdownMenuTrigger>
+        </Hint>
         <DropdownMenuContent align="start" className="min-w-56">
           {options.map((o) => (
             <DropdownMenuCheckboxItem
@@ -311,15 +313,16 @@ export function SortSelect<T extends string>({
           ))}
         </SelectContent>
       </Select>
-      <button
-        type="button"
-        onClick={() => onDirChange(dir === "asc" ? "desc" : "asc")}
-        className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-        title={dir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}
-        aria-label={dir === "asc" ? "Sort ascending" : "Sort descending"}
-      >
-        {dir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-      </button>
+      <Hint label={dir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}>
+        <button
+          type="button"
+          onClick={() => onDirChange(dir === "asc" ? "desc" : "asc")}
+          className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+          aria-label={dir === "asc" ? "Sort ascending" : "Sort descending"}
+        >
+          {dir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+        </button>
+      </Hint>
     </div>
   );
 }
@@ -368,21 +371,22 @@ export function ArchiveSelect({
       value={archived ? "archived" : "active"}
       onValueChange={(v) => { if ((v === "archived") !== archived) onChange(v === "archived"); }}
     >
-      <SelectTrigger
-        title="Archived projects (and their reports and updates) are hidden unless Show is set to Archived or All"
-        onClick={(e) => e.stopPropagation()}
-        className={cn(
-          "!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0",
-          archived
-            ? "border-crafd-grey-200 bg-crafd-grey-100 text-crafd-grey-800"
-            : "border-transparent bg-transparent text-muted-foreground shadow-none"
-        )}
-      >
-        <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-          {archived ? <Archive className="size-3 shrink-0" /> : <CircleCheck className="size-3 shrink-0" />}
-          <SelectValue />
-        </span>
-      </SelectTrigger>
+      <Hint label="Archived projects (and their reports and updates) are hidden unless Show is set to Archived or All">
+        <SelectTrigger
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded [&>svg]:size-3 [&>svg]:shrink-0",
+            archived
+              ? "border-crafd-grey-200 bg-crafd-grey-100 text-crafd-grey-800"
+              : "border-transparent bg-transparent text-muted-foreground shadow-none"
+          )}
+        >
+          <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+            {archived ? <Archive className="size-3 shrink-0" /> : <CircleCheck className="size-3 shrink-0" />}
+            <SelectValue />
+          </span>
+        </SelectTrigger>
+      </Hint>
       <SelectContent>
         <SelectItem value="active">Active</SelectItem>
         <SelectItem value="archived">Archived</SelectItem>
@@ -451,19 +455,20 @@ export function SortableHead<K extends string>({
       className={className}
       aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
     >
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className={cn(
-          "group/sort inline-flex items-center gap-1 hover:text-foreground transition-colors",
-          align === "right" && "w-full justify-end",
-          active && "text-foreground"
-        )}
-        title={`Sort by ${label.toLowerCase()}`}
-      >
-        {label}
-        <Icon className={cn("size-3 shrink-0", active ? "opacity-100" : "opacity-30 group-hover/sort:opacity-70")} />
-      </button>
+      <Hint label={`Sort by ${label.toLowerCase()}`}>
+        <button
+          type="button"
+          onClick={() => onSort(column)}
+          className={cn(
+            "group/sort inline-flex items-center gap-1 hover:text-foreground transition-colors",
+            align === "right" && "w-full justify-end",
+            active && "text-foreground"
+          )}
+        >
+          {label}
+          <Icon className={cn("size-3 shrink-0", active ? "opacity-100" : "opacity-30 group-hover/sort:opacity-70")} />
+        </button>
+      </Hint>
     </TableHead>
   );
 }
@@ -587,19 +592,20 @@ export function RowActions({
           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
         </svg>
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 text-muted-foreground hover:text-destructive"
-        title={deleteTitle}
-        onClick={onDelete}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-        </svg>
-      </Button>
+      <Hint label={deleteTitle}>
+        <Button aria-label={deleteTitle}
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground hover:text-destructive"
+          onClick={onDelete}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+          </svg>
+        </Button>
+      </Hint>
     </div>
   );
 }
@@ -617,20 +623,22 @@ export function HoverActions({
 }) {
   return (
     <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button
-        onClick={(e) => { e.stopPropagation(); onEdit(); }}
-        className="p-1.5 hover:bg-accent rounded transition-colors"
-        title="Edit"
-      >
-        <Pencil className="size-4 text-muted-foreground" />
-      </button>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
-        title={deleteTitle}
-      >
-        <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-      </button>
+      <Hint label="Edit">
+        <button aria-label="Edit"
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="p-1.5 hover:bg-accent rounded transition-colors"
+        >
+          <Pencil className="size-4 text-muted-foreground" />
+        </button>
+      </Hint>
+      <Hint label={deleteTitle}>
+        <button aria-label={deleteTitle}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
+        >
+          <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+        </button>
+      </Hint>
     </div>
   );
 }

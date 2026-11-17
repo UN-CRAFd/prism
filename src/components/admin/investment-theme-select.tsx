@@ -12,6 +12,7 @@ import {
 import { optionItems, type OptionItem } from "@/lib/options";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReadOnly } from "@/components/ui/read-only-context";
+import { Hint } from "@/components/ui/hint";
 
 // Admin-only Investment Theme picker. Like SearchableSelect, but typing a name
 // that doesn't exist offers "Add …", which saves it as a new theme for ALL
@@ -131,15 +132,16 @@ export function InvestmentThemeSelect({
                   <DropdownMenuItem className="flex-1 min-w-0" onSelect={() => onChange(it.value)}>
                     <span className="truncate">{it.label}</span>
                   </DropdownMenuItem>
-                  <button
-                    type="button"
-                    onClick={() => deleteTheme(it)}
-                    className="shrink-0 rounded-sm p-1.5 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
-                    aria-label={`Delete theme ${it.label}`}
-                    title="Delete theme"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <Hint label="Delete theme">
+                    <button
+                      type="button"
+                      onClick={() => deleteTheme(it)}
+                      className="shrink-0 rounded-sm p-1.5 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`Delete theme ${it.label}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </Hint>
                 </div>
               ))}
               {showAddRow && (
@@ -155,15 +157,16 @@ export function InvestmentThemeSelect({
           </DropdownMenuContent>
         </DropdownMenu>
         {value && !isDisabled && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="shrink-0 p-1 text-muted-foreground hover:text-foreground"
-            aria-label="Clear theme"
-            title="Clear"
-          >
-            <X className="size-3.5" />
-          </button>
+          <Hint label="Clear">
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="shrink-0 p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Clear theme"
+            >
+              <X className="size-3.5" />
+            </button>
+          </Hint>
         )}
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}

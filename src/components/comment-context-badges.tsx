@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn, shortName } from "@/lib/utils";
 import { REPORT_SECTIONS } from "@/lib/report-sections";
 import labels from "@/lib/labels";
+import { Hint } from "@/components/ui/hint";
 
 // Resolve a section's display label live (reads the possibly-overridden labels
 // singleton at call time rather than snapshotting it at module load).
@@ -59,9 +60,11 @@ export function CommentContextBadges({
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {itemLabel && (
-        <Badge className="max-w-[240px] truncate border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800" title={itemLabel}>
-          {itemLabel}
-        </Badge>
+        <Hint label={itemLabel}>
+          <Badge className="max-w-[240px] truncate border-crafd-yellow-400 bg-crafd-yellow-100 text-crafd-grey-800">
+            {itemLabel}
+          </Badge>
+        </Hint>
       )}
       {partner && <Badge variant="secondary">{shortName(partner)}</Badge>}
       <Badge variant="secondary">{reportLabel}</Badge>

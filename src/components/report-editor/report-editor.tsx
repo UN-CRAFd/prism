@@ -41,6 +41,7 @@ import { RiskSection } from "@/components/report-editor/sections/risk-section";
 import { IndicatorsSection } from "@/components/report-editor/sections/indicators-section";
 import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
 import { useReportLock } from "@/components/report-editor/use-report-lock";
+import { Hint } from "@/components/ui/hint";
 
 export interface RiskHistory {
   prodoc: Record<number, { likelihood: number | null; impact: number | null }>;
@@ -821,7 +822,9 @@ export function ReportEditor({
                   {documentTitle(selectedReport)}
                 </h1>
               </div>
-              <p className="text-neutral-400 text-sm mt-0.5 truncate" title={selectedReport.project_title}>{selectedReport.project_title}</p>
+              <Hint label={selectedReport.project_title}>
+                <p className="text-neutral-400 text-sm mt-0.5 truncate">{selectedReport.project_title}</p>
+              </Hint>
             </>
           ) : (
             <h1 className="t-title-banner">{bannerTitle}</h1>

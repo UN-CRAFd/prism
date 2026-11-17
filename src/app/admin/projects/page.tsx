@@ -34,6 +34,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
+import { Hint } from "@/components/ui/hint";
 
 // Mirrors the sentinel in general-info-editor: Radix Select can't hold an
 // empty-string item, so "no scope selected" round-trips through this value.
@@ -817,17 +818,18 @@ export default function ProjectsPage() {
                   </TableCell>
                   <TableCell className="text-xs font-mono">
                     {p.mptfo_project_number ? (
-                      <a
-                        href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"
-                        title="Open on MPTF Office Gateway"
-                      >
-                        {p.mptfo_project_number}
-                        <ExternalLink className="size-3" />
-                      </a>
+                      <Hint label="Open on MPTF Office Gateway">
+                        <a aria-label="Open on MPTF Office Gateway"
+                          href={`https://mptf.undp.org/project/${p.mptfo_project_number}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"
+                        >
+                          {p.mptfo_project_number}
+                          <ExternalLink className="size-3" />
+                        </a>
+                      </Hint>
                     ) : <Dash />}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatUsd(p.grant_size_usd)}</TableCell>
@@ -835,13 +837,14 @@ export default function ProjectsPage() {
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       {durationLabel(p.project_duration_months) || <Dash />}
                       {p.extension_count > 0 && (
-                        <span
-                          className="inline-flex items-center gap-0.5 rounded border border-crafd-yellow-400 bg-crafd-yellow-100 px-1.5 py-0.5 text-xs font-semibold text-crafd-grey-800"
-                          title={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}
-                        >
-                          <CalendarPlus className="size-2.5" />
-                          +{p.extension_months_total}mo
-                        </span>
+                        <Hint label={`${p.extension_count} no-cost extension${p.extension_count !== 1 ? "s" : ""} · ${p.extension_months_total} month${p.extension_months_total !== 1 ? "s" : ""} added`}>
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded border border-crafd-yellow-400 bg-crafd-yellow-100 px-1.5 py-0.5 text-xs font-semibold text-crafd-grey-800"
+                          >
+                            <CalendarPlus className="size-2.5" />
+                            +{p.extension_months_total}mo
+                          </span>
+                        </Hint>
                       )}
                     </span>
                   </TableCell>
@@ -852,12 +855,13 @@ export default function ProjectsPage() {
                         value={pd.status}
                         onValueChange={(v) => handleProdocStatusChange(p.id, pd.id, v as ReportStatus)}
                       >
-                        <SelectTrigger
-                          title="Project document status"
-                          className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
+                        <Hint label="Project document status">
+                          <SelectTrigger
+                            className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(pd.status)}`}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                        </Hint>
                         <SelectContent>
                           {/* A legacy status no longer in the list (e.g. Closed) stays
                               visible so the cell never renders blank. */}
@@ -870,17 +874,20 @@ export default function ProjectsPage() {
                   <TableCell>
                     {pd ? <ReportProgressCell pct={completion[p.id] ?? 0} open={pd.status === "Open"} /> : <Dash />}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap" title={pd?.last_edited ? formatDate(pd.last_edited) : undefined}>
-                    {pd?.last_edited ? timeAgo(pd.last_edited) : "—"}
-                  </TableCell>
+                  <Hint label={pd?.last_edited ? formatDate(pd.last_edited) : undefined}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {pd?.last_edited ? timeAgo(pd.last_edited) : "—"}
+                    </TableCell>
+                  </Hint>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
-                      <DropdownMenuTrigger
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                        title="More actions"
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
+                      <Hint label="More actions">
+                        <DropdownMenuTrigger aria-label="More actions"
+                          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                      </Hint>
                       <DropdownMenuContent align="end">
                         {p.project_start_date && p.project_duration_months != null && (
                           <DropdownMenuItem onSelect={() => openNce(p)}>

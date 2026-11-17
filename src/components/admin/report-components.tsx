@@ -52,6 +52,7 @@ import { UpdateModuleMatrix } from "@/components/admin/update-module-matrix";
 import { documentTitle, nextUpdateIndex } from "@/lib/project-updates";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { progressSections } from "@/lib/report-sections";
+import { Hint } from "@/components/ui/hint";
 
 const YEARS = [2023, 2024, 2025, 2026];
 
@@ -163,7 +164,7 @@ export function ReportAuthCell({ authorized }: { authorized: boolean }) {
 // it has moved on to review or is closed.
 export function ReportProgressCell({ pct, open }: { pct: number; open: boolean }) {
   return (
-    <div className="flex items-center gap-2 min-w-[90px]" title={`${pct}% complete`}>
+    <div className="flex items-center gap-2 min-w-[90px]">
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full ${open ? "bg-crafd-yellow" : "bg-crafd-grey-400"}`}
@@ -206,12 +207,13 @@ export function ReportStatusSelect({
   return (
     <>
       <Select value={status} onValueChange={(v) => setPendingStatus(v as ReportRow["status"])}>
-        <SelectTrigger
-          title="Change status"
-          className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(status)}`}
-        >
-          <SelectValue />
-        </SelectTrigger>
+        <Hint label="Change status">
+          <SelectTrigger
+            className={`!h-7 w-fit shrink-0 px-2 text-xs font-semibold border rounded-full [&>svg]:size-3 [&>svg]:shrink-0 ${reportStatusStyle(status)}`}
+          >
+            <SelectValue />
+          </SelectTrigger>
+        </Hint>
         <SelectContent>
           {optionValues("reportStatus").map((st) => (
             <SelectItem key={st} value={st}>{st}</SelectItem>
@@ -302,12 +304,13 @@ export function ReportRowMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          title="More actions"
-        >
-          <MoreHorizontal className="size-4" />
-        </DropdownMenuTrigger>
+        <Hint label="More actions">
+          <DropdownMenuTrigger aria-label="More actions"
+            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+        </Hint>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={() => setDateOpen(true)}>
             <Pencil />
@@ -425,7 +428,9 @@ export function ReportCard({
             {badges.map((b) => (
               <span key={b.text}>
                 {" · "}
-                <span title={b.title}>{b.text}</span>
+                <Hint label={b.title}>
+                  <span>{b.text}</span>
+                </Hint>
               </span>
             ))}
           </p>
@@ -479,9 +484,11 @@ export function ReportCard({
         <div className="mb-1.5 flex items-baseline justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{footerLabel}</p>
           {report.last_edited && (
-            <span className="text-xs text-muted-foreground" title={`Last edited ${formatDate(report.last_edited)}`}>
-              edited {timeAgo(report.last_edited)}
-            </span>
+            <Hint label={`Last edited ${formatDate(report.last_edited)}`}>
+              <span className="text-xs text-muted-foreground">
+                edited {timeAgo(report.last_edited)}
+              </span>
+            </Hint>
           )}
         </div>
         <div className="flex items-center gap-2">

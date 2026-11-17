@@ -18,6 +18,7 @@ import {
   FilterBar, SearchInput, SortSelect, sortBy, type SortDir,
 } from "@/components/admin/shared";
 import { projectSlug, shortName as displayShortName } from "@/lib/utils";
+import { Hint } from "@/components/ui/hint";
 
 // -- Types ------------------------------------------------------------------
 
@@ -38,12 +39,13 @@ const LOCKED_HINT =
 
 function LockedBadge() {
   return (
-    <span
-      className="inline-flex items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700"
-      title={LOCKED_HINT}
-    >
-      Locked
-    </span>
+    <Hint label={LOCKED_HINT}>
+      <span
+        className="inline-flex items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700"
+      >
+        Locked
+      </span>
+    </Hint>
   );
 }
 
@@ -424,14 +426,15 @@ export default function PartnersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleCopySetupLink(p.id)}
-                        title="Copy setup link"
-                        className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Link2 className="size-4" />
-                      </button>
+                      <Hint label="Copy setup link">
+                        <button aria-label="Copy setup link"
+                          type="button"
+                          onClick={() => handleCopySetupLink(p.id)}
+                          className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Link2 className="size-4" />
+                        </button>
+                      </Hint>
                       <RowActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
                     </div>
                   </TableCell>
@@ -453,14 +456,15 @@ export default function PartnersPage() {
                       {p.locked && <div className="mt-1"><LockedBadge /></div>}
                     </div>
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleCopySetupLink(p.id); }}
-                        title="Copy setup link"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-muted-foreground hover:text-foreground"
-                      >
-                        <Link2 className="size-4" />
-                      </button>
+                      <Hint label="Copy setup link">
+                        <button aria-label="Copy setup link"
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleCopySetupLink(p.id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-muted-foreground hover:text-foreground"
+                        >
+                          <Link2 className="size-4" />
+                        </button>
+                      </Hint>
                       <HoverActions onEdit={() => startEdit(p)} onDelete={() => handleDelete(p.id)} />
                     </div>
                   </div>

@@ -25,6 +25,7 @@ import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
+import { Hint } from "@/components/ui/hint";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config-driven editor for the repeatable "list of items under a report" sections
@@ -225,7 +226,9 @@ function PhotoField({
         <div className="space-y-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${endpoint}/${rowId}/photo`} alt={photoFileName} className="h-16 w-16 rounded object-cover border" />
-          <p className="text-xs text-muted-foreground truncate max-w-[10rem]" title={photoFileName}>{photoFileName}</p>
+          <Hint label={photoFileName}>
+            <p className="text-xs text-muted-foreground truncate max-w-[10rem]">{photoFileName}</p>
+          </Hint>
           <div className="flex items-center gap-3">
             {/* ?download=1 flips the photo route's Content-Disposition to
                 attachment so the browser saves the original file rather than
@@ -488,7 +491,9 @@ function TestimonialPhotosField({
                     className="h-14 w-14 rounded object-cover border shrink-0"
                   />
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground truncate" title={photo.photo_file_name ?? undefined}>{photo.photo_file_name}</p>
+                    <Hint label={photo.photo_file_name ?? undefined}>
+                      <p className="text-xs text-muted-foreground truncate">{photo.photo_file_name}</p>
+                    </Hint>
                     <a
                       href={`/api/testimonial-photos/${photo.id}/file?download=1`}
                       download={photo.photo_file_name ?? undefined}

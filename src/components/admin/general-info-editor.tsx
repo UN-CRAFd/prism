@@ -28,6 +28,7 @@ import { CONTACT_ROLES } from "@/lib/contact-roles";
 import { useCharLimits } from "@/lib/use-char-limits";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { InvestmentThemeSelect } from "@/components/admin/investment-theme-select";
+import { Hint } from "@/components/ui/hint";
 
 const ORG_NAME_MAX = 300;
 
@@ -1083,34 +1084,36 @@ export function GeneralInfoAdminEditor({
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => {
-                            if (editingContactId === c.id) {
-                              commitContactIdentity(c.id);
-                              setEditingContactId(null);
-                            } else {
-                              setEditingContactId(c.id);
-                            }
-                          }}
-                          className={cn(
-                            "transition-colors",
-                            editingContactId === c.id
-                              ? "text-green-600 hover:text-green-700"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                          aria-label={editingContactId === c.id ? "Done editing contact" : "Edit contact"}
-                          title={editingContactId === c.id ? "Done" : "Edit"}
-                        >
-                          {editingContactId === c.id ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => unlinkContact(c.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="Remove contact"
-                          title="Remove"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        <Hint label={editingContactId === c.id ? "Done" : "Edit"}>
+                          <button
+                            onClick={() => {
+                              if (editingContactId === c.id) {
+                                commitContactIdentity(c.id);
+                                setEditingContactId(null);
+                              } else {
+                                setEditingContactId(c.id);
+                              }
+                            }}
+                            className={cn(
+                              "transition-colors",
+                              editingContactId === c.id
+                                ? "text-green-600 hover:text-green-700"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            aria-label={editingContactId === c.id ? "Done editing contact" : "Edit contact"}
+                          >
+                            {editingContactId === c.id ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
+                          </button>
+                        </Hint>
+                        <Hint label="Remove">
+                          <button
+                            onClick={() => unlinkContact(c.id)}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                            aria-label="Remove contact"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </Hint>
                       </div>
                     </td>
                   </tr>

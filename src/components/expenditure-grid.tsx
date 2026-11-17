@@ -22,6 +22,7 @@ import { FundingSummary } from "@/components/funding-summary";
 import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 import { CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER, HEAD_DIVIDER_COLOR, SUBHEAD_BG, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
+import { Hint } from "@/components/ui/hint";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenditure reporting grid. Stored inputs are approved annual budgets (admin),
@@ -617,24 +618,28 @@ export function ExpenditurePartnerEditor({
     return (
       <tr className={cn("border-t", bg, strong && "font-semibold", flag === "error" && "text-red-900", flag === "warn" && "text-crafd-grey-800")}>
         <td style={L.fz("cat")} className={cn("px-3 py-2 text-sm border-r border-t", bg)}>
-          <span className="inline-flex items-center gap-1.5" title={flag ? hint : undefined}>
-            {flag && (
-              <AlertTriangle
-                className={cn("size-3.5 shrink-0", flag === "error" ? "text-red-600" : "text-crafd-yellow-900")}
-                aria-hidden
-              />
-            )}
-            {label}
-          </span>
+          <Hint label={flag ? hint : undefined}>
+            <span className="inline-flex items-center gap-1.5">
+              {flag && (
+                <AlertTriangle
+                  className={cn("size-3.5 shrink-0", flag === "error" ? "text-red-600" : "text-crafd-yellow-900")}
+                  aria-hidden
+                />
+              )}
+              {label}
+            </span>
+          </Hint>
         </td>
         <td style={L.fz("app")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={approvedT} kind="approved" /></td>
         <td style={L.fz("exp")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
         <td style={L.fz("diff")} className={cn("px-3 py-2 text-right border-t", !showProposed && "border-r", bg)}><Num value={approvedT - expT} kind="diff" /></td>
         {showProposed && (
           <>
-            <td style={L.fz("prop")} className={cn("px-3 py-2 text-right border-l border-r border-t", bg)} title={proposedTitle}>
-              <Num value={proposedT} kind={flag || strong ? "strong" : "plain"} />
-            </td>
+            <Hint label={proposedTitle}>
+              <td style={L.fz("prop")} className={cn("px-3 py-2 text-right border-l border-r border-t", bg)}>
+                <Num value={proposedT} kind={flag || strong ? "strong" : "plain"} />
+              </td>
+            </Hint>
           </>
         )}
         <td className={cn("border-l border-t", bg)} />
@@ -780,13 +785,14 @@ export function ExpenditurePartnerEditor({
             </th>
             {showProposed && (
               <>
-                <th
-                  style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)}
-                  className={cn("px-2 py-1.5 text-right border-l border-r border-b", HEAD_DIVIDER, CURRENT_YEAR_HEAD, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}
-                  title={autoRequested ? "Calculated: total expenditure so far + the estimated annual expenditure for the remaining years." : undefined}
-                >
-                  New requested total budget
-                </th>
+                <Hint label={autoRequested ? "Calculated: total expenditure so far + the estimated annual expenditure for the remaining years." : undefined}>
+                  <th
+                    style={fillHeight ? { ...L.fz("prop", 40), top: headRowHeight } : L.fz("prop", 30)}
+                    className={cn("px-2 py-1.5 text-right border-l border-r border-b", HEAD_DIVIDER, CURRENT_YEAR_HEAD, SUBHEAD_TEXT, HEAD_COLOR, fillHeight && "sticky")}
+                  >
+                    New requested total budget
+                  </th>
+                </Hint>
               </>
             )}
             {columnYears.map((y) =>
@@ -811,9 +817,7 @@ export function ExpenditurePartnerEditor({
             return (
               <tr key={c.id}>
                 <td style={L.fz("cat")} className="px-3 py-2 border-r border-t bg-card">
-                  <span
-                    className="inline-flex items-center gap-1"
-                    title={
+                  <Hint label={
                       overspent
                         ? autoRequested
                           ? `The new requested total is ${formatAmount(over)} above the approved total budget.`
@@ -823,12 +827,15 @@ export function ExpenditurePartnerEditor({
                                 : "approved total budget"
                             }.`
                         : undefined
-                    }
-                  >
-                    {overspent && <AlertTriangle className="size-3.5 shrink-0 text-crafd-yellow-900" aria-hidden />}
-                    {c.name}
-                    <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
-                  </span>
+                    }>
+                    <span
+                      className="inline-flex items-center gap-1"
+                    >
+                      {overspent && <AlertTriangle className="size-3.5 shrink-0 text-crafd-yellow-900" aria-hidden />}
+                      {c.name}
+                      <InfoPopover description={(labels.expenditure.categoryDescriptions as Record<string, string | undefined>)[c.name]} triggerTitle="Category description" descriptionHeading="About this category" />
+                    </span>
+                  </Hint>
                 </td>
                 {/* Totals render bold in the default (black) text colour — review feedback. */}
                 <td style={L.fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={approvedT} kind="strong" /></td>
@@ -838,13 +845,14 @@ export function ExpenditurePartnerEditor({
                   <>
                     {/* Calculated, never typed: spent so far + planned for the
                         remaining years of the project cycle. */}
-                    <td
-                      style={L.fz("prop")}
-                      className="px-2 py-2 text-right border-l border-r border-t bg-card"
-                      title={`Spent ${formatAmount(expT) || "0"} + estimated ${formatAmount(plannedTotal(c.id)) || "0"}`}
-                    >
-                      <Num value={proposedT} kind="strong" />
-                    </td>
+                    <Hint label={`Spent ${formatAmount(expT) || "0"} + estimated ${formatAmount(plannedTotal(c.id)) || "0"}`}>
+                      <td
+                        style={L.fz("prop")}
+                        className="px-2 py-2 text-right border-l border-r border-t bg-card"
+                      >
+                        <Num value={proposedT} kind="strong" />
+                      </td>
+                    </Hint>
                   </>
                 )}
                 <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">

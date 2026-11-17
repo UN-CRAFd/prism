@@ -21,6 +21,7 @@ import {
 import { CYCLE_KEYS, cycleLabel, DEFAULT_CYCLE } from "@/lib/indicators";
 import { optionValues } from "@/lib/options";
 import labels from "@/lib/labels";
+import { Hint } from "@/components/ui/hint";
 
 interface IndicatorUsage {
   report_id: number;
@@ -312,9 +313,11 @@ export default function IndicatorsPage() {
                     <TableCell className="text-xs text-muted-foreground whitespace-normal [overflow-wrap:anywhere] align-top">{ind.means_of_verification || <Dash />}</TableCell>
                     <TableCell className="align-top">
                       {ind.archived_at ? (
-                        <Button variant="ghost" size="icon" className="size-7" title="Restore" onClick={() => handleRestore(ind.id)}>
-                          <ArchiveRestore className="size-3.5" />
-                        </Button>
+                        <Hint label="Restore">
+                          <Button aria-label="Restore" variant="ghost" size="icon" className="size-7" onClick={() => handleRestore(ind.id)}>
+                            <ArchiveRestore className="size-3.5" />
+                          </Button>
+                        </Hint>
                       ) : (
                         <RowActions
                           onEdit={() => startEdit(ind)}
@@ -335,9 +338,11 @@ export default function IndicatorsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold leading-snug flex-1">{ind.name}</p>
                   {ind.archived_at ? (
-                    <Button variant="ghost" size="icon" className="size-7" title="Restore" onClick={() => handleRestore(ind.id)}>
-                      <ArchiveRestore className="size-3.5" />
-                    </Button>
+                    <Hint label="Restore">
+                      <Button aria-label="Restore" variant="ghost" size="icon" className="size-7" onClick={() => handleRestore(ind.id)}>
+                        <ArchiveRestore className="size-3.5" />
+                      </Button>
+                    </Hint>
                   ) : (
                     <HoverActions
                       onEdit={() => startEdit(ind)}

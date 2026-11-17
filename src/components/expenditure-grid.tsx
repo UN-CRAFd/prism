@@ -744,7 +744,9 @@ export function ExpenditurePartnerEditor({
           <code>db/add-expenditure-forecasts.sql</code>.
         </div>
       )}
-    <div className={cn("rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+    {/* Box hugs the table (w-fit) so few columns don't leave an empty bordered
+        area; max-w-full keeps wide grids scrolling inside the page. */}
+    <div className={cn("w-fit max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
       <table className="text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
           <tr className="text-xs" ref={headRowRef}>

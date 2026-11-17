@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { useReadOnly } from "@/components/ui/read-only-context";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -70,6 +71,9 @@ export interface SectionField {
   options?: readonly string[];
   headClass?: string; // column width utility class
   maxWords?: number; // optional word limit for textareas (shows counter but allows over-limit)
+  // Mandatory column: /api/report-completion requires it, so the header gets a
+  // red asterisk (<RequiredMark />).
+  required?: boolean;
   // Width classes of extra columns this field's cells span. The header still
   // renders one (empty) cell per extra column so the column widths match a
   // neighbouring table with those columns; body cells use colSpan.
@@ -508,28 +512,36 @@ function TestimonialPhotosField({
                   {photo.photo_link}
                 </a>
               )}
-              <Input
-                value={drafts[photo.id]?.photo_label ?? ""}
-                placeholder={labels.testimonials.placeholders.photoLabel}
-                className="text-xs h-7"
-                disabled={readOnly}
-                onChange={(e) => {
-                  setDrafts((prev) => ({ ...prev, [photo.id]: { ...prev[photo.id], photo_label: e.target.value } }));
-                  scheduleSave(photo.id, "photo_label", e.target.value);
-                }}
-                onBlur={(e) => saveOnBlur(photo.id, "photo_label", e.target.value)}
-              />
-              <Input
-                value={drafts[photo.id]?.photo_credits ?? ""}
-                placeholder="Photo credits"
-                className="text-xs h-7"
-                disabled={readOnly}
-                onChange={(e) => {
-                  setDrafts((prev) => ({ ...prev, [photo.id]: { ...prev[photo.id], photo_credits: e.target.value } }));
-                  scheduleSave(photo.id, "photo_credits", e.target.value);
-                }}
-                onBlur={(e) => saveOnBlur(photo.id, "photo_credits", e.target.value)}
-              />
+              {/* Caption and credits are both required per photo (report-completion);
+                  they have no visible label, so the asterisk trails the input. */}
+              <div className="flex items-center">
+                <Input
+                  value={drafts[photo.id]?.photo_label ?? ""}
+                  placeholder={labels.testimonials.placeholders.photoLabel}
+                  className="text-xs h-7 flex-1"
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    setDrafts((prev) => ({ ...prev, [photo.id]: { ...prev[photo.id], photo_label: e.target.value } }));
+                    scheduleSave(photo.id, "photo_label", e.target.value);
+                  }}
+                  onBlur={(e) => saveOnBlur(photo.id, "photo_label", e.target.value)}
+                />
+                <RequiredMark />
+              </div>
+              <div className="flex items-center">
+                <Input
+                  value={drafts[photo.id]?.photo_credits ?? ""}
+                  placeholder="Photo credits"
+                  className="text-xs h-7 flex-1"
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    setDrafts((prev) => ({ ...prev, [photo.id]: { ...prev[photo.id], photo_credits: e.target.value } }));
+                    scheduleSave(photo.id, "photo_credits", e.target.value);
+                  }}
+                  onBlur={(e) => saveOnBlur(photo.id, "photo_credits", e.target.value)}
+                />
+                <RequiredMark />
+              </div>
               {!readOnly && (
                 <button
                   type="button"
@@ -900,7 +912,7 @@ export function SectionTableEditor({
                     behind an info icon so contributors upload/label them correctly. */}
                 {f.type === "photo" || f.type === "testimonial-photos" ? (
                   <span className="inline-flex items-center gap-1">
-                    {f.header}
+                    <span>{f.header}{f.required && <RequiredMark />}</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="size-3.5 flex-shrink-0 cursor-help text-muted-foreground/70" aria-label="Image standards" />
@@ -911,7 +923,7 @@ export function SectionTableEditor({
                     </Tooltip>
                   </span>
                 ) : (
-                  f.header
+                  <>{f.header}{f.required && <RequiredMark />}</>
                 )}
               </th>
               {f.spanCols?.map((c, ci) => (
@@ -1056,7 +1068,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyKeyAchievements,
     max: 3,
     fields: [
-      { key: "achievement", header: labels.keyAchievements.columns.achievement, remark: labels.keyAchievements.remarks.achievement, type: "textarea", placeholder: labels.placeholders.achievement, headClass: "w-[35%]" },
+      { key: "achievement", header: labels.keyAchievements.columns.achievement, remark: labels.keyAchievements.remarks.achievement, type: "textarea", placeholder: labels.placeholders.achievement, headClass: "w-[35%]", required: true },
       { key: "significance", header: labels.keyAchievements.columns.significance, remark: labels.keyAchievements.remarks.significance, type: "textarea", placeholder: labels.placeholders.significance, headClass: "w-[35%]" },
       { key: "links", header: labels.common.columns.links, remark: labels.keyAchievements.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-64" },
     ],
@@ -1067,7 +1079,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     addLabel: labels.partnerEditor.addPartner,
     emptyText: labels.partnerEditor.emptyPartnerships,
     fields: [
-      { key: "partner_organization", header: labels.partnerships.columns.partnerOrganization, remark: labels.partnerships.remarks.partnerOrganization, type: "input", placeholder: labels.common.placeholders.organizationName, headClass: "w-[28%]" },
+      { key: "partner_organization", header: labels.partnerships.columns.partnerOrganization, remark: labels.partnerships.remarks.partnerOrganization, type: "input", placeholder: labels.common.placeholders.organizationName, headClass: "w-[28%]", required: true },
       { key: "result", header: labels.partnerships.columns.result, remark: labels.partnerships.remarks.result, type: "textarea", placeholder: labels.placeholders.partnershipResult },
       { key: "links", header: labels.common.columns.links, remark: labels.partnerships.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-64" },
     ],
@@ -1078,7 +1090,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     addLabel: labels.partnerEditor.addResult,
     min: 3,
     fields: [
-      { key: "context", header: labels.results.columns.context, remark: labels.results.remarks.context, type: "textarea", placeholder: labels.placeholders.resultContext, headClass: "w-[25%]" },
+      { key: "context", header: labels.results.columns.context, remark: labels.results.remarks.context, type: "textarea", placeholder: labels.placeholders.resultContext, headClass: "w-[25%]", required: true },
       { key: "data_driven_decision", header: labels.results.columns.dataDrivenDecision, remark: labels.results.remarks.dataDrivenDecision, type: "textarea", placeholder: labels.placeholders.dataDrivenDecision, headClass: "w-[25%]" },
       { key: "resulting_impact", header: labels.results.columns.resultingImpact, remark: labels.results.remarks.resultingImpact, type: "textarea", placeholder: labels.placeholders.resultingImpact, headClass: "w-[25%]" },
       { key: "links", header: labels.common.columns.links, remark: labels.results.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-48" },
@@ -1092,7 +1104,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     max: 5,
     fields: [
       { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), headClass: "w-52" },
-      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned…", headClass: "w-[38%]" },
+      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned…", headClass: "w-[38%]", required: true },
       { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result…" },
     ],
   },
@@ -1103,7 +1115,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     seed: 3,
     fields: [
       { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: optionValues("externalCoverageType"), headClass: "w-44" },
-      { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]" },
+      { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]", required: true },
       { key: "reach_indicator", header: labels.externalCoverage.columns.reachIndicator, remark: labels.externalCoverage.remarks.reachIndicator, type: "textarea", placeholder: labels.placeholders.reachIndicator, headClass: "w-[20%]" },
       { key: "links", header: labels.common.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-52" },
     ],
@@ -1115,9 +1127,9 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
 // leadership quote (exactly one, 25-word limit) and up to three partner/user
 // quotes (20-word limit). Each has its own field set with the appropriate limit.
 const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
-  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords },
-  { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40" },
-  { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44" },
+  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords, required: true },
+  { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40", required: true },
+  { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44", required: true },
   { key: "_photos", header: labels.testimonials.columns.photoLink, type: "testimonial-photos", headClass: "w-64" },
 ];
 

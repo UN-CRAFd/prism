@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Loader2, LayoutList, LayoutGrid, Check, X, Pencil, Trash2, Search, Info, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Archive, CircleCheck, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -61,7 +62,7 @@ export function Field({
     <div className="space-y-1.5">
       <Label className="text-xs flex items-center gap-1">
         {label}
-        {required && " *"}
+        {required && <RequiredMark className="ml-0" />}
         {hint && (
           <Tooltip>
             <TooltipTrigger asChild>

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ComboboxItem } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
 import { optionValues } from "@/lib/options";
@@ -338,11 +339,11 @@ export function ProdocIndicatorsSection({
             <tr>
               <th className={headCell + " w-8 text-right pr-3"} style={headShadow}>#</th>
               <th className={headCell + " w-full"} style={headShadow}>Indicator</th>
-              <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.baselineValue}</th>
+              <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.baselineValue}<RequiredMark /></th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.baselineYear}</th>
-              <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}</th>
+              <th className={headCell + " w-32"} style={headShadow}>{labels.indicators.columns.targetValue}<RequiredMark /></th>
               <th className={headCell + " w-24"} style={headShadow}>{labels.indicators.columns.targetYear}</th>
-              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / output</th>
+              <th className={headCell + " w-48"} style={headShadow}>Linked outcome / output<RequiredMark /></th>
               <th className={headCellTight + " w-16 text-right"} style={headShadow} />
             </tr>
           </thead>

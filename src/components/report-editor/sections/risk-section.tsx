@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { cn } from "@/lib/utils";
 import { HEAD_TEXT, SUBHEAD_TEXT, CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, SUBHEAD_BG } from "@/components/report-editor/matrix-table";
 import labels from "@/lib/labels";
@@ -291,8 +292,8 @@ export function RiskSection({
                   <th key={`${key}-l`} className={cn(histSubHead, "border-l")} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Likelihood</th>,
                   <th key={`${key}-i`} className={histSubHead} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Impact</th>,
                 ])}
-                <th className={cn(curSubHead, "border-l")} style={{ width: 100, minWidth: 100 }}>Likelihood</th>
-                <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>Impact</th>
+                <th className={cn(curSubHead, "border-l")} style={{ width: 100, minWidth: 100 }}>Likelihood<RequiredMark className="text-crafd-yellow-900" /></th>
+                <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>Impact<RequiredMark className="text-crafd-yellow-900" /></th>
                 {isAdmin && <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>{labels.risk.columns.riskLevel}</th>}
                 <th className={curSubHead} style={{ width: 230, minWidth: 230 }}>Mitigation</th>
               </tr>

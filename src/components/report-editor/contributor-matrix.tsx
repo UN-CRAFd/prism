@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
@@ -545,14 +546,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
           fillHeight={props.fillHeight}
           minWidth={TRANSFER_FROZEN_WIDTH}
           leadingCols={[
-            { label: config.labels.identityColumn, style: tfz("org", 30) },
+            { label: <>{config.labels.identityColumn}<RequiredMark /></>, style: tfz("org", 30) },
             { label: config.labels.websiteColumn, style: tfz("website", 30) },
             { label: config.labels.typeColumn, style: tfz("type", 30) },
           ]}
           years={visibleYears}
           currentYear={currentYear}
           subCols={[
-            { label: config.labels.amountColumn, minWidth: config.labels.amountMinWidth },
+            { label: <>{config.labels.amountColumn}<RequiredMark /></>, minWidth: config.labels.amountMinWidth },
             { label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth },
           ]}
           pastSubCols={[

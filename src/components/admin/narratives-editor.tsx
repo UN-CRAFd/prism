@@ -9,6 +9,7 @@ import { useAutosave, type SaveState } from "@/components/autosave";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
 import { useCharLimits } from "@/lib/use-char-limits";
+import { RequiredMark } from "@/components/ui/required-mark";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
 // Project-level proposal narratives on the project document. One card per
@@ -149,7 +150,7 @@ export function NarrativesAdminEditor({
               isDirty(q.key) && "border-crafd-yellow-400"
             )}
           >
-            <label className="t-heading-editor leading-snug block">{i + 1}. {q.label}</label>
+            <label className="t-heading-editor leading-snug block">{i + 1}. {q.label}<RequiredMark /></label>
 
             {/* Narrative answer */}
             <div className="space-y-1.5">

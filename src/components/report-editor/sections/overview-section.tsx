@@ -6,6 +6,7 @@ import { combinedUpdateNote } from "@/lib/update-justifications";
 import { formatDate, formatUsd } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { Notice } from "@/components/ui/notice";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import type { OverviewData } from "@/components/report-editor/types";
 
@@ -139,7 +140,7 @@ export function OverviewSection({
             onChange={(e) => updateOverview({ authorized: e.target.checked })}
             className="size-4 rounded"
           />
-          <span className="text-sm font-medium">{labels.authorization.checkbox}</span>
+          <span className="text-sm font-medium">{labels.authorization.checkbox}<RequiredMark /></span>
         </label>
       </div>
     </div>

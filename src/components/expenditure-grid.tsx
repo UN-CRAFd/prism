@@ -16,6 +16,7 @@ import { numericAmount } from "@/lib/numeric-input";
 import { Loader2, CheckCircle2, Wallet, AlertTriangle } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { FundingSummary } from "@/components/funding-summary";
@@ -1023,7 +1024,7 @@ function FragmentYearHead({ current, toDate = false, fillHeight = false, top }: 
   return (
     <>
       <th style={style} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Approved annual budget</th>
-      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}{current && <RequiredMark className="text-crafd-yellow-900" />}</th>
       <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Difference</th>
     </>
   );
@@ -1346,7 +1347,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
       ) : (
         <>
           <div className={cn("rounded-xl border", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
-            <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Annual budget (USD) per category</p>
+            <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">Annual budget (USD) per category<RequiredMark /></p>
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className={cn("border-b", HEAD_BG)}>

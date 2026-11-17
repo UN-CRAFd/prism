@@ -13,6 +13,7 @@ import { cn, formatAmount } from "@/lib/utils";
 import { Coins, Plus, X } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { FundingSummary } from "@/components/funding-summary";
+import { RequiredMark } from "@/components/ui/required-mark";
 import labels from "@/lib/labels";
 
 const g = labels.generalInfo;
@@ -276,7 +277,7 @@ export function TrancheScheduleEditor({
                     <Fragment key={tn}>
                       <th className={cn("text-right px-4 py-2 border-l whitespace-nowrap", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
                         <span className="flex items-center justify-end gap-1.5">
-                          {g.tranches.columns.amount} {tn}
+                          <span>{g.tranches.columns.amount} {tn}<RequiredMark /></span>
                           <button
                             onClick={() => removeTrancheColumn(tn)}
                             disabled={trancheCount <= 1}
@@ -288,7 +289,7 @@ export function TrancheScheduleEditor({
                         </span>
                       </th>
                       <th className={cn("text-left px-4 py-2 whitespace-nowrap w-36", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
-                        {g.tranches.columns.releaseDate}
+                        {g.tranches.columns.releaseDate}<RequiredMark />
                       </th>
                       <th className={cn("text-left px-4 py-2 w-72 min-w-[200px]", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>
                         {g.tranches.columns.activities}

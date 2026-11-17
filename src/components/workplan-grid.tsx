@@ -581,7 +581,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     </tr>
                   )}
                   {showObjective && (
-                    <tr className="bg-crafd-yellow-100 border-y">
+                    <tr className="bg-crafd-yellow-300 border-y">
                       <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-crafd-grey-900">
                         {a.objective_num ? `${a.objective_num}. Output: ` : ""}{a.objective_text}
                       </td>
@@ -1417,7 +1417,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                   </tr>
                   {!collapsedClusters[cluster.clusterId] && cluster.sections.map((sec) => (
                     <Fragment key={sec.sectionId}>
-                  <tr className="bg-crafd-yellow-100 border-b">
+                  <tr className="bg-crafd-yellow-300 border-b">
                     <td colSpan={totalCols} className="py-2 pl-8 pr-3">
                       <div className="flex items-center gap-2 border-l-2 border-crafd-yellow pl-3">
                         <button

@@ -10,14 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel } from "@/lib/risk";
-
-const ASSESSMENT_CONFIG: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: "bg-white", text: "text-crafd-grey-600", border: "border-crafd-grey-400" },
-  2: { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
-  3: { bg: "bg-crafd-yellow-600", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
-  4: { bg: "bg-white", text: "text-green-700", border: "border-green-300" },
-  5: { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-300"  },
-};
+import { ASSESSMENT_COLORS } from "@/lib/rating-colors";
 
 // Shared coloured word-badge used by the assessment + risk cells.
 export function Badge({ colors, children }: { colors: { bg: string; text: string; border: string }; children: ReactNode }) {
@@ -29,7 +22,7 @@ export function Badge({ colors, children }: { colors: { bg: string; text: string
 }
 
 function AssessmentBadge({ value }: { value: number }) {
-  return <Badge colors={ASSESSMENT_CONFIG[value] ?? FALLBACK_COLORS}>{value}</Badge>;
+  return <Badge colors={ASSESSMENT_COLORS[value] ?? FALLBACK_COLORS}>{value}</Badge>;
 }
 
 function LikelihoodBadge({ value }: { value: number }) {
@@ -94,9 +87,11 @@ export function ScaleSelect({
           : <span className="text-muted-foreground text-sm px-1">{placeholder}</span>}
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+        {/* pr-8 reserves room for the selected-item tick (absolutely positioned
+            at the right): with the default pr-2 it sat on top of long labels. */}
+        <SelectItem value="none" className="pr-8"><span className="text-muted-foreground">—</span></SelectItem>
         {[1, 2, 3, 4, 5].map((n) => (
-          <SelectItem key={n} value={String(n)}>{config.item(n)}</SelectItem>
+          <SelectItem key={n} value={String(n)} className="pr-8">{config.item(n)}</SelectItem>
         ))}
       </SelectContent>
     </Select>

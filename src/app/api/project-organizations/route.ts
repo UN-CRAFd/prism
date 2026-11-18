@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProject, guardProjectRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { isPartnerEditable } from "@/lib/report-status";
 
 // Project organizations — participating and implementing orgs listed on a project.
 //   GET  ?project_id=X[&type=participating|implementing]
@@ -9,7 +10,8 @@ import { logger } from "@/lib/logger";
 //   PATCH { id, name }
 //   DELETE ?id=X
 //
-// Partners may write while the prodoc is Open; admins are never status-locked.
+// Partners may write while the prodoc is partner-editable (Open / Partner Review);
+// admins are never status-locked.
 
 const ORG_NAME_MAX = 300;
 
@@ -87,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   if (session.role !== "admin") {
     const status = await prodocStatus(projectId as string | number);
-    if (status !== "Open") return locked();
+    if (!isPartnerEditable(status)) return locked();
   }
 
   try {
@@ -139,7 +141,7 @@ export async function PATCH(req: NextRequest) {
     );
     if (rowRows.length) {
       const status = await prodocStatus(rowRows[0].project_id);
-      if (status !== "Open") return locked();
+      if (!isPartnerEditable(status)) return locked();
     }
   }
 
@@ -175,7 +177,7 @@ export async function DELETE(req: NextRequest) {
     );
     if (rowRows.length) {
       const status = await prodocStatus(rowRows[0].project_id);
-      if (status !== "Open") return locked();
+      if (!isPartnerEditable(status)) return locked();
     }
   }
 

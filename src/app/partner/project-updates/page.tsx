@@ -10,6 +10,7 @@ import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
 import { progressSections } from "@/lib/report-sections";
+import { isPartnerEditable } from "@/lib/report-status";
 
 type UpdateReport = Report & { unlocked_sections?: string[] };
 
@@ -118,14 +119,14 @@ export default function ProjectUpdatesPage() {
                             <p className="text-base font-semibold truncate">{documentTitle(update)}</p>
                             <StatusPill
                               status={update.status}
-                              label={update.status === "Open" && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
+                              label={isPartnerEditable(update.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
                             />
                           </div>
                           <p className="text-sm text-muted-foreground truncate mb-2">{update.project_title}</p>
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                               <div
-                                className={`h-full ${update.status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
+                                className={`h-full ${isPartnerEditable(update.status) ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
                                 style={{ width: `${pct}%` }}
                               />
                             </div>

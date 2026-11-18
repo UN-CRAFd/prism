@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { isPartnerEditable } from "@/lib/report-status";
 
 // Approved annual budgets + indirect rate for a project (admin-owned).
 //
@@ -79,7 +80,7 @@ export async function PATCH(req: NextRequest) {
   const ownerGate = await guardProject(session, projectId);
   if (ownerGate) return ownerGate;
 
-  // Status lock — partners cannot write to a prodoc that is not Open.
+  // Status lock — partners cannot write to a prodoc that is not partner-editable (Open / Partner Review).
   // Admins bypass this check entirely, consistent with all other routes.
   if (session.role !== "admin") {
     const prodoc = await query<{ status: string }>(
@@ -88,7 +89,7 @@ export async function PATCH(req: NextRequest) {
         LIMIT 1`,
       [projectId]
     );
-    if (prodoc[0]?.status !== "Open") {
+    if (!isPartnerEditable(prodoc[0]?.status)) {
       return NextResponse.json({ error: "This report is not open for editing" }, { status: 409 });
     }
   }

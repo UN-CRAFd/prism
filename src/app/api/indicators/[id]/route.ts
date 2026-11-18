@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requireAdmin, requireSession, resolvePartnerId } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { isValidCycle } from "@/lib/indicators";
+import { editableStatusParam } from "@/lib/report-status";
 
 const ALLOWED_FIELDS = [
   "name",
@@ -15,7 +16,7 @@ const ALLOWED_FIELDS = [
 // PUT /api/indicators/[id] — partial update of a library indicator.
 // Admins may edit any indicator. Partners may edit a CUSTOM indicator only when
 // every document it appears in belongs to a project they lead or co-implement,
-// and every one of those documents is still Open. Partners may only change
+// and every one of those documents is still partner-editable (Open / Partner Review). Partners may only change
 // name, description, means_of_verification and cycle.
 export async function PUT(
   request: Request,
@@ -46,7 +47,7 @@ export async function PUT(
       const usage = await query<{ total: number; allowed: number }>(
         `SELECT COUNT(*)::int AS total,
                 COUNT(*) FILTER (
-                  WHERE r.status = 'Open'
+                  WHERE r.status = ANY($3::text[])
                     AND (p.partner_id = $2
                          OR EXISTS (SELECT 1 FROM reporting_platform.project_editors pe
                                      WHERE pe.project_id = p.id AND pe.partner_id = $2))
@@ -55,7 +56,7 @@ export async function PUT(
            JOIN reporting_platform.reports  r ON r.id = d.report_id
            JOIN reporting_platform.projects p ON p.id = r.project_id
           WHERE d.indicator_id = $1`,
-        [id, partnerId]
+        [id, partnerId, editableStatusParam()]
       );
       const { total, allowed } = usage[0];
       if (total === 0 || allowed !== total) {

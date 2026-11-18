@@ -42,6 +42,7 @@ import { IndicatorsSection } from "@/components/report-editor/sections/indicator
 import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
 import { useReportLock } from "@/components/report-editor/use-report-lock";
 import { Hint } from "@/components/ui/hint";
+import { isPartnerEditable, isFinalStatus } from "@/lib/report-status";
 
 export interface RiskHistory {
   prodoc: Record<number, { likelihood: number | null; impact: number | null }>;
@@ -50,6 +51,13 @@ export interface RiskHistory {
     shared: boolean;
     values: Record<number, { likelihood: number | null; impact: number | null }>;
   }>;
+}
+
+// Fixed view-only sentence, chosen by status VALUE (not the admin-editable label).
+function viewOnlyText(status: string | null | undefined, noun: string): string {
+  if (status === "Under Review") return `This ${noun} is with the CRAF'd Secretariat for review and is view-only.`;
+  if (status === "Closed" || status === "Approved") return `This ${noun} has been approved and is view-only.`;
+  return `This ${noun} is view-only.`;
 }
 
 function toSlug(r: Report): string {
@@ -715,15 +723,18 @@ export function ReportEditor({
   }, [dataType, selectedReport, sections, params.section]);
 
   // Status → who can edit:
-  //   Open          → admin + partner
-  //   Under Review  → admin only (partner is read-only)
-  //   Closed        → no one
+  //   Open / Partner Review → admin + partner
+  //   Under Review          → admin only (partner is read-only)
+  //   Closed                → no one
+  // Partners may edit ONLY in the partner-editable statuses (an unknown status
+  // locks them, matching the server); admins are locked only by Closed/Approved.
   // (forceReadOnly still wins as an explicit override.)
   const statusReadOnly =
     forceReadOnly ||
     (!!selectedReport &&
-      (selectedReport.status === "Closed" ||
-        (selectedReport.status === "Under Review" && mode !== "admin")));
+      (mode !== "admin"
+        ? !isPartnerEditable(selectedReport.status)
+        : isFinalStatus(selectedReport.status)));
 
   const { phase, holder, noteEdit, startEditing, isReadOnlyByLock } = useReportLock({
     reportId,
@@ -798,7 +809,7 @@ export function ReportEditor({
 
   const canSubmit =
     mode !== "admin" &&
-    selectedReport?.status === "Open" &&
+    isPartnerEditable(selectedReport?.status) &&
     user?.organization?.toLowerCase() === selectedReport?.partner_short_name?.toLowerCase();
 
   return (
@@ -869,7 +880,7 @@ export function ReportEditor({
 
         {statusReadOnly && !sectionLoading && !notFound && (
           <Notice variant="status" icon={<Lock />} className="mb-4">
-            This {docNoun} is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
+            {viewOnlyText(selectedReport?.status, isUpdateDoc ? "project update" : "report")} Contact the CRAF'd Secretariat if changes are needed.
           </Notice>
         )}
 

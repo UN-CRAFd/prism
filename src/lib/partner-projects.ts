@@ -1,6 +1,7 @@
 import type { Report } from "@/lib/types";
 import { projectSlug, formatDate } from "@/lib/utils";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
+import { isPartnerEditable } from "@/lib/report-status";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export interface TimelineEvent {
   // precomputed second line for prodoc/deadline events (empty for start/end/now)
   description: string;
   // visual state
-  submitted: boolean;   // green dot + check (prodoc/deadline: status !== "Open")
+  submitted: boolean;   // green dot + check (prodoc/deadline: status not partner-editable, i.e. not Open / Partner Review)
   overdue: boolean;     // red dot (deadline: not submitted AND deadline < today)
   pastDate: boolean;    // grey dot (start/end: date has passed)
   _dateObj: Date;
@@ -85,7 +86,7 @@ export function reportName(
 
 // Second line shown in the Documents box (and mirrors the timeline description).
 export function docStatusLine(r: Report, today: Date = new Date()): string {
-  const submitted = r.status !== "Open";
+  const submitted = !isPartnerEditable(r.status);
   if (submitted) {
     return r.submitted_at ? `Submitted ${formatDate(r.submitted_at)}` : "Submitted";
   }
@@ -145,10 +146,10 @@ export function buildPartnerProjects(
     const projectComments = commentsByProject.get(prodoc.project_id) ?? [];
     const openComments = projectComments.filter((c) => !c.partner_addressed && !c.resolved);
 
-    // Actions: Open reports + Open prodoc
+    // Actions: partner-editable (Open / Partner Review) reports + prodoc
     const actions: ProjectAction[] = [];
     for (const r of projectReports) {
-      if (r.status === "Open") {
+      if (isPartnerEditable(r.status)) {
         const dueDate = r.report_submission_date ? new Date(r.report_submission_date) : null;
         const overdue = dueDate != null && dueDate < today;
         const dueSoon = dueDate != null && !overdue && dueDate <= thirtyDaysOut;
@@ -166,7 +167,7 @@ export function buildPartnerProjects(
     }
     // Open project updates requested by CRAF'd are to-dos too.
     for (const u of projectUpdates) {
-      if (u.status !== "Open") continue;
+      if (!isPartnerEditable(u.status)) continue;
       const dueDate = u.report_submission_date ? new Date(u.report_submission_date) : null;
       const overdue = dueDate != null && dueDate < today;
       const dueSoon = dueDate != null && !overdue && dueDate <= thirtyDaysOut;
@@ -181,7 +182,7 @@ export function buildPartnerProjects(
         commentCount: openComments.filter((c) => c.report_id === u.id).length,
       });
     }
-    if (prodoc.status === "Open") {
+    if (isPartnerEditable(prodoc.status)) {
       actions.push({
         type: "prodoc",
         label: "Complete Project Document",
@@ -236,7 +237,7 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
   const today = new Date();
   const events: TimelineEvent[] = [];
 
-  const prodocSubmitted = prodoc.status !== "Open";
+  const prodocSubmitted = !isPartnerEditable(prodoc.status);
   const prodocSubmittedAt = prodoc.submitted_at ? new Date(prodoc.submitted_at) : null;
 
   // ProDoc: at submitted_at when submitted, epoch when not (always sorts first
@@ -288,7 +289,7 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
     ...updates.map((u) => ({ r: u as Report, label: `Project Update ${updateName(u)}` })),
   ];
   for (const { r, label } of deadlineDocs) {
-    const submitted = r.status !== "Open";
+    const submitted = !isPartnerEditable(r.status);
     const hasDeadline = !!r.report_submission_date;
     const deadlineDate = hasDeadline ? new Date(r.report_submission_date!) : null;
     const overdue = !submitted && deadlineDate != null && deadlineDate < today;

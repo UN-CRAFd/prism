@@ -53,6 +53,8 @@ import { documentTitle, nextUpdateIndex } from "@/lib/project-updates";
 import { StatusChangeDialog } from "@/components/ui/status-change-dialog";
 import { progressSections } from "@/lib/report-sections";
 import { Hint } from "@/components/ui/hint";
+import { isPartnerEditable } from "@/lib/report-status";
+import { reportStatusLabel } from "@/lib/status-label";
 
 const YEARS = [2023, 2024, 2025, 2026];
 
@@ -215,15 +217,17 @@ export function ReportStatusSelect({
           </SelectTrigger>
         </Hint>
         <SelectContent>
-          {optionValues("reportStatus").map((st) => (
-            <SelectItem key={st} value={st}>{st}</SelectItem>
-          ))}
+          {/* A value with no matching option stays visible (raw) so the trigger is never blank. */}
+          {(optionValues("reportStatus").includes(status) ? optionValues("reportStatus") : [...optionValues("reportStatus"), status])
+            .map((st) => (
+              <SelectItem key={st} value={st}>{reportStatusLabel(st)}</SelectItem>
+            ))}
         </SelectContent>
       </Select>
       <StatusChangeDialog
         open={pendingStatus !== null}
-        fromStatus={status}
-        toStatus={pendingStatus ?? ""}
+        fromStatus={reportStatusLabel(status)}
+        toStatus={reportStatusLabel(pendingStatus)}
         onCancel={() => setPendingStatus(null)}
         onConfirm={applyStatusChange}
       />
@@ -450,7 +454,7 @@ export function ReportCard({
                   <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
                     <DropdownMenuRadioGroup value={status} onValueChange={(v) => handleStatusChange(v as ReportRow["status"])}>
                       {optionValues("reportStatus").map((s) => (
-                        <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem key={s} value={s}>{reportStatusLabel(s)}</DropdownMenuRadioItem>
                       ))}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
@@ -495,7 +499,7 @@ export function ReportCard({
           <StatusPill status={status} />
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full ${status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
+              className={`h-full ${isPartnerEditable(status) ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
               style={{ width: `${completion}%` }}
             />
           </div>
@@ -513,8 +517,8 @@ export function ReportCard({
 
     <StatusChangeDialog
       open={pendingStatus !== null}
-      fromStatus={status}
-      toStatus={pendingStatus ?? ""}
+      fromStatus={reportStatusLabel(status)}
+      toStatus={reportStatusLabel(pendingStatus)}
       onCancel={() => setPendingStatus(null)}
       onConfirm={applyStatusChange}
     />

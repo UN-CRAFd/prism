@@ -42,6 +42,8 @@ import { documentPath, firstUnlockedSection } from "@/lib/project-updates";
 import { UPDATE_TYPES, updateTypeLabel, updateTypeShort } from "@/lib/update-modules";
 import { updateTypesCode } from "@/lib/update-types";
 import { Hint } from "@/components/ui/hint";
+import { isPartnerEditable } from "@/lib/report-status";
+import { reportStatusLabel } from "@/lib/status-label";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
 
@@ -65,7 +67,8 @@ function matchesTypes(r: UpdateRow, selected: string[], match: MatchMode): boole
   return match === "all" ? selected.every(has) : selected.some(has);
 }
 
-const STATUS_ORDER = ["Open", "Under Review", "Closed"];
+// Workflow order (see lib/report-status.ts).
+const STATUS_ORDER = ["Open", "Under Review", "Partner Review", "Closed"];
 
 type SortKey =
   | "partner" | "type" | "year" | "project" | "status" | "auth" | "due" | "last_edited" | "progress";
@@ -307,8 +310,8 @@ export default function ProjectUpdatesPage() {
           value={filterStatus}
           onChange={setFilterStatus}
           allLabel="All statuses"
-          width={140}
-          options={STATUS_ORDER.map((s) => ({ value: s, label: s }))}
+          width={190}
+          options={STATUS_ORDER.map((s) => ({ value: s, label: reportStatusLabel(s) }))}
         />
         <FilterSelect
           icon={CalendarDays}
@@ -430,7 +433,7 @@ export default function ProjectUpdatesPage() {
                     <ReportAuthCell authorized={!!r.authorized} />
                   </TableCell>
                   <TableCell>
-                    <ReportProgressCell pct={completion[r.id] ?? 0} open={r.status === "Open"} />
+                    <ReportProgressCell pct={completion[r.id] ?? 0} open={isPartnerEditable(r.status)} />
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {r.report_submission_date ? formatDate(r.report_submission_date) : "—"}

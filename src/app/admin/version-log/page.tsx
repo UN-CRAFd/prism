@@ -7,6 +7,7 @@ import { ArrowRight, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader, LoadingState, ErrorBanner } from "@/components/admin/shared";
 import { reportStatusStyle } from "@/lib/reports";
+import { documentStatusLabel } from "@/lib/status-label";
 
 interface VersionLogEntry {
   id: number;
@@ -41,10 +42,11 @@ function actorLabel(entry: VersionLogEntry): string {
   return entry.actor_name ?? "CRAF’d Secretariat";
 }
 
-function StatusPill({ status }: { status: string }) {
+function StatusPill({ status, kind }: { status: string; kind?: string | null }) {
   return (
     <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium", reportStatusStyle(status))}>
-      {status}
+      {/* Project status changes (e.g. Ongoing → Closed) are a different list — show raw. */}
+      {kind === "project" ? status : documentStatusLabel(kind, status)}
     </span>
   );
 }
@@ -69,12 +71,12 @@ function EntryCard({ entry }: { entry: VersionLogEntry }) {
       <div className="flex items-center gap-2 flex-wrap">
         {entry.from_status ? (
           <>
-            <StatusPill status={entry.from_status} />
+            <StatusPill status={entry.from_status} kind={entry.entity_type} />
             <ArrowRight className="size-3.5 text-muted-foreground shrink-0" />
-            <StatusPill status={entry.to_status} />
+            <StatusPill status={entry.to_status} kind={entry.entity_type} />
           </>
         ) : (
-          <StatusPill status={entry.to_status} />
+          <StatusPill status={entry.to_status} kind={entry.entity_type} />
         )}
         <span className="text-xs text-muted-foreground">by {actorLabel(entry)}</span>
       </div>

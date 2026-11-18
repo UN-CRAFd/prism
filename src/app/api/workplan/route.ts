@@ -5,6 +5,7 @@ import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { hasUpdateModuleColumns } from "@/lib/update-columns";
 import { sectionExtensionMonths } from "@/lib/update-modules";
+import { isPartnerEditable } from "@/lib/report-status";
 
 // ── Workplan progress, keyed by admin-managed update windows ─────────────────
 //
@@ -247,7 +248,7 @@ export async function PATCH(req: NextRequest) {
       const expectedTypeCode = workplanTypeCode(c.data_type, c.report_type);
       const isOwnWindow = c.year === c.report_year && c.type_code === expectedTypeCode;
       const allowed =
-        isOwnWindow && c.report_status === "Open" &&
+        isOwnWindow && isPartnerEditable(c.report_status) &&
         c.window_project === c.report_project;
       if (!allowed) {
         return NextResponse.json({ error: "This update window is not editable" }, { status: 403 });

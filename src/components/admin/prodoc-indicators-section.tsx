@@ -15,7 +15,7 @@ import { optionValues } from "@/lib/options";
 import { numericYear, isValidYear, numericAmount } from "@/lib/numeric-input";
 import { cycleLabel, CYCLE_KEYS, DEFAULT_CYCLE } from "@/lib/indicators";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
-import { resultOptions, resultLabel, type ResultOption } from "@/lib/workplan";
+import { resultOptions, resultLabel, uncoveredResults, type ResultOption } from "@/lib/workplan";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -539,15 +539,35 @@ export function ProdocIndicatorsSection({
   // editing lock lapsed — a 15-minute idle timeout silently flips the whole prodoc
   // to read-only — with no hint that the control still exists and that "Start
   // editing" brings it back.
+  // Outcomes / outputs no indicator is linked to yet. Uses each row's current values
+  // (including an unsaved link change) so the list updates live.
+  const uncovered = readOnly
+    ? []
+    : uncoveredResults(activities, lines.map((l) => ({ linked_results: valuesFor(l).linked_results })));
+  // Short names ("1. Outcome", "1.3. Output") for the inline hint; full labels in its tooltip.
+  const shortName = (o: ResultOption) => `${o.key.slice(o.key.indexOf(":") + 1)}. ${o.kind === "outcome" ? "Outcome" : "Output"}`;
+  const missingHint = uncovered.length === 0
+    ? null
+    : uncovered.length === 1
+      ? `${shortName(uncovered[0])} has no indicator yet.`
+      : `No indicator yet: ${uncovered.map(shortName).join(", ")}`;
+
   const addIndicatorFooter = (
-    // Hidden while the draft row is open — one draft at a time, and the row has its
-    // own Save / Cancel.
-    !creating && (
-      <div className="flex shrink-0 justify-end">
-        <Button type="button" variant="add" size="sm" onClick={() => openCreate("")} className="gap-1">
-          <Plus className="size-4" />
-          Add indicator
-        </Button>
+    // The Add button is hidden while the draft row is open — one draft at a time, and
+    // the row has its own Save / Cancel. The missing-results hint stays visible.
+    (!creating || missingHint) && (
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        {missingHint ? (
+          <Hint label={uncovered.map((o) => o.label).join("\n")} multiline>
+            <p className="min-w-0 text-xs text-crafd-yellow-900">{missingHint}</p>
+          </Hint>
+        ) : <span />}
+        {!creating && (
+          <Button type="button" variant="add" size="sm" onClick={() => openCreate("")} className="gap-1 shrink-0">
+            <Plus className="size-4" />
+            Add indicator
+          </Button>
+        )}
       </div>
     )
   );

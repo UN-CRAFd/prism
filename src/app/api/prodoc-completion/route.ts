@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { getCharLimits } from "@/lib/char-limits";
 import { narrativeLimit } from "@/lib/limits";
 import { richTextLength } from "@/lib/richtext";
+import { uncoveredResults } from "@/lib/workplan";
 
 // Project-document completion, per section.
 //
@@ -82,15 +83,30 @@ export async function GET(req: NextRequest) {
       }),
 
       // Indicators — every line has a baseline and a target, and is linked to at
-      // least one outcome or output (objective) from the workplan.
-      query<Row>(
-        `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE baseline_value IS NOT NULL AND baseline_value <> ''
-                                   AND target_value  IS NOT NULL AND target_value  <> ''
-                                   AND COALESCE(cardinality(linked_results), 0) > 0)::int AS ok
-           FROM reporting_platform.indicator_data WHERE report_id = $1`,
-        [prodocId]
-      ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
+      // least one outcome or output (objective) from the workplan; AND every
+      // outcome / output of the workplan has at least one indicator linked to it
+      // (uncoveredResults, so the key logic lives in one place).
+      Promise.all([
+        query<Row>(
+          `SELECT COUNT(*)::int AS total,
+                  COUNT(*) FILTER (WHERE baseline_value IS NOT NULL AND baseline_value <> ''
+                                     AND target_value  IS NOT NULL AND target_value  <> ''
+                                     AND COALESCE(cardinality(linked_results), 0) > 0)::int AS ok
+             FROM reporting_platform.indicator_data WHERE report_id = $1`,
+          [prodocId]
+        ),
+        query<{ linked_results: string[] | null }>(
+          `SELECT linked_results FROM reporting_platform.indicator_data WHERE report_id = $1`,
+          [prodocId]
+        ),
+        query<{ outcome: string | null; objective_num: string | null; objective_text: string | null }>(
+          `SELECT outcome, objective_num, objective_text
+             FROM reporting_platform.workplan_activities WHERE project_id = $1`,
+          [projectId]
+        ),
+      ]).then(([r, lines, acts]) =>
+        n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total) && uncoveredResults(acts, lines).length === 0
+      ),
 
       // Risk — every risk scored (likelihood + impact) and has a description.
       query<Row>(

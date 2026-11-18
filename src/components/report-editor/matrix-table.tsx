@@ -103,6 +103,12 @@ export function MatrixTableShell({
   footer?: ReactNode;
   children: ReactNode;
 }) {
+  // Total width of the frozen (sticky-left) leading columns: the scroll-fade's
+  // left edge fade starts after them so they never fade.
+  const frozenWidth = leadingCols.reduce(
+    (w, c) => (c.style.position === "sticky" ? w + (Number(c.style.width) || 0) : w),
+    0,
+  );
   return (
     // Outer = invisible layout slot that claims the height; inner = the visible card.
     // Splitting them is what makes `hugContent` possible: the slot keeps its size
@@ -115,7 +121,7 @@ export function MatrixTableShell({
             ? cn("overflow-auto", footer ? "min-h-0" : "max-h-full")
             : cn("overflow-auto", footer ? "min-h-0 flex-1" : "h-full"))
         : "overflow-x-auto"
-    )}>
+    )} style={{ "--scroll-fade-left": `${frozenWidth}px` } as CSSProperties}>
       <table className={MATRIX_TABLE} style={{ minWidth }}>
         <thead>
           {/* Year-group header */}

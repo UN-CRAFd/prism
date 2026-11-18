@@ -59,7 +59,9 @@ function toSlug(r: Report): string {
 // Quant tables that scroll inside their own bounded box with a frozen column
 // header (rather than scrolling with the whole page). The section fills the
 // leftover height so the header stays pinned while the body scrolls.
-const FILL_HEIGHT_SECTIONS = new Set(["workplan", "transfers", "complementary", "expenditure", "indicators"]);
+// Budget (expenditure) is deliberately absent: like the ProDoc Budget tab, the
+// whole page scrolls rather than the table inside a fixed-height box.
+const FILL_HEIGHT_SECTIONS = new Set(["workplan", "transfers", "complementary", "indicators"]);
 
 export interface ReportEditorProps {
   // "partner" filters reports to the logged-in partner and is editable;

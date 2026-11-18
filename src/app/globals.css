@@ -282,8 +282,9 @@ body::-webkit-scrollbar {
   }
 }
 
-/* Scroll fade: on a vertically scrolling table box, fade the half-visible last
-   row so it's obvious there is more below. Add `scroll-fade` to the scroll
+/* Scroll fade: on a scrolling table box, fade the half-visible last row (and
+   the left/right edges when it scrolls sideways, see below) so it's obvious
+   the table continues. Add `scroll-fade` to the scroll
    container (the element with overflow-auto). A sticky overlay pinned to the
    bottom (and left, for wide tables) fades to the card colour; it doesn't take
    space (negative margin) or catch clicks. Its opacity follows a scroll-driven
@@ -312,7 +313,61 @@ body::-webkit-scrollbar {
     from { opacity: 1; }
     to { opacity: 0; }
   }
+
+  /* Left / right edge fades for sideways scrolling. A mask on the scroll box
+     itself, whose two fade widths (--sf-l, --sf-r) are driven by the box's
+     own horizontal scroll: the right fade shows while there is more to the
+     right and melts away over the last 40px; the left fade grows over the
+     first 40px once scrolled away from the start. Frozen left columns must
+     stay crisp, so the left fade starts at --scroll-fade-left (the frozen
+     width, set inline by tables that have one). No horizontal overflow →
+     inactive timeline → both widths stay 0 → no fade. */
+  .scroll-fade {
+    /* +1px keeps the frozen column's own right border line outside the fade;
+       more than that lets a sliver of scrolled text show unfaded beside it. */
+    --sf-off: calc(var(--scroll-fade-left, 0px) + 1px);
+    /* Three layers so the box's border and scrollbars never fade. The fade
+       gradient covers only the visible table area: the padding box minus the
+       scrollbars, whose sizes (--sf-sbw / --sf-sbh) are measured by
+       ScrollFadeObserver (components/ui/scroll-fade-observer.tsx) — CSS can't
+       know them, and browsers paint scrollbars inside the masked area.
+       Everything around that area — border + scrollbars — stays fully visible:
+       (solid border box) EXCLUDE (solid table area), then ADDed. */
+    mask-image:
+      linear-gradient(
+        to right,
+        #000 var(--sf-off),
+        transparent var(--sf-off),
+        #000 calc(var(--sf-off) + var(--sf-l)),
+        #000 calc(100% - var(--sf-r)),
+        transparent 100%
+      ),
+      linear-gradient(#000, #000),
+      linear-gradient(#000, #000);
+    --sf-area: calc(100% - var(--sf-sbw, 0px)) calc(100% - var(--sf-sbh, 0px));
+    mask-origin: padding-box, border-box, padding-box;
+    mask-clip: padding-box, border-box, padding-box;
+    mask-size: var(--sf-area), 100% 100%, var(--sf-area);
+    mask-position: 0 0;
+    mask-repeat: no-repeat;
+    mask-composite: add, exclude, add;
+    animation: scroll-fade-left linear both, scroll-fade-right linear both;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range: 0 40px, calc(100% - 40px) 100%;
+  }
+  @keyframes scroll-fade-left {
+    from { --sf-l: 0px; }
+    to { --sf-l: 40px; }
+  }
+  @keyframes scroll-fade-right {
+    from { --sf-r: 40px; }
+    to { --sf-r: 0px; }
+  }
 }
+/* Registered so the fade widths animate smoothly (unregistered custom
+   properties only flip at the midpoint). */
+@property --sf-l { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --sf-r { syntax: "<length>"; inherits: false; initial-value: 0px; }
 
 /* Rich-text editor / rendered rich content (narratives, project description). */
 .rte-content {

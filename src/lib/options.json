@@ -79,21 +79,23 @@
   },
   "reportStatus": {
     "label": "Report status",
-    "description": "Workflow status of a report or project update (Open / Under Review / Closed). Project documents have their own list.",
-    "kind": "flat",
+    "description": "Workflow status of a report or project update: Open (partner editing) → Under Review (CRAF'd) → Partner Review (partner editing) → Closed. Open and Partner Review let the partner edit and submit. The values are fixed; only the labels can be renamed. Project documents have their own list.",
+    "kind": "keyed",
     "items": [
-      { "value": "Open", "label": "Open" },
-      { "value": "Under Review", "label": "Under Review" },
-      { "value": "Closed", "label": "Closed" }
+      { "value": "Open", "label": "Template with partner" },
+      { "value": "Under Review", "label": "CRAF'd review" },
+      { "value": "Partner Review", "label": "Partner review" },
+      { "value": "Closed", "label": "Approved" }
     ]
   },
   "prodocStatus": {
     "label": "Project document status",
-    "description": "Workflow status of a project document (ProDoc): Open / Under Review / Approved. Reports and project updates use the Report status list instead.",
-    "kind": "flat",
+    "description": "Workflow status of a project document (ProDoc): Open (partner editing) → Under Review (CRAF'd) → Partner Review (partner editing) → Approved. Open and Partner Review let the partner edit and submit. The values are fixed; only the labels can be renamed. Reports and project updates use the Report status list instead.",
+    "kind": "keyed",
     "items": [
-      { "value": "Open", "label": "Open" },
-      { "value": "Under Review", "label": "Under Review" },
+      { "value": "Open", "label": "Template with partner" },
+      { "value": "Under Review", "label": "CRAF'd review" },
+      { "value": "Partner Review", "label": "Partner review" },
       { "value": "Approved", "label": "Approved" }
     ]
   },

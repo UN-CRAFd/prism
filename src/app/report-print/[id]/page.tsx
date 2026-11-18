@@ -6,6 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import { formatDate, shortName, formatUsd } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { statusLabel } from "@/lib/indicators";
+import { reportStatusLabel } from "@/lib/status-label";
 import { resultLabel, quarterRange, quartersAfter, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -462,7 +463,7 @@ export default function ReportPrintPage() {
               </div>
               <div style={{ fontSize: 12, color: MUTED }}>
                 <span style={{ marginRight: 16 }}>
-                  Status: <strong style={{ color: INK }}>{report.status}</strong>
+                  Status: <strong style={{ color: INK }}>{reportStatusLabel(report.status)}</strong>
                 </span>
                 {report.report_submission_date && (
                   <span>Due date: <strong style={{ color: INK }}>{fmtDate(report.report_submission_date)}</strong></span>

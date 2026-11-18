@@ -40,6 +40,14 @@ import { getEditorSessionId } from "@/lib/editor-session-id";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { ProdocIndicatorsSection, type ProdocIndicatorEdit } from "@/components/admin/prodoc-indicators-section";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
+import { isPartnerEditable, isFinalStatus } from "@/lib/report-status";
+
+// Fixed view-only sentence, chosen by status VALUE (not the admin-editable label).
+function viewOnlyText(status: string | null | undefined, noun: string): string {
+  if (status === "Under Review") return `This ${noun} is with the CRAF'd Secretariat for review and is view-only.`;
+  if (status === "Closed" || status === "Approved") return `This ${noun} has been approved and is view-only.`;
+  return `This ${noun} is view-only.`;
+}
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -72,7 +80,7 @@ interface Prodoc {
 
   project_start_date: string | null;
   project_duration_months: number | null;
-  status: string | null; // Open | Under Review | Approved (legacy: Closed) — gates editability
+  status: string | null; // Open | Under Review | Partner Review | Approved (legacy: Closed) — gates editability
 }
 
 interface Risk {
@@ -376,15 +384,15 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
   }, [selectedSection, selectedProdocId]);
 
   // Status → who can edit (same rule as reports):
-  //   Open → admin + partner · Under Review → admin only · Approved (or legacy
-  //   Closed) → no one
+  //   Open / Partner Review → admin + partner · Under Review → admin only ·
+  //   Approved (or legacy Closed) → no one. Partners may edit ONLY in the
+  //   partner-editable statuses (an unknown status locks them, matching the
+  //   server); admins are locked only by the final statuses.
   // Computed here (before lock effects) so the acquire effect can depend on it.
   const selectedDoc = docs.find((d) => String(d.id) === selectedProdocId);
   const statusReadOnly =
     !!selectedDoc &&
-    (selectedDoc.status === "Closed" ||
-      selectedDoc.status === "Approved" ||
-      (selectedDoc.status === "Under Review" && isPartner));
+    (isPartner ? !isPartnerEditable(selectedDoc.status) : isFinalStatus(selectedDoc.status));
 
   // ── Editor lock effects ──────────────────────────────────────────────
 
@@ -1387,8 +1395,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         {statusReadOnly && selectedProdocId && (
           <Notice variant="status" icon={<Lock />} className="mb-4">
-            This project document is <b>{selectedDoc?.status}</b> and is view-only
-            {selectedDoc?.status === "Under Review" ? " for partners — only the CRAF'd Secretariat can unlock the project document" : ""}.
+            {viewOnlyText(selectedDoc?.status, "project document")}
           </Notice>
         )}
 
@@ -1786,7 +1793,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                 Next: {nextSection.label}
                 <ChevronRight className="size-4" />
               </Button>
-            ) : isPartner && selectedDoc?.status === "Open" ? (
+            ) : isPartner && isPartnerEditable(selectedDoc?.status) ? (
               <div className="flex flex-col items-end gap-2">
                 <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
                   {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}

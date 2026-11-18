@@ -35,6 +35,8 @@ import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
 import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
 import { Hint } from "@/components/ui/hint";
+import { isPartnerEditable } from "@/lib/report-status";
+import { reportStatusLabel, prodocStatusLabel } from "@/lib/status-label";
 
 // Mirrors the sentinel in general-info-editor: Radix Select can't hold an
 // empty-string item, so "no scope selected" round-trips through this value.
@@ -354,8 +356,8 @@ export default function ProjectsPage() {
       if (blockers.length) {
         await confirm({
           title: "This project cannot be archived yet",
-          message: `All reports and project updates must be Closed first. Not yet closed: ${blockers
-            .map((b) => `${b.label} (${b.status})`)
+          message: `All reports and project updates must be ${reportStatusLabel("Closed")} first. Not yet closed: ${blockers
+            .map((b) => `${b.label} (${reportStatusLabel(b.status)})`)
             .join("; ")}.`,
           acknowledgement: true,
           variant: "default",
@@ -394,7 +396,7 @@ export default function ProjectsPage() {
       const blockers = (body?.blockers ?? []) as { label: string; status: string }[];
       setError(
         blockers.length
-          ? `${body.error} Not yet closed: ${blockers.map((b) => `${b.label} (${b.status})`).join("; ")}.`
+          ? `${body.error} Not yet closed: ${blockers.map((b) => `${b.label} (${reportStatusLabel(b.status)})`).join("; ")}.`
           : body?.error ?? "Failed to change the archive state. Has db/add-archived.sql been run?"
       );
       return;
@@ -528,7 +530,7 @@ export default function ProjectsPage() {
     setTimeout(() => setPrintingId(null), 1500);
   }
 
-  // Set the prodoc's workflow status (Open / Under Review / Approved). Approving
+  // Set the prodoc's workflow status (Open / Under Review / Partner Review / Approved). Approving
   // also moves the project to Ongoing (done server-side in the same request). Opens the StatusChangeDialog to collect a name
   // and reason before applying. Optimistic; persisted via PUT /api/reports/:id.
   function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
@@ -654,7 +656,7 @@ export default function ProjectsPage() {
           onChange={setFilterProdocStatus}
           allLabel="All"
           width={140}
-          options={optionValues("prodocStatus").map((s) => ({ value: s, label: s }))}
+          options={optionValues("prodocStatus").map((s) => ({ value: s, label: prodocStatusLabel(s) }))}
         />
         {scopes.length > 0 && (
           <FilterSelect
@@ -866,13 +868,13 @@ export default function ProjectsPage() {
                           {/* A legacy status no longer in the list (e.g. Closed) stays
                               visible so the cell never renders blank. */}
                           {(optionValues("prodocStatus").includes(pd.status) ? optionValues("prodocStatus") : [...optionValues("prodocStatus"), pd.status])
-                            .map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            .map((s) => <SelectItem key={s} value={s}>{prodocStatusLabel(s)}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     ) : <Dash />}
                   </TableCell>
                   <TableCell>
-                    {pd ? <ReportProgressCell pct={completion[p.id] ?? 0} open={pd.status === "Open"} /> : <Dash />}
+                    {pd ? <ReportProgressCell pct={completion[p.id] ?? 0} open={isPartnerEditable(pd.status)} /> : <Dash />}
                   </TableCell>
                   <Hint label={pd?.last_edited ? formatDate(pd.last_edited) : undefined}>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
@@ -1069,8 +1071,8 @@ export default function ProjectsPage() {
       )}
     <StatusChangeDialog
       open={pendingStatusChange !== null}
-      fromStatus={pendingStatusChange?.fromStatus ?? ""}
-      toStatus={pendingStatusChange?.status ?? ""}
+      fromStatus={prodocStatusLabel(pendingStatusChange?.fromStatus)}
+      toStatus={prodocStatusLabel(pendingStatusChange?.status)}
       onCancel={() => setPendingStatusChange(null)}
       onConfirm={applyProdocStatusChange}
     />

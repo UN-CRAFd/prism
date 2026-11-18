@@ -8,7 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { baseOptions, type OptionGroup } from "@/lib/options";
+import { baseOptions, resolveLockedItems, type OptionGroup } from "@/lib/options";
+import { LOCKED_STATUS_GROUPS } from "@/lib/report-status";
 
 // One editable row. `uid` is a stable client-side id so React keys survive
 // reordering/removal (the value itself may change as the admin edits it).
@@ -88,9 +89,11 @@ export function OptionsEditor() {
         const next: Record<string, Row[]> = {};
         for (const key of GROUP_KEYS) {
           const ov = overrides[key]?.items;
-          next[key] = Array.isArray(ov)
-            ? toRows(key, ov as { value: string; label: string; description?: string }[])
-            : baseRows(key);
+          next[key] = LOCKED_STATUS_GROUPS.includes(key)
+            ? toRows(key, resolveLockedItems(key, ov))
+            : Array.isArray(ov)
+              ? toRows(key, ov as { value: string; label: string; description?: string }[])
+              : baseRows(key);
         }
         setGroups(next);
       } catch (e) {
@@ -268,6 +271,7 @@ export function OptionsEditor() {
             const rows = groups[key] ?? [];
             const open = isOpen(key);
             const modified = isModified(key, rows);
+            const locked = LOCKED_STATUS_GROUPS.includes(key);
             return (
               <div key={key} className="rounded-lg border overflow-hidden">
                 <button
@@ -288,10 +292,16 @@ export function OptionsEditor() {
                 {open && (
                   <div className="border-t p-4 space-y-3 bg-muted/20">
                     <p className="text-xs text-muted-foreground">{group.description}</p>
+                    {locked && (
+                      <p className="text-xs text-muted-foreground">
+                        These statuses control who can edit. You can rename them, but not add or remove them.
+                      </p>
+                    )}
 
                     <div className="space-y-2">
                       {rows.map((row, i) => (
                         <div key={row.uid} className="flex items-start gap-2">
+                          {!locked && (
                           <div className="flex flex-col gap-0.5 pt-1">
                             <button
                               type="button"
@@ -312,6 +322,7 @@ export function OptionsEditor() {
                               <ArrowDown className="size-3.5" />
                             </button>
                           </div>
+                          )}
 
                           <div className="flex-1 grid gap-2" style={{
                             gridTemplateColumns:
@@ -324,7 +335,8 @@ export function OptionsEditor() {
                                 value={row.value}
                                 onChange={(e) => updateRow(key, row.uid, { value: e.target.value })}
                                 placeholder="value / code"
-                                className="text-sm font-mono"
+                                readOnly={locked}
+                                className={cn("text-sm font-mono", locked && "bg-muted/40 text-muted-foreground cursor-default")}
                               />
                             )}
                             <Input
@@ -348,6 +360,7 @@ export function OptionsEditor() {
                             )}
                           </div>
 
+                          {!locked && (
                           <button
                             type="button"
                             onClick={() => removeRow(key, row.uid)}
@@ -356,14 +369,17 @@ export function OptionsEditor() {
                           >
                             <Trash2 className="size-4" />
                           </button>
+                          )}
                         </div>
                       ))}
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button variant="add" size="sm" onClick={() => addRow(key)}>
-                        <Plus className="size-4 mr-1.5" /> Add option
-                      </Button>
+                      {!locked && (
+                        <Button variant="add" size="sm" onClick={() => addRow(key)}>
+                          <Plus className="size-4 mr-1.5" /> Add option
+                        </Button>
+                      )}
                       {modified && (
                         <Button variant="ghost" size="sm" onClick={() => resetGroup(key)}>
                           <RotateCcw className="size-4 mr-1.5" /> Reset to default

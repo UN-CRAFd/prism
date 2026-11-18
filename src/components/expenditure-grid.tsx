@@ -104,8 +104,9 @@ function Num({ value, kind = "plain" }: { value: number | null; kind?: "plain" |
   return <span className={cn("tabular-nums", cls)}>{formatAmount(value) || "—"}</span>;
 }
 
-// Frozen ("Total" box + row labels) columns. Fixed widths give deterministic
-// left offsets so the sticky columns line up in the header, body and footer.
+// Leading columns: the row labels ("Budget categories") plus the "Total" box.
+// Only the row-label column is frozen (sticky left); the Total columns scroll
+// with the year columns. Fixed widths keep header, body and footer aligned.
 // The Total block is two columns wider in the proposed-new-budget versions, so
 // the offsets are derived from whichever columns are in play rather than being
 // written down once.
@@ -127,14 +128,10 @@ function frozenLayout(proposed: boolean) {
   return {
     width,
     left: (key: FrozenKey) => offset[key],
-    fz: (key: FrozenKey, z = 20): CSSProperties => ({
-      position: "sticky",
-      left: offset[key],
-      width: w[key],
-      minWidth: w[key],
-      maxWidth: w[key],
-      zIndex: z,
-    }),
+    fz: (key: FrozenKey, z = 20): CSSProperties =>
+      key === "cat"
+        ? { position: "sticky", left: offset[key], width: w[key], minWidth: w[key], maxWidth: w[key], zIndex: z }
+        : { width: w[key], minWidth: w[key], maxWidth: w[key] },
   };
 }
 
@@ -747,12 +744,14 @@ export function ExpenditurePartnerEditor({
       )}
     {/* Box hugs the table (w-fit) so few columns don't leave an empty bordered
         area; max-w-full keeps wide grids scrolling inside the page. */}
-    <div className={cn("scroll-fade w-fit max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
+    <div className={cn("scroll-fade w-fit max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}
+      // Left edge fade starts after the frozen "Budget categories" column.
+      style={{ "--scroll-fade-left": `${FCOL_WIDTH.cat}px` } as CSSProperties}>
       <table className="text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
           <tr className="text-xs" ref={headRowRef}>
             <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 border-r border-b align-bottom", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
-            <th colSpan={showProposed ? 4 : 3} style={fillHeight ? { position: "sticky", left: L.left("app"), top: 0, zIndex: 40 } : { position: "sticky", left: L.left("app"), zIndex: 30 }} className={cn("px-2 py-2 text-center border-r border-b", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "h-8")}>Total</th>
+            <th colSpan={showProposed ? 4 : 3} style={fillHeight ? { position: "sticky", top: 0, zIndex: 30 } : undefined} className={cn("px-2 py-2 text-center border-r border-b", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "h-8")}>Total</th>
             <th
               rowSpan={2}
               className={cn(

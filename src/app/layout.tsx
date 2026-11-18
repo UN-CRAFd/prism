@@ -6,6 +6,7 @@ import { getLabelOverrides } from "@/lib/label-settings";
 import { applyLabelOverrides } from "@/lib/labels";
 import { getOptionOverrides } from "@/lib/option-settings";
 import { applyOptionOverrides } from "@/lib/options";
+import { ScrollFadeObserver } from "@/components/ui/scroll-fade-observer";
 
 const roboto = Roboto({
   subsets: ["latin"],
@@ -63,6 +64,7 @@ export default async function RootLayout({
           />
         )}
         <AuthProvider>{children}</AuthProvider>
+        <ScrollFadeObserver />
       </body>
     </html>
   );

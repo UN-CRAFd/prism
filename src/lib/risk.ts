@@ -1,4 +1,5 @@
 import labels from "./labels";
+import { RATING_RAMP, type RatingColors } from "@/lib/rating-colors";
 
 /**
  * Single source of truth for risk-management domain logic.
@@ -61,21 +62,19 @@ export function computeRiskLevelKey(likelihood: number | null, impact: number | 
 
 // ── Colour config (shared styling for the coloured word badges) ─────────────
 
-interface BadgeColors { bg: string; text: string; border: string }
+// Same light-orange ramp as the survey ratings (lib/rating-colors.ts), so every
+// rating in the platform reads the same way: stronger = higher, no red/green.
+type BadgeColors = RatingColors;
 
-export const SCALE_COLORS: Record<number, BadgeColors> = {
-  1: { bg: "bg-white", text: "text-crafd-grey-600", border: "border-crafd-grey-400" },
-  2: { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
-  3: { bg: "bg-crafd-yellow-200", text: "text-crafd-grey-800", border: "border-crafd-yellow-600" },
-  4: { bg: "bg-crafd-yellow-600", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
-  5: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
-};
+// Likelihood / impact 1–5.
+export const SCALE_COLORS: Record<number, BadgeColors> = RATING_RAMP;
 
+// Four risk levels spread over the five ramp steps, keeping both ends.
 export const RISK_LEVEL_COLORS: Record<RiskLevelKey, BadgeColors> = {
-  low:      { bg: "bg-white", text: "text-crafd-grey-600", border: "border-crafd-grey-400" },
-  medium:   { bg: "bg-crafd-yellow-300", text: "text-crafd-grey-800", border: "border-crafd-yellow-600" },
-  high:     { bg: "bg-crafd-yellow-700", text: "text-crafd-grey-900", border: "border-crafd-yellow" },
-  veryHigh: { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-300"    },
+  low:      RATING_RAMP[1],
+  medium:   RATING_RAMP[2],
+  high:     RATING_RAMP[4],
+  veryHigh: RATING_RAMP[5],
 };
 
 export const FALLBACK_COLORS: BadgeColors = { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" };

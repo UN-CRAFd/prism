@@ -42,6 +42,7 @@ import {
 } from "@/lib/risk";
 import { formatAmount } from "@/lib/transfers";
 import { statusLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
+import { ASSESSMENT_COLORS } from "@/lib/rating-colors";
 import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
 import type { Report } from "@/lib/types";
 
@@ -266,7 +267,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       {
         header: "Rating", headClass: "w-[100px]", center: true, cell: (r) => {
           const a = r.assessment as number | null;
-          return <div className="flex justify-center pt-0.5">{a != null ? <ValueBadge value={String(a)} colors={SCALE_COLORS[a] ?? FALLBACK_COLORS} /> : DASH}</div>;
+          return <div className="flex justify-center pt-0.5">{a != null ? <ValueBadge value={String(a)} colors={ASSESSMENT_COLORS[a] ?? FALLBACK_COLORS} /> : DASH}</div>;
         },
       },
       { header: "Context", cell: (r, ctx) => trunc(r.context, `ctx-${r.id}`, ctx) },

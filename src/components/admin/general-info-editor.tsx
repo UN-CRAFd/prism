@@ -640,11 +640,9 @@ export function GeneralInfoAdminEditor({
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info" className="order-first">
-          {formatInstruction(labels.tabInstructions.general)}
-        </Notice>
-      )}
+      <Notice variant="info" className="order-first">
+        {formatInstruction(labels.tabInstructions.general)}
+      </Notice>
 
       {/* Project data (Title, dates, cost inputs, geographic scope, implementing
           partners, description) — FMP order: first */}

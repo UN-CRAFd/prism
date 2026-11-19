@@ -42,6 +42,7 @@ import { optionItems } from "@/lib/options";
 import { Hint } from "@/components/ui/hint";
 import { isPartnerEditable } from "@/lib/report-status";
 import { reportStatusLabel } from "@/lib/status-label";
+import { Tag } from "@/components/ui/tag";
 
 // Workflow order (see lib/report-status.ts).
 const STATUS_ORDER = ["Open", "Under Review", "Partner Review", "Closed"];
@@ -329,9 +330,7 @@ export default function ReportsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-xs font-semibold capitalize">
-                      {r.report_type ?? "annual"}
-                    </Badge>
+                    <Tag className="capitalize">{r.report_type ?? "annual"}</Tag>
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">{r.year}</TableCell>
                   <Tooltip delayDuration={0}>

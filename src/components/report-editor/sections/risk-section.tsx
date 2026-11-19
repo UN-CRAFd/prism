@@ -19,6 +19,7 @@ import { useStickySet } from "@/components/report-editor/sticky-filter";
 import type { Risk, RiskState } from "@/components/report-editor/types";
 import type { RiskHistory } from "@/components/report-editor/report-editor";
 import { Hint } from "@/components/ui/hint";
+import { Tag } from "@/components/ui/tag";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -101,9 +102,9 @@ function ShareToggle({
 // Small "Added in YYYY" badge shown under a risk name for non-ProDoc risks.
 function AddedBadge({ year }: { year: number }) {
   return (
-    <span className="mt-1.5 inline-flex items-center rounded-md bg-crafd-yellow-100 px-2 py-0.5 text-xs font-medium text-crafd-grey-800 ring-1 ring-inset ring-crafd-yellow-600">
+    <Tag variant="highlight" className="mt-1.5">
       Added in {year}
-    </span>
+    </Tag>
   );
 }
 
@@ -358,7 +359,7 @@ export function RiskSection({
                               return cats.length > 0 ? (
                                 <div className="mt-1.5 flex flex-wrap gap-1">
                                   {cats.map((cat) => (
-                                    <span key={cat} className="inline-flex items-center rounded-md bg-crafd-grey-100 px-2 py-0.5 text-xs font-medium text-crafd-grey-800">{cat}</span>
+                                    <Tag key={cat}>{cat}</Tag>
                                   ))}
                                 </div>
                               ) : null;

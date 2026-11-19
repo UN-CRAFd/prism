@@ -128,11 +128,9 @@ export function NarrativesAdminEditor({
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info">
-          {formatInstruction(labels.tabInstructions.narratives)}
-        </Notice>
-      )}
+      <Notice variant="info">
+        {formatInstruction(labels.tabInstructions.narratives)}
+      </Notice>
 
       {questions.length === 0 && (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">

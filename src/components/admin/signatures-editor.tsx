@@ -11,6 +11,7 @@ import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
 import { ROLE_SIGNATORY } from "@/lib/contact-roles";
+import { Tag } from "@/components/ui/tag";
 
 // ── Signatures editor ─────────────────────────────────────────────────────────
 // Admin-only tab for managing signatories on the project document.
@@ -159,11 +160,9 @@ export function SignaturesEditor({
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info">
-          {formatInstruction(labels.tabInstructions.signatures)}
-        </Notice>
-      )}
+      <Notice variant="info">
+        {formatInstruction(labels.tabInstructions.signatures)}
+      </Notice>
 
       {/* ── Signatories (contact-derived + standalone) ── */}
       <div className="rounded-xl border bg-card p-6 space-y-4">
@@ -221,9 +220,7 @@ export function SignaturesEditor({
                           <p className={cn("text-sm font-medium truncate", !nameDisplay && "text-muted-foreground italic")}>
                             {nameDisplay ?? s.nameNotSet}
                           </p>
-                          <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                            {s.standaloneTag}
-                          </span>
+                          <Tag className="shrink-0">{s.standaloneTag}</Tag>
                         </>
                       )}
                     </div>
@@ -231,9 +228,7 @@ export function SignaturesEditor({
                       <p className="text-xs text-muted-foreground truncate">{subtext}</p>
                     )}
                     {allEmpty && (
-                      <span className="shrink-0 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        {s.standaloneTag}
-                      </span>
+                      <Tag className="shrink-0">{s.standaloneTag}</Tag>
                     )}
                   </div>
                   {!readOnly && (

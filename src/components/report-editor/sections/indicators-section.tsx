@@ -18,6 +18,7 @@ import { numericAmount } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import { resultLabel } from "@/lib/workplan";
+import { Tag } from "@/components/ui/tag";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
   return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
@@ -150,9 +151,11 @@ export function IndicatorsSection({
                           <ItemComments section="indicators" itemId={row.currentLineId} />
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1.5">
-                          {row.category && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{row.category}</span>}
-                          {row.cycle && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{cycleLabel(row.cycle)}</span>}
-                          <span className={"inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap " + (row.is_standard ? "border-crafd-grey-100 bg-crafd-grey-100 text-crafd-grey-800" : "border-crafd-yellow bg-crafd-yellow-600 text-crafd-grey-900")}>{row.is_standard ? "Standard" : "Custom"}</span>
+                          {row.category && <Tag>{row.category}</Tag>}
+                          {row.cycle && <Tag>{cycleLabel(row.cycle)}</Tag>}
+                          {row.is_standard
+                            ? <Tag>Standard</Tag>
+                            : <Tag variant="highlight">Custom</Tag>}
                         </div>
                       </>
                     </div>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Loader2, FileQuestion, Lock, AlertTriangle, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { Loader2, FileQuestion, Lock, AlertTriangle, Printer } from "lucide-react";
 import { cn, projectSlug } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
@@ -43,6 +43,7 @@ import { TestimonialsSection } from "@/components/report-editor/sections/testimo
 import { useReportLock } from "@/components/report-editor/use-report-lock";
 import { Hint } from "@/components/ui/hint";
 import { isPartnerEditable, isFinalStatus } from "@/lib/report-status";
+import { SectionNavBar } from "@/components/ui/section-nav-bar";
 
 export interface RiskHistory {
   prodoc: Record<number, { likelihood: number | null; impact: number | null }>;
@@ -864,14 +865,6 @@ export function ReportEditor({
       {/* Content — the workplan fills the leftover height and scrolls inside its
           own box (single scroller, frozen header); every other tab scrolls here. */}
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
-        {/* Tab instructions — only while the report is editable */}
-        {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (() => {
-          const instruction = labels.tabInstructions[params.section as keyof typeof labels.tabInstructions];
-          return typeof instruction === "string" && instruction.trim() !== "" ? (
-            <Notice variant="info" className="mb-4">{formatInstruction(instruction)}</Notice>
-          ) : null;
-        })()}
-
         {error && (
           <Notice variant="error" className="mb-4">
             {error}
@@ -883,6 +876,14 @@ export function ReportEditor({
             {viewOnlyText(selectedReport?.status, isUpdateDoc ? "project update" : "report")} Contact the CRAF'd Secretariat if changes are needed.
           </Notice>
         )}
+
+        {/* Tab instructions — always shown, below the view-only banner when there is one */}
+        {params.section !== "overview" && params.section !== "testimonials" && !notFound && (() => {
+          const instruction = labels.tabInstructions[params.section as keyof typeof labels.tabInstructions];
+          return typeof instruction === "string" && instruction.trim() !== "" ? (
+            <Notice variant="info" className="mb-4">{formatInstruction(instruction)}</Notice>
+          ) : null;
+        })()}
 
         {/* Lock acquisition in progress */}
         {!statusReadOnly && reportId && phase === "acquiring" && (
@@ -1155,34 +1156,27 @@ export function ReportEditor({
         </fieldset>
         </ReadOnlyProvider>
 
-        {reportId && !notFound && !loadingReports && (
-          <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
-            {prevSection ? (
-              <Button variant="nav" onClick={() => handleSectionChange(prevSection.value)}>
-                <ChevronLeft className="size-4" /> Back: {prevSection.label}
-              </Button>
-            ) : <div />}
-            {nextSection ? (
-              <Button variant="nav" onClick={() => handleSectionChange(nextSection.value)}>
-                Next: {nextSection.label}
-                <ChevronRight className="size-4" />
-              </Button>
-            ) : canSubmit ? (
-              <div className="flex flex-col items-end gap-2">
-                <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
-                  {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
-                  Submit
-                </Button>
-                {(submitBlockers.length > 0 || submitError) && (
-                  <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
-                    {submitError ?? submitBlockers.join(" ")}
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
       </div>
+      {reportId && !notFound && !loadingReports && (
+        <SectionNavBar
+          back={prevSection ? { label: prevSection.label, onClick: () => handleSectionChange(prevSection.value) } : null}
+          next={nextSection ? { label: nextSection.label, onClick: () => handleSectionChange(nextSection.value) } : null}
+        >
+          {canSubmit ? (
+            <div className="flex flex-col items-end gap-2">
+              <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
+                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                Submit
+              </Button>
+              {(submitBlockers.length > 0 || submitError) && (
+                <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
+                  {submitError ?? submitBlockers.join(" ")}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </SectionNavBar>
+      )}
     </div>
 
     </CommentsProvider>

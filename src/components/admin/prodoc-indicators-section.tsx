@@ -387,9 +387,11 @@ export function ProdocIndicatorsSection({
                             </span>
                           </p>
                           <div className="mt-1.5 flex flex-wrap gap-1">
-                            {line.category && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{line.category}</span>}
-                            {line.cycle && <span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{cycleLabel(line.cycle)}</span>}
-                            <span className={"inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap " + (line.is_standard ? "border-crafd-grey-100 bg-crafd-grey-100 text-crafd-grey-800" : "border-crafd-yellow bg-crafd-yellow-600 text-crafd-grey-900")}>{line.is_standard ? "Standard" : "Custom"}</span>
+                            {line.category && <Hint label={labels.indicators.tagHelp.category}><span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{line.category}</span></Hint>}
+                            {line.cycle && <Hint label={(labels.indicators.tagHelp.cycles as Record<string, string | undefined>)[line.cycle]}><span className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">{cycleLabel(line.cycle)}</span></Hint>}
+                            <Hint label={line.is_standard ? labels.indicators.tagHelp.standard : labels.indicators.tagHelp.custom}>
+                              <span className={"inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap " + (line.is_standard ? "border-crafd-grey-100 bg-crafd-grey-100 text-crafd-grey-800" : "border-crafd-yellow bg-crafd-yellow-600 text-crafd-grey-900")}>{line.is_standard ? "Standard" : "Custom"}</span>
+                            </Hint>
                           </div>
                         </div>
                       </div>

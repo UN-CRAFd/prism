@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Plus, Loader2, FileText, Trash2, Pencil, Check, X, Info } from "lucide-react";
 import { PageHeader, ErrorBanner, LoadingState } from "@/components/admin/shared";
+import { formatInstruction } from "@/lib/format-instruction";
+import labels from "@/lib/labels";
 
 interface NarrativeQuestion {
   id: number;
@@ -129,7 +131,7 @@ export default function NarrativeQuestionsPage() {
               <div className="border-b px-5 py-3.5">
                 <h2 className="t-heading-sub">Narrative Sections</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Seeds the narratives tab of each new project document. The description is shown under the section heading in the editor. Editing or removing a question here does not change existing projects.
+                  Seeds the narratives tab of each new project document. The description is shown under the section heading in the editor. {labels.narratives.adminChangeNote}
                 </p>
               </div>
 
@@ -178,7 +180,7 @@ export default function NarrativeQuestionsPage() {
                                     <Info className="size-3.5" />
                                   </button>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-xs whitespace-pre-line">{q.description}</TooltipContent>
+                                <TooltipContent className="max-w-xs whitespace-pre-line">{formatInstruction(q.description)}</TooltipContent>
                               </Tooltip>
                             )}
                           </div>

@@ -223,6 +223,13 @@
     "contactRole": "Job title",
     "contactEmail": "Email",
     "emptyContacts": "No contacts yet. Use “Add contact” below to link an existing contact or add a new one.",
+    "contactsHelpHeading": "Contact roles",
+    "contactRoleHelp": {
+      "Primary focal point": "The main day-to-day contact for the CRAF'd Secretariat on this project.",
+      "Alternate focal point": "The back-up contact when the primary focal point is unavailable.",
+      "Signatory": "Signs the project document on behalf of your organisation."
+    },
+    "contactsHelpFooter": "You can add or update contacts later from the Contacts page.",
     "columns": {
       "contact": "Contact",
       "organisation": "Organisation",
@@ -271,6 +278,7 @@
     ],
     "placeholder": "Enter the narrative text…",
     "answerLabel": "Narrative",
+    "adminChangeNote": "Description changes show in all projects straight away. Label changes and removed questions only affect new projects.",
     "empty": "No project selected."
   },
   "assessment": {
@@ -437,6 +445,12 @@
       "links": "Provide direct links to reports, datasets, dashboards, tools, or publications that demonstrate the results of the partnership."
     }
   },
+  "workplanHelp": {
+    "heading": "Definition",
+    "outcome": "The longer-term change the project contributes to. Example: humanitarian actors use timely displacement data in their planning.",
+    "output": "A concrete product or service the project delivers. Example: a quarterly displacement dataset is published.",
+    "activity": "The work done to produce an output. Example: collect and clean data from partner agencies."
+  },
   "indicators": {
     "statuses": {
       "on_track": "On track",
@@ -446,6 +460,15 @@
     "cycles": {
       "yearly": "Annually",
       "at_closure": "At closure"
+    },
+    "tagHelp": {
+      "standard": "A CRAF'd indicator used across all projects.",
+      "custom": "An indicator added for this project only.",
+      "category": "The category this indicator belongs to.",
+      "cycles": {
+        "yearly": "This indicator has a target for each year of the project.",
+        "at_closure": "This indicator's target is to be reached by the end of the project."
+      }
     },
     "columns": {
       "number": "#",

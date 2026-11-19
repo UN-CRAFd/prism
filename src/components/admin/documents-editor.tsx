@@ -11,7 +11,7 @@ import {
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatDate } from "@/lib/utils";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
-import { Loader2, Upload, FileText, Download, Trash2, CircleCheck, Undo2 } from "lucide-react";
+import { Loader2, Upload, FileText, Download, Trash2, CircleCheck } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
@@ -248,30 +248,27 @@ export function DocumentsEditor({
 
         {documents.length === 0 ? (
           <div className="py-10 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
-            {noDocsConfirmed ? (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 font-medium text-green-700">
-                  <CircleCheck className="size-4" />{d.noDocumentsConfirmed}
-                </span>
-                {!readOnly && (
-                  <Button variant="outline" size="sm" onClick={() => setNoDocuments(false)} disabled={noDocsSaving}>
-                    {noDocsSaving
-                      ? <Loader2 className="size-3.5 animate-spin" />
-                      : <><Undo2 className="size-3.5 mr-1.5" />{d.noDocumentsUndo}</>}
-                  </Button>
-                )}
-              </div>
+            {noDocsConfirmed && readOnly ? (
+              <span className="inline-flex items-center gap-1.5 font-medium text-green-700">
+                <CircleCheck className="size-4" />{d.noDocumentsConfirmed}
+              </span>
             ) : (
               <>
-                <span>{d.empty}</span>
+                {!noDocsConfirmed && <span>{d.empty}</span>}
                 {!readOnly && (
                   <>
-                    <span className="text-xs">{d.optionalNote}</span>
-                    <Button variant="outline" size="sm" onClick={() => setNoDocuments(true)} disabled={noDocsSaving}>
-                      {noDocsSaving
-                        ? <Loader2 className="size-3.5 animate-spin" />
-                        : <><CircleCheck className="size-3.5 mr-1.5" />{d.noDocuments}</>}
-                    </Button>
+                    {!noDocsConfirmed && <span className="text-xs">{d.optionalNote}</span>}
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={noDocsConfirmed}
+                        disabled={noDocsSaving}
+                        onChange={(e) => setNoDocuments(e.target.checked)}
+                        className="size-4"
+                      />
+                      {d.noDocuments}
+                      {noDocsSaving && <Loader2 className="size-3.5 animate-spin" />}
+                    </label>
                   </>
                 )}
               </>

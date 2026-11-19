@@ -136,7 +136,7 @@ export function InfoPopover({
             {description && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{descriptionHeading}</p>
-                <p className="text-sm leading-snug">{description}</p>
+                <p className="text-sm leading-snug whitespace-pre-line">{description}</p>
               </div>
             )}
             {meansOfVerification && (

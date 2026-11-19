@@ -993,6 +993,15 @@ export function GeneralInfoAdminEditor({
         <div className="flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
           <h3 className="t-heading-editor">{g.contactsHeading}</h3>
+          <InfoPopover
+            description={[
+              ...CONTACT_ROLES.map((role) => `${role}: ${(g.contactRoleHelp as Record<string, string>)[role] ?? ""}`.trim()),
+              "",
+              g.contactsHelpFooter,
+            ].join("\n")}
+            triggerTitle={g.contactsHeading}
+            descriptionHeading={g.contactsHelpHeading}
+          />
         </div>
 
         {contacts.length === 0 && !showAddContactRow ? (

@@ -22,6 +22,7 @@ import { CYCLE_KEYS, cycleLabel, DEFAULT_CYCLE } from "@/lib/indicators";
 import { optionValues } from "@/lib/options";
 import labels from "@/lib/labels";
 import { Hint } from "@/components/ui/hint";
+import { Tag } from "@/components/ui/tag";
 
 interface IndicatorUsage {
   report_id: number;
@@ -295,9 +296,7 @@ export default function IndicatorsPage() {
                     <TableCell className="font-medium align-top">
                       {ind.name}
                       {kindFilter === "all" && (
-                        <Badge variant={ind.is_standard ? "secondary" : "outline"} className="ml-2 text-xs">
-                          {ind.is_standard ? "Standard" : "Custom"}
-                        </Badge>
+                        <Tag className="ml-2">{ind.is_standard ? "Standard" : "Custom"}</Tag>
                       )}
                       {!ind.is_standard && (ind.usage_project_count ?? 0) > 0 && (() => {
                         const n = ind.usage_project_count ?? 0;
@@ -356,16 +355,14 @@ export default function IndicatorsPage() {
                 {ind.description && <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{ind.description}</p>}
                 {ind.archived_at && <UsageBadges usage={ind.usage} />}
                 <div className="flex flex-wrap gap-1 mt-auto pt-1">
-                  {ind.category && <Badge variant="secondary" className="text-xs font-normal">{ind.category}</Badge>}
-                  {ind.cycle && <Badge variant="outline" className="text-xs font-normal">{cycleLabel(ind.cycle)}</Badge>}
+                  {ind.category && <Tag>{ind.category}</Tag>}
+                  {ind.cycle && <Tag>{cycleLabel(ind.cycle)}</Tag>}
                   {kindFilter === "all" && (
-                    <Badge variant={ind.is_standard ? "secondary" : "outline"} className="text-xs font-normal">
-                      {ind.is_standard ? "Standard" : "Custom"}
-                    </Badge>
+                    <Tag>{ind.is_standard ? "Standard" : "Custom"}</Tag>
                   )}
                   {!ind.is_standard && (ind.usage_project_count ?? 0) > 0 && (() => {
                     const n = ind.usage_project_count ?? 0;
-                    return <Badge variant="outline" className="text-xs font-normal">{n} project{n === 1 ? "" : "s"}</Badge>;
+                    return <Tag>{n} project{n === 1 ? "" : "s"}</Tag>;
                   })()}
                 </div>
               </div>

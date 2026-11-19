@@ -7,6 +7,7 @@ import { useReadOnly } from "@/components/ui/read-only-context";
 import { toDisplayHtml, toWikiDisplayHtml, richTextLength } from "@/lib/richtext";
 import labels from "@/lib/labels";
 import { Hint } from "@/components/ui/hint";
+import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
 
 // ── Rich-text editor ───────────────────────────────────────────────────────────
 // A minimal, dependency-free contentEditable editor for the project-document
@@ -87,6 +88,7 @@ export function RichTextEditor({
   const lastValue = useRef<string>(" ");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadOk = useUploadSuccess();
   const buttons = tools ? BUTTONS.filter((b) => tools.includes(b.command)) : BUTTONS;
 
   useEffect(() => {
@@ -152,17 +154,19 @@ export function RichTextEditor({
     if (!onUploadImage) return;
     setUploading(true);
     setUploadError(null);
+    uploadOk.clear();
     try {
       const url = await onUploadImage(file);
       ref.current?.focus();
       document.execCommand("insertHTML", false, `<img src="${url}" alt="">`);
       emit();
+      uploadOk.flash();
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }
-  }, [onUploadImage, emit]);
+  }, [onUploadImage, emit, uploadOk]);
 
   const remaining = maxChars !== undefined ? maxChars - richTextLength(value) : null;
 
@@ -277,7 +281,7 @@ export function RichTextEditor({
           !ro && "cursor-text"
         )}
       />
-      {(remaining !== null || uploadError) && !ro && (
+      {(remaining !== null || uploadError || uploadOk.shown) && !ro && (
         <div className="px-3 pb-2 space-y-0.5 select-none">
           {remaining !== null && (
             <p
@@ -292,6 +296,7 @@ export function RichTextEditor({
           {remaining !== null && remaining < 0 && (
             <p className="text-xs text-destructive">{labels.common.overLimitHint}</p>
           )}
+          <UploadSuccess show={uploadOk.shown} compact />
           {uploadError && (
             <p className="text-xs text-destructive">{uploadError}</p>
           )}

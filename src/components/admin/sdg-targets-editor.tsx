@@ -134,11 +134,9 @@ export function SdgTargetsEditor({
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info">
-          {formatInstruction(labels.tabInstructions.sdg)}
-        </Notice>
-      )}
+      <Notice variant="info">
+        {formatInstruction(labels.tabInstructions.sdg)}
+      </Notice>
 
       {/* Add-target row */}
       {!readOnly && (

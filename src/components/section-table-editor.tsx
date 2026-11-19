@@ -27,6 +27,7 @@ import { optionValues } from "@/lib/options";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
 import { Hint } from "@/components/ui/hint";
+import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config-driven editor for the repeatable "list of items under a report" sections
@@ -168,6 +169,7 @@ function PhotoField({
   const [mode, setMode] = useState<"link" | "upload">(photoFileName ? "upload" : "link");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const uploadOk = useUploadSuccess();
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function pick(file: File | null) {
@@ -175,7 +177,7 @@ function PhotoField({
     setError(null);
     if (!isAllowedImageExtension(file.name)) { setError(p.errorType); return; }
     if (file.size > MAX_PHOTO_BYTES) { setError(p.errorSize.replace("{mb}", String(MAX_PHOTO_MB))); return; }
-    setBusy(true);
+    setBusy(true); uploadOk.clear();
     try {
       const id = await ensureId();
       if (!id) throw new Error(p.errorSave);
@@ -185,6 +187,7 @@ function PhotoField({
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || p.errorSave); }
       const saved: { photo_file_name: string } = await res.json();
       onUploaded(saved.photo_file_name);
+      uploadOk.flash();
     } catch (e) {
       setError(e instanceof Error ? e.message : p.errorSave);
     } finally {
@@ -264,6 +267,7 @@ function PhotoField({
           </p>
         </div>
       )}
+      <UploadSuccess show={uploadOk.shown} compact />
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
@@ -314,6 +318,7 @@ function TestimonialPhotosField({
   const [addLink, setAddLink] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const uploadOk = useUploadSuccess();
   const fileRef = useRef<HTMLInputElement>(null);
   // Id of a row this cell created itself (via ensureId): it has no photos yet,
   // so skip the load — a late empty response would wipe the photo just added.
@@ -454,7 +459,7 @@ function TestimonialPhotosField({
     setAddError(null);
     if (!isAllowedImageExtension(file.name)) { setAddError(p.errorType); return; }
     if (file.size > MAX_PHOTO_BYTES) { setAddError(p.errorSize.replace("{mb}", String(MAX_PHOTO_MB))); return; }
-    setAddBusy(true);
+    setAddBusy(true); uploadOk.clear();
     try {
       const id = await targetId();
       if (id == null) return;
@@ -465,6 +470,7 @@ function TestimonialPhotosField({
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || p.errorSave); }
       const created: TestimonialPhoto = await res.json();
       setPhotos((prev) => [...prev, created]);
+      uploadOk.flash();
     } catch (e) {
       setAddError(e instanceof Error ? e.message : p.errorSave);
     } finally {
@@ -604,6 +610,7 @@ function TestimonialPhotosField({
               </p>
             </div>
           )}
+          <UploadSuccess show={uploadOk.shown} compact />
           {addError && <p className="text-xs text-destructive">{addError}</p>}
         </div>
       )}

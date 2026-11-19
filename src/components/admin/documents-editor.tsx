@@ -18,6 +18,8 @@ import { formatInstruction } from "@/lib/format-instruction";
 import {
   documentTypes, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
 } from "@/lib/documents";
+import { Tag } from "@/components/ui/tag";
+import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
 
 // ── Documents / annexes editor ────────────────────────────────────────────────
 // Partner-uploaded documents attached to the project document. Each upload has a
@@ -65,6 +67,7 @@ export function DocumentsEditor({
   // without an upload. Cleared server-side when a document is uploaded.
   const [noDocsConfirmed, setNoDocsConfirmed] = useState(false);
   const [noDocsSaving, setNoDocsSaving] = useState(false);
+  const uploadOk = useUploadSuccess();
 
   useEffect(() => {
     let cancelled = false;
@@ -132,7 +135,7 @@ export function DocumentsEditor({
     if (!docType) { setError(d.errorNoType); return; }
     if (!docName.trim()) { setError(d.errorNoDocName); return; }
     if (!file) { setError(d.errorNoFile); return; }
-    setUploading(true); setError(null);
+    setUploading(true); setError(null); uploadOk.clear();
     try {
       const body = new FormData();
       body.append("project_id", String(projectId));
@@ -149,6 +152,7 @@ export function DocumentsEditor({
       // Reset the form for the next upload.
       setDocType(""); setDocName(""); setDocDate(""); setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      uploadOk.flash();
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setUploading(false); }
   }
@@ -169,17 +173,16 @@ export function DocumentsEditor({
 
   return (
     <div className="space-y-6">
+      <UploadSuccess show={uploadOk.shown} />
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info">
-          {formatInstruction(labels.tabInstructions.documents)}
-        </Notice>
-      )}
+      <Notice variant="info">
+        {formatInstruction(labels.tabInstructions.documents)}
+      </Notice>
 
       {/* Upload form */}
       {!readOnly && (
@@ -291,7 +294,7 @@ export function DocumentsEditor({
               {documents.map((doc) => (
                 <tr key={doc.id} className="transition-colors hover:bg-muted/20">
                   <td className="px-6 py-3">
-                    <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{doc.doc_type}</span>
+                    <Tag>{doc.doc_type}</Tag>
                   </td>
                   <td className="px-4 py-3 font-medium">{doc.doc_name ?? doc.file_name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{doc.doc_date ? formatDate(doc.doc_date) : "—"}</td>

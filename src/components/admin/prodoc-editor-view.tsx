@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Trash2, FileQuestion, Pencil, Lock, Printer, X } from "lucide-react";
 import { cn, projectSlug } from "@/lib/utils";
 import { HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -41,6 +41,8 @@ import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { ProdocIndicatorsSection, type ProdocIndicatorEdit } from "@/components/admin/prodoc-indicators-section";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import { isPartnerEditable, isFinalStatus } from "@/lib/report-status";
+import { Tag } from "@/components/ui/tag";
+import { SectionNavBar } from "@/components/ui/section-nav-bar";
 
 // Fixed view-only sentence, chosen by status VALUE (not the admin-editable label).
 function viewOnlyText(status: string | null | undefined, noun: string): string {
@@ -1463,8 +1465,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
         {/* Title sentence for the quant tabs (review feedback): the other sections'
             editors render their own tabInstructions box; these four sections render
-            inline here. Hidden when view-only, like the General Information box. */}
-        {selectedProdocId && !readOnly &&
+            inline here. Shown when view-only too, below the locked banner. */}
+        {selectedProdocId &&
           ["indicators", "risk", "expenditure", "workplan"].includes(selectedSection) && (
           <Notice variant="info" className="mb-4">
             {formatInstruction(
@@ -1596,9 +1598,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                         {risk.risk_category && risk.risk_category.length > 0 && (
                                           <div className="mt-1.5 flex flex-wrap gap-1">
                                             {risk.risk_category.map((cat) => (
-                                              <span key={cat} className="inline-flex items-center justify-center rounded-md border border-crafd-grey-100 bg-crafd-grey-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-crafd-grey-800">
-                                                {cat}
-                                              </span>
+                                              <Tag key={cat}>{cat}</Tag>
                                             ))}
                                           </div>
                                         )}
@@ -1781,34 +1781,27 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
         </div>
         </fieldset>
         </ReadOnlyProvider>
-        {selectedProdocId && (
-          <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
-            {prevSection ? (
-              <Button variant="nav" onClick={() => handleSectionChange(prevSection.value)}>
-                <ChevronLeft className="size-4" /> Back: {prevSection.label}
-              </Button>
-            ) : <div />}
-            {nextSection ? (
-              <Button variant="nav" onClick={() => handleSectionChange(nextSection.value)}>
-                Next: {nextSection.label}
-                <ChevronRight className="size-4" />
-              </Button>
-            ) : isPartner && isPartnerEditable(selectedDoc?.status) ? (
-              <div className="flex flex-col items-end gap-2">
-                <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
-                  {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
-                  Submit
-                </Button>
-                {(submitBlockers.length > 0 || submitError) && (
-                  <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
-                    {submitError ?? submitBlockers.join(" ")}
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
       </div>
+      {selectedProdocId && (
+        <SectionNavBar
+          back={prevSection ? { label: prevSection.label, onClick: () => handleSectionChange(prevSection.value) } : null}
+          next={nextSection ? { label: nextSection.label, onClick: () => handleSectionChange(nextSection.value) } : null}
+        >
+          {isPartner && isPartnerEditable(selectedDoc?.status) ? (
+            <div className="flex flex-col items-end gap-2">
+              <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
+                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                Submit
+              </Button>
+              {(submitBlockers.length > 0 || submitError) && (
+                <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
+                  {submitError ?? submitBlockers.join(" ")}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </SectionNavBar>
+      )}
     </div>
 
     </CommentsProvider>

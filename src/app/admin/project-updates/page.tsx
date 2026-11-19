@@ -44,6 +44,7 @@ import { updateTypesCode } from "@/lib/update-types";
 import { Hint } from "@/components/ui/hint";
 import { isPartnerEditable } from "@/lib/report-status";
 import { reportStatusLabel } from "@/lib/status-label";
+import { Tag } from "@/components/ui/tag";
 
 type UpdateRow = ReportRow & { unlocked_sections?: string[] };
 
@@ -400,9 +401,7 @@ export default function ProjectUpdatesPage() {
                     <div className="flex flex-wrap gap-1">
                       {typeBadges(r).map((b) => (
                         <Hint key={b.text} label={b.title}>
-                          <Badge variant="secondary" className="text-xs font-semibold">
-                            {b.text}
-                          </Badge>
+                          <Tag>{b.text}</Tag>
                         </Hint>
                       ))}
                     </div>

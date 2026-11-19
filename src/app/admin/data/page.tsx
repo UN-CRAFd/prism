@@ -45,6 +45,7 @@ import { statusLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicato
 import { ASSESSMENT_COLORS } from "@/lib/rating-colors";
 import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
 import type { Report } from "@/lib/types";
+import { Tag as TagChip } from "@/components/ui/tag";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ function ValueBadge({ value, colors }: { value: string; colors: { bg: string; te
 
 function Tag({ value }: { value: string | null }) {
   if (!value) return DASH;
-  return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{value}</span>;
+  return <TagChip>{value}</TagChip>;
 }
 
 function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {

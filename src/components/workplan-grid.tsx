@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
@@ -124,7 +125,7 @@ function QuarterCell({
   const box = (
     <span
       className={cn(
-        "inline-flex size-5 items-center justify-center rounded border",
+        "inline-flex size-[18px] items-center justify-center rounded border",
         checked
           ? variant === "baseline"
             ? "bg-crafd-grey-200 border-crafd-grey-200 text-crafd-grey-600"
@@ -132,7 +133,7 @@ function QuarterCell({
           : "border-neutral-300 bg-white text-transparent"
       )}
     >
-      <Check className="size-3.5" strokeWidth={3} />
+      <Check className="size-3" strokeWidth={3} />
     </span>
   );
   if (variant === "baseline" || !onToggle) {
@@ -151,6 +152,91 @@ function QuarterCell({
 // two stay distinguishable.
 const EXTENSION_HEAD = "bg-crafd-yellow-500 text-crafd-grey-800";
 const EXTENSION_CELL = "bg-crafd-yellow-200";
+
+// Hierarchy (outcome → output → activity), shared by both grids. Each level is
+// a colour band that starts further in, leaving white space on its left:
+//   Outcome  — dark yellow band from the left edge.
+//   Output   — light yellow band starting 2rem in (OUTPUT_FILL).
+//   Activity — warm off-white band starting 4rem in (ACTIVITY_FILL); the line
+//              between activities starts there too, so the indent stays white.
+// The fills are background layers offset from the left, so they cover the full
+// cell height — also on the activity cell, which spans several rows.
+// The outcome / output bands (and their text) fill only the leading column(s)
+// and stop where the quarter grid begins; the rest of the row is BandFill —
+// blank cells that keep the year separators and column rules running through,
+// with the row's delete button in the last (bin) column.
+const INDENT_OUTCOME = "pl-3";
+const INDENT_OUTPUT = "pl-[2.75rem]";   // fill at 2rem + 0.75rem inner padding
+const INDENT_ACTIVITY = "pl-[4.75rem]"; // fill at 4rem + 0.75rem inner padding
+// Where each band starts (its left edge): the add buttons line up with these.
+const BAND_EDGE_OUTCOME = "pl-0";
+const BAND_EDGE_OUTPUT = "pl-8";   // = OUTPUT_FILL offset (2rem)
+const BAND_EDGE_ACTIVITY = "pl-16"; // = ACTIVITY_FILL offset (4rem)
+function indentFill(color: string, x: string, topLine = false, bottomLine = false): CSSProperties {
+  const fill = `linear-gradient(${color}, ${color})`;
+  const line = "linear-gradient(var(--border), var(--border))";
+  const layers = [
+    ...(topLine ? [{ img: line, size: "100% 1px", pos: `${x} 0` }] : []),
+    ...(bottomLine ? [{ img: line, size: "100% 1px", pos: `${x} 100%` }] : []),
+    { img: fill, size: "100% 100%", pos: `${x} 0` },
+  ];
+  return {
+    backgroundImage: layers.map((l) => l.img).join(", "),
+    backgroundRepeat: "no-repeat",
+    backgroundSize: layers.map((l) => l.size).join(", "),
+    backgroundPosition: layers.map((l) => l.pos).join(", "),
+  };
+}
+// Ramp: outcome yellow-700 → output yellow-400 → activity yellow-50 (warm
+// off-white). Clear steps, and the activity rows — where partners work — stay
+// calm. Kept apart from the "input" yellows (ticked quarters, extension tint).
+const OUTPUT_FILL = indentFill("var(--color-crafd-yellow-400)", "2rem");
+const ACTIVITY_FILL = indentFill("var(--color-crafd-yellow-50)", "4rem", true);
+// The last activity of an output also closes off with a line below it, so the
+// quarter grid doesn't stay open before the next output / add button.
+const ACTIVITY_FILL_LAST = indentFill("var(--color-crafd-yellow-50)", "4rem", true, true);
+// Bottom rule on every cell of that last row except the activity cell (which
+// draws its own, starting at the activity indent).
+const ACTIVITY_ROW_BOTTOM = "[&>td]:border-b [&>td:first-child]:border-b-0";
+// Unsaved activity: a brand-yellow bar on the row's left edge (on the activity
+// cell, which spans all of the activity's rows) rather than tinting the row, so
+// it never competes with the hierarchy colours.
+const UNSAVED_MARK = "shadow-[inset_3px_0_0_var(--color-crafd-yellow)]";
+// Row separator on every cell except the (first) activity cell, which draws
+// its own line starting at the activity indent.
+const ACTIVITY_ROW_TOP = "[&>td]:border-t [&>td:first-child]:border-t-0";
+// Quarter-grid column edges, down the body. The first quarter gets a full rule
+// (it is the edge between the text columns and the grid); every later year
+// start gets a short centred tick — a "|" that stops short of the horizontal
+// lines — so the grid reads year by year without boxing every cell in.
+const YEAR_TICK =
+  "bg-[linear-gradient(var(--color-crafd-grey-400),var(--color-crafd-grey-400))] bg-no-repeat bg-[length:1px_50%] bg-[position:0_50%]";
+function quarterEdge(q: string, quarters: string[], yearStart: Set<string>, ticks = true) {
+  if (q === quarters[0]) return "border-l";
+  return ticks && yearStart.has(q) ? YEAR_TICK : undefined;
+}
+function yearStartKeys(quarters: string[]): Set<string> {
+  const out = new Set<string>();
+  quarters.forEach((q, i) => { if (i === 0 || q.slice(0, 4) !== quarters[i - 1].slice(0, 4)) out.add(q); });
+  return out;
+}
+// The quarter + trailing part of an outcome / output band row: blank cells with
+// the same year separators, extension tint and column rules as the body rows.
+// `action` (e.g. the delete button) goes in the last trailing cell.
+function BandFill({ quarters, yearStart, extension, trailing, action }: { quarters: string[]; yearStart: Set<string>; extension?: Set<string>; trailing: boolean[]; action?: ReactNode }) {
+  return (
+    <>
+      {quarters.map((q) => (
+        <td key={q} className={cn(quarterEdge(q, quarters, yearStart, false), extension?.has(q) && EXTENSION_CELL)} />
+      ))}
+      {trailing.map((border, i) => (
+        <td key={"t" + i} className={cn(border && "border-l", i === trailing.length - 1 && action && "px-2 py-2 align-middle text-center")}>
+          {i === trailing.length - 1 ? action : null}
+        </td>
+      ))}
+    </>
+  );
+}
 
 // Two-row year/quarter header shared by both grids. `extension` holds the
 // quarter keys that fall beyond the project's approved end date; a year is
@@ -206,7 +292,7 @@ function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters:
               key={q.key}
               style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW, top: yearRowHeight }}
               className={cn(
-                "sticky z-20 px-1 py-1 text-center w-9",
+                "sticky z-20 px-0.5 py-1 text-center w-7 min-w-7",
                 isExtension(q.key) ? EXTENSION_HEAD : cn(HEAD_BG, HEAD_COLOR),
                 SUBHEAD_TEXT
               )}
@@ -470,7 +556,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   const baselineShown = !shownLines.has(BASELINE_HIDDEN_KEY);
   const visibleUpdates = updates.filter((u) => u.id === activeUpdateId || shownLines.has(updateLineKey(u)));
 
-  const totalCols = 2 + quarters.length + 3;
+  const yearStart = yearStartKeys(quarters);
   let lastOutcome: string | null = null;
   let lastObjective: string | null = null;
   let outcomeOrdinal = 0;
@@ -531,20 +617,25 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             }
             trailCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[120px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[200px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[160px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
               </>
             }
           />
           <tbody>
-            {activities.map((a) => {
+            {activities.map((a, ai) => {
               const showOutcome = a.outcome && a.outcome !== lastOutcome;
               if (showOutcome) outcomeOrdinal++;
               if (a.outcome) lastOutcome = a.outcome;
               const objKey = `${a.objective_num ?? ""}|${a.objective_text ?? ""}`;
               const showObjective = objKey.trim() !== "|" && objKey !== lastObjective;
               if (objKey.trim() !== "|") lastObjective = objKey;
+              // Last activity of its output (or of the table): gets a closing line.
+              const next = activities[ai + 1];
+              const lastInOutput = !next
+                || next.outcome !== a.outcome
+                || `${next.objective_num ?? ""}|${next.objective_text ?? ""}` !== objKey;
 
               const ps = progress[a.id];
               // The baseline line (when shown) plus one line per update window.
@@ -558,7 +649,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               const rowSpan = lines.length;
 
               const activityCell = (
-                <td rowSpan={rowSpan} className="px-3 py-2 align-top border-r">
+                <td rowSpan={rowSpan} className={cn("pr-3 py-2 align-top border-r bg-card", INDENT_ACTIVITY)} style={lastInOutput ? ACTIVITY_FILL_LAST : ACTIVITY_FILL}>
                   <div className="flex items-start gap-2">
                     <p className="text-sm font-medium leading-snug flex-1">
                       {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
@@ -577,15 +668,17 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               return (
                 <Fragment key={a.id}>
                   {showOutcome && (
-                    <tr className="bg-crafd-yellow-600 border-y">
-                      <td colSpan={totalCols} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900"><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                    <tr>
+                      <td colSpan={2} className={cn("bg-crafd-yellow-700 pr-3 py-2 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} trailing={[true, true, true]} />
                     </tr>
                   )}
                   {showObjective && (
-                    <tr className="bg-crafd-yellow-300 border-y">
-                      <td colSpan={totalCols} className="px-3 py-1.5 text-sm font-semibold text-crafd-grey-900">
+                    <tr>
+                      <td colSpan={2} className={cn("pr-3 py-1.5 text-sm font-semibold text-crafd-grey-900", INDENT_OUTPUT)} style={OUTPUT_FILL}>
                         {a.objective_num ? `${a.objective_num}. Output: ` : ""}{a.objective_text}
                       </td>
+                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} trailing={[true, true, true]} />
                     </tr>
                   )}
 
@@ -593,14 +686,20 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                       progress line per update window; only the active one edits. */}
                   {lines.map((line, idx) => {
                     const first = idx === 0;
+                    // The activity's last line closes the output off at the bottom.
+                    // When it is also the first line, its first cell is the activity
+                    // cell, which draws its own indented bottom line.
+                    const closing = lastInOutput && idx === lines.length - 1
+                      ? (first ? ACTIVITY_ROW_BOTTOM : "[&>td]:border-b")
+                      : undefined;
 
                     if (line.kind === "baseline") {
                       return (
-                        <tr key="baseline" className="border-t">
+                        <tr key="baseline" className={cn(first ? ACTIVITY_ROW_TOP : "border-t", closing)}>
                           {first && activityCell}
                           <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">{labels.common.baseline}</td>
-                          {quarters.map((q, i) => (
-                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l", extensionKeys.has(q) && EXTENSION_CELL)}>
+                          {quarters.map((q) => (
+                            <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart), extensionKeys.has(q) && EXTENSION_CELL)}>
                               <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
                             </td>
                           ))}
@@ -624,13 +723,13 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     const status = (isActive ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
                     const comment = isActive ? (ps?.comment ?? "") : (cell?.comment ?? "");
                     return (
-                      <tr key={u.id} className={cn("border-t", isActive ? "bg-crafd-yellow-50" : "opacity-60")}>
+                      <tr key={u.id} className={cn(first ? ACTIVITY_ROW_TOP : "border-t", closing, isActive ? "bg-crafd-yellow-50" : "opacity-60")}>
                         {first && activityCell}
                         <td className="px-2 py-2 text-xs font-medium whitespace-nowrap">
                           <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
                         </td>
-                        {quarters.map((q, i) => (
-                          <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l", extensionKeys.has(q) && EXTENSION_CELL)}>
+                        {quarters.map((q) => (
+                          <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart), extensionKeys.has(q) && EXTENSION_CELL)}>
                             <QuarterCell
                               checked={checks.includes(q)}
                               variant={editable ? "editable" : "baseline"}
@@ -1304,35 +1403,38 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
   // Columns: [activity] (+[timeline label] in partner mode) + quarters + [project partner]
   // (+[status]+[comment] in partner mode) + [delete].
-  const totalCols = partnerMode ? 2 + quarters.length + 4 : 1 + quarters.length + 2;
+  const yearStart = yearStartKeys(quarters);
+  // Band + add-button rows: content spans the leading column(s); the rest is
+  // BandFill, so the column rules (quarters | partner | bin) run unbroken.
+  const leadCols = partnerMode ? 2 : 1;
+  const trailBorders = partnerMode ? [true, true, true, true] : [true, true];
 
   // Add controls use the platform's standard add button (as "Add risk" on the
   // ProDoc Risk tab), each on its own row. Every level reuses the padding
   // structure of its own row so the buttons step in outcome → output → activity.
   const addTierBar = (label: string, onAdd: () => void, level: "outcome" | "output" | "activity") => {
+    // Each add button wears the colour of the level it adds (matching its band),
+    // a shade darker on hover.
+    const tone = {
+      outcome: "border-crafd-yellow bg-crafd-yellow-700 hover:border-crafd-yellow-900 hover:bg-crafd-yellow",
+      output: "border-crafd-yellow-700 bg-crafd-yellow-400 hover:border-crafd-yellow hover:bg-crafd-yellow-600",
+      activity: "border-crafd-yellow-400 bg-crafd-yellow-50 hover:border-crafd-yellow-600 hover:bg-crafd-yellow-150",
+    }[level];
     const button = (
-      <Button type="button" variant="add" size="sm" onClick={onAdd} disabled={readOnly} className="gap-1">
+      <Button type="button" variant="add" size="sm" onClick={onAdd} disabled={readOnly} className={cn("gap-1", tone)}>
         <Plus className="size-4" />{label}
       </Button>
     );
-    // Outcome row: td px-3, chevron first.
-    if (level === "outcome") return <div className="px-3 py-1.5">{button}</div>;
-    // Output row: td pl-8 + inner border-l-2 pl-3, chevron first.
+    // Each button's left edge lines up with where its level's colour band starts.
+    if (level === "outcome") return <div className={cn("pr-3 py-1.5", BAND_EDGE_OUTCOME)}>{button}</div>;
     if (level === "output") {
       return (
-        <div className="pl-8 pr-3 py-1.5">
-          <div className="border-l-2 border-transparent pl-3">{button}</div>
-        </div>
+        <div className={cn("pr-3 py-1.5", BAND_EDGE_OUTPUT)}>{button}</div>
       );
     }
-    // Activity row: td px-3 + w-10 number column + gap-2, textarea next.
+    // Activity: at the start of the activity band.
     return (
-      <div className="px-3 py-1.5">
-        <div className="flex gap-2">
-          <span className="w-10 shrink-0" />
-          {button}
-        </div>
-      </div>
+      <div className={cn("pr-3 py-1.5", BAND_EDGE_ACTIVITY)}>{button}</div>
     );
   };
 
@@ -1366,20 +1468,20 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
         </>
       ) : (
         <div className={cn("scroll-fade rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}>
-          <table className="w-full text-sm border-collapse">
+          <table className={cn("w-full text-sm border-collapse", fillHeight && "h-full")}>
             <QuarterHeader
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[320px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}</th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[360px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>}
                 </>
               }
               trailCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[120px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>}
-                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[200px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>}
+                  {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[160px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>}
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 px-2 py-2 w-10 align-bottom", HEAD_BG)} />
                 </>
               }
@@ -1388,75 +1490,94 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               {clusters.map((cluster, ci) => (
                 <Fragment key={cluster.clusterId}>
                   {/* Outcome cluster header — top level of the hierarchy */}
-                  <tr className="bg-crafd-yellow-600 text-crafd-grey-900">
-                    <td colSpan={totalCols} className="px-3 py-2.5">
-                      <div className="flex items-center gap-2">
+                  <tr>
+                    <td colSpan={leadCols} className={cn("bg-crafd-yellow-700 text-crafd-grey-900 pr-3 py-2.5", INDENT_OUTCOME)}>
+                      <div className="flex items-start gap-2">
                         <button
                           type="button"
                           onClick={() => setCollapsedClusters((p) => ({ ...p, [cluster.clusterId]: !p[cluster.clusterId] }))}
-                          className="shrink-0 text-crafd-grey-800 hover:text-crafd-grey-900 transition-colors"
+                          className="shrink-0 pt-2 text-crafd-grey-800 hover:text-crafd-grey-900 transition-colors"
                           aria-label={collapsedClusters[cluster.clusterId] ? "Expand outcome" : "Collapse outcome"}
                         >
                           {collapsedClusters[cluster.clusterId] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                         </button>
-                        <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-crafd-grey-900 shrink-0">{ci + 1}. Outcome{!partnerMode && <RequiredMark />}</span>
-                        <Input
+                        <span className="mt-1.5 rounded bg-white/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-crafd-grey-900 shrink-0">{ci + 1}. Outcome{!partnerMode && <RequiredMark />}</span>
+                        {/* Grows with the text, so long outcome statements stay readable. */}
+                        <Textarea
+                          rows={1}
                           value={cluster.outcome}
                           onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
                           placeholder="Outcome heading…"
-                          className="h-7 flex-1 text-sm bg-white text-crafd-grey-900 placeholder:text-crafd-grey-400"
+                          className="min-h-9 flex-1 resize-none text-sm bg-white text-crafd-grey-900 placeholder:text-crafd-grey-400"
                         />
-                        <button
-                          onClick={() => deleteCluster(cluster.clusterId)}
-                          className="text-crafd-grey-800 hover:text-destructive transition-colors shrink-0"
-                          aria-label="Delete outcome"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
                       </div>
                     </td>
+                    <BandFill
+                      quarters={quarters}
+                      yearStart={yearStart}
+                      trailing={trailBorders}
+                      action={
+                        <button
+                          onClick={() => deleteCluster(cluster.clusterId)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="Delete outcome"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      }
+                    />
                   </tr>
                   {!collapsedClusters[cluster.clusterId] && cluster.sections.map((sec) => (
                     <Fragment key={sec.sectionId}>
-                  <tr className="bg-crafd-yellow-300 border-b">
-                    <td colSpan={totalCols} className="py-2 pl-8 pr-3">
-                      <div className="flex items-center gap-2 border-l-2 border-crafd-yellow pl-3">
+                  <tr>
+                    <td colSpan={leadCols} className={cn("py-2 pr-3", INDENT_OUTPUT)} style={OUTPUT_FILL}>
+                      <div className="flex items-start gap-2">
                         <button
                           type="button"
                           onClick={() => setCollapsedSections((p) => ({ ...p, [sec.sectionId]: !p[sec.sectionId] }))}
-                          className="shrink-0 text-crafd-grey-600 hover:text-crafd-grey-900 transition-colors"
+                          className="shrink-0 pt-2 text-crafd-grey-600 hover:text-crafd-grey-900 transition-colors"
                           aria-label={collapsedSections[sec.sectionId] ? "Expand output" : "Collapse output"}
                         >
                           {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                         </button>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Output{!partnerMode && <RequiredMark className="text-crafd-yellow-900" />}</span>
-                        <Input
+                        <span className="pt-2.5 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Output{!partnerMode && <RequiredMark className="text-crafd-yellow-900" />}</span>
+                        <Textarea
+                          rows={1}
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}
                           placeholder="Output description…"
-                          className="h-7 flex-1 text-sm bg-white"
+                          className="min-h-9 flex-1 resize-none text-sm bg-white"
                         />
-                        <button
-                          onClick={() => deleteObjective(sec.sectionId)}
-                          className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                          aria-label="Delete output"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
                       </div>
                     </td>
+                    <BandFill
+                      quarters={quarters}
+                      yearStart={yearStart}
+                      trailing={trailBorders}
+                      action={
+                        <button
+                          onClick={() => deleteObjective(sec.sectionId)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="Delete output"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      }
+                    />
                   </tr>
 
-                  {!collapsedSections[sec.sectionId] && sec.rows.map((row) => {
+                  {!collapsedSections[sec.sectionId] && sec.rows.map((row, ri) => {
+                    // Last activity of the output: closing line below it.
+                    const lastInOutput = ri === sec.rows.length - 1;
                     const activityCell = (
-                      <td rowSpan={partnerMode ? 2 : 1} className="px-3 py-2 align-top border-r h-px">
+                      <td rowSpan={partnerMode ? 2 : 1} className={cn("pr-3 py-2 align-top border-r h-px bg-card", INDENT_ACTIVITY, row.dirty && UNSAVED_MARK)} style={lastInOutput ? ACTIVITY_FILL_LAST : ACTIVITY_FILL}>
                         <div className="flex gap-2 h-full">
                           <span className="text-xs tabular-nums text-crafd-grey-900 pt-2 w-10 shrink-0">{row.activity_num}</span>
                           <Textarea
                             value={row.activity_text}
                             onChange={(e) => updateRow(row.key, { activity_text: e.target.value })}
                             placeholder="Activity description…"
-                            className="text-sm min-h-[36px] h-full resize-y flex-1"
+                            className="text-sm min-h-[36px] h-full resize-y flex-1 bg-white"
                           />
                           {/* Per-activity comment thread — only once the activity has
                               been persisted (an unsaved row has no id to key on). */}
@@ -1471,7 +1592,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                     const agentCell = (() => {
                       if (agentOptions.length === 0) {
                         return (
-                          <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
+                          <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[100px]">
                             <Input
                               value={row.implementing_agent}
                               onChange={(e) => updateRow(row.key, { implementing_agent: e.target.value })}
@@ -1484,7 +1605,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                       const selected = parseAgents(row.implementing_agent);
                       const legacyTokens = selected.filter((t) => !agentOptions.includes(t));
                       return (
-                        <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[120px]">
+                        <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-top border-l w-[100px]">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className={cn("min-h-8 w-full rounded-md border border-input bg-transparent px-2 py-0.5 text-sm text-left flex justify-between gap-1", selected.length > 1 ? "items-start" : "items-center")}>
@@ -1544,7 +1665,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                       );
                     })();
                     const deleteCell = (
-                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-middle text-center">
+                      <td rowSpan={partnerMode ? 2 : 1} className="px-2 py-2 align-middle text-center border-l">
                         <button
                           onClick={() => deleteActivity(row.key)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
@@ -1557,10 +1678,10 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
                     if (!partnerMode) {
                       return (
-                        <tr key={row.key} className={cn("border-t", row.dirty && "bg-crafd-yellow-100")}>
+                        <tr key={row.key} className={cn(ACTIVITY_ROW_TOP, lastInOutput && ACTIVITY_ROW_BOTTOM)}>
                           {activityCell}
-                          {quarters.map((q, i) => (
-                            <td key={q} className={cn("px-1 py-2 align-middle", i === 0 && "border-l")}>
+                          {quarters.map((q) => (
+                            <td key={q} className={cn("px-0.5 py-2 align-middle", quarterEdge(q, quarters, yearStart))}>
                               <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
                             </td>
                           ))}
@@ -1578,11 +1699,11 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                     const updatedQuarters = ps?.updated_quarters ?? row.planned_quarters;
                     return (
                       <Fragment key={row.key}>
-                        <tr className={cn("border-t", row.dirty && "bg-crafd-yellow-100")}>
+                        <tr className={ACTIVITY_ROW_TOP}>
                           {activityCell}
                           <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">Baseline</td>
-                          {quarters.map((q, i) => (
-                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                          {quarters.map((q) => (
+                            <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart))}>
                               <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
                             </td>
                           ))}
@@ -1615,10 +1736,10 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           </td>
                           {deleteCell}
                         </tr>
-                        <tr className={cn("border-b", row.dirty && "bg-crafd-yellow-100")}>
+                        <tr className="border-b">
                           <td className="px-2 py-2 text-xs font-medium text-neutral-700 whitespace-nowrap">Updated</td>
-                          {quarters.map((q, i) => (
-                            <td key={q} className={cn("px-1 py-1.5", i === 0 && "border-l")}>
+                          {quarters.map((q) => (
+                            <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart))}>
                               <QuarterCell
                                 checked={updatedQuarters.includes(q)}
                                 variant={canProgress ? "editable" : "baseline"}
@@ -1632,21 +1753,32 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                   })}
                   {!collapsedSections[sec.sectionId] && (
                     <tr>
-                      <td colSpan={totalCols} className="p-0">{addTierBar("Add activity", () => addActivity(sec.sectionId), "activity")}</td>
+                      <td colSpan={leadCols} className="p-0">{addTierBar("Add activity", () => addActivity(sec.sectionId), "activity")}</td><BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
                     </tr>
                   )}
                 </Fragment>
                   ))}
                   {!collapsedClusters[cluster.clusterId] && (
                     <tr>
-                      <td colSpan={totalCols} className="p-0">{addTierBar("Add output", () => addObjective(cluster.clusterId), "output")}</td>
+                      <td colSpan={leadCols} className="p-0">{addTierBar("Add output", () => addObjective(cluster.clusterId), "output")}</td><BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
                     </tr>
                   )}
                 </Fragment>
               ))}
               <tr>
-                <td colSpan={totalCols} className="p-0">{addOutcomeBar}</td>
+                <td colSpan={leadCols} className="p-0">{addOutcomeBar}</td><BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
               </tr>
+              {/* Filler: when the box is taller than the rows (fillHeight), the table
+                  stretches to the box and this row takes the spare height, so the
+                  column rules run to the bottom. Excess table height goes to
+                  percentage-height rows first, so the real rows keep their size;
+                  once the rows overflow, it collapses to nothing. */}
+              {fillHeight && (
+                <tr style={{ height: "100%" }}>
+                  <td colSpan={leadCols} className="p-0" />
+                  <BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

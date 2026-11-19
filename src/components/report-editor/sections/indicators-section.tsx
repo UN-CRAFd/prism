@@ -10,12 +10,13 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { MatrixTableShell } from "@/components/report-editor/matrix-table";
-import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
+import { usePastYears, PastYearChips, FilterChip } from "@/components/report-editor/past-year-chips";
+import { useStickySet } from "@/components/report-editor/sticky-filter";
 import { Badge } from "@/components/report-editor/scale-select";
 import { FALLBACK_COLORS } from "@/lib/risk";
-import { STATUS_KEYS, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
+import { statusKeysFor, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
 import { numericAmount } from "@/lib/numeric-input";
-import type { IndicatorMatrixRow, IndicatorState } from "@/components/report-editor/types";
+import type { IndicatorMatrixRow, IndicatorRecord, IndicatorState, IndicatorYearCell } from "@/components/report-editor/types";
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import { resultLabel } from "@/lib/workplan";
 import { Tag } from "@/components/ui/tag";
@@ -54,6 +55,12 @@ export interface IndicatorsSectionProps {
   indicatorRows: IndicatorMatrixRow[];
   indicatorYears: number[];
   indicatorCurrentYear: number | null;
+  // "annual" | "final" for reports (decides the status options); null for updates.
+  indicatorReportType: string | null;
+  // Earlier annual reports / project updates a report can show beside its own
+  // values. Project updates keep their year-based history, so they ignore this.
+  indicatorRecords: IndicatorRecord[];
+  isUpdate: boolean;
   indicatorStates: Record<number, IndicatorState>;
   updateIndicator: (id: number, patch: Partial<IndicatorState>) => void;
   isAdmin: boolean;
@@ -66,13 +73,44 @@ export function IndicatorsSection({
   indicatorRows,
   indicatorYears,
   indicatorCurrentYear,
+  indicatorReportType,
+  indicatorRecords,
+  isUpdate,
   indicatorStates,
   updateIndicator,
   isAdmin,
   fillHeight = false,
   activities,
 }: IndicatorsSectionProps) {
-  const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(indicatorYears, indicatorCurrentYear, "indicators");
+  const statusKeys = statusKeysFor(indicatorReportType);
+
+  // ── Past columns ──────────────────────────────────────────────────────────
+  // Reports page back by document (earlier annual reports and project updates,
+  // keyed by report id — two can share a year). Project updates still page back
+  // by year over earlier updates. Both hooks always run; `byDocument` picks one.
+  const byDocument = !isUpdate;
+  const years = usePastYears(indicatorYears, indicatorCurrentYear, "indicators");
+  const [shownRecords, updateShownRecords] = useStickySet<number>("past-records:indicators");
+  const toggleRecord = (id: number) => updateShownRecords((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+
+  // Column-group keys handed to the table shell. In document mode the past keys
+  // are report ids and the current report is CURRENT_KEY (ids are never 0).
+  const CURRENT_KEY = 0;
+  const currentKey = byDocument ? CURRENT_KEY : indicatorCurrentYear;
+  const visibleKeys = byDocument
+    ? [...indicatorRecords.filter((r) => shownRecords.has(r.report_id)).map((r) => r.report_id), CURRENT_KEY]
+    : years.visibleYears;
+  const recordTitle = new Map(indicatorRecords.map((r) => [r.report_id, r.title]));
+  const keyLabel = byDocument
+    ? (key: number) => (key === CURRENT_KEY ? indicatorCurrentYear : recordTitle.get(key) ?? key)
+    : undefined;
+  const pastCell = (row: IndicatorMatrixRow, key: number): IndicatorYearCell | undefined =>
+    byDocument ? row.byRecord?.[key] : row.byYear[key];
 
   // One table: the standard indicators first, then the project's custom ones.
   const standardRows = indicatorRows.filter((row) => row.is_standard);
@@ -84,7 +122,7 @@ export function IndicatorsSection({
     // placeholder would make the empty state look unlike the populated one.
     // 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
     const emptyColSpan = 3
-      + visibleYears.reduce((acc, y) => acc + (y === indicatorCurrentYear ? 3 : 2), 0)
+      + visibleKeys.reduce((acc, k) => acc + (k === currentKey ? 3 : 2), 0)
       + 1;
 
     const pastSubCols = [
@@ -105,8 +143,9 @@ export function IndicatorsSection({
           { label: labels.indicators.columns.baseline, style: ifz("baseline", 30) },
           { label: labels.indicators.columns.target, style: ifz("target", 30) },
         ]}
-        years={visibleYears}
-        currentYear={indicatorCurrentYear}
+        years={visibleKeys}
+        currentYear={currentKey}
+        yearLabel={keyLabel}
         subCols={[
           { label: <>{labels.indicators.columns.achievedValue}<RequiredMark /></>, minWidth: "w-[100px] min-w-[100px]" },
           { label: <>{labels.indicators.columns.status}<RequiredMark /></>, minWidth: "w-px whitespace-nowrap" },
@@ -168,11 +207,11 @@ export function IndicatorsSection({
                   <ValueYear value={!row.is_standard ? state.target_value : row.target_value} year={!row.is_standard ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
                 </td>
 
-                {visibleYears.map((year) => {
-                  const current = year === indicatorCurrentYear;
+                {visibleKeys.map((key) => {
+                  const current = key === currentKey;
                   if (current) {
                     return (
-                      <Fragment key={year}>
+                      <Fragment key={key}>
                         <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10">
                           <Input
                             inputMode="decimal"
@@ -194,7 +233,7 @@ export function IndicatorsSection({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                              {STATUS_KEYS.map((k) => (
+                              {statusKeys.map((k) => (
                                 <SelectItem key={k} value={k}><StatusBadge value={k} /></SelectItem>
                               ))}
                             </SelectContent>
@@ -211,9 +250,9 @@ export function IndicatorsSection({
                       </Fragment>
                     );
                   }
-                  const cell = row.byYear[year];
+                  const cell = pastCell(row, key);
                   return (
-                    <Fragment key={year}>
+                    <Fragment key={key}>
                       <td className="px-2 py-2 border-l border-t text-muted-foreground tabular-nums bg-neutral-50 opacity-60">
                         {cell?.achieved_value || <span className="text-muted-foreground/40">—</span>}
                       </td>
@@ -249,7 +288,20 @@ export function IndicatorsSection({
     <div className={cn("flex flex-col gap-4", fillHeight && "flex-1 min-h-0")}>
       {/* Past-year chips keep the left of the row. */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <PastYearChips pastYears={pastYears} shownYears={shownYears} onToggle={toggleYear} />
+        {byDocument ? (
+          indicatorRecords.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">{labels.common.pastRecords}</span>
+              {indicatorRecords.map((r) => (
+                <FilterChip key={r.report_id} on={shownRecords.has(r.report_id)} onClick={() => toggleRecord(r.report_id)}>
+                  {r.title}
+                </FilterChip>
+              ))}
+            </div>
+          )
+        ) : (
+          <PastYearChips pastYears={years.pastYears} shownYears={years.shownYears} onToggle={years.toggleYear} />
+        )}
       </div>
       {renderIndicatorTable([...standardRows, ...projectRows])}
     </div>

@@ -1203,8 +1203,10 @@ function IndicatorTable({
         <thead>
           <tr>
             <Th align="left" width="28%">Indicator</Th>
-            <Th align="left" width="14%">Baseline</Th>
-            <Th align="left" width="14%">Target</Th>
+            <Th align="left" width="9%">Baseline</Th>
+            <Th align="left" width="7%">Baseline year</Th>
+            <Th align="left" width="9%">Target</Th>
+            <Th align="left" width="7%">Target year</Th>
             <Th align="left" width="12%">Achieved</Th>
             <Th align="left" width="12%">Status</Th>
             <Th align="left">Description / linked outcome</Th>
@@ -1219,14 +1221,11 @@ function IndicatorTable({
                 <Td>
                   <div style={{ fontWeight: 600 }}>{r.indicator_name}</div>
                 </Td>
-                <Td>
-                  {r.baseline_value || "—"}
-                  {r.baseline_year && <span style={{ color: MUTED, fontSize: 9.5 }}> ({r.baseline_year})</span>}
-                </Td>
-                <Td>
-                  {r.target_value || "—"}
-                  {r.target_year && <span style={{ color: MUTED, fontSize: 9.5 }}> ({r.target_year})</span>}
-                </Td>
+                {/* Value and year in separate columns, empty left blank: copies into Excel as clean numbers. */}
+                <Td>{r.baseline_value ?? ""}</Td>
+                <Td>{r.baseline_year ?? ""}</Td>
+                <Td>{r.target_value ?? ""}</Td>
+                <Td>{r.target_year ?? ""}</Td>
                 <Td>{yearData?.achieved_value || "—"}</Td>
                 <Td>{yearData?.status ? statusLabel(yearData.status) : "—"}</Td>
                 <Td>

@@ -10,6 +10,7 @@
     "cancel": "Cancel",
     "overLimitHint": "Over the limit — shorten this text before submitting.",
     "formerReports": "Former reports:",
+    "pastRecords": "Past records:",
     "rows": "Rows:",
     "baseline": "Baseline",
     "columns": {
@@ -455,7 +456,9 @@
     "statuses": {
       "on_track": "On track",
       "off_track": "Off track",
-      "ahead_of_schedule": "Ahead of schedule"
+      "ahead_of_schedule": "Ahead of schedule",
+      "achieved": "Achieved",
+      "not_achieved": "Not achieved"
     },
     "cycles": {
       "yearly": "Annually",

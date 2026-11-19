@@ -110,6 +110,17 @@ export interface IndicatorMatrixRow {
   linked_results: string[];
   currentLineId: number;
   byYear: Record<number, IndicatorYearCell | undefined>;
+  // Earlier documents' cells, keyed by report id (see IndicatorRecord).
+  byRecord: Record<number, IndicatorYearCell | undefined>;
+}
+
+// An earlier document whose indicator values a report can show alongside its
+// own: a previous annual report or a project update with an Indicators page.
+// Only reports get these; project updates still page back by year.
+export interface IndicatorRecord {
+  report_id: number;
+  year: number;
+  title: string;
 }
 
 export interface IndicatorState {

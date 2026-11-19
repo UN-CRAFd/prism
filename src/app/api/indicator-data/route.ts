@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { hasUpdateIndex } from "@/lib/report-conflict";
+import { hasUpdateModuleColumns } from "@/lib/update-columns";
+import { documentTitle } from "@/lib/project-updates";
 
 // Per-report indicator lines. Keyed by reportId for consistency with every other
 // section route. Each row joins its master indicator for display fields.
@@ -171,6 +174,7 @@ type MatrixRawRow = {
   linked_results: string[];
   sort_order: number;
   report_year: number;
+  report_data_type: string;
   is_current: boolean;
   indicator_name: string;
   indicator_description: string | null;
@@ -180,15 +184,54 @@ type MatrixRawRow = {
   is_standard: boolean;
 };
 
+// A report's indicator history spans documents, not just years: the earlier
+// annual reports AND the project updates that carry an Indicators page. Those
+// can share a year (an update mid-2026, the annual report for 2026), so the
+// history is keyed by report id — `byYear` would let one overwrite the other.
+//
+// "Earlier" means what the partner had filed before this report: reports for an
+// earlier year, and updates up to and including this report's year (an update is
+// filed during its year; the report for that year comes after it closes).
+//
+// Project updates keep their existing year-based history for now: for them
+// `records` is empty and the editor falls back to `byYear`.
+type MatrixRecord = { report_id: number; year: number; title: string };
+
+async function getRecords(projectId: number, reportId: string, currentYear: number): Promise<MatrixRecord[]> {
+  const withIndex = await hasUpdateIndex();
+  const withTypes = await hasUpdateModuleColumns();
+  const docs = await query<{
+    id: number; year: number; data_type: string; report_type: string | null;
+    update_types: string[] | null; update_index: string | null;
+  }>(
+    `SELECT r.id, r.year, r.data_type::text AS data_type, r.report_type::text AS report_type,
+            ${withTypes ? "r.update_types" : "NULL::text[] AS update_types"},
+            ${withIndex ? "r.update_index" : "NULL::text AS update_index"}
+       FROM reporting_platform.reports r
+      WHERE r.project_id = $1
+        AND r.id <> $2
+        AND (
+              (r.data_type = 'report' AND r.year < $3)
+           OR (r.data_type = 'update' AND r.year <= $3 AND 'indicators' = ANY(r.unlocked_sections))
+        )
+      -- Within a year the update came first, then the report.
+      ORDER BY r.year ASC, (r.data_type = 'report') ASC, r.id ASC`,
+    [projectId, reportId, currentYear]
+  );
+  return docs.map((d) => ({ report_id: d.id, year: d.year, title: documentTitle(d) }));
+}
+
 async function getMatrix(reportId: string) {
-  const meta = await query<{ project_id: number; year: number; data_type: string }>(
-    `SELECT project_id, year, data_type FROM reporting_platform.reports WHERE id = $1`,
+  const meta = await query<{ project_id: number; year: number; data_type: string; report_type: string | null }>(
+    `SELECT project_id, year, data_type, report_type::text AS report_type FROM reporting_platform.reports WHERE id = $1`,
     [reportId]
   );
   if (meta.length === 0) {
-    return NextResponse.json({ years: [], currentYear: null, rows: [] });
+    return NextResponse.json({ years: [], currentYear: null, reportType: null, records: [], rows: [] });
   }
-  const { project_id: projectId, year: currentYear, data_type: dataType } = meta[0];
+  const { project_id: projectId, year: currentYear, data_type: dataType, report_type: reportType } = meta[0];
+  const isReport = dataType === "report";
+  const records = isReport ? await getRecords(projectId, reportId, currentYear) : [];
   const projectIndicatorFilter = dataType === "report"
     ? `AND d.indicator_id IN (
          SELECT pd.indicator_id
@@ -202,20 +245,20 @@ async function getMatrix(reportId: string) {
     `SELECT d.id, d.report_id, d.indicator_id,
             d.baseline_value, d.baseline_year, d.target_value, d.target_year,
             d.achieved_value, d.status, d.comment, d.linked_activity_id, d.linked_results, d.sort_order,
-            r.year AS report_year, (r.id = $2) AS is_current,
+            r.year AS report_year, r.data_type::text AS report_data_type, (r.id = $2) AS is_current,
             i.name AS indicator_name, i.description AS indicator_description,
             i.means_of_verification, i.category, i.cycle, i.is_standard
        FROM reporting_platform.indicator_data d
        JOIN reporting_platform.reports r ON r.id = d.report_id
        JOIN reporting_platform.indicators i ON i.id = d.indicator_id
       WHERE r.project_id = $1
-        AND r.data_type = $3
+        AND (r.data_type = $3 OR r.id = ANY($4::int[]))
         AND d.indicator_id IN (
           SELECT indicator_id FROM reporting_platform.indicator_data WHERE report_id = $2
         )
         ${projectIndicatorFilter}
       ORDER BY r.year ASC`,
-    [projectId, reportId, dataType]
+    [projectId, reportId, dataType, records.map((r) => r.report_id)]
   );
 
   // Row skeleton + order come from the current report's lines.
@@ -237,25 +280,30 @@ async function getMatrix(reportId: string) {
       linked_results: r.linked_results,
       currentLineId: r.id,
       byYear: {} as Record<number, unknown>,
+      byRecord: {} as Record<number, unknown>,
     });
   }
 
   const yearsSet = new Set<number>();
   for (const r of rows) {
-    yearsSet.add(r.report_year);
     const row = byIndicator.get(r.indicator_id);
-    if (!row) continue;
-    (row.byYear as Record<number, unknown>)[r.report_year] = {
+    const cell = {
       id: r.id,
       report_id: r.report_id,
       achieved_value: r.achieved_value,
       status: r.status,
       comment: r.comment,
     };
+    if (row && !r.is_current) (row.byRecord as Record<number, unknown>)[r.report_id] = cell;
+    // byYear stays same-type only: a same-year update must never stand in for
+    // this report's own current-year cell.
+    if (r.report_data_type !== dataType) continue;
+    yearsSet.add(r.report_year);
+    if (row) (row.byYear as Record<number, unknown>)[r.report_year] = cell;
   }
 
   const years = [...yearsSet].sort((a, b) => a - b);
-  return NextResponse.json({ years, currentYear, rows: [...byIndicator.values()] });
+  return NextResponse.json({ years, currentYear, reportType: isReport ? reportType : null, records, rows: [...byIndicator.values()] });
 }
 
 export async function POST(req: NextRequest) {

@@ -33,6 +33,7 @@ import {
   type Risk,
   type RiskState,
   type IndicatorMatrixRow,
+  type IndicatorRecord,
   type IndicatorState,
 } from "@/components/report-editor/types";
 import { OverviewSection } from "@/components/report-editor/sections/overview-section";
@@ -125,6 +126,8 @@ export function ReportEditor({
   const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
   const [indicatorYears, setIndicatorYears] = useState<number[]>([]);
   const [indicatorCurrentYear, setIndicatorCurrentYear] = useState<number | null>(null);
+  const [indicatorReportType, setIndicatorReportType] = useState<string | null>(null);
+  const [indicatorRecords, setIndicatorRecords] = useState<IndicatorRecord[]>([]);
   const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
   const [loadingIndicators, setLoadingIndicators] = useState(false);
 
@@ -307,10 +310,18 @@ export function ReportEditor({
     try {
       const res = await fetch(`/api/indicator-data?reportId=${id}&matrix=1`);
       if (!res.ok) throw new Error("Failed to load indicators");
-      const data: { years: number[]; currentYear: number | null; rows: IndicatorMatrixRow[] } = await res.json();
+      const data: {
+        years: number[];
+        currentYear: number | null;
+        reportType: string | null;
+        records: IndicatorRecord[];
+        rows: IndicatorMatrixRow[];
+      } = await res.json();
       setIndicatorRows(data.rows);
       setIndicatorYears(data.years);
       setIndicatorCurrentYear(data.currentYear);
+      setIndicatorReportType(data.reportType ?? null);
+      setIndicatorRecords(data.records ?? []);
       const states: Record<number, IndicatorState> = {};
       for (const row of data.rows) {
         const cell = data.currentYear != null ? row.byYear[data.currentYear] : undefined;
@@ -1035,6 +1046,9 @@ export function ReportEditor({
                     indicatorRows={indicatorRows}
                     indicatorYears={indicatorYears}
                     indicatorCurrentYear={indicatorCurrentYear}
+                    indicatorReportType={indicatorReportType}
+                    indicatorRecords={indicatorRecords}
+                    isUpdate={dataType === "update"}
                     indicatorStates={indicatorStates}
                     updateIndicator={updateIndicator}
                     isAdmin={mode === "admin"}

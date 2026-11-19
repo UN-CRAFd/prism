@@ -9,7 +9,7 @@ import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
 import { isPartnerEditable } from "@/lib/report-status";
-
+import { Tag } from "@/components/ui/tag";
 export default function ReportEditorPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -115,6 +115,11 @@ export default function ReportEditorPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <p className="text-base font-semibold truncate">{report.project_title}</p>
+                            {/* Annual vs Final: a project can have both in the same year. */}
+                            {/* Neutral grey tag, so it reads apart from the yellow status pill. */}
+                            <Tag>
+                              {report.report_type === "final" ? labels.dashboard.finalReport : labels.dashboard.annualReport}
+                            </Tag>
                             <StatusPill
                               status={report.status}
                               label={isPartnerEditable(report.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}

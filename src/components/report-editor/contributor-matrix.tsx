@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { CircleCheck, Loader2, Plus, Trash2 } from "lucide-react";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { MatrixTableShell, HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/r
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { optionValues } from "@/lib/options";
+import { useReadOnly } from "@/components/ui/read-only-context";
 import { activityLabel, formatAmount } from "@/lib/transfers";
 import { numericAmount } from "@/lib/numeric-input";
 import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
@@ -106,6 +107,8 @@ export interface ContributorMatrixConfig {
   labels: {
     addEntry: string;
     empty: string;
+    noRows: string;           // checkbox label: "nothing to report"
+    noRowsConfirmed: string;  // read-only line when that box is ticked
     identityColumn: string;
     websiteColumn: string;
     typeColumn: string;
@@ -516,6 +519,48 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
   const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(years, currentYear, config.section);
+  const readOnly = useReadOnly();
+
+  // "Nothing to report" confirmation (reports.no_*_confirmed). The section counts as
+  // complete with zero rows only when it is set; the server clears it when a row is
+  // added, so it is mirrored here. "Rows" = this report's own lines — a project's
+  // organisations from other years are context only and don't count.
+  const [noRowsConfirmed, setNoRowsConfirmed] = useState(false);
+  const [noRowsSaving, setNoRowsSaving] = useState(false);
+  const lineCount = rows.filter((r) => r.currentLineId != null).length;
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/report-no-rows?reportId=${props.reportId}&section=${config.section}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setNoRowsConfirmed(data.confirmed === true); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [props.reportId, config.section]);
+  useEffect(() => { if (lineCount > 0) setNoRowsConfirmed(false); }, [lineCount]);
+
+  async function setNoRows(confirmed: boolean) {
+    setNoRowsSaving(true);
+    props.onError(null);
+    // Report through the same save-state channel the autosave uses, so the editor
+    // refetches completion (submit blockers) and the sidebar tick updates.
+    props.onSaveStateChange?.("saving");
+    try {
+      const res = await fetch("/api/report-no-rows", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: props.reportId, section: config.section, confirmed }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || labels.common.saveFailed); }
+      const data = await res.json();
+      setNoRowsConfirmed(data.confirmed === true);
+      props.onSaveStateChange?.("saved");
+    } catch (e) {
+      props.onSaveStateChange?.("error");
+      props.onError(e instanceof Error ? e.message : labels.common.saveFailed);
+    } finally {
+      setNoRowsSaving(false);
+    }
+  }
 
   if (loading) return <LoadingState />;
 
@@ -531,6 +576,35 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   const yearTotal = (year: number) => rows.reduce((s, r) => s + cellAmount(r, year), 0);
   const grandTotal = rows.reduce((s, r) => s + rowSubtotal(r), 0);
 
+  // Add a blank row — the partner fills every field inline in the table. Sits directly
+  // under the table (the shell's `footer` slot keeps it on the card's real bottom
+  // edge, gap-2 like the other tables), right-aligned, with the "nothing to report"
+  // checkbox on the left while the report has no rows of its own.
+  const addRow = (
+    <div className="flex shrink-0 items-center justify-between gap-3">
+      {lineCount === 0 && noRowsConfirmed && readOnly ? (
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
+          <CircleCheck className="size-4" />{config.labels.noRowsConfirmed}
+        </span>
+      ) : lineCount === 0 && !readOnly ? (
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={noRowsConfirmed}
+            disabled={noRowsSaving}
+            onChange={(e) => setNoRows(e.target.checked)}
+            className="size-4"
+          />
+          {config.labels.noRows}
+          {noRowsSaving && <Loader2 className="size-3.5 animate-spin" />}
+        </label>
+      ) : <span />}
+      <Button variant="add" onClick={onAdd} disabled={adding} size="sm" className="gap-1">
+        {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4" />{config.labels.addEntry}</>}
+      </Button>
+    </div>
+  );
+
   return (
     <div className={cn("space-y-4", props.fillHeight && "flex flex-col flex-1 min-h-0 space-y-0 gap-4")}>
       <div className="flex items-center gap-4 flex-wrap">
@@ -538,12 +612,17 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-          {config.labels.empty}
+        <div className="flex flex-col gap-2">
+          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+            {config.labels.empty}
+          </div>
+          {addRow}
         </div>
       ) : (
         <MatrixTableShell
           fillHeight={props.fillHeight}
+          hugContent
+          footer={addRow}
           minWidth={TRANSFER_FROZEN_WIDTH}
           leadingCols={[
             { label: <>{config.labels.identityColumn}<RequiredMark /></>, style: tfz("org", 30) },
@@ -686,13 +765,6 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
         </MatrixTableShell>
       )}
 
-      {/* Add a blank row — the partner fills every field inline above. Below the
-          table, right-aligned, like the project document's Add buttons. */}
-      <div className="flex shrink-0 justify-end">
-        <Button variant="add" onClick={onAdd} disabled={adding} size="sm" className="gap-1">
-          {adding ? <Loader2 className="size-4 animate-spin" /> : <><Plus className="size-4" />{config.labels.addEntry}</>}
-        </Button>
-      </div>
     </div>
   );
 }
@@ -722,6 +794,8 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
   labels: {
     addEntry: labels.transfers.addEntry,
     empty: labels.transfers.empty,
+    noRows: labels.transfers.noRows,
+    noRowsConfirmed: labels.transfers.noRowsConfirmed,
     identityColumn: labels.transfers.columns.organizationName,
     websiteColumn: labels.transfers.columns.website,
     typeColumn: labels.transfers.columns.partnerType,
@@ -763,6 +837,8 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
   labels: {
     addEntry: labels.complementary.addEntry,
     empty: labels.complementary.empty,
+    noRows: labels.complementary.noRows,
+    noRowsConfirmed: labels.complementary.noRowsConfirmed,
     identityColumn: labels.complementary.columns.contributorName,
     websiteColumn: labels.complementary.columns.website,
     typeColumn: labels.complementary.columns.fundingType,

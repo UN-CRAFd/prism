@@ -234,6 +234,12 @@ export async function POST(req: NextRequest) {
       ]
     );
 
+    // A row now exists, so any "No transfers to report" confirmation no longer applies.
+    await query(
+      `UPDATE reporting_platform.reports SET no_transfers_confirmed = FALSE WHERE id = $1 AND no_transfers_confirmed`,
+      [reportId]
+    );
+
     const rows = await query(`${SELECT_WITH_PARTNER} WHERE d.id = $1`, [inserted[0].id]);
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {

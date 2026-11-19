@@ -300,6 +300,8 @@ CREATE TABLE IF NOT EXISTS reports (
     archived               BOOLEAN        NOT NULL DEFAULT FALSE,  -- hidden from the admin Reports / Project Updates overviews by default
     indirect_expenditure   NUMERIC(15,2)  CHECK (indirect_expenditure IS NULL OR indirect_expenditure >= 0),
                                                                   -- project update: indirect support costs actually spent in the year this document reports. One figure per document, so it sits here rather than in expenditure_entries (which is keyed by budget category, and ISC is not one). See db/add-expenditure-indirect.sql.
+    no_transfers_confirmed     BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No transfers to report" (Transfers section complete with zero rows); cleared when a row is added. See db/add-no-transfers-complementary-confirmed.sql.
+    no_complementary_confirmed BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No complementary funding to report" (Complementary section complete with zero rows); cleared when a row is added.
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     -- update_index is '' for reports and prodocs, so they stay one per

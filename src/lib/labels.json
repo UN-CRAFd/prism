@@ -510,6 +510,8 @@
     "selectPartnerType": "Organization type",
     "selectActivity": "Linked activity",
     "addEntry": "Add transfer",
+    "noRows": "No transfers to report",
+    "noRowsConfirmed": "Confirmed: no transfers to report",
     "empty": "No transfers have been added to this report yet."
   },
   "complementary": {
@@ -528,6 +530,8 @@
     "selectActivities": "Linked activities",
     "activitiesSelected": "Activities selected",
     "addEntry": "Add contributor",
+    "noRows": "No complementary funding to report",
+    "noRowsConfirmed": "Confirmed: no complementary funding to report",
     "empty": "No complementary funding has been added to this report yet."
   },
   "placeholders": {

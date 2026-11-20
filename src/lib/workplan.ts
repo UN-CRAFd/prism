@@ -13,6 +13,14 @@ export function workplanStatuses(): string[] {
   return optionValues("workplanStatus");
 }
 
+// Statuses that need an explanation: only these open the updated-timeline
+// quarters and the description field on a partner's progress line. Achieved /
+// On Track (or no status yet) keep both hidden. Matched on the stored value.
+const STATUSES_NEEDING_DETAIL = new Set(["Delayed", "At Risk", "Suspended"]);
+export function workplanStatusNeedsDetail(status: string | null | undefined): boolean {
+  return status != null && STATUSES_NEEDING_DETAIL.has(status);
+}
+
 // One-line meaning shown beside the status name in the progress dropdown.
 export function workplanStatusDescription(status: string): string {
   return optionDescription("workplanStatus", status);
@@ -37,13 +45,15 @@ export function workplanUpdateWindowLabel(u: { year: number; type_code: string }
 
 // Colour treatments for the status badge, echoing the reference spreadsheet. Kept
 // in code (valid Tailwind classes) and keyed by the status text; unknown/added
-// statuses fall back to a neutral treatment.
+// statuses fall back to a neutral treatment. Deliberately light: every status is
+// a pale tint with dark text — no solid fills — so the column stays calm and no
+// single answer shouts (Achieved/Suspended used to be solid green/red).
 const WORKPLAN_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  "Achieved": { bg: "bg-green-700", text: "text-white", border: "border-green-700" },
-  "On Track": { bg: "bg-green-100", text: "text-green-800", border: "border-green-300" },
-  "Delayed": { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
-  "At Risk": { bg: "bg-crafd-yellow-200", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
-  "Suspended": { bg: "bg-red-700", text: "text-white", border: "border-red-700" },
+  "Achieved": { bg: "bg-green-100", text: "text-green-800", border: "border-green-300" },
+  "On Track": { bg: "bg-green-50", text: "text-green-800", border: "border-green-200" },
+  "Delayed": { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-300" },
+  "At Risk": { bg: "bg-crafd-yellow-150", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
+  "Suspended": { bg: "bg-red-50", text: "text-red-800", border: "border-red-200" },
 };
 const WORKPLAN_STATUS_FALLBACK_COLOR = { bg: "bg-zinc-100", text: "text-zinc-700", border: "border-zinc-300" };
 export function workplanStatusColor(status: string): { bg: string; text: string; border: string } {

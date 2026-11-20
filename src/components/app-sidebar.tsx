@@ -624,7 +624,7 @@ export function AppSidebar() {
               : []),
             {
               href: "/partner/contacts",
-              label: "Contact Information",
+              label: "Project Contacts",
               icon: Contact,
               isActive: (p: string) => p.startsWith("/partner/contacts"),
             },

@@ -76,10 +76,22 @@ export async function GET(req: NextRequest) {
       const gate = await guardPartner(session, partnerId);
       if (gate) return gate;
       const rows = await query(
-        `SELECT id, partner_id, name, organization, job_title, email, sort_order
-           FROM reporting_platform.partner_contacts
-          WHERE partner_id = $1
-          ORDER BY sort_order ASC, id ASC`,
+        `SELECT c.id, c.partner_id, c.name, c.organization, c.job_title, c.email, c.sort_order,
+              COALESCE(
+                (SELECT jsonb_agg(jsonb_build_object(
+                          'project_id', p.id,
+                          'project_title', p.project_title,
+                          'project_short_name', p.short_name,
+                          'roles', pc.roles
+                        ) ORDER BY p.project_title)
+                   FROM reporting_platform.project_contacts pc
+                   JOIN reporting_platform.projects p ON p.id = pc.project_id
+                  WHERE pc.contact_id = c.id),
+                '[]'::jsonb
+              ) AS projects
+           FROM reporting_platform.partner_contacts c
+          WHERE c.partner_id = $1
+          ORDER BY c.sort_order ASC, c.id ASC`,
         [partnerId]
       );
       return NextResponse.json(rows);
@@ -90,7 +102,19 @@ export async function GET(req: NextRequest) {
     if (gate instanceof NextResponse) return gate;
     const rows = await query(
       `SELECT c.id, c.partner_id, c.name, c.organization, c.job_title, c.email, c.sort_order,
-              p.short_name AS partner_short_name, p.long_name AS partner_long_name
+              p.short_name AS partner_short_name, p.long_name AS partner_long_name,
+              COALESCE(
+                (SELECT jsonb_agg(jsonb_build_object(
+                          'project_id', p2.id,
+                          'project_title', p2.project_title,
+                          'project_short_name', p2.short_name,
+                          'roles', pc.roles
+                        ) ORDER BY p2.project_title)
+                   FROM reporting_platform.project_contacts pc
+                   JOIN reporting_platform.projects p2 ON p2.id = pc.project_id
+                  WHERE pc.contact_id = c.id),
+                '[]'::jsonb
+              ) AS projects
          FROM reporting_platform.partner_contacts c
          JOIN reporting_platform.partners p ON p.id = c.partner_id
         ORDER BY p.short_name, c.sort_order ASC, c.id ASC`

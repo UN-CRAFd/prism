@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Contact } from "lucide-react";
 import {
   Field, LoadingState, ErrorBanner, FormShell, HoverActions, PageHeader,
@@ -26,6 +27,8 @@ interface PartnerContact {
   organization: string | null;
   job_title: string | null;
   email: string | null;
+  // Projects this contact is linked to (from the project contacts), with their roles.
+  projects?: { project_id: number; project_title: string; project_short_name: string | null; roles: string | null }[];
 }
 
 export default function PartnerContactsPage() {
@@ -123,18 +126,50 @@ export default function PartnerContactsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Contact Information" description="Keep your organization's contact people up to date">
-        {!showForm && partnerId != null && (
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
-            <Plus className="size-3.5" /> Add contact
-          </Button>
-        )}
-      </PageHeader>
+      <PageHeader title="Project Contacts" description="Update your project contacts in this section. If a focal point or project lead has changed, edit the existing contact’s information rather than adding a new contact." />
 
       <div className="flex-1 overflow-auto px-8 py-6">
         {error && <ErrorBanner message={error} />}
 
+        {loading ? (
+          <LoadingState />
+        ) : partnerId == null ? null : contacts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+            <Contact className="size-8 opacity-30" />
+            <p className="text-sm">No contacts added yet. Click below to add your first.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {contacts.map((c) => (
+              <div key={c.id} className="group flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-base font-semibold truncate">{c.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {[c.organization, c.job_title].filter(Boolean).join(" · ") || "—"}
+                    {c.email ? ` · ${c.email}` : ""}
+                  </p>
+                  {(c.projects?.length ?? 0) > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {c.projects!.map((pr) => {
+                        const roles = (pr.roles ?? "").split("|").filter(Boolean).join(", ");
+                        const projectName = pr.project_short_name || pr.project_title;
+                        return (
+                          <Badge key={pr.project_id} variant="outline" className="text-xs font-normal">
+                            {roles ? `${projectName} · ${roles}` : projectName}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <HoverActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {showForm && (
+          <div className="mt-4">
           <FormShell
             title={editId ? "Edit contact" : "New contact"}
             onClose={resetForm}
@@ -159,29 +194,15 @@ export default function PartnerContactsPage() {
               </Field>
             </div>
           </FormShell>
+          </div>
         )}
 
-        {loading ? (
-          <LoadingState />
-        ) : partnerId == null ? null : contacts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-            <Contact className="size-8 opacity-30" />
-            <p className="text-sm">No contacts added yet. Click below to add your first.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {contacts.map((c) => (
-              <div key={c.id} className="group flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-base font-semibold truncate">{c.name}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {[c.organization, c.job_title].filter(Boolean).join(" · ") || "—"}
-                    {c.email ? ` · ${c.email}` : ""}
-                  </p>
-                </div>
-                <HoverActions onEdit={() => startEdit(c)} onDelete={() => handleDelete(c.id)} />
-              </div>
-            ))}
+        {/* Add button: below the list, right-aligned, like the in-editor Add buttons. */}
+        {!showForm && partnerId != null && (
+          <div className="mt-4 flex justify-end">
+            <Button type="button" variant="add" size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="gap-1">
+              <Plus className="size-4" />Add contact
+            </Button>
           </div>
         )}
       </div>

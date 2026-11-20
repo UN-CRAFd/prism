@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { quarterFromDate, quartersBetween, workplanTypeCode } from "@/lib/workplan";
+import { quarterFromDate, quartersBetween, workplanTypeCode, workplanStatusNeedsDetail } from "@/lib/workplan";
 import { requireSession, requireAdmin, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { hasUpdateModuleColumns } from "@/lib/update-columns";
@@ -215,8 +215,11 @@ export async function PATCH(req: NextRequest) {
   const gate = await guardReport(session, reportId as string | number);
   if (gate) return gate;
 
-  const updatedQuarters = toQuartersOrNull(body.updated_quarters);
   const status = (body.status as string) || null;
+  // An updated timeline only counts as input under a delay (Delayed / At Risk /
+  // Suspended). With no status, Achieved or On Track the timeline is unchanged,
+  // so any ticks sent along are dropped and nothing is stored.
+  const updatedQuarters = workplanStatusNeedsDetail(status) ? toQuartersOrNull(body.updated_quarters) : null;
   const comment = (body.comment as string) || null;
 
   try {

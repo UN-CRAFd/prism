@@ -992,6 +992,8 @@ export function AppSidebar() {
                             </p>
                           </NameTip>
                           {g.rows
+                            // With a report open, list only that report (not the project's others).
+                            .filter((r) => !adminActiveReport || r.id === adminActiveReport.id)
                             .slice()
                             .sort((x, y) => y.year - x.year || x.id - y.id)
                             .map((r) =>
@@ -1062,6 +1064,8 @@ export function AppSidebar() {
                             </p>
                           </NameTip>
                           {rows
+                            // With an update open, list only that update (not the project's others).
+                            .filter((u) => !(adminActiveUpdate && openAdminUpdate) || u.id === adminActiveUpdate.id)
                             .slice()
                             .sort((x, y) => y.year - x.year || x.id - y.id)
                             .map((u) =>

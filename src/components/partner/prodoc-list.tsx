@@ -8,6 +8,7 @@ import { ArrowRight, FileText } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
+import { isPartnerEditable } from "@/lib/report-status";
 
 export function ProdocList() {
   const { user } = useAuth();
@@ -111,13 +112,14 @@ export function ProdocList() {
                         <p className="text-base font-semibold truncate">{row.project_title}</p>
                         <StatusPill
                           status={row.status}
-                          label={row.status === "Open" && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
+                          kind="prodoc"
+                          label={isPartnerEditable(row.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
                         />
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full ${row.status === "Open" ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
+                            className={`h-full ${isPartnerEditable(row.status) ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>

@@ -267,6 +267,12 @@ export async function POST(req: NextRequest) {
     );
     await syncActivities(client, inserted.rows[0].id, toActivityIds(body.linked_activity_ids));
 
+    // A row now exists, so any "No complementary funding to report" confirmation no longer applies.
+    await client.query(
+      `UPDATE reporting_platform.reports SET no_complementary_confirmed = FALSE WHERE id = $1 AND no_complementary_confirmed`,
+      [reportId]
+    );
+
     await client.query("COMMIT");
 
     const rows = await query(`${SELECT_WITH_CONTRIBUTOR} WHERE d.id = $1`, [inserted.rows[0].id]);

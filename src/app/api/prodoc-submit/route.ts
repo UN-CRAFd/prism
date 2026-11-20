@@ -6,9 +6,10 @@ import { logStatusChange } from "@/lib/version-log";
 import { getCharLimits } from "@/lib/char-limits";
 import { narrativeLimit } from "@/lib/limits";
 import { richTextLength } from "@/lib/richtext";
+import { isPartnerEditable, editableStatusParam } from "@/lib/report-status";
 
 // POST /api/prodoc-submit — partner submits their project document for review.
-// Transitions status Open → Under Review, which locks partner editing.
+// Transitions status Open / Partner Review → Under Review, which locks partner editing.
 // Blocked if required fields are missing or if the tranche/budget totals don't
 // match the requested funding amount within the allowed tolerance ($1 rounding).
 export async function POST(request: NextRequest) {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
     const prodoc = prodocRows[0];
 
-    if (prodoc.status !== "Open") {
+    if (!isPartnerEditable(prodoc.status)) {
       if (checkOnly) {
         return NextResponse.json({ ok: true, alreadySubmitted: true });
       }
@@ -200,9 +201,9 @@ export async function POST(request: NextRequest) {
         `UPDATE reporting_platform.reports
             SET status = 'Under Review',
                 submitted_at = now()
-          WHERE id = $1 AND status = 'Open'
+          WHERE id = $1 AND status = ANY($2::text[])
           RETURNING id, status`,
-        [prodoc.id]
+        [prodoc.id, editableStatusParam()]
       );
       if (updated.rows.length === 0) {
         await client.query("ROLLBACK");
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
           entity_id: prodoc.id,
           entity_label: "Project Document",
           project_id: Number(projectId),
-          from_status: "Open",
+          from_status: prodoc.status,
           to_status: "Under Review",
           actor_role: session.role,
           actor_org: session.org ?? null,

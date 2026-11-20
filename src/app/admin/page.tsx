@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportStatusStyle } from "@/lib/reports";
+import { reportStatusLabel } from "@/lib/status-label";
 import { projectSlug, timeAgo, shortName } from "@/lib/utils";
 import { CommentContextBadges } from "@/components/comment-context-badges";
 import { toDisplayHtml } from "@/lib/richtext";
@@ -390,7 +391,7 @@ export default function AdminHomePage() {
                         {mounted ? timeAgo(r.last_activity) : ""}
                       </span>
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0 ${reportStatusStyle(r.status)}`}>
-                        {r.status}
+                        {reportStatusLabel(r.status)}
                       </span>
                     </button>
                   );

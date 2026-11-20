@@ -1,4 +1,5 @@
 import baseJson from "./options.json";
+import { LOCKED_STATUS_GROUPS } from "./report-status";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime-editable dropdown option lists ("choice enums").
@@ -77,6 +78,31 @@ function mergeInPlace(target: Record<string, unknown>, source: unknown): void {
   }
 }
 
+/** For the locked status groups (see lib/report-status.ts) the VALUES and their order
+ *  always come from the compiled-in defaults; an override may only rename the label
+ *  (and description) of an item with the same value. Override items whose value isn't
+ *  a default value are ignored — so a stale override with extra/missing statuses in
+ *  the database can't break editability rules. */
+export function resolveLockedItems(groupKey: string, overrideItems: unknown): OptionItem[] {
+  const defaults = baseOptions[groupKey]?.items ?? [];
+  const byValue = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(overrideItems)) {
+    for (const it of overrideItems) {
+      if (it && typeof it === "object" && typeof (it as Record<string, unknown>).value === "string") {
+        byValue.set((it as { value: string }).value, it as Record<string, unknown>);
+      }
+    }
+  }
+  return defaults.map((d) => {
+    const o = byValue.get(d.value);
+    const label = o && typeof o.label === "string" && o.label.trim() ? o.label.trim() : d.label;
+    const description = o && typeof o.description === "string" && o.description.trim()
+      ? o.description.trim()
+      : d.description;
+    return description ? { value: d.value, label, description } : { value: d.value, label };
+  });
+}
+
 /** Apply admin overrides onto the live options registry (idempotent). Overrides
  *  are a partial `{ groupKey: { items: OptionItem[] } }` map. */
 export function applyOptionOverrides(overrides: unknown): void {
@@ -84,7 +110,15 @@ export function applyOptionOverrides(overrides: unknown): void {
     // Only patch groups that exist in the base registry.
     const filtered: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(overrides as Record<string, unknown>)) {
-      if (key in options) filtered[key] = val;
+      if (!(key in options)) continue;
+      if (LOCKED_STATUS_GROUPS.includes(key)) {
+        const rawItems = val && typeof val === "object" && !Array.isArray(val)
+          ? (val as Record<string, unknown>).items
+          : val;
+        filtered[key] = { items: resolveLockedItems(key, rawItems) };
+      } else {
+        filtered[key] = val;
+      }
     }
     mergeInPlace(options as unknown as Record<string, unknown>, filtered);
   }

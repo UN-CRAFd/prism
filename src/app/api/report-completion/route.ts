@@ -9,8 +9,8 @@ import { countsTowardProgress } from "@/lib/report-sections";
 //
 //   • `sections`      — { [sectionValue]: boolean } map used for sidebar checkmarks.
 //   • `completed`     — number of progress-counting sections that are true.
-//   • `totalSections` — number of progress-counting sections (the optional
-//                       Transfers and Complementary sections are excluded).
+//   • `totalSections` — number of progress-counting sections (all of them now,
+//                       including Transfers and Complementary).
 //
 // A section is "complete" only when it is actually filled out — an empty section
 // is never complete (so the checkmark means "done", not "nothing to do").
@@ -95,29 +95,34 @@ export async function GET(req: NextRequest) {
         dataType === "report" ? [reportId, projectId] : [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Transfers — zero rows is OK (not all projects use this); non-zero rows require
-      // the partner to be selected and the amount to be filled.
+      // Transfers — complete when there is at least one row and every row has the
+      // partner selected and the amount filled, OR there are zero rows and the
+      // partner ticked "No transfers to report" (reports.no_transfers_confirmed).
+      // Zero rows without the flag is NOT complete.
       query<Row>(
         `SELECT COUNT(*)::int AS total,
                 COUNT(*) FILTER (WHERE tp.organization_name IS NOT NULL AND tp.organization_name <> ''
-                                   AND d.amount_transferred IS NOT NULL)::int AS ok
+                                   AND d.amount_transferred IS NOT NULL)::int AS ok,
+                (SELECT no_transfers_confirmed FROM reporting_platform.reports WHERE id = $1) AS confirmed
            FROM reporting_platform.transfer_data d
            JOIN reporting_platform.transfer_partners tp ON tp.id = d.transfer_partner_id
           WHERE d.report_id = $1`,
         [reportId]
-      ).then((r) => n(r[0]?.total) === 0 || n(r[0]?.ok) === n(r[0]?.total)),
+      ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
 
-      // Complementary — zero rows is OK (not all projects use this); non-zero rows
-      // require the contributor to be selected and the amount to be filled.
+      // Complementary — same rule: every row has the contributor selected and the
+      // amount filled, OR zero rows and "No complementary funding to report" ticked
+      // (reports.no_complementary_confirmed).
       query<Row>(
         `SELECT COUNT(*)::int AS total,
                 COUNT(*) FILTER (WHERE c.contributor_name IS NOT NULL AND c.contributor_name <> ''
-                                   AND cd.contribution_amount IS NOT NULL)::int AS ok
+                                   AND cd.contribution_amount IS NOT NULL)::int AS ok,
+                (SELECT no_complementary_confirmed FROM reporting_platform.reports WHERE id = $1) AS confirmed
            FROM reporting_platform.complementary_data cd
            JOIN reporting_platform.complementary_contributors c ON c.id = cd.contributor_id
           WHERE cd.report_id = $1`,
         [reportId]
-      ).then((r) => n(r[0]?.total) === 0 || n(r[0]?.ok) === n(r[0]?.total)),
+      ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
 
       listSection("key_achievements", "achievement", 1),
       listSection("partnerships", "partner_organization", 1),
@@ -141,13 +146,14 @@ export async function GET(req: NextRequest) {
         [projectId, reportId]
       ).then((r) => n(r[0]?.activities) > 0 && n(r[0]?.done) === n(r[0]?.activities)),
 
-      // Expenditure — every category has an entered amount for this report.
+      // Expenditure — complete when at least one category has an annual expenditure
+      // above 0 for this report (blank amounts count as 0, so a report with nothing
+      // entered is not complete).
       query<Row>(
-                `SELECT (SELECT COUNT(*) FROM reporting_platform.expenditure_categories)::int AS cats,
-                (SELECT COUNT(*) FROM reporting_platform.expenditure_entries
-                  WHERE report_id = $1 AND annual_expenditure IS NOT NULL)::int AS filled`,
+        `SELECT EXISTS (SELECT 1 FROM reporting_platform.expenditure_entries
+                         WHERE report_id = $1 AND annual_expenditure > 0) AS ok`,
         [reportId]
-      ).then((r) => n(r[0]?.cats) > 0 && n(r[0]?.filled) >= n(r[0]?.cats)),
+      ).then((r) => !!r[0]?.ok),
 
       // Testimonials — a leadership row and at least one partner row must each have
       // quote, person_name and person_title filled; no started-but-incomplete row of
@@ -212,8 +218,8 @@ export async function GET(req: NextRequest) {
       testimonials,
     };
 
-    // The progress figures leave out the optional sections (see countsTowardProgress);
-    // `sections` itself still carries every section for ticks and submit blocking.
+    // The progress figures use countsTowardProgress (currently every section);
+    // `sections` itself carries every section for ticks and submit blocking.
     const counted = Object.entries(sections).filter(([key]) => countsTowardProgress(key));
     const completed = counted.filter(([, ok]) => ok).length;
     const totalSections = counted.length;

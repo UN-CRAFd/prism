@@ -96,12 +96,41 @@ function parseAmount(s: string): number | null {
 }
 
 // A read-only computed number cell (muted for approved, coloured for differences).
-function Num({ value, kind = "plain" }: { value: number | null; kind?: "plain" | "approved" | "diff" | "strong" }) {
+// A blank (null) value reads as 0.00; `blank` overrides that with a fixed text for the
+// few cells where "nothing" is meaningful (an extension year has no approved budget).
+function Num({ value, kind = "plain", blank }: { value: number | null; kind?: "plain" | "approved" | "diff" | "strong"; blank?: string }) {
   const cls =
     kind === "approved" ? "text-muted-foreground" :
     kind === "diff" ? (num(value) < 0 ? "text-red-600" : num(value) > 0 ? "text-green-700" : "text-muted-foreground") :
     kind === "strong" ? "font-semibold" : "";
-  return <span className={cn("tabular-nums", cls)}>{formatAmount(value) || "—"}</span>;
+  return <span className={cn("tabular-nums", cls)}>{value === null && blank !== undefined ? blank : formatAmount(num(value))}</span>;
+}
+
+// Amount input for the grids. A blank reads as 0: when not focused and empty it
+// shows 0; on focus an empty field is shown empty and the text is selected (typing
+// replaces it); on blur it goes back to 0. onChange still sends "" for an empty
+// field, so parseAmount keeps storing null — only the display changes.
+function AmountInput({
+  value, onChange, className, "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+  "aria-label"?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const showZero = !focused && value.trim() === "";
+  return (
+    <Input
+      value={showZero ? "0" : value}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={(e) => { setFocused(true); e.target.select(); }}
+      onBlur={() => setFocused(false)}
+      inputMode="decimal"
+      className={className}
+      aria-label={ariaLabel}
+    />
+  );
 }
 
 // Leading columns: the row labels ("Budget categories") plus the "Total" box.
@@ -649,14 +678,12 @@ export function ExpenditurePartnerEditor({
             const pl = plannedYear ? plannedYear(y) : null;
             return (
               <Fragment key={y}>
-                <td className={cn("px-2 py-2 text-right border-l border-t", extensionSet.has(y) && EXTENSION_CELL)}><Num value={ap} kind="approved" /></td>
+                <td className={cn("px-2 py-2 text-right border-l border-t", extensionSet.has(y) && EXTENSION_CELL)}><Num value={ap} kind="approved" blank={extensionSet.has(y) ? "—" : undefined} /></td>
                 {planInput ? (
                   <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
-                    <Input
+                    <AmountInput
                       value={planInput(y).value}
-                      onChange={(e) => planInput(y).onChange(e.target.value)}
-                      inputMode="decimal"
-                      placeholder="0"
+                      onChange={(v) => planInput(y).onChange(v)}
                       className="h-8 text-sm text-right tabular-nums"
                       aria-label={`Estimated indirect support costs ${y}`}
                     />
@@ -873,20 +900,18 @@ export function ExpenditurePartnerEditor({
                       return (
                         <Fragment key={y}>
                           <td className={cn("px-2 py-2 text-right border-l border-t", extensionSet.has(y) && EXTENSION_CELL)}>
-                            <Num value={ap} kind="approved" />
+                            <Num value={ap} kind="approved" blank={extensionSet.has(y) ? "—" : undefined} />
                           </td>
                           <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
-                            <Input
+                            <AmountInput
                               value={planned[planKey(c.id, y)] ?? ""}
-                              onChange={(e) => setPlannedCell(c.id, y, e.target.value)}
-                              inputMode="decimal"
-                              placeholder="0"
+                              onChange={(v) => setPlannedCell(c.id, y, v)}
                               className="h-8 text-sm text-right tabular-nums"
                               aria-label={`Estimated annual expenditure ${y} for ${c.name}`}
                             />
                           </td>
                           <td className="px-2 py-2 text-right border-t">
-                            <Num value={pl === null ? null : num(ap) - pl} kind="diff" />
+                            <Num value={num(ap) - num(pl)} kind="diff" />
                           </td>
                         </Fragment>
                       );
@@ -1023,7 +1048,7 @@ function FragmentYearHead({ current, toDate = false, fillHeight = false, top }: 
   return (
     <>
       <th style={style} className={cn("px-2 py-1.5 text-right border-l border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Approved annual budget</th>
-      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}{current && <RequiredMark className="text-crafd-yellow-900" />}</th>
+      <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[100px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>{toDate ? "Annual expenditure (to date)" : "Annual expenditure"}</th>
       <th style={style} className={cn("px-2 py-1.5 text-right border-b min-w-[90px]", HEAD_DIVIDER, SUBHEAD_TEXT, HEAD_COLOR, bg, sticky)}>Difference</th>
     </>
   );
@@ -1044,7 +1069,7 @@ function ApprovedOnlyHead({ fillHeight = false, extension = false, top }: { fill
 function ApprovedOnlyCell({ approved, extension = false }: { approved: number | null; extension?: boolean }) {
   return (
     <td className={cn("px-2 py-2 text-right border-l border-t", extension && EXTENSION_CELL)}>
-      <Num value={approved} kind="approved" />
+      <Num value={approved} kind="approved" blank={extension ? "—" : undefined} />
     </td>
   );
 }
@@ -1068,11 +1093,9 @@ function YearCells({
       </td>
       <td className={cn("px-1 py-1 text-right border-t", editable && "bg-crafd-yellow/10", past && "bg-neutral-50 opacity-60")}>
         {editable ? (
-          <Input
+          <AmountInput
             value={expInput}
-            onChange={(e) => onExp(e.target.value)}
-            inputMode="decimal"
-            placeholder="0"
+            onChange={onExp}
             className="h-8 text-sm text-right tabular-nums"
           />
         ) : (
@@ -1103,11 +1126,9 @@ function FooterYearCells({
       <td className={cn("px-2 py-2 text-right border-l border-t", past && "opacity-60")}><Num value={approved} kind="approved" /></td>
       <td className={cn(expInput ? "px-1 py-1 bg-crafd-yellow/10" : "px-2 py-2", "text-right border-t", past && "opacity-60")}>
         {expInput ? (
-          <Input
+          <AmountInput
             value={expInput.value}
-            onChange={(e) => expInput.onChange(e.target.value)}
-            inputMode="decimal"
-            placeholder="0"
+            onChange={expInput.onChange}
             className="h-8 text-sm text-right tabular-nums"
             aria-label="Indirect support costs spent"
           />
@@ -1379,11 +1400,9 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                     </td>
                     {years.map((y) => (
                       <td key={y} className="px-1 py-1 border-l">
-                        <Input
+                        <AmountInput
                           value={amounts[`${c.id}-${y}`] ?? ""}
-                          onChange={(e) => setAmount(c.id, y, e.target.value)}
-                          inputMode="decimal"
-                          placeholder="0"
+                          onChange={(v) => setAmount(c.id, y, v)}
                           className="h-8 w-full min-w-0 flex-1 text-sm text-right tabular-nums"
                         />
                       </td>

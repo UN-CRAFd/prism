@@ -300,6 +300,8 @@ CREATE TABLE IF NOT EXISTS reports (
     archived               BOOLEAN        NOT NULL DEFAULT FALSE,  -- hidden from the admin Reports / Project Updates overviews by default
     indirect_expenditure   NUMERIC(15,2)  CHECK (indirect_expenditure IS NULL OR indirect_expenditure >= 0),
                                                                   -- project update: indirect support costs actually spent in the year this document reports. One figure per document, so it sits here rather than in expenditure_entries (which is keyed by budget category, and ISC is not one). See db/add-expenditure-indirect.sql.
+    no_transfers_confirmed     BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No transfers to report" (Transfers section complete with zero rows); cleared when a row is added. See db/add-no-transfers-complementary-confirmed.sql.
+    no_complementary_confirmed BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No complementary funding to report" (Complementary section complete with zero rows); cleared when a row is added.
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     -- update_index is '' for reports and prodocs, so they stay one per
@@ -940,7 +942,6 @@ CREATE TABLE IF NOT EXISTS transfer_data (
     report_id           INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     transfer_partner_id INTEGER      NOT NULL REFERENCES transfer_partners(id) ON DELETE CASCADE,
     amount_transferred  NUMERIC(14,2),
-    linked_activity_id  INTEGER      REFERENCES workplan_activities(id) ON DELETE SET NULL,
     sort_order          INTEGER      NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -952,6 +953,18 @@ DROP TRIGGER IF EXISTS transfer_data_updated_at ON transfer_data;
 CREATE TRIGGER transfer_data_updated_at
     BEFORE UPDATE ON transfer_data
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- A transfer can support several workplan activities (many-to-many), like
+-- complementary_data_activities. ON DELETE CASCADE drops the link when either the
+-- transfer or the activity is removed. (018)
+CREATE TABLE IF NOT EXISTS transfer_data_activities (
+    transfer_data_id INTEGER NOT NULL REFERENCES transfer_data(id)        ON DELETE CASCADE,
+    activity_id      INTEGER NOT NULL REFERENCES workplan_activities(id)  ON DELETE CASCADE,
+    PRIMARY KEY (transfer_data_id, activity_id)
+);
+CREATE INDEX IF NOT EXISTS transfer_data_activities_activity_idx
+    ON transfer_data_activities(activity_id);
+GRANT SELECT, INSERT, UPDATE, DELETE ON transfer_data_activities TO prism_app;
 
 -- ── Complementary funding ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS complementary_contributors (

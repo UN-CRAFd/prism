@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/authz";
 import { getOptionOverrides, setOptionOverrides } from "@/lib/option-settings";
-import { baseOptions } from "@/lib/options";
+import { baseOptions, resolveLockedItems } from "@/lib/options";
+import { LOCKED_STATUS_GROUPS } from "@/lib/report-status";
 import { logger } from "@/lib/logger";
 
 // Read / replace the admin-authored dropdown-option overrides. Admin-only
@@ -71,7 +72,19 @@ export async function PUT(request: Request) {
       const rawItems = (val && typeof val === "object" && !Array.isArray(val))
         ? (val as Record<string, unknown>).items
         : val; // tolerate a bare array too
-      clean[groupKey] = { items: normaliseItems(groupKey, rawItems) };
+      const items = normaliseItems(groupKey, rawItems);
+      if (LOCKED_STATUS_GROUPS.includes(groupKey)) {
+        // Status values drive who can edit — only the labels may change.
+        const defaults = baseOptions[groupKey].items.map((i) => i.value);
+        const submitted = items.map((i) => i.value);
+        const exact = submitted.length === defaults.length && defaults.every((v) => submitted.includes(v));
+        if (!exact) {
+          return NextResponse.json({ error: "Status values can't be changed. You can rename the labels." }, { status: 400 });
+        }
+        clean[groupKey] = { items: resolveLockedItems(groupKey, items) };
+        continue;
+      }
+      clean[groupKey] = { items };
     }
   } catch (msg) {
     return NextResponse.json({ error: typeof msg === "string" ? msg : "Invalid options" }, { status: 400 });

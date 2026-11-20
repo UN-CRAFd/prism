@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
+import { formatInstruction } from "@/lib/format-instruction";
 
 export function InfoPopover({
   description,
@@ -136,7 +137,7 @@ export function InfoPopover({
             {description && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{descriptionHeading}</p>
-                <p className="text-sm leading-snug">{description}</p>
+                <p className="text-sm leading-snug whitespace-pre-line">{formatInstruction(description)}</p>
               </div>
             )}
             {meansOfVerification && (

@@ -199,6 +199,18 @@ export function resultLabel(
   return resultOptions(activities).find((o) => o.key === key)?.label ?? key;
 }
 
+// Outcomes and outputs of the work plan that no indicator line is linked to. Keys in
+// linked_results that no longer exist in the work plan (e.g. after renumbering) count
+// for nothing; an empty work plan yields [] (the Workplan section flags that itself).
+export function uncoveredResults(
+  activities: Parameters<typeof resultOptions>[0],
+  lines: { linked_results: string[] | null | undefined }[],
+): ResultOption[] {
+  const linked = new Set<string>();
+  for (const l of lines) for (const k of l.linked_results ?? []) linked.add(k);
+  return resultOptions(activities).filter((o) => !linked.has(o.key));
+}
+
 // Derive the workplan window type code for a given report.
 export function workplanTypeCode(dataType: string, reportType: string | null): string {
   if (dataType === "update") return "PU";

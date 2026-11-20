@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { SESSION_COOKIE, verifySessionToken, type Session } from "@/lib/session";
 import { adminVersion, partnerVersion } from "@/lib/session-version";
+import { isPartnerEditable } from "@/lib/report-status";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Route-level authorization. The middleware already blocks unauthenticated calls
@@ -126,13 +127,13 @@ async function orgOwnsReport(
 }
 
 // ── Report status lock ───────────────────────────────────────────────────────
-// A report/prodoc is editable by a partner only while its status is "Open".
-// Once authorized it moves to "Under Review" and later "Closed", at which point
-// the partner side is read-only (only CRAF'd/admins may still write). The UI
+// A report/prodoc is editable by a partner only while its status is "Open" or
+// "Partner Review" (see isPartnerEditable in lib/report-status.ts). Submitting moves
+// it to "Under Review" and later "Partner Review" / "Closed" (Approved), at which
+// point the partner side is read-only unless it is back in Partner Review (only
+// CRAF'd/admins may still write while locked). The UI
 // hides the controls; these helpers enforce it on the server so a hand-crafted
 // request cannot mutate a locked report. Admins are never status-locked.
-const OPEN_STATUS = "Open";
-
 async function reportStatusById(reportId: number | string): Promise<string | null> {
   const rows = await query<{ status: string }>(
     `SELECT status FROM reporting_platform.reports WHERE id = $1 LIMIT 1`,
@@ -289,7 +290,8 @@ async function orgOwnsReportAsOwner(
 /**
  * Allow admins; allow partners only for reports their org owns. Pass
  * `{ requireOpen: true }` on writes so a partner cannot mutate a report that is
- * Under Review / Closed (admins are never status-locked).
+ * not partner-editable (anything but Open / Partner Review; admins are never
+ * status-locked).
  */
 export async function guardReport(
   session: Session,
@@ -302,7 +304,7 @@ export async function guardReport(
   if (!(await orgOwnsReport(session.org, reportId, partnerId))) return forbidden();
   if (opts?.requireOpen) {
     const status = await reportStatusById(reportId);
-    if (status !== OPEN_STATUS) return locked();
+    if (!isPartnerEditable(status)) return locked();
   }
   return null;
 }
@@ -344,7 +346,8 @@ export async function guardPartner(
 /**
  * Ownership for a row identified only by its primary key in a report-scoped
  * table. Pass `{ requireOpen: true }` on writes so a partner cannot mutate a row
- * belonging to a report that is Under Review / Closed.
+ * belonging to a report that is not partner-editable (anything but Open /
+ * Partner Review).
  */
 export async function guardRow(
   session: Session,
@@ -358,7 +361,7 @@ export async function guardRow(
   if (!(await orgOwnsRow(session.org, table, rowId, partnerId))) return forbidden();
   if (opts?.requireOpen) {
     const status = await reportStatusByRow(table, rowId);
-    if (status !== OPEN_STATUS) return locked();
+    if (!isPartnerEditable(status)) return locked();
   }
   return null;
 }
@@ -391,7 +394,8 @@ export async function guardPartnerRow(
   return (await orgOwnsPartnerRow(session.org, table, rowId)) ? null : forbidden();
 }
 
-// Partners may only write ProDoc-level data while the project's ProDoc is Open.
+// Partners may only write ProDoc-level data while the project's ProDoc is partner-editable
+// (Open or Partner Review).
 // Admins are never status-locked. Returns null when the write may proceed.
 export async function guardProjectOpen(
   session: Session,
@@ -403,7 +407,7 @@ export async function guardProjectOpen(
       WHERE project_id = $1 AND data_type = 'prodoc' LIMIT 1`,
     [projectId]
   );
-  if (rows.length && rows[0].status === "Open") return null;
+  if (rows.length && isPartnerEditable(rows[0].status)) return null;
   return NextResponse.json(
     { error: "This project document has been submitted and is locked for editing." },
     { status: 409 }

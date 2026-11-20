@@ -6,6 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import { formatDate, shortName, formatUsd } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { statusLabel } from "@/lib/indicators";
+import { reportStatusLabel } from "@/lib/status-label";
 import { resultLabel, quarterRange, quartersAfter, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -462,7 +463,7 @@ export default function ReportPrintPage() {
               </div>
               <div style={{ fontSize: 12, color: MUTED }}>
                 <span style={{ marginRight: 16 }}>
-                  Status: <strong style={{ color: INK }}>{report.status}</strong>
+                  Status: <strong style={{ color: INK }}>{reportStatusLabel(report.status)}</strong>
                 </span>
                 {report.report_submission_date && (
                   <span>Due date: <strong style={{ color: INK }}>{fmtDate(report.report_submission_date)}</strong></span>
@@ -1202,8 +1203,10 @@ function IndicatorTable({
         <thead>
           <tr>
             <Th align="left" width="28%">Indicator</Th>
-            <Th align="left" width="14%">Baseline</Th>
-            <Th align="left" width="14%">Target</Th>
+            <Th align="left" width="9%">Baseline</Th>
+            <Th align="left" width="7%">Baseline year</Th>
+            <Th align="left" width="9%">Target</Th>
+            <Th align="left" width="7%">Target year</Th>
             <Th align="left" width="12%">Achieved</Th>
             <Th align="left" width="12%">Status</Th>
             <Th align="left">Description / linked outcome</Th>
@@ -1218,14 +1221,11 @@ function IndicatorTable({
                 <Td>
                   <div style={{ fontWeight: 600 }}>{r.indicator_name}</div>
                 </Td>
-                <Td>
-                  {r.baseline_value || "—"}
-                  {r.baseline_year && <span style={{ color: MUTED, fontSize: 9.5 }}> ({r.baseline_year})</span>}
-                </Td>
-                <Td>
-                  {r.target_value || "—"}
-                  {r.target_year && <span style={{ color: MUTED, fontSize: 9.5 }}> ({r.target_year})</span>}
-                </Td>
+                {/* Value and year in separate columns, empty left blank: copies into Excel as clean numbers. */}
+                <Td>{r.baseline_value ?? ""}</Td>
+                <Td>{r.baseline_year ?? ""}</Td>
+                <Td>{r.target_value ?? ""}</Td>
+                <Td>{r.target_year ?? ""}</Td>
                 <Td>{yearData?.achieved_value || "—"}</Td>
                 <Td>{yearData?.status ? statusLabel(yearData.status) : "—"}</Td>
                 <Td>

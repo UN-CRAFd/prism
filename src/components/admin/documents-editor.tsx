@@ -11,13 +11,15 @@ import {
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatDate } from "@/lib/utils";
 import { HEAD_BG, HEAD_COLOR, HEAD_TEXT } from "@/components/report-editor/matrix-table";
-import { Loader2, Upload, FileText, Download, Trash2, CircleCheck, Undo2 } from "lucide-react";
+import { Loader2, Upload, FileText, Download, Trash2, CircleCheck } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
 import {
   documentTypes, DOC_ACCEPT, MAX_DOC_MB, isAllowedDocExtension, formatFileSize,
 } from "@/lib/documents";
+import { Tag } from "@/components/ui/tag";
+import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
 
 // ── Documents / annexes editor ────────────────────────────────────────────────
 // Partner-uploaded documents attached to the project document. Each upload has a
@@ -65,6 +67,7 @@ export function DocumentsEditor({
   // without an upload. Cleared server-side when a document is uploaded.
   const [noDocsConfirmed, setNoDocsConfirmed] = useState(false);
   const [noDocsSaving, setNoDocsSaving] = useState(false);
+  const uploadOk = useUploadSuccess();
 
   useEffect(() => {
     let cancelled = false;
@@ -132,7 +135,7 @@ export function DocumentsEditor({
     if (!docType) { setError(d.errorNoType); return; }
     if (!docName.trim()) { setError(d.errorNoDocName); return; }
     if (!file) { setError(d.errorNoFile); return; }
-    setUploading(true); setError(null);
+    setUploading(true); setError(null); uploadOk.clear();
     try {
       const body = new FormData();
       body.append("project_id", String(projectId));
@@ -149,6 +152,7 @@ export function DocumentsEditor({
       // Reset the form for the next upload.
       setDocType(""); setDocName(""); setDocDate(""); setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      uploadOk.flash();
     } catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally { setUploading(false); }
   }
@@ -169,17 +173,16 @@ export function DocumentsEditor({
 
   return (
     <div className="space-y-6">
+      <UploadSuccess show={uploadOk.shown} />
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info">
-          {formatInstruction(labels.tabInstructions.documents)}
-        </Notice>
-      )}
+      <Notice variant="info">
+        {formatInstruction(labels.tabInstructions.documents)}
+      </Notice>
 
       {/* Upload form */}
       {!readOnly && (
@@ -248,30 +251,27 @@ export function DocumentsEditor({
 
         {documents.length === 0 ? (
           <div className="py-10 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
-            {noDocsConfirmed ? (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 font-medium text-green-700">
-                  <CircleCheck className="size-4" />{d.noDocumentsConfirmed}
-                </span>
-                {!readOnly && (
-                  <Button variant="outline" size="sm" onClick={() => setNoDocuments(false)} disabled={noDocsSaving}>
-                    {noDocsSaving
-                      ? <Loader2 className="size-3.5 animate-spin" />
-                      : <><Undo2 className="size-3.5 mr-1.5" />{d.noDocumentsUndo}</>}
-                  </Button>
-                )}
-              </div>
+            {noDocsConfirmed && readOnly ? (
+              <span className="inline-flex items-center gap-1.5 font-medium text-green-700">
+                <CircleCheck className="size-4" />{d.noDocumentsConfirmed}
+              </span>
             ) : (
               <>
-                <span>{d.empty}</span>
+                {!noDocsConfirmed && <span>{d.empty}</span>}
                 {!readOnly && (
                   <>
-                    <span className="text-xs">{d.optionalNote}</span>
-                    <Button variant="outline" size="sm" onClick={() => setNoDocuments(true)} disabled={noDocsSaving}>
-                      {noDocsSaving
-                        ? <Loader2 className="size-3.5 animate-spin" />
-                        : <><CircleCheck className="size-3.5 mr-1.5" />{d.noDocuments}</>}
-                    </Button>
+                    {!noDocsConfirmed && <span className="text-xs">{d.optionalNote}</span>}
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={noDocsConfirmed}
+                        disabled={noDocsSaving}
+                        onChange={(e) => setNoDocuments(e.target.checked)}
+                        className="size-4"
+                      />
+                      {d.noDocuments}
+                      {noDocsSaving && <Loader2 className="size-3.5 animate-spin" />}
+                    </label>
                   </>
                 )}
               </>
@@ -294,7 +294,7 @@ export function DocumentsEditor({
               {documents.map((doc) => (
                 <tr key={doc.id} className="transition-colors hover:bg-muted/20">
                   <td className="px-6 py-3">
-                    <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{doc.doc_type}</span>
+                    <Tag>{doc.doc_type}</Tag>
                   </td>
                   <td className="px-4 py-3 font-medium">{doc.doc_name ?? doc.file_name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{doc.doc_date ? formatDate(doc.doc_date) : "—"}</td>

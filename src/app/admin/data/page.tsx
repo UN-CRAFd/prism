@@ -45,6 +45,7 @@ import { statusLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicato
 import { ASSESSMENT_COLORS } from "@/lib/rating-colors";
 import { FUNDING_TYPE_COLORS } from "@/lib/complementary";
 import type { Report } from "@/lib/types";
+import { Tag as TagChip } from "@/components/ui/tag";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ function ValueBadge({ value, colors }: { value: string; colors: { bg: string; te
 
 function Tag({ value }: { value: string | null }) {
   if (!value) return DASH;
-  return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-muted/50">{value}</span>;
+  return <TagChip>{value}</TagChip>;
 }
 
 function TruncatedCell({ text, id, expanded, onToggle, limit = 120 }: {
@@ -171,11 +172,11 @@ const quarters = (v: unknown): ReactNode => {
   return <span className="text-xs">{(v as string[]).join(", ")}</span>;
 };
 
-const valueYear = (value: unknown, year: unknown): ReactNode => {
-  const v = value as string | null;
-  if (!v) return DASH;
-  const y = year as number | null;
-  return <span className="tabular-nums">{v}{y ? <span className="text-muted-foreground"> ({y})</span> : null}</span>;
+// A single number-ish value (indicator value or year). Empty stays blank rather
+// than "—", so a paste into Excel doesn't turn the column into text.
+const plainValue = (value: unknown): ReactNode => {
+  if (value == null || value === "") return null;
+  return <span className="tabular-nums">{String(value)}</span>;
 };
 
 // "Activity 3.1: …" from a num + text pair (either may be null).
@@ -389,14 +390,18 @@ const SECTION_CONFIGS: SectionConfig[] = [
     ],
   },
   {
-    value: "indicators", label: "Indicators", endpoint: "/api/indicator-data", reportIdKey: "report_id", minWidth: 1400,
+    value: "indicators", label: "Indicators", endpoint: "/api/indicator-data", reportIdKey: "report_id", minWidth: 1560,
     columns: [
       ...leadCols,
       { header: "Indicator", headClass: "w-[200px]", cell: (r) => <p className="break-words font-medium">{r.indicator_name as string}</p> },
       { header: "Category", headClass: "w-[120px]", cell: (r) => <Tag value={r.category as string | null} /> },
-      { header: "Baseline", headClass: "w-[110px]", cell: (r) => valueYear(r.baseline_value, r.baseline_year) },
-      { header: "Target", headClass: "w-[110px]", cell: (r) => valueYear(r.target_value, r.target_year) },
-      { header: "Achieved", headClass: "w-[110px]", cell: (r) => { const v = r.achieved_value as string | null; return v ? <span className="tabular-nums">{v}</span> : DASH; } },
+      // Value and year in separate columns (not "12 (2024)") so a copy into
+      // Excel gives clean number columns to analyse.
+      { header: "Baseline", headClass: "w-[90px]", cell: (r) => plainValue(r.baseline_value) },
+      { header: "Baseline Year", headClass: "w-[80px]", cell: (r) => plainValue(r.baseline_year) },
+      { header: "Target", headClass: "w-[90px]", cell: (r) => plainValue(r.target_value) },
+      { header: "Target Year", headClass: "w-[80px]", cell: (r) => plainValue(r.target_year) },
+      { header: "Achieved", headClass: "w-[90px]", cell: (r) => plainValue(r.achieved_value) },
       {
         header: "Status", headClass: "w-[130px]", cell: (r) => {
           const s = r.status as string | null;
@@ -436,7 +441,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { header: "Type", headClass: "w-[150px]", cell: (r) => <Tag value={r.partner_type as string | null} /> },
       { header: "Website", headClass: "w-[160px]", cell: (r) => <LinksList raw={r.website as string | null} /> },
       { header: "Amount", headClass: "w-[120px]", cell: (r) => money(r.amount_transferred) },
-      { header: "Linked Activity", cell: (r, ctx) => trunc(activityText(r.linked_activity_num, r.linked_activity_text), `tact-${r.id}`, ctx) },
+      { header: "Linked Activities", cell: (r, ctx) => trunc(r.linked_activities, `tact-${r.id}`, ctx) },
     ],
   },
   {

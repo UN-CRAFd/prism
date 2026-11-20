@@ -128,11 +128,9 @@ export function NarrativesAdminEditor({
         </div>
       )}
 
-      {!readOnly && (
-        <Notice variant="info">
-          {formatInstruction(labels.tabInstructions.narratives)}
-        </Notice>
-      )}
+      <Notice variant="info">
+        {formatInstruction(labels.tabInstructions.narratives)}
+      </Notice>
 
       {questions.length === 0 && (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
@@ -154,7 +152,7 @@ export function NarrativesAdminEditor({
 
             {/* Narrative answer */}
             <div className="space-y-1.5">
-              <p className="text-sm text-crafd-grey-600 whitespace-pre-line max-w-5xl">{q.description || labels.narratives.answerLabel}</p>
+              <p className="text-sm text-crafd-grey-600 whitespace-pre-line">{q.description ? formatInstruction(q.description) : labels.narratives.answerLabel}</p>
               <RichTextEditor
                 value={answer}
                 onChange={(html) => update(q.key, { answer: html })}

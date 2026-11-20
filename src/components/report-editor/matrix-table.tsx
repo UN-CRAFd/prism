@@ -67,6 +67,7 @@ export function MatrixTableShell({
   leadingCols,
   years,
   currentYear,
+  yearLabel,
   subCols,
   pastSubCols,
   trailingCols = [],
@@ -79,6 +80,10 @@ export function MatrixTableShell({
   leadingCols: MatrixLeadingCol[];
   years: number[];
   currentYear: number | null;
+  // Header text for a column group. Defaults to the key itself (the year). The
+  // indicators matrix keys its past groups by report id instead, because two
+  // documents can share a year, and names each group after its document.
+  yearLabel?: (year: number) => ReactNode;
   subCols: MatrixSubCol[];
   // When provided, non-current years use these sub-columns instead of subCols.
   // If omitted, all years use subCols (preserves existing behaviour).
@@ -152,7 +157,7 @@ export function MatrixTableShell({
                     fillHeight && "sticky top-0 z-30"
                   )}
                 >
-                  {year}
+                  {yearLabel ? yearLabel(year) : year}
                 </th>
               );
             })}

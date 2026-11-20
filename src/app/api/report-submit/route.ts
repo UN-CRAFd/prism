@@ -6,9 +6,10 @@ import { logStatusChange } from "@/lib/version-log";
 import { documentTitle } from "@/lib/project-updates";
 import { hasUpdateIndex } from "@/lib/report-conflict";
 import { hasUpdateModuleColumns } from "@/lib/update-columns";
+import { isPartnerEditable, editableStatusParam } from "@/lib/report-status";
 
 // POST /api/report-submit — partner submits an annual/final report for review.
-// Transitions status Open → Under Review, which locks partner editing.
+// Transitions status Open / Partner Review → Under Review, which locks partner editing.
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession();
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (report.status !== "Open") {
+    if (!isPartnerEditable(report.status)) {
       return NextResponse.json(
         { error: "This report has already been submitted and cannot be submitted again." },
         { status: 409 }
@@ -76,9 +77,9 @@ export async function POST(request: NextRequest) {
         `UPDATE reporting_platform.reports
             SET status = 'Under Review',
                 submitted_at = now()
-          WHERE id = $1 AND status = 'Open'
+          WHERE id = $1 AND status = ANY($2::text[])
           RETURNING id, status`,
-        [reportId]
+        [reportId, editableStatusParam()]
       );
       if (updated.rows.length === 0) {
         await client.query("ROLLBACK");
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
           entity_id: report.id,
           entity_label: entityLabel,
           project_id: report.project_id,
-          from_status: "Open",
+          from_status: report.status,
           to_status: "Under Review",
           actor_role: session.role,
           actor_org: session.org ?? null,

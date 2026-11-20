@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { ReadOnlyProvider } from "@/components/ui/read-only-context";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Loader2, FileQuestion, Lock, AlertTriangle, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { Loader2, FileQuestion, Lock, AlertTriangle, Printer } from "lucide-react";
 import { cn, projectSlug } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
@@ -33,6 +33,7 @@ import {
   type Risk,
   type RiskState,
   type IndicatorMatrixRow,
+  type IndicatorRecord,
   type IndicatorState,
 } from "@/components/report-editor/types";
 import { OverviewSection } from "@/components/report-editor/sections/overview-section";
@@ -42,6 +43,8 @@ import { IndicatorsSection } from "@/components/report-editor/sections/indicator
 import { TestimonialsSection } from "@/components/report-editor/sections/testimonials-section";
 import { useReportLock } from "@/components/report-editor/use-report-lock";
 import { Hint } from "@/components/ui/hint";
+import { isPartnerEditable, isFinalStatus } from "@/lib/report-status";
+import { SectionNavBar } from "@/components/ui/section-nav-bar";
 
 export interface RiskHistory {
   prodoc: Record<number, { likelihood: number | null; impact: number | null }>;
@@ -50,6 +53,13 @@ export interface RiskHistory {
     shared: boolean;
     values: Record<number, { likelihood: number | null; impact: number | null }>;
   }>;
+}
+
+// Fixed view-only sentence, chosen by status VALUE (not the admin-editable label).
+function viewOnlyText(status: string | null | undefined, noun: string): string {
+  if (status === "Under Review") return `This ${noun} is with the CRAF'd Secretariat for review and is view-only.`;
+  if (status === "Closed" || status === "Approved") return `This ${noun} has been approved and is view-only.`;
+  return `This ${noun} is view-only.`;
 }
 
 function toSlug(r: Report): string {
@@ -117,6 +127,8 @@ export function ReportEditor({
   const [indicatorRows, setIndicatorRows] = useState<IndicatorMatrixRow[]>([]);
   const [indicatorYears, setIndicatorYears] = useState<number[]>([]);
   const [indicatorCurrentYear, setIndicatorCurrentYear] = useState<number | null>(null);
+  const [indicatorReportType, setIndicatorReportType] = useState<string | null>(null);
+  const [indicatorRecords, setIndicatorRecords] = useState<IndicatorRecord[]>([]);
   const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
   const [loadingIndicators, setLoadingIndicators] = useState(false);
 
@@ -299,10 +311,18 @@ export function ReportEditor({
     try {
       const res = await fetch(`/api/indicator-data?reportId=${id}&matrix=1`);
       if (!res.ok) throw new Error("Failed to load indicators");
-      const data: { years: number[]; currentYear: number | null; rows: IndicatorMatrixRow[] } = await res.json();
+      const data: {
+        years: number[];
+        currentYear: number | null;
+        reportType: string | null;
+        records: IndicatorRecord[];
+        rows: IndicatorMatrixRow[];
+      } = await res.json();
       setIndicatorRows(data.rows);
       setIndicatorYears(data.years);
       setIndicatorCurrentYear(data.currentYear);
+      setIndicatorReportType(data.reportType ?? null);
+      setIndicatorRecords(data.records ?? []);
       const states: Record<number, IndicatorState> = {};
       for (const row of data.rows) {
         const cell = data.currentYear != null ? row.byYear[data.currentYear] : undefined;
@@ -715,15 +735,18 @@ export function ReportEditor({
   }, [dataType, selectedReport, sections, params.section]);
 
   // Status → who can edit:
-  //   Open          → admin + partner
-  //   Under Review  → admin only (partner is read-only)
-  //   Closed        → no one
+  //   Open / Partner Review → admin + partner
+  //   Under Review          → admin only (partner is read-only)
+  //   Closed                → no one
+  // Partners may edit ONLY in the partner-editable statuses (an unknown status
+  // locks them, matching the server); admins are locked only by Closed/Approved.
   // (forceReadOnly still wins as an explicit override.)
   const statusReadOnly =
     forceReadOnly ||
     (!!selectedReport &&
-      (selectedReport.status === "Closed" ||
-        (selectedReport.status === "Under Review" && mode !== "admin")));
+      (mode !== "admin"
+        ? !isPartnerEditable(selectedReport.status)
+        : isFinalStatus(selectedReport.status)));
 
   const { phase, holder, noteEdit, startEditing, isReadOnlyByLock } = useReportLock({
     reportId,
@@ -798,7 +821,7 @@ export function ReportEditor({
 
   const canSubmit =
     mode !== "admin" &&
-    selectedReport?.status === "Open" &&
+    isPartnerEditable(selectedReport?.status) &&
     user?.organization?.toLowerCase() === selectedReport?.partner_short_name?.toLowerCase();
 
   return (
@@ -853,14 +876,6 @@ export function ReportEditor({
       {/* Content — the workplan fills the leftover height and scrolls inside its
           own box (single scroller, frozen header); every other tab scrolls here. */}
       <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
-        {/* Tab instructions — only while the report is editable */}
-        {params.section !== "overview" && params.section !== "testimonials" && !notFound && !readOnly && (() => {
-          const instruction = labels.tabInstructions[params.section as keyof typeof labels.tabInstructions];
-          return typeof instruction === "string" && instruction.trim() !== "" ? (
-            <Notice variant="info" className="mb-4">{formatInstruction(instruction)}</Notice>
-          ) : null;
-        })()}
-
         {error && (
           <Notice variant="error" className="mb-4">
             {error}
@@ -869,9 +884,17 @@ export function ReportEditor({
 
         {statusReadOnly && !sectionLoading && !notFound && (
           <Notice variant="status" icon={<Lock />} className="mb-4">
-            This {docNoun} is <b>{selectedReport?.status}</b> and is view-only. Contact the CRAF'd Secretariat if changes are needed.
+            {viewOnlyText(selectedReport?.status, isUpdateDoc ? "project update" : "report")} Contact the CRAF'd Secretariat if changes are needed.
           </Notice>
         )}
+
+        {/* Tab instructions — always shown, below the view-only banner when there is one */}
+        {params.section !== "overview" && params.section !== "testimonials" && !notFound && (() => {
+          const instruction = labels.tabInstructions[params.section as keyof typeof labels.tabInstructions];
+          return typeof instruction === "string" && instruction.trim() !== "" ? (
+            <Notice variant="info" className="mb-4">{formatInstruction(instruction)}</Notice>
+          ) : null;
+        })()}
 
         {/* Lock acquisition in progress */}
         {!statusReadOnly && reportId && phase === "acquiring" && (
@@ -1024,6 +1047,9 @@ export function ReportEditor({
                     indicatorRows={indicatorRows}
                     indicatorYears={indicatorYears}
                     indicatorCurrentYear={indicatorCurrentYear}
+                    indicatorReportType={indicatorReportType}
+                    indicatorRecords={indicatorRecords}
+                    isUpdate={dataType === "update"}
                     indicatorStates={indicatorStates}
                     updateIndicator={updateIndicator}
                     isAdmin={mode === "admin"}
@@ -1144,34 +1170,27 @@ export function ReportEditor({
         </fieldset>
         </ReadOnlyProvider>
 
-        {reportId && !notFound && !loadingReports && (
-          <div className={cn("flex justify-between", fillHeight ? "pt-4 shrink-0" : "mt-8")}>
-            {prevSection ? (
-              <Button variant="nav" onClick={() => handleSectionChange(prevSection.value)}>
-                <ChevronLeft className="size-4" /> Back: {prevSection.label}
-              </Button>
-            ) : <div />}
-            {nextSection ? (
-              <Button variant="nav" onClick={() => handleSectionChange(nextSection.value)}>
-                Next: {nextSection.label}
-                <ChevronRight className="size-4" />
-              </Button>
-            ) : canSubmit ? (
-              <div className="flex flex-col items-end gap-2">
-                <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
-                  {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
-                  Submit
-                </Button>
-                {(submitBlockers.length > 0 || submitError) && (
-                  <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
-                    {submitError ?? submitBlockers.join(" ")}
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
       </div>
+      {reportId && !notFound && !loadingReports && (
+        <SectionNavBar
+          back={prevSection ? { label: prevSection.label, onClick: () => handleSectionChange(prevSection.value) } : null}
+          next={nextSection ? { label: nextSection.label, onClick: () => handleSectionChange(nextSection.value) } : null}
+        >
+          {canSubmit ? (
+            <div className="flex flex-col items-end gap-2">
+              <Button onClick={handleSubmit} disabled={submitLoading || submitBlockers.length > 0}>
+                {submitLoading && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+                Submit
+              </Button>
+              {(submitBlockers.length > 0 || submitError) && (
+                <p className="text-xs text-crafd-grey-800 max-w-[420px] text-right leading-snug">
+                  {submitError ?? submitBlockers.join(" ")}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </SectionNavBar>
+      )}
     </div>
 
     </CommentsProvider>

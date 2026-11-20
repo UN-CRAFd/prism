@@ -31,6 +31,7 @@ import { ItemComments } from "@/components/report-editor/comments-context";
 import { HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import { RequiredMark } from "@/components/ui/required-mark";
+import { InfoPopover } from "@/components/ui/info-popover";
 import {
   workplanStatuses,
   workplanStatusColor,
@@ -1446,7 +1447,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[360px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}</th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[360px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}<span className="ml-1.5 inline-block align-middle"><InfoPopover description={labels.workplanHelp.activity} triggerTitle="Activity" descriptionHeading={labels.workplanHelp.heading} /></span></th>
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>}
                 </>
@@ -1475,6 +1476,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           {collapsedClusters[cluster.clusterId] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                         </button>
                         <span className="mt-1.5 rounded bg-white/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-crafd-grey-900 shrink-0">{ci + 1}. Outcome{!partnerMode && <RequiredMark />}</span>
+                        <span className="mt-2 shrink-0"><InfoPopover description={labels.workplanHelp.outcome} triggerTitle="Outcome" descriptionHeading={labels.workplanHelp.heading} /></span>
                         {/* Grows with the text, so long outcome statements stay readable. */}
                         <Textarea
                           rows={1}
@@ -1515,6 +1517,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           {collapsedSections[sec.sectionId] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                         </button>
                         <span className="pt-2.5 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900 shrink-0">{sec.objective_num}. Output{!partnerMode && <RequiredMark className="text-crafd-yellow-900" />}</span>
+                        <span className="pt-2 shrink-0"><InfoPopover description={labels.workplanHelp.output} triggerTitle="Output" descriptionHeading={labels.workplanHelp.heading} /></span>
                         <Textarea
                           rows={1}
                           value={sec.objective_text}

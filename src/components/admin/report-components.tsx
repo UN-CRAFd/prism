@@ -29,8 +29,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays,
-  CheckCircle2,
-  Clock,
   MoreHorizontal,
   Pencil,
   Printer,
@@ -150,18 +148,6 @@ export const GROUP_COLORS = [
 // API call as the card's "..." menu. Reports, project updates and project
 // documents all share the report status model.
 // Table cells shared by the Reports and Project Updates lists.
-export function ReportAuthCell({ authorized }: { authorized: boolean }) {
-  return authorized ? (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 whitespace-nowrap">
-      <CheckCircle2 className="size-3" /> Authorized
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-      <Clock className="size-3" /> Pending
-    </span>
-  );
-}
-
 // Completion bar: yellow while the document is Open (being filled in), grey once
 // it has moved on to review or is closed.
 export function ReportProgressCell({ pct, open }: { pct: number; open: boolean }) {

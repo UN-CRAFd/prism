@@ -19,7 +19,6 @@ import {
   CircleDot,
   FolderKanban,
   Tags,
-  ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate, projectSlug, timeAgo, shortName } from "@/lib/utils";
@@ -32,7 +31,6 @@ import {
   type ReportRow,
   type Project,
   ReportStatusSelect,
-  ReportAuthCell,
   ReportProgressCell,
   ReportRowMenu,
   CreateReportForm,
@@ -72,7 +70,7 @@ function matchesTypes(r: UpdateRow, selected: string[], match: MatchMode): boole
 const STATUS_ORDER = ["Open", "Under Review", "Partner Review", "Closed"];
 
 type SortKey =
-  | "partner" | "type" | "year" | "project" | "status" | "auth" | "due" | "last_edited" | "progress";
+  | "partner" | "type" | "year" | "project" | "status" | "due" | "last_edited" | "progress";
 
 // What follows the year in the Year column. The type codes are already shown as
 // badges, so a name-style index ("BR-TR-AR") adds nothing; only its running
@@ -114,7 +112,6 @@ export default function ProjectUpdatesPage() {
   const [typeMatch, setTypeMatch] = useState<MatchMode>("any");
   const [filterStatus, setFilterStatus] = useState<string>(ALL);
   const [filterYear, setFilterYear] = useState<string>(ALL);
-  const [filterAuth, setFilterAuth] = useState<string>(ALL);
   // Documents of archived projects are hidden unless asked for (archiving is
   // done per project, on the Projects page).
   const [archiveView, setArchiveView] = useState<ArchiveView>("active");
@@ -190,7 +187,6 @@ export default function ProjectUpdatesPage() {
         matchesTypes(r, filterTypes, typeMatch) &&
         (filterStatus === ALL || r.status === filterStatus) &&
         (filterYear === ALL || String(r.year) === filterYear) &&
-        (filterAuth === ALL || (filterAuth === "yes") === !!r.authorized) &&
         matchesArchive(r.archived, archiveView) &&
         (!q ||
           [r.project_title, r.project_short_name, r.partner_short_name, r.partner_long_name, String(r.year)]
@@ -208,7 +204,6 @@ export default function ProjectUpdatesPage() {
           case "year": return yearSortKey(r);
           case "project": return r.project_title;
           case "status": return STATUS_ORDER.indexOf(r.status);
-          case "auth": return r.authorized ? 1 : 0;
           case "due": return r.report_submission_date ?? null;
           case "last_edited": return r.last_edited ?? null;
           case "progress": return completion[r.id] ?? 0;
@@ -216,11 +211,11 @@ export default function ProjectUpdatesPage() {
       },
       sortDir
     );
-  }, [reports, completion, search, filterProject, filterPartner, filterTypes, typeMatch, filterStatus, filterYear, filterAuth, archiveView, sortKey, sortDir]);
+  }, [reports, completion, search, filterProject, filterPartner, filterTypes, typeMatch, filterStatus, filterYear, archiveView, sortKey, sortDir]);
 
   const filtersActive =
     !!search.trim() || filterProject !== ALL || filterPartner !== ALL || filterTypes.length > 0 ||
-    filterStatus !== ALL || filterYear !== ALL || filterAuth !== ALL ||
+    filterStatus !== ALL || filterYear !== ALL ||
     archiveView !== "active";
 
   function clearFilters() {
@@ -230,7 +225,6 @@ export default function ProjectUpdatesPage() {
     setFilterTypes([]);
     setFilterStatus(ALL);
     setFilterYear(ALL);
-    setFilterAuth(ALL);
     setArchiveView("active");
   }
 
@@ -307,10 +301,10 @@ export default function ProjectUpdatesPage() {
         />
         <FilterSelect
           icon={CircleDot}
-          label="Status"
+          label="Workflow"
           value={filterStatus}
           onChange={setFilterStatus}
-          allLabel="All statuses"
+          allLabel="All workflows"
           width={190}
           options={STATUS_ORDER.map((s) => ({ value: s, label: reportStatusLabel(s) }))}
         />
@@ -322,15 +316,6 @@ export default function ProjectUpdatesPage() {
           allLabel="All years"
           width={110}
           options={years.map((y) => ({ value: String(y), label: String(y) }))}
-        />
-        <FilterSelect
-          icon={ShieldCheck}
-          label="Auth"
-          value={filterAuth}
-          onChange={setFilterAuth}
-          allLabel="All"
-          width={130}
-          options={[{ value: "yes", label: "Authorized" }, { value: "no", label: "Pending" }]}
         />
         <ArchiveFilter value={archiveView} onChange={setArchiveView} />
         <ResultCount shown={filtered.length} total={reports.length} noun="update" onClear={filtersActive ? clearFilters : undefined} />
@@ -376,8 +361,7 @@ export default function ProjectUpdatesPage() {
                 <SortableHead label="Type" column="type" {...sortProps} />
                 <SortableHead label="Year" column="year" {...sortProps} />
                 <SortableHead label="Project" column="project" {...sortProps} />
-                <SortableHead label="Status" column="status" {...sortProps} />
-                <SortableHead label="Auth" column="auth" {...sortProps} />
+                <SortableHead label="Workflow" column="status" {...sortProps} />
                 <SortableHead label="Progress" column="progress" {...sortProps} />
                 <SortableHead label="Due date" column="due" {...sortProps} />
                 <SortableHead label="Last edited" column="last_edited" {...sortProps} />
@@ -427,9 +411,6 @@ export default function ProjectUpdatesPage() {
                   </Tooltip>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <ReportStatusSelect report={r} onStatusChange={handleStatusChanged} />
-                  </TableCell>
-                  <TableCell>
-                    <ReportAuthCell authorized={!!r.authorized} />
                   </TableCell>
                   <TableCell>
                     <ReportProgressCell pct={completion[r.id] ?? 0} open={isPartnerEditable(r.status)} />

@@ -651,7 +651,7 @@ export default function ProjectsPage() {
         />
         <FilterSelect
           icon={FileText}
-          label="Project Workflow"
+          label="Workflow"
           value={filterProdocStatus}
           onChange={setFilterProdocStatus}
           allLabel="All"
@@ -777,7 +777,7 @@ export default function ProjectsPage() {
                 <SortableHead label="Grant size" column="grant_size_usd" align="right" className="text-right" {...sortProps} />
                 <SortableHead label="Duration" column="project_duration_months" {...sortProps} />
                 <SortableHead label="Scope" column="geographic_scope" {...sortProps} />
-                <SortableHead label="Project Workflow" column="prodoc" {...sortProps} />
+                <SortableHead label="Workflow" column="prodoc" {...sortProps} />
                 <SortableHead label="Progress" column="progress" {...sortProps} />
                 <SortableHead label="Last edited" column="last_edited" {...sortProps} />
                 <TableHead className="w-12" />

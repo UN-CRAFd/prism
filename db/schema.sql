@@ -942,7 +942,6 @@ CREATE TABLE IF NOT EXISTS transfer_data (
     report_id           INTEGER      NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     transfer_partner_id INTEGER      NOT NULL REFERENCES transfer_partners(id) ON DELETE CASCADE,
     amount_transferred  NUMERIC(14,2),
-    linked_activity_id  INTEGER      REFERENCES workplan_activities(id) ON DELETE SET NULL,
     sort_order          INTEGER      NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -954,6 +953,18 @@ DROP TRIGGER IF EXISTS transfer_data_updated_at ON transfer_data;
 CREATE TRIGGER transfer_data_updated_at
     BEFORE UPDATE ON transfer_data
     FOR EACH ROW EXECUTE FUNCTION reporting_platform.set_updated_at();
+
+-- A transfer can support several workplan activities (many-to-many), like
+-- complementary_data_activities. ON DELETE CASCADE drops the link when either the
+-- transfer or the activity is removed. (018)
+CREATE TABLE IF NOT EXISTS transfer_data_activities (
+    transfer_data_id INTEGER NOT NULL REFERENCES transfer_data(id)        ON DELETE CASCADE,
+    activity_id      INTEGER NOT NULL REFERENCES workplan_activities(id)  ON DELETE CASCADE,
+    PRIMARY KEY (transfer_data_id, activity_id)
+);
+CREATE INDEX IF NOT EXISTS transfer_data_activities_activity_idx
+    ON transfer_data_activities(activity_id);
+GRANT SELECT, INSERT, UPDATE, DELETE ON transfer_data_activities TO prism_app;
 
 -- ── Complementary funding ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS complementary_contributors (

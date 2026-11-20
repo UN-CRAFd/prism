@@ -112,6 +112,10 @@ function StatusOption({ value }: { value: WorkplanStatus }) {
   );
 }
 
+// Ticked, editable box: shared by the report's updated-timeline row and the project
+// document's work plan so the two read identically.
+const TICK_ON = "bg-crafd-yellow-400 border-crafd-yellow-600 text-crafd-grey-900";
+
 // A single quarter cell: filled check when set. Read-only (baseline) or toggle.
 function QuarterCell({
   checked,
@@ -122,7 +126,7 @@ function QuarterCell({
   checked: boolean;
   variant: "baseline" | "editable";
   onToggle?: () => void;
-  // Editable but ticked in grey instead of brand yellow (the project document).
+  // Editable and ticked like the report's updated-timeline row (the project document).
   grey?: boolean;
 }) {
   const box = (
@@ -132,9 +136,7 @@ function QuarterCell({
         checked
           ? variant === "baseline"
             ? "bg-crafd-grey-200 border-crafd-grey-200 text-crafd-grey-600"
-            : grey
-              ? "bg-crafd-grey-200 border-crafd-grey-400 text-crafd-grey-800"
-              : "bg-crafd-yellow-400 border-crafd-yellow-600 text-crafd-grey-900"
+            : TICK_ON
           : "border-neutral-300 bg-white text-transparent"
       )}
     >
@@ -614,7 +616,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             // takes the most room (~45%, at least 440px); the rest stay narrow.
             leadCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW, width: "45%" }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[440px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW, width: "45%" }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[440px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-[80px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-[112px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[150px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
@@ -658,7 +660,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     <p className="text-sm font-medium leading-snug flex-1">
                       {/* "1.1.1. ACTIVITY", styled like the project document's label. */}
                       <span className="mr-1.5 text-xs font-semibold uppercase tracking-wide tabular-nums text-crafd-grey-900">
-                        {a.activity_num ? `${a.activity_num}. ` : ""}Activity
+                        {a.activity_num ? `${a.activity_num}. ` : ""}Activity:
                       </span>
                       {a.activity_text}
                     </p>
@@ -676,14 +678,17 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 <Fragment key={a.id}>
                   {showOutcome && (
                     <tr>
-                      <td className={cn(OUTCOME_BG, "pr-3 py-2 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                      <td className={cn(OUTCOME_BG, "pr-3 py-2 text-xs font-semibold text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1.5 uppercase tracking-wide">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
                       <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
                   )}
                   {showObjective && (
                     <tr>
                       <td className={cn("pr-3 py-1.5 text-sm font-semibold text-crafd-grey-900", INDENT_OUTPUT)} style={OUTPUT_FILL}>
-                        {a.objective_num ? `${a.objective_num}. Output: ` : ""}{a.objective_text}
+                        {a.objective_num && (
+                          <span className="mr-1.5 text-xs font-semibold uppercase tracking-wide tabular-nums">{a.objective_num}. Output:</span>
+                        )}
+                        {a.objective_text}
                       </td>
                       <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
@@ -1447,7 +1452,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               quarters={quarters}
               leadCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[360px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}<span className="ml-1.5 inline-block align-middle"><InfoPopover description={labels.workplanHelp.activity} triggerTitle="Activity" descriptionHeading={labels.workplanHelp.heading} /></span></th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[360px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>}
                 </>

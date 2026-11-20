@@ -687,7 +687,36 @@
     "comments": "comments",
     "overdue": "Overdue",
     "commentToAddress": "comment to address",
-    "commentsToAddress": "comments to address"
+    "commentsToAddress": "comments to address",
+    "mptfo": "MPTFO",
+    "projectStatus": {
+      "Idea": "Setting up",
+      "Ongoing": "Active",
+      "Project Closed": "Ended",
+      "Operationally Closed": "Closed",
+      "Financially Closed": "Closed"
+    },
+    "tiles": {
+      "grant": "Grant",
+      "period": "Period",
+      "months": "{n} months",
+      "openComments": "Open comments",
+      "nextDeadline": "Next deadline"
+    },
+    "nextSteps": "Your next steps",
+    "withCrafdNote": "{name} is with CRAF'd for review. Nothing to do for now.",
+    "timeline": {
+      "projectDocument": "Project Document",
+      "projectEnd": "Project end",
+      "finalReport": "Final Report",
+      "closure": "Closure",
+      "approved": "Approved",
+      "approvedOn": "Approved {date}",
+      "withCrafd": "With CRAF'd",
+      "inProgress": "In progress",
+      "due": "Due {date}",
+      "dueBy": "Due by {date}"
+    }
   },
   "partnerProject": {
     "allProjects": "All projects",

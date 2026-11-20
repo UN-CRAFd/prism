@@ -41,5 +41,9 @@ export interface Report {
   geographic_scope?: string | null;
   project_start_date?: string | null;
   project_duration_months?: number | null;
+  /** projects.status (Idea / Ongoing / …), carried on every report row. */
+  project_status?: string | null;
+  /** Date this document was last approved / closed, from the version log. */
+  approved_at?: string | null;
   organization_website?: string | null;
 }

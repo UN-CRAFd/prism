@@ -11,6 +11,7 @@ import type { FeedbackComment, PartnerProject, UpdateDoc } from "@/lib/partner-p
 import type { Report } from "@/lib/types";
 import { HorizontalTimeline } from "@/components/partner/horizontal-timeline";
 import { ActionRow } from "@/components/partner/project-rows";
+import { Tag } from "@/components/ui/tag";
 
 export default function PartnerHomePage() {
   const { user } = useAuth();
@@ -162,60 +163,113 @@ function ProjectBox({
   onToggle: () => void;
 }) {
   const actionCount = project.actions.length;
+  const h = labels.partnerHome;
+  const statusLabel = project.project_status
+    ? (h.projectStatus as Record<string, string | undefined>)[project.project_status]
+    : undefined;
+  const grant = project.grant_size_usd != null && project.grant_size_usd !== "" && Number.isFinite(Number(project.grant_size_usd))
+    ? `USD ${Number(project.grant_size_usd).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+    : "—";
+  const tiles: { label: string; value: string; sub?: string }[] = [
+    { label: h.tiles.grant, value: grant },
+    {
+      label: h.tiles.period,
+      value: project.periodStart && project.periodEnd ? `${project.periodStart} – ${project.periodEnd}` : "—",
+      sub: project.periodMonths != null ? h.tiles.months.replace("{n}", String(project.periodMonths)) : undefined,
+    },
+    { label: h.tiles.openComments, value: String(project.openCommentCount) },
+    { label: h.tiles.nextDeadline, value: project.nextDeadline ?? "—" },
+  ];
   return (
     <div className={cn("rounded-xl border overflow-hidden", project.hasOverdue ? "border-red-200 bg-red-50" : "bg-card")}>
-      <button
+      {/* Header: a div (not a button) so the MPTFO link can sit inside it. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
         onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
         className={cn("w-full text-left px-5 py-5 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer transition-colors", project.hasOverdue ? "hover:bg-red-100" : "hover:bg-muted/60")}
       >
-        {/* Left: title + lead org + role badge */}
+        {/* Left: title, then role and MPTFO link */}
         <div className="flex-1 min-w-0">
           <p className="text-base font-semibold leading-snug">{project.title}</p>
-          <p className="text-[14px] text-muted-foreground mt-1">{shortName(project.lead_org)}</p>
-          <span className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
-            {project.role === "lead" ? labels.partnerHome.roleLead : labels.partnerHome.roleImpl}
-          </span>
+          <p className="text-[14px] text-muted-foreground mt-1">
+            {project.role === "lead" ? h.roleLead : h.roleImpl}
+            {project.mptfo_project_number && (
+              <>
+                {" · "}
+                <a
+                  href={`https://mptf.undp.org/project/${project.mptfo_project_number}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-blue-600 hover:underline"
+                >
+                  {h.mptfo} {project.mptfo_project_number}
+                </a>
+              </>
+            )}
+          </p>
         </div>
 
-        {/* Right: status chips + chevron */}
+        {/* Right: project status tag, chips, chevron */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
+          {statusLabel && <Tag>{statusLabel}</Tag>}
           {project.hasOverdue && (
             <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 text-[13px] font-medium px-2.5 py-0.5">
-              {labels.partnerHome.overdue}
+              {h.overdue}
             </span>
           )}
           {actionCount > 0 && (
             <span className="inline-flex items-center rounded-full bg-crafd-yellow-100 text-crafd-grey-800 text-[13px] font-medium px-2.5 py-0.5">
-              {actionCount} {actionCount === 1 ? labels.partnerHome.todo : labels.partnerHome.todos}
+              {actionCount} {actionCount === 1 ? h.todo : h.todos}
             </span>
           )}
           {open
             ? <ChevronDown className="size-5 text-foreground/70 shrink-0 ml-1" />
             : <ChevronRight className="size-5 text-foreground/70 shrink-0 ml-1" />}
         </div>
-      </button>
+      </div>
 
       {open && (
         <div className={cn("border-t px-5 py-5 space-y-6 bg-card", project.hasOverdue && "border-red-200")}>
+          {/* Detail tiles */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {tiles.map((tile) => (
+              <div key={tile.label} className="rounded-lg bg-muted/50 px-3 py-2.5">
+                <p className="text-xs text-muted-foreground">{tile.label}</p>
+                <p className="text-sm font-semibold mt-0.5">{tile.value}</p>
+                {tile.sub && <p className="text-xs text-muted-foreground mt-0.5">{tile.sub}</p>}
+              </div>
+            ))}
+          </div>
+
           {project.timeline.length > 0 && (
             <HorizontalTimeline events={project.timeline} />
           )}
-          <div className="rounded-lg border overflow-hidden">
-            <div className="px-4 py-3 border-b bg-muted/50">
-              <h2 className="t-heading-section">{labels.partnerProject.needsAction}</h2>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">{h.nextSteps}</h3>
+            <div className="rounded-lg border overflow-hidden">
+              {project.actions.length === 0 ? (
+                <div className="flex items-center gap-3 px-2 py-4 justify-center">
+                  <CheckCircle2 className="size-4 text-green-500 shrink-0" />
+                  <p className="text-sm text-muted-foreground">{labels.partnerProject.nothingNeeded}</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {project.actions.map((action, i) => (
+                    <ActionRow key={i} action={action} />
+                  ))}
+                </div>
+              )}
             </div>
-            {project.actions.length === 0 ? (
-              <div className="flex items-center gap-3 px-2 py-4 justify-center">
-                <CheckCircle2 className="size-4 text-green-500 shrink-0" />
-                <p className="text-sm text-muted-foreground">{labels.partnerProject.nothingNeeded}</p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {project.actions.map((action, i) => (
-                  <ActionRow key={i} action={action} />
-                ))}
-              </div>
-            )}
+            {project.underReview.map((name) => (
+              <p key={name} className="text-sm text-muted-foreground">
+                {h.withCrafdNote.replace("{name}", name)}
+              </p>
+            ))}
           </div>
         </div>
       )}

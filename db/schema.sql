@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS projects (
     short_name              VARCHAR(50),
     description             TEXT,
     status                  TEXT           NOT NULL DEFAULT 'Ongoing',
+    status_manual           BOOLEAN        NOT NULL DEFAULT false,  -- true = status picked by an admin; automatic rules skip it
     mptfo_project_number    TEXT,
     grant_size_usd          NUMERIC(15,2),
     project_start_date      DATE,

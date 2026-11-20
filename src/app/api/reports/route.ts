@@ -153,6 +153,12 @@ export async function GET(request: Request) {
         pr.mptfo_project_number,
         pr.grant_size_usd,
         pr.geographic_scope,
+        pr.status                                       AS project_status,
+        (SELECT TO_CHAR(MAX(vl.created_at), 'YYYY-MM-DD')
+           FROM reporting_platform.version_log vl
+          WHERE vl.entity_id = r.id
+            AND vl.entity_type IN ('prodoc', 'report', 'update')
+            AND vl.to_status IN ('Approved', 'Closed'))  AS approved_at,
         TO_CHAR(pr.project_start_date, 'YYYY-MM-DD')   AS project_start_date,
         pr.project_duration_months,
         pr.partner_id                                   AS owner_partner_id,

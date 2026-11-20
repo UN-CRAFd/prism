@@ -13,6 +13,14 @@ export function workplanStatuses(): string[] {
   return optionValues("workplanStatus");
 }
 
+// Statuses that need an explanation: only these open the updated-timeline
+// quarters and the description field on a partner's progress line. Achieved /
+// On Track (or no status yet) keep both hidden. Matched on the stored value.
+const STATUSES_NEEDING_DETAIL = new Set(["Delayed", "At Risk", "Suspended"]);
+export function workplanStatusNeedsDetail(status: string | null | undefined): boolean {
+  return status != null && STATUSES_NEEDING_DETAIL.has(status);
+}
+
 // One-line meaning shown beside the status name in the progress dropdown.
 export function workplanStatusDescription(status: string): string {
   return optionDescription("workplanStatus", status);

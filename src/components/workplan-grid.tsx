@@ -28,8 +28,6 @@ import { LoadingState } from "@/components/admin/shared";
 import { cn } from "@/lib/utils";
 import { AutosaveIndicator, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { FilterChip } from "@/components/report-editor/past-year-chips";
-import { useStickySet } from "@/components/report-editor/sticky-filter";
 import { HEAD_BG, HEAD_COLOR, HEAD_DIVIDER_COLOR, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { useReadOnly } from "@/components/ui/read-only-context";
 import { RequiredMark } from "@/components/ui/required-mark";
@@ -42,6 +40,7 @@ import {
   groupQuartersByYear,
   workplanUpdateWindowLabel,
   type WorkplanStatus,
+  workplanStatusNeedsDetail,
 } from "@/lib/workplan";
 
 const AGENT_DELIM = " | ";
@@ -117,10 +116,13 @@ function QuarterCell({
   checked,
   variant,
   onToggle,
+  grey = false,
 }: {
   checked: boolean;
   variant: "baseline" | "editable";
   onToggle?: () => void;
+  // Editable but ticked in grey instead of brand yellow (the project document).
+  grey?: boolean;
 }) {
   const box = (
     <span
@@ -129,7 +131,9 @@ function QuarterCell({
         checked
           ? variant === "baseline"
             ? "bg-crafd-grey-200 border-crafd-grey-200 text-crafd-grey-600"
-            : "bg-crafd-yellow border-crafd-yellow text-black"
+            : grey
+              ? "bg-crafd-grey-200 border-crafd-grey-400 text-crafd-grey-800"
+              : "bg-crafd-yellow-400 border-crafd-yellow-600 text-crafd-grey-900"
           : "border-neutral-300 bg-white text-transparent"
       )}
     >
@@ -155,8 +159,8 @@ const EXTENSION_CELL = "bg-crafd-yellow-200";
 
 // Hierarchy (outcome → output → activity), shared by both grids. Each level is
 // a colour band that starts further in, leaving white space on its left:
-//   Outcome  — dark yellow band from the left edge.
-//   Output   — light yellow band starting 2rem in (OUTPUT_FILL).
+//   Outcome  — yellow band from the left edge (OUTCOME_BG).
+//   Output   — lighter yellow band starting 2rem in (OUTPUT_FILL).
 //   Activity — warm off-white band starting 4rem in (ACTIVITY_FILL); the line
 //              between activities starts there too, so the indent stays white.
 // The fills are background layers offset from the left, so they cover the full
@@ -187,10 +191,12 @@ function indentFill(color: string, x: string, topLine = false, bottomLine = fals
     backgroundPosition: layers.map((l) => l.pos).join(", "),
   };
 }
-// Ramp: outcome yellow-700 → output yellow-400 → activity yellow-50 (warm
-// off-white). Clear steps, and the activity rows — where partners work — stay
-// calm. Kept apart from the "input" yellows (ticked quarters, extension tint).
-const OUTPUT_FILL = indentFill("var(--color-crafd-yellow-400)", "2rem");
+// Ramp: outcome yellow-400 → output yellow-200 → activity yellow-50 (warm
+// off-white). Soft on purpose: yellow-400 is the brightest band. Clear steps,
+// and the activity rows — where partners work — stay calm. Kept apart from the
+// "input" yellows (ticked quarters, extension tint).
+const OUTCOME_BG = "bg-crafd-yellow-400";
+const OUTPUT_FILL = indentFill("var(--color-crafd-yellow-200)", "2rem");
 const ACTIVITY_FILL = indentFill("var(--color-crafd-yellow-50)", "4rem", true);
 // The last activity of an output also closes off with a line below it, so the
 // quarter grid doesn't stay open before the next output / add button.
@@ -211,8 +217,8 @@ const ACTIVITY_ROW_TOP = "[&>td]:border-t [&>td:first-child]:border-t-0";
 // lines — so the grid reads year by year without boxing every cell in.
 const YEAR_TICK =
   "bg-[linear-gradient(var(--color-crafd-grey-400),var(--color-crafd-grey-400))] bg-no-repeat bg-[length:1px_50%] bg-[position:0_50%]";
-function quarterEdge(q: string, quarters: string[], yearStart: Set<string>, ticks = true) {
-  if (q === quarters[0]) return "border-l";
+function quarterEdge(q: string, quarters: string[], yearStart: Set<string>, ticks = true, firstRule = true) {
+  if (q === quarters[0]) return firstRule ? "border-l" : undefined;
   return ticks && yearStart.has(q) ? YEAR_TICK : undefined;
 }
 function yearStartKeys(quarters: string[]): Set<string> {
@@ -222,12 +228,19 @@ function yearStartKeys(quarters: string[]): Set<string> {
 }
 // The quarter + trailing part of an outcome / output band row: blank cells with
 // the same year separators, extension tint and column rules as the body rows.
-// `action` (e.g. the delete button) goes in the last trailing cell.
-function BandFill({ quarters, yearStart, extension, trailing, action }: { quarters: string[]; yearStart: Set<string>; extension?: Set<string>; trailing: boolean[]; action?: ReactNode }) {
+// `action` (e.g. the delete button) goes in the last trailing cell. `leading`
+// adds blank cells before the quarters (true = left rule), for columns that sit
+// between the band text and the grid (the project document's "Project partner").
+// `firstRule={false}` drops the rule before the first quarter (the partner grid,
+// where the "Update" label column runs straight into the quarters).
+function BandFill({ quarters, yearStart, extension, leading = [], trailing, action, firstRule = true }: { quarters: string[]; yearStart: Set<string>; extension?: Set<string>; leading?: boolean[]; trailing: boolean[]; action?: ReactNode; firstRule?: boolean }) {
   return (
     <>
+      {leading.map((border, i) => (
+        <td key={"l" + i} className={cn(border && "border-l")} />
+      ))}
       {quarters.map((q) => (
-        <td key={q} className={cn(quarterEdge(q, quarters, yearStart, false), extension?.has(q) && EXTENSION_CELL)} />
+        <td key={q} className={cn(quarterEdge(q, quarters, yearStart, false, firstRule), extension?.has(q) && EXTENSION_CELL)} />
       ))}
       {trailing.map((border, i) => (
         <td key={"t" + i} className={cn(border && "border-l", i === trailing.length - 1 && action && "px-2 py-2 align-middle text-center")}>
@@ -241,7 +254,9 @@ function BandFill({ quarters, yearStart, extension, trailing, action }: { quarte
 // Two-row year/quarter header shared by both grids. `extension` holds the
 // quarter keys that fall beyond the project's approved end date; a year is
 // marked as extension only when every one of its quarters is.
-function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters: string[]; leadCols: ReactNode; trailCols: ReactNode; extension?: Set<string> }) {
+// `firstRule={false}` drops the divider before the first year / quarter, to match
+// the body (see BandFill).
+function QuarterHeader({ quarters, leadCols, trailCols, extension, firstRule = true }: { quarters: string[]; leadCols: ReactNode; trailCols: ReactNode; extension?: Set<string>; firstRule?: boolean }) {
   const groups = groupQuartersByYear(quarters);
   const isExtension = (key: string) => extension?.has(key) ?? false;
 
@@ -269,11 +284,11 @@ function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters:
     <thead>
       <tr ref={yearRowRef}>
         {leadCols}
-        {groups.map((g) => (
+        {groups.map((g, gi) => (
           <th
             key={g.year}
             colSpan={g.quarters.length}
-            style={{ boxShadow: HEAD_SHADOW_L }}
+            style={{ boxShadow: gi === 0 && !firstRule ? HEAD_SHADOW : HEAD_SHADOW_L }}
             className={cn(
               "sticky top-0 z-20 h-8 px-1 py-2 text-center",
               g.quarters.every((q) => isExtension(q.key)) ? EXTENSION_HEAD : cn(HEAD_BG, HEAD_COLOR),
@@ -286,11 +301,11 @@ function QuarterHeader({ quarters, leadCols, trailCols, extension }: { quarters:
         {trailCols}
       </tr>
       <tr>
-        {groups.map((g) =>
+        {groups.map((g, gi) =>
           g.quarters.map((q, i) => (
             <th
               key={q.key}
-              style={{ boxShadow: i === 0 ? HEAD_SHADOW_L : HEAD_SHADOW, top: yearRowHeight }}
+              style={{ boxShadow: i === 0 && (gi > 0 || firstRule) ? HEAD_SHADOW_L : HEAD_SHADOW, top: yearRowHeight }}
               className={cn(
                 "sticky z-20 px-0.5 py-1 text-center w-7 min-w-7",
                 isExtension(q.key) ? EXTENSION_HEAD : cn(HEAD_BG, HEAD_COLOR),
@@ -323,13 +338,8 @@ interface UpdateWindow {
   hidden: boolean;
 }
 
-// Keys for the row-filter stored set. An empty set gives the right defaults:
-// baseline shown (BASELINE_HIDDEN_KEY absent), every non-active update hidden
-// (update key absent). Presence means shown for update keys, hidden for
-// BASELINE_HIDDEN_KEY. The active update window is always visible with no chip.
-const BASELINE_HIDDEN_KEY = "baseline-hidden";
-function updateLineKey(u: { id: number }): string {
-  return `update:${u.id}`;
+function sortUpdates(updates: UpdateWindow[]): UpdateWindow[] {
+  return [...updates].sort((a, b) => a.year - b.year || a.sort_order - b.sort_order || a.id - b.id);
 }
 
 interface WindowEntry {
@@ -349,6 +359,24 @@ interface MatrixActivity {
   planned_quarters: string[];
   sort_order: number;
   byUpdate: Record<number, WindowEntry | undefined>;
+}
+
+// The activity's last submitted timeline before the current update window: the
+// latest earlier window (usually the year before) whose entry changed it — only
+// a delay (Delayed / At Risk / Suspended) carries a timeline; On Track /
+// Achieved mean "unchanged" and are skipped — or the baseline from the project
+// document when there is none. This is the greyed reference row on the partner
+// grid. `sorted` must be in window order.
+function lastSubmittedTimeline(a: MatrixActivity, sorted: UpdateWindow[], activeUpdateId: number | null): { label: string; quarters: string[] } {
+  const activeIdx = sorted.findIndex((u) => u.id === activeUpdateId);
+  const earlier = activeIdx === -1 ? sorted : sorted.slice(0, activeIdx);
+  for (let i = earlier.length - 1; i >= 0; i--) {
+    const u = earlier[i];
+    if (u.id === activeUpdateId) continue;
+    const entry = a.byUpdate[u.id];
+    if (entry && workplanStatusNeedsDetail(entry.status)) return { label: workplanUpdateWindowLabel(u), quarters: entry.updated_quarters ?? [] };
+  }
+  return { label: labels.common.baseline, quarters: a.planned_quarters ?? [] };
 }
 
 // Quarters added beyond the project's approved end date, for an update whose
@@ -402,11 +430,13 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
       const d: WorkplanMatrix = await res.json();
       setData(d);
       const prog: Record<number, ProgressState> = {};
+      const sorted = sortUpdates(d.updates);
       for (const a of d.activities) {
         const cur = d.activeUpdateId != null ? a.byUpdate[d.activeUpdateId] : undefined;
         prog[a.id] = {
-          // Default the active window's timeline to the baseline until adjusted.
-          updated_quarters: cur?.updated_quarters ?? a.planned_quarters ?? [],
+          // Until adjusted, the active window's timeline is the last submitted
+          // one (the year before, or the baseline when there is none).
+          updated_quarters: cur?.updated_quarters ?? lastSubmittedTimeline(a, sorted, d.activeUpdateId).quarters,
           status: (cur?.status as WorkplanStatus) ?? null,
           comment: cur?.comment ?? "",
         };
@@ -441,7 +471,8 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               reportId,
               updateId,
               activityId,
-              updated_quarters: s.updated_quarters,
+              // Ticks only count under a delay (the API enforces this too).
+              updated_quarters: workplanStatusNeedsDetail(s.status) ? s.updated_quarters : null,
               status: s.status,
               comment: s.comment || null,
             }),
@@ -510,22 +541,6 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   const quarters = useMemo(() => [...baseQuarters, ...extraQuarters], [baseQuarters, extraQuarters]);
   const extensionKeys = useMemo(() => new Set(extraQuarters), [extraQuarters]);
 
-  // Row filters: chips that show/hide per-activity lines. Baseline has a chip
-  // and is shown by default; BASELINE_HIDDEN_KEY present in the set hides it.
-  // Every non-active update window has a chip and is hidden by default; its key
-  // present in the set shows it. The active window is always visible, no chip.
-  // Keyed per report so each report's window ids stay isolated.
-  const [shownLines, updateShownLines] = useStickySet<string>(`workplan-rows:${reportId}`);
-
-  const toggleLine = useCallback((key: string) => {
-    updateShownLines((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, [updateShownLines]);
-
   if (loading) return <LoadingState />;
 
   if (error) {
@@ -551,10 +566,18 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
   }
 
   const { activities, activeUpdateId } = data;
-  const updates = [...data.updates].sort((a, b) => a.year - b.year || a.sort_order - b.sort_order || a.id - b.id);
+  const updates = sortUpdates(data.updates);
+  const activeUpdate = updates.find((u) => u.id === activeUpdateId) ?? null;
 
-  const baselineShown = !shownLines.has(BASELINE_HIDDEN_KEY);
-  const visibleUpdates = updates.filter((u) => u.id === activeUpdateId || shownLines.has(updateLineKey(u)));
+  // Picking a progress status. Leaving the delays (Delayed / At Risk /
+  // Suspended) closes the second row, so the timeline goes back to the last
+  // submitted one rather than keeping hidden edits that would still be saved.
+  const setStatus = (a: MatrixActivity, v: string) => {
+    const next = v === "none" ? null : v;
+    updateProgress(a.id, workplanStatusNeedsDetail(next)
+      ? { status: next }
+      : { status: next, updated_quarters: lastSubmittedTimeline(a, updates, activeUpdateId).quarters });
+  };
 
   const yearStart = yearStartKeys(quarters);
   let lastOutcome: string | null = null;
@@ -565,32 +588,6 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
     <div className={cn(fillHeight ? "flex flex-col flex-1 min-h-0" : "")}>
       <div className="mb-3">
         {!onSaveStateChange && <AutosaveIndicator state={saveState} />}
-      </div>
-      {/* Row filters: the baseline chip (shown by default) plus one chip per
-          non-active update window (hidden by default). Active window has no chip. */}
-      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">{labels.common.rows}</span>
-        <FilterChip
-          on={baselineShown}
-          onClick={() => toggleLine(BASELINE_HIDDEN_KEY)}
-          title={`${baselineShown ? "Hide" : "Show"} the baseline line under each activity`}
-        >
-          {labels.common.baseline}
-        </FilterChip>
-        {updates.filter((u) => u.id !== activeUpdateId).map((u) => {
-          const label = workplanUpdateWindowLabel(u);
-          const on = shownLines.has(updateLineKey(u));
-          return (
-            <FilterChip
-              key={u.id}
-              on={on}
-              onClick={() => toggleLine(updateLineKey(u))}
-              title={`${on ? "Hide" : "Show"} the ${label} line under each activity`}
-            >
-              {label}
-            </FilterChip>
-          );
-        })}
       </div>
       {/* No banner for the extended time frame: the added quarters announce
           themselves as the tinted columns past the project's own end. */}
@@ -609,19 +606,21 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
           <QuarterHeader
             quarters={quarters}
             extension={extensionKeys}
+            firstRule={false}
+            // Column order: Activity | Project partner | Progress update |
+            // Description | Update | quarters. The Update label (Baseline /
+            // 2026 AR …) sits right beside the quarters it describes. Activity
+            // takes the most room (~45%, at least 440px); the rest stay narrow.
             leadCols={
               <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[280px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW, width: "45%" }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[440px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-[80px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-[112px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[150px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 text-left px-2 py-2 w-[72px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Update</th>
               </>
             }
-            trailCols={
-              <>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[160px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
-              </>
-            }
+            trailCols={null}
           />
           <tbody>
             {activities.map((a, ai) => {
@@ -638,21 +637,28 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 || `${next.objective_num ?? ""}|${next.objective_text ?? ""}` !== objKey;
 
               const ps = progress[a.id];
-              // The baseline line (when shown) plus one line per update window.
-              // Whichever comes first carries the cells that span the activity's
-              // whole block, so hiding the baseline hands them to the first
-              // update line rather than leaving the block without them.
-              const lines: ({ kind: "baseline" } | { kind: "update"; u: UpdateWindow })[] = [
-                ...(baselineShown ? [{ kind: "baseline" as const }] : []),
-                ...visibleUpdates.map((u) => ({ kind: "update" as const, u })),
-              ];
-              const rowSpan = lines.length;
+              // Row 1 is the reference: the last submitted timeline (the year
+              // before, or the baseline), greyed. A second quarter row for this
+              // report opens only when its progress is Delayed / At Risk /
+              // Suspended — and only the Update label + quarters split; the other
+              // columns span both rows.
+              const prev = lastSubmittedTimeline(a, updates, activeUpdateId);
+              const status = ps?.status ?? null;
+              const split = activeUpdate != null && workplanStatusNeedsDetail(status);
+              const rowSpan = split ? 2 : 1;
+              const editable = activeUpdate != null && !readOnly;
+              // Spanning cells close the output off themselves when split (the
+              // second row only holds the label + quarters).
+              const closeSpan = lastInOutput && split ? "border-b" : undefined;
 
               const activityCell = (
                 <td rowSpan={rowSpan} className={cn("pr-3 py-2 align-top border-r bg-card", INDENT_ACTIVITY)} style={lastInOutput ? ACTIVITY_FILL_LAST : ACTIVITY_FILL}>
                   <div className="flex items-start gap-2">
                     <p className="text-sm font-medium leading-snug flex-1">
-                      {a.activity_num ? <span className="text-muted-foreground mr-1">{a.activity_num}</span> : null}
+                      {/* "1.1.1. ACTIVITY", styled like the project document's label. */}
+                      <span className="mr-1.5 text-xs font-semibold uppercase tracking-wide tabular-nums text-crafd-grey-900">
+                        {a.activity_num ? `${a.activity_num}. ` : ""}Activity
+                      </span>
                       {a.activity_text}
                     </p>
                     {/* Per-activity comment thread (admin↔partner), keyed on this
@@ -662,122 +668,86 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 </td>
               );
               const agentCell = (
-                <td rowSpan={rowSpan} className="px-2 py-2 text-xs align-middle border-l text-muted-foreground">{a.implementing_agent ? <AgentStack tokens={parseAgents(a.implementing_agent)} /> : "—"}</td>
+                <td rowSpan={rowSpan} className={cn("px-2 py-2 text-xs align-middle border-l text-muted-foreground", closeSpan)}>{a.implementing_agent ? <AgentStack tokens={parseAgents(a.implementing_agent)} /> : "—"}</td>
               );
 
               return (
                 <Fragment key={a.id}>
                   {showOutcome && (
                     <tr>
-                      <td colSpan={2} className={cn("bg-crafd-yellow-700 pr-3 py-2 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
-                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} trailing={[true, true, true]} />
+                      <td className={cn(OUTCOME_BG, "pr-3 py-2 text-xs font-semibold uppercase tracking-wide text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
                   )}
                   {showObjective && (
                     <tr>
-                      <td colSpan={2} className={cn("pr-3 py-1.5 text-sm font-semibold text-crafd-grey-900", INDENT_OUTPUT)} style={OUTPUT_FILL}>
+                      <td className={cn("pr-3 py-1.5 text-sm font-semibold text-crafd-grey-900", INDENT_OUTPUT)} style={OUTPUT_FILL}>
                         {a.objective_num ? `${a.objective_num}. Output: ` : ""}{a.objective_text}
                       </td>
-                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} trailing={[true, true, true]} />
+                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
                   )}
 
-                  {/* The read-only baseline line (admin-owned) followed by one
-                      progress line per update window; only the active one edits. */}
-                  {lines.map((line, idx) => {
-                    const first = idx === 0;
-                    // The activity's last line closes the output off at the bottom.
-                    // When it is also the first line, its first cell is the activity
-                    // cell, which draws its own indented bottom line.
-                    const closing = lastInOutput && idx === lines.length - 1
-                      ? (first ? ACTIVITY_ROW_BOTTOM : "[&>td]:border-b")
-                      : undefined;
-
-                    if (line.kind === "baseline") {
-                      return (
-                        <tr key="baseline" className={cn(first ? ACTIVITY_ROW_TOP : "border-t", closing)}>
-                          {first && activityCell}
-                          <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">{labels.common.baseline}</td>
-                          {quarters.map((q) => (
-                            <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart), extensionKeys.has(q) && EXTENSION_CELL)}>
-                              <QuarterCell checked={(a.planned_quarters ?? []).includes(q)} variant="baseline" />
-                            </td>
-                          ))}
-                          {first && agentCell}
-                          <td className="px-2 py-2 border-l text-center text-muted-foreground/40 text-xs">—</td>
-                          <td className="px-2 py-2 border-l text-muted-foreground/40 text-xs">—</td>
-                        </tr>
-                      );
-                    }
-
-                    const u = line.u;
-                    const isActive = u.id === activeUpdateId;
-                    // The active window is the only editable line — and only when
-                    // the report itself is editable. When read-only it renders
-                    // exactly like a past window's line (badges / plain text), so a
-                    // closed report can never be changed here regardless of whether
-                    // the wrapping fieldset manages to disable the controls.
-                    const editable = isActive && !readOnly;
-                    const cell = a.byUpdate[u.id];
-                    const checks = isActive ? (ps?.updated_quarters ?? []) : (cell?.updated_quarters ?? []);
-                    const status = (isActive ? ps?.status : (cell?.status as WorkplanStatus)) ?? null;
-                    const comment = isActive ? (ps?.comment ?? "") : (cell?.comment ?? "");
-                    return (
-                      <tr key={u.id} className={cn(first ? ACTIVITY_ROW_TOP : "border-t", closing, isActive ? "bg-crafd-yellow-50" : "opacity-60")}>
-                        {first && activityCell}
-                        <td className="px-2 py-2 text-xs font-medium whitespace-nowrap">
-                          <span className={cn(isActive ? "text-neutral-800" : "text-muted-foreground")}>{workplanUpdateWindowLabel(u)}</span>
+                  {/* Row 1: activity, partner, progress and description (spanning)
+                      + the last submitted timeline, greyed. */}
+                  <tr className={cn(ACTIVITY_ROW_TOP, lastInOutput && !split && ACTIVITY_ROW_BOTTOM)}>
+                    {activityCell}
+                    {agentCell}
+                    <td rowSpan={rowSpan} className={cn("px-2 py-2 align-middle border-l", closeSpan)}>
+                      {/* Renders the dropdown even when read-only: the surrounding
+                          <ReadOnlyProvider> disables it, as in every other section. */}
+                      {activeUpdate ? (
+                        <Select value={status ?? "none"} onValueChange={(v) => setStatus(a, v)}>
+                          <SelectTrigger className="h-8 px-1 w-full min-w-0">
+                            {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground/60 text-sm">Select…</span>}
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
+                            {workplanStatuses().map((st) => (
+                              <SelectItem key={st} value={st}><StatusOption value={st} /></SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
+                    </td>
+                    <td rowSpan={rowSpan} className={cn("px-2 py-2 border-l", closeSpan)}>
+                      {!split ? null : editable ? (
+                        <Textarea
+                          value={ps?.comment ?? ""}
+                          onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
+                          placeholder="Add a progress note…"
+                          className="text-xs min-h-[56px] resize-none placeholder:text-muted-foreground/60"
+                        />
+                      ) : ps?.comment ? (
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{ps.comment}</p>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 border-l text-xs text-muted-foreground whitespace-nowrap">{prev.label}</td>
+                    {quarters.map((q) => (
+                      <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart, true, false), extensionKeys.has(q) && EXTENSION_CELL)}>
+                        <QuarterCell checked={prev.quarters.includes(q)} variant="baseline" />
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Row 2 (delays only): this report's updated timeline. */}
+                  {split && activeUpdate && (
+                    <tr className={cn("border-t", lastInOutput && "[&>td]:border-b")}>
+                      <td className="px-2 py-2 border-l text-xs font-medium text-neutral-800 whitespace-nowrap">{workplanUpdateWindowLabel(activeUpdate)}</td>
+                      {quarters.map((q) => (
+                        <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart, true, false), extensionKeys.has(q) && EXTENSION_CELL)}>
+                          <QuarterCell
+                            checked={(ps?.updated_quarters ?? []).includes(q)}
+                            variant={editable ? "editable" : "baseline"}
+                            onToggle={editable ? () => toggleQuarter(a.id, q) : undefined}
+                          />
                         </td>
-                        {quarters.map((q) => (
-                          <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart), extensionKeys.has(q) && EXTENSION_CELL)}>
-                            <QuarterCell
-                              checked={checks.includes(q)}
-                              variant={editable ? "editable" : "baseline"}
-                              onToggle={editable ? () => toggleQuarter(a.id, q) : undefined}
-                            />
-                          </td>
-                        ))}
-                        {first && agentCell}
-                        <td className="px-2 py-2 align-middle border-l">
-                          {/* The active window's status always renders the dropdown;
-                              when the report is read-only the surrounding
-                              <ReadOnlyProvider> disables it (same mechanism as every
-                              other section's select). Past windows stay a plain badge. */}
-                          {isActive ? (
-                            <Select value={status ?? "none"} onValueChange={(v) => updateProgress(a.id, { status: v === "none" ? null : (v as WorkplanStatus) })}>
-                              <SelectTrigger className="h-8 px-1 w-[140px]">
-                                {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground text-sm">Select progress</span>}
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
-                                {workplanStatuses().map((st) => (
-                                  <SelectItem key={st} value={st}><StatusOption value={st} /></SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : status ? (
-                            <StatusBadge value={status} />
-                          ) : (
-                            <span className="text-muted-foreground/40 text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 border-l">
-                          {editable ? (
-                            <Textarea
-                              value={comment}
-                              onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
-                              placeholder="Add a progress note…"
-                              className="text-xs min-h-[32px] resize-none"
-                            />
-                          ) : comment ? (
-                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{comment}</p>
-                          ) : (
-                            <span className="text-muted-foreground/40 text-xs">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      ))}
+                    </tr>
+                  )}
                 </Fragment>
               );
             })}
@@ -966,7 +936,8 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
             body: JSON.stringify({
               reportId,
               activityId,
-              updated_quarters: s.updated_quarters,
+              // Ticks only count under a delay (the API enforces this too).
+              updated_quarters: workplanStatusNeedsDetail(s.status) ? s.updated_quarters : null,
               status: s.status,
               comment: s.comment || null,
             }),
@@ -1401,13 +1372,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
 
   if (loading) return <LoadingState />;
 
-  // Columns: [activity] (+[timeline label] in partner mode) + quarters + [project partner]
-  // (+[status]+[comment] in partner mode) + [delete].
+  // Columns: [activity] + [project partner] (+[timeline label] in partner mode)
+  // + quarters (+[status]+[comment] in partner mode) + [delete].
   const yearStart = yearStartKeys(quarters);
-  // Band + add-button rows: content spans the leading column(s); the rest is
-  // BandFill, so the column rules (quarters | partner | bin) run unbroken.
-  const leadCols = partnerMode ? 2 : 1;
-  const trailBorders = partnerMode ? [true, true, true, true] : [true, true];
+  // Band + add-button rows: content spans the activity column only and ends
+  // before "Project partner"; the rest is BandFill, so the column rules
+  // (partner | quarters | bin) run unbroken.
+  const leadCols = 1;
+  const leadBorders = partnerMode ? [true, false] : [true];
+  const trailBorders = partnerMode ? [true, true, true] : [true];
 
   // Add controls use the platform's standard add button (as "Add risk" on the
   // ProDoc Risk tab), each on its own row. Every level reuses the padding
@@ -1416,9 +1389,9 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
     // Each add button wears the colour of the level it adds (matching its band),
     // a shade darker on hover.
     const tone = {
-      outcome: "border-crafd-yellow bg-crafd-yellow-700 hover:border-crafd-yellow-900 hover:bg-crafd-yellow",
-      output: "border-crafd-yellow-700 bg-crafd-yellow-400 hover:border-crafd-yellow hover:bg-crafd-yellow-600",
-      activity: "border-crafd-yellow-400 bg-crafd-yellow-50 hover:border-crafd-yellow-600 hover:bg-crafd-yellow-150",
+      outcome: "border-crafd-yellow-600 bg-crafd-yellow-400 hover:border-crafd-yellow-700 hover:bg-crafd-yellow-500",
+      output: "border-crafd-yellow-400 bg-crafd-yellow-200 hover:border-crafd-yellow-500 hover:bg-crafd-yellow-300",
+      activity: "border-crafd-yellow-200 bg-crafd-yellow-50 hover:border-crafd-yellow-400 hover:bg-crafd-yellow-150",
     }[level];
     const button = (
       <Button type="button" variant="add" size="sm" onClick={onAdd} disabled={readOnly} className={cn("gap-1", tone)}>
@@ -1474,15 +1447,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               leadCols={
                 <>
                   <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[360px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Activity{!partnerMode && <RequiredMark />}</th>
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 text-left px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>}
                 </>
               }
               trailCols={
                 <>
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[100px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[110px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>}
                   {partnerMode && <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[160px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>}
-                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW }} className={cn("sticky top-0 z-20 px-2 py-2 w-10 align-bottom", HEAD_BG)} />
+                  <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-10 align-bottom", HEAD_BG)} />
                 </>
               }
             />
@@ -1491,7 +1464,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                 <Fragment key={cluster.clusterId}>
                   {/* Outcome cluster header — top level of the hierarchy */}
                   <tr>
-                    <td colSpan={leadCols} className={cn("bg-crafd-yellow-700 text-crafd-grey-900 pr-3 py-2.5", INDENT_OUTCOME)}>
+                    <td colSpan={leadCols} className={cn(OUTCOME_BG, "text-crafd-grey-900 pr-3 py-2.5", INDENT_OUTCOME)}>
                       <div className="flex items-start gap-2">
                         <button
                           type="button"
@@ -1507,14 +1480,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           rows={1}
                           value={cluster.outcome}
                           onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
-                          placeholder="Outcome heading…"
-                          className="min-h-9 flex-1 resize-none text-sm bg-white text-crafd-grey-900 placeholder:text-crafd-grey-400"
+                          placeholder="Provide outcome heading…"
+                          className="min-h-9 flex-1 resize-none text-sm bg-white text-crafd-grey-900 placeholder:text-muted-foreground/60"
                         />
                       </div>
                     </td>
                     <BandFill
                       quarters={quarters}
                       yearStart={yearStart}
+                      leading={leadBorders}
                       trailing={trailBorders}
                       action={
                         <button
@@ -1545,14 +1519,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           rows={1}
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}
-                          placeholder="Output description…"
-                          className="min-h-9 flex-1 resize-none text-sm bg-white"
+                          placeholder="Describe output…"
+                          className="min-h-9 flex-1 resize-none text-sm bg-white placeholder:text-muted-foreground/60"
                         />
                       </div>
                     </td>
                     <BandFill
                       quarters={quarters}
                       yearStart={yearStart}
+                      leading={leadBorders}
                       trailing={trailBorders}
                       action={
                         <button
@@ -1572,12 +1547,15 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                     const activityCell = (
                       <td rowSpan={partnerMode ? 2 : 1} className={cn("pr-3 py-2 align-top border-r h-px bg-card", INDENT_ACTIVITY, row.dirty && UNSAVED_MARK)} style={lastInOutput ? ACTIVITY_FILL_LAST : ACTIVITY_FILL}>
                         <div className="flex gap-2 h-full">
-                          <span className="text-xs tabular-nums text-crafd-grey-900 pt-2 w-10 shrink-0">{row.activity_num}</span>
+                          {/* "1.1.1. Activity", styled like the "1.1. Output" label above it. */}
+                          <span className="pt-2.5 text-xs font-semibold uppercase tracking-wide tabular-nums text-crafd-grey-900 shrink-0">
+                            {row.activity_num ? `${row.activity_num}. ` : ""}Activity
+                          </span>
                           <Textarea
                             value={row.activity_text}
                             onChange={(e) => updateRow(row.key, { activity_text: e.target.value })}
-                            placeholder="Activity description…"
-                            className="text-sm min-h-[36px] h-full resize-y flex-1 bg-white"
+                            placeholder="Describe activity…"
+                            className="text-sm min-h-[36px] h-full resize-y flex-1 bg-white placeholder:text-muted-foreground/60"
                           />
                           {/* Per-activity comment thread — only once the activity has
                               been persisted (an unsaved row has no id to key on). */}
@@ -1611,7 +1589,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                               <button className={cn("min-h-8 w-full rounded-md border border-input bg-transparent px-2 py-0.5 text-sm text-left flex justify-between gap-1", selected.length > 1 ? "items-start" : "items-center")}>
                                 {selected.length
                                   ? <AgentStack tokens={selected} className="leading-5" />
-                                  : <span className="text-muted-foreground">Project partner</span>}
+                                  : <span className="text-muted-foreground/60">Select…</span>}
                                 <ChevronDown className={cn("size-3 shrink-0 opacity-50", selected.length > 1 && "mt-1.5")} />
                               </button>
                             </DropdownMenuTrigger>
@@ -1680,12 +1658,12 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                       return (
                         <tr key={row.key} className={cn(ACTIVITY_ROW_TOP, lastInOutput && ACTIVITY_ROW_BOTTOM)}>
                           {activityCell}
+                          {agentCell}
                           {quarters.map((q) => (
                             <td key={q} className={cn("px-0.5 py-2 align-middle", quarterEdge(q, quarters, yearStart))}>
-                              <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
+                              <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" grey onToggle={() => toggleQuarter(row.key, q)} />
                             </td>
                           ))}
-                          {agentCell}
                           {deleteCell}
                         </tr>
                       );
@@ -1701,13 +1679,13 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                       <Fragment key={row.key}>
                         <tr className={ACTIVITY_ROW_TOP}>
                           {activityCell}
+                          {agentCell}
                           <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">Baseline</td>
                           {quarters.map((q) => (
                             <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart))}>
                               <QuarterCell checked={row.planned_quarters.includes(q)} variant="editable" onToggle={() => toggleQuarter(row.key, q)} />
                             </td>
                           ))}
-                          {agentCell}
                           <td rowSpan={2} className="px-2 py-2 align-top border-l w-[100px]">
                             <Select
                               value={ps?.status ?? "none"}
@@ -1753,20 +1731,20 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                   })}
                   {!collapsedSections[sec.sectionId] && (
                     <tr>
-                      <td colSpan={leadCols} className="p-0">{addTierBar("Add activity", () => addActivity(sec.sectionId), "activity")}</td><BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
+                      <td colSpan={leadCols} className="p-0">{addTierBar("Add activity", () => addActivity(sec.sectionId), "activity")}</td><BandFill quarters={quarters} yearStart={yearStart} leading={leadBorders} trailing={trailBorders} />
                     </tr>
                   )}
                 </Fragment>
                   ))}
                   {!collapsedClusters[cluster.clusterId] && (
                     <tr>
-                      <td colSpan={leadCols} className="p-0">{addTierBar("Add output", () => addObjective(cluster.clusterId), "output")}</td><BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
+                      <td colSpan={leadCols} className="p-0">{addTierBar("Add output", () => addObjective(cluster.clusterId), "output")}</td><BandFill quarters={quarters} yearStart={yearStart} leading={leadBorders} trailing={trailBorders} />
                     </tr>
                   )}
                 </Fragment>
               ))}
               <tr>
-                <td colSpan={leadCols} className="p-0">{addOutcomeBar}</td><BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
+                <td colSpan={leadCols} className="p-0">{addOutcomeBar}</td><BandFill quarters={quarters} yearStart={yearStart} leading={leadBorders} trailing={trailBorders} />
               </tr>
               {/* Filler: when the box is taller than the rows (fillHeight), the table
                   stretches to the box and this row takes the spare height, so the
@@ -1776,7 +1754,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
               {fillHeight && (
                 <tr style={{ height: "100%" }}>
                   <td colSpan={leadCols} className="p-0" />
-                  <BandFill quarters={quarters} yearStart={yearStart} trailing={trailBorders} />
+                  <BandFill quarters={quarters} yearStart={yearStart} leading={leadBorders} trailing={trailBorders} />
                 </tr>
               )}
             </tbody>

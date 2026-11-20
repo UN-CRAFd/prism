@@ -678,7 +678,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                 <Fragment key={a.id}>
                   {showOutcome && (
                     <tr>
-                      <td className={cn(OUTCOME_BG, "pr-3 py-2 text-xs font-semibold text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1.5 uppercase tracking-wide">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                      <td className={cn(OUTCOME_BG, "pr-3 py-2 text-sm font-semibold text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1.5 text-xs font-semibold uppercase tracking-wide tabular-nums">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
                       <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
                   )}

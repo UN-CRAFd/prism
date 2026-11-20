@@ -285,17 +285,19 @@ const EXPORTS: Record<string, SectionExport> = {
   },
 
   transfers: {
-    headers: ["year", "project_name", "partner", "transfer_partner", "partner_type", "amount_transferred", "linked_activity"],
+    headers: ["year", "project_name", "partner", "transfer_partner", "partner_type", "amount_transferred", "linked_activities"],
     sql: `
       SELECT r.year, p.project_title AS project_name, pt.short_name AS partner,
         tp.organization_name AS transfer_partner, tp.partner_type, td.amount_transferred,
-        NULLIF(TRIM(COALESCE(wa.activity_num, '') || ' ' || COALESCE(wa.activity_text, '')), '') AS linked_activity
+        (SELECT string_agg(NULLIF(TRIM(COALESCE(wa.activity_num, '') || ' ' || COALESCE(wa.activity_text, '')), ''), '; ' ORDER BY wa.sort_order)
+           FROM reporting_platform.transfer_data_activities tda
+           JOIN reporting_platform.workplan_activities wa ON wa.id = tda.activity_id
+          WHERE tda.transfer_data_id = td.id) AS linked_activities
       FROM reporting_platform.transfer_data td
       JOIN reporting_platform.transfer_partners tp ON tp.id = td.transfer_partner_id
       JOIN reporting_platform.reports  r  ON r.id  = td.report_id
       JOIN reporting_platform.projects p  ON p.id  = r.project_id
       JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-      LEFT JOIN reporting_platform.workplan_activities wa ON wa.id = td.linked_activity_id
       WHERE r.data_type = ANY(%DATA_TYPES%) %PROJECT_FILTER%
       ORDER BY r.year, pt.short_name, p.project_title, td.sort_order, td.id`,
   },

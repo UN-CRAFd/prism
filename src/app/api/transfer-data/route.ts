@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import pool, { query } from "@/lib/db";
+import type { PoolClient } from "pg";
 import { requireSession, requireAdmin, guardReport, guardRow } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
@@ -10,13 +11,24 @@ import { logger } from "@/lib/logger";
 //   GET    ?reportId=X&matrix=1   → pivot each transfer partner across every year
 //                                   of the project (+ the project's workplan
 //                                   activities for the linked-activity dropdown)
-//   POST   { reportId, transfer_partner_id, amount_transferred?, linked_activity_id? }
-//   PATCH  { id, amount_transferred?, linked_activity_id? }
+//   POST   { reportId, transfer_partner_id, amount_transferred?, linked_activity_ids? }
+//   PATCH  { id, amount_transferred?, linked_activity_ids? }
 //   DELETE ?id=X
+
+// A transfer can link to SEVERAL workplan activities (like complementary funding).
+// The links live in the transfer_data_activities junction table; the API exposes
+// them as a `linked_activity_ids` integer array (empty array when none).
+const ACTIVITY_IDS_AGG = `
+  COALESCE(
+    (SELECT jsonb_agg(tda.activity_id ORDER BY tda.activity_id)
+       FROM reporting_platform.transfer_data_activities tda
+      WHERE tda.transfer_data_id = d.id),
+    '[]'::jsonb
+  ) AS linked_activity_ids`;
 
 const SELECT_WITH_PARTNER = `
   SELECT d.id, d.report_id, d.transfer_partner_id,
-         d.amount_transferred, d.linked_activity_id, d.sort_order,
+         d.amount_transferred, ${ACTIVITY_IDS_AGG}, d.sort_order,
          tp.organization_name, tp.website, tp.partner_type
     FROM reporting_platform.transfer_data d
     JOIN reporting_platform.transfer_partners tp ON tp.id = d.transfer_partner_id`;
@@ -27,19 +39,46 @@ const toAmount = (v: unknown) => {
   return Number.isNaN(n) ? null : n;
 };
 
-const toActivityId = (v: unknown) => {
-  if (v === null || v === undefined || v === "") return null;
-  const n = Number(v);
-  return Number.isInteger(n) ? n : null;
-};
+function toActivityIds(v: unknown): number[] {
+  if (!Array.isArray(v)) return [];
+  const out: number[] = [];
+  for (const x of v) {
+    const n = Number(x);
+    if (Number.isInteger(n)) out.push(n);
+  }
+  return out;
+}
+
+// Replace a transfer's linked activities with `ids`, keeping only ids that resolve
+// to a real workplan activity (the FK would otherwise abort the txn).
+async function syncActivities(client: PoolClient, dataId: number, ids: number[]) {
+  await client.query(
+    `DELETE FROM reporting_platform.transfer_data_activities WHERE transfer_data_id = $1`,
+    [dataId]
+  );
+  if (ids.length) {
+    await client.query(
+      `INSERT INTO reporting_platform.transfer_data_activities (transfer_data_id, activity_id)
+       SELECT $1, x FROM unnest($2::int[]) AS x
+       JOIN reporting_platform.workplan_activities wa ON wa.id = x
+       ON CONFLICT DO NOTHING`,
+      [dataId, ids]
+    );
+  }
+}
 
 // Flat cross-report listing (admin "Full Data" view): one row per transfer line
-// per report, with the receiving org + linked activity + project/partner joined.
+// per report, with the receiving org + linked activities + project/partner joined.
+// `linked_activities` aggregates the linked workplan activities into a readable
+// label string (same as the complementary listing).
 const SELECT_ALL = `
   SELECT d.id, d.report_id, d.transfer_partner_id,
-         d.amount_transferred, d.linked_activity_id, d.sort_order,
+         d.amount_transferred, ${ACTIVITY_IDS_AGG}, d.sort_order,
          tp.organization_name, tp.website, tp.partner_type,
-         a.activity_num AS linked_activity_num, a.activity_text AS linked_activity_text,
+         (SELECT string_agg(COALESCE(a.activity_num, a.activity_text), ', ' ORDER BY a.sort_order)
+            FROM reporting_platform.transfer_data_activities tda
+            JOIN reporting_platform.workplan_activities a ON a.id = tda.activity_id
+           WHERE tda.transfer_data_id = d.id) AS linked_activities,
          r.year, r.report_type,
          p.project_title, p.short_name AS project_short_name,
          pt.short_name AS partner_short_name, pt.long_name AS partner_long_name
@@ -48,7 +87,6 @@ const SELECT_ALL = `
     JOIN reporting_platform.reports  r  ON r.id  = d.report_id
     JOIN reporting_platform.projects p  ON p.id  = r.project_id
     JOIN reporting_platform.partners pt ON pt.id = p.partner_id
-    LEFT JOIN reporting_platform.workplan_activities a ON a.id = d.linked_activity_id
    WHERE r.data_type = 'report'
    ORDER BY r.year DESC, pt.short_name, p.project_title, d.sort_order ASC, d.id ASC`;
 
@@ -100,7 +138,7 @@ type MatrixRawRow = {
   report_id: number;
   transfer_partner_id: number;
   amount_transferred: string | null;
-  linked_activity_id: number | null;
+  linked_activity_ids: number[] | null;
   sort_order: number;
   master_sort: number;
   report_year: number;
@@ -124,7 +162,7 @@ async function getMatrix(reportId: string) {
   // entered in any report shows in every year's matrix (prior years read-only).
   const rows = await query<MatrixRawRow>(
     `SELECT d.id, d.report_id, d.transfer_partner_id,
-            d.amount_transferred, d.linked_activity_id, d.sort_order,
+            d.amount_transferred, ${ACTIVITY_IDS_AGG}, d.sort_order,
             tp.sort_order AS master_sort,
             r.year AS report_year, (r.id = $2) AS is_current,
             tp.organization_name, tp.website, tp.partner_type
@@ -162,7 +200,7 @@ async function getMatrix(reportId: string) {
       id: r.id,
       report_id: r.report_id,
       amount_transferred: r.amount_transferred,
-      linked_activity_id: r.linked_activity_id,
+      linked_activity_ids: r.linked_activity_ids ?? [],
     };
   }
 
@@ -213,41 +251,44 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const client = await pool.connect();
   try {
-    const existing = await query<{ count: string }>(
+    await client.query("BEGIN");
+
+    const existing = await client.query<{ count: string }>(
       `SELECT COUNT(*) AS count FROM reporting_platform.transfer_data WHERE report_id = $1`,
       [reportId]
     );
-    const nextOrder = Number(existing[0].count) + 1;
+    const nextOrder = Number(existing.rows[0].count) + 1;
 
-    const inserted = await query<{ id: number }>(
+    const inserted = await client.query<{ id: number }>(
       `INSERT INTO reporting_platform.transfer_data
-         (report_id, transfer_partner_id, amount_transferred, linked_activity_id, sort_order)
-       VALUES ($1, $2, $3, $4, $5)
+         (report_id, transfer_partner_id, amount_transferred, sort_order)
+       VALUES ($1, $2, $3, $4)
        RETURNING id`,
-      [
-        reportId,
-        transfer_partner_id,
-        toAmount(body.amount_transferred),
-        toActivityId(body.linked_activity_id),
-        nextOrder,
-      ]
+      [reportId, transfer_partner_id, toAmount(body.amount_transferred), nextOrder]
     );
+    await syncActivities(client, inserted.rows[0].id, toActivityIds(body.linked_activity_ids));
 
     // A row now exists, so any "No transfers to report" confirmation no longer applies.
-    await query(
+    await client.query(
       `UPDATE reporting_platform.reports SET no_transfers_confirmed = FALSE WHERE id = $1 AND no_transfers_confirmed`,
       [reportId]
     );
 
-    const rows = await query(`${SELECT_WITH_PARTNER} WHERE d.id = $1`, [inserted[0].id]);
+    await client.query("COMMIT");
+
+    const rows = await query(`${SELECT_WITH_PARTNER} WHERE d.id = $1`, [inserted.rows[0].id]);
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     logger.error("POST /api/transfer-data error:", err);
     if (String(err).includes("duplicate key")) {
       return NextResponse.json({ error: "This organization is already on the report" }, { status: 409 });
     }
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
 
@@ -265,33 +306,46 @@ export async function PATCH(req: NextRequest) {
   const gate = await guardRow(session, "transfer_data", id as string | number, { requireOpen: true });
   if (gate) return gate;
 
-  const updates: string[] = [];
-  const values: unknown[] = [id];
-
-  if ("amount_transferred" in body) {
-    values.push(toAmount(body.amount_transferred));
-    updates.push(`amount_transferred = $${values.length}`);
-  }
-  if ("linked_activity_id" in body) {
-    values.push(toActivityId(body.linked_activity_id));
-    updates.push(`linked_activity_id = $${values.length}`);
-  }
-
-  if (updates.length === 0) {
+  const hasAmount = "amount_transferred" in body;
+  const hasActivities = "linked_activity_ids" in body;
+  if (!hasAmount && !hasActivities) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
+  const client = await pool.connect();
   try {
-    await query(
-      `UPDATE reporting_platform.transfer_data SET ${updates.join(", ")}, updated_at = NOW() WHERE id = $1`,
-      values
-    );
+    await client.query("BEGIN");
+
+    if (hasAmount) {
+      await client.query(
+        `UPDATE reporting_platform.transfer_data
+            SET amount_transferred = $2, updated_at = NOW()
+          WHERE id = $1`,
+        [id, toAmount(body.amount_transferred)]
+      );
+    }
+    if (hasActivities) {
+      await syncActivities(client, Number(id), toActivityIds(body.linked_activity_ids));
+      // Touch updated_at even when only the activity links changed.
+      if (!hasAmount) {
+        await client.query(
+          `UPDATE reporting_platform.transfer_data SET updated_at = NOW() WHERE id = $1`,
+          [id]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+
     const rows = await query(`${SELECT_WITH_PARTNER} WHERE d.id = $1`, [id]);
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     logger.error("PATCH /api/transfer-data error:", err);
     return NextResponse.json({ error: "Request failed" }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
 

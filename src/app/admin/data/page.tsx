@@ -441,7 +441,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { header: "Type", headClass: "w-[150px]", cell: (r) => <Tag value={r.partner_type as string | null} /> },
       { header: "Website", headClass: "w-[160px]", cell: (r) => <LinksList raw={r.website as string | null} /> },
       { header: "Amount", headClass: "w-[120px]", cell: (r) => money(r.amount_transferred) },
-      { header: "Linked Activity", cell: (r, ctx) => trunc(activityText(r.linked_activity_num, r.linked_activity_text), `tact-${r.id}`, ctx) },
+      { header: "Linked Activities", cell: (r, ctx) => trunc(r.linked_activities, `tact-${r.id}`, ctx) },
     ],
   },
   {

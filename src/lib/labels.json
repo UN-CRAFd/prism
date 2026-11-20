@@ -509,11 +509,13 @@
       "partnerType": "Partner type",
       "amountTransferred": "Amount transferred",
       "linkedActivity": "Linked activity",
+      "linkedActivities": "Linked activities",
       "subTotal": "Transferred per organization",
       "total": "Total amount transferred"
     },
     "selectPartnerType": "Organization type",
     "selectActivity": "Linked activity",
+    "selectActivities": "Linked activities",
     "addEntry": "Add transfer",
     "noRows": "No transfers to report",
     "noRowsConfirmed": "Confirmed: no transfers to report",

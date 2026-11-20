@@ -146,13 +146,14 @@ export async function GET(req: NextRequest) {
         [projectId, reportId]
       ).then((r) => n(r[0]?.activities) > 0 && n(r[0]?.done) === n(r[0]?.activities)),
 
-      // Expenditure — every category has an entered amount for this report.
+      // Expenditure — complete when at least one category has an annual expenditure
+      // above 0 for this report (blank amounts count as 0, so a report with nothing
+      // entered is not complete).
       query<Row>(
-                `SELECT (SELECT COUNT(*) FROM reporting_platform.expenditure_categories)::int AS cats,
-                (SELECT COUNT(*) FROM reporting_platform.expenditure_entries
-                  WHERE report_id = $1 AND annual_expenditure IS NOT NULL)::int AS filled`,
+        `SELECT EXISTS (SELECT 1 FROM reporting_platform.expenditure_entries
+                         WHERE report_id = $1 AND annual_expenditure > 0) AS ok`,
         [reportId]
-      ).then((r) => n(r[0]?.cats) > 0 && n(r[0]?.filled) >= n(r[0]?.cats)),
+      ).then((r) => !!r[0]?.ok),
 
       // Testimonials — a leadership row and at least one partner row must each have
       // quote, person_name and person_title filled; no started-but-incomplete row of

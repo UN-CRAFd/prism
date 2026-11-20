@@ -452,7 +452,7 @@
     "selectPartner": "Select partner",
     "outcome": "The longer-term change the project contributes to. Example: humanitarian actors use timely displacement data in their planning.",
     "output": "A concrete product or service the project delivers. Example: a quarterly displacement dataset is published.",
-    "activity": "The work done to produce an output. Example: collect and clean data from partner agencies."
+    "activity": "The work done to produce an output. Example: Collect and clean displacement data from 12 partner agencies each quarter."
   },
   "indicators": {
     "statuses": {

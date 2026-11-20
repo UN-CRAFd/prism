@@ -1559,6 +1559,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           <span className="pt-2.5 text-xs font-semibold uppercase tracking-wide tabular-nums text-crafd-grey-900 shrink-0">
                             {row.activity_num ? `${row.activity_num}. ` : ""}Activity
                           </span>
+                          <span className="pt-2 shrink-0"><InfoPopover description={labels.workplanHelp.activity} triggerTitle="Activity" descriptionHeading={labels.workplanHelp.heading} /></span>
                           <Textarea
                             value={row.activity_text}
                             onChange={(e) => updateRow(row.key, { activity_text: e.target.value })}

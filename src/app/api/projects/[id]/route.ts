@@ -5,6 +5,7 @@ import { sanitizeRichText } from "@/lib/sanitize";
 import { isGrantSizeOutOfRange } from "@/lib/grant-limits";
 import { logger } from "@/lib/logger";
 import { ADMIN_ONLY_CLASSIFICATION_FIELDS, stripAdminOnlyProjectFields } from "@/lib/project-fields";
+import { refreshProjectStatuses } from "@/lib/project-status";
 
 const ALLOWED_FIELDS = [
   "partner_id", "project_title", "short_name", "description", "status",
@@ -97,6 +98,15 @@ export async function PUT(
       values.push(field === "description" ? sanitizeRichText(body[field] as string) : body[field]);
     }
 
+    // Project status: picking one by hand (admin) marks it manual, so the automatic
+    // rules leave it alone; `status_manual: false` ("Automatic") hands it back.
+    const backToAuto = session.role === "admin" && body.status_manual === false;
+    if (session.role === "admin" && body.status !== undefined && !backToAuto) {
+      setClauses.push("status_manual = true");
+    }
+    if (backToAuto) setClauses.push("status_manual = false");
+    const datesChanged = body.project_start_date !== undefined || body.project_duration_months !== undefined;
+
     // Editor grants (prodoc edit rights) are admin-only — an editor must not be
     // able to grant rights to others. Only reconcile when the key is present.
     const manageEditors = session.role === "admin" && body.editor_partner_ids !== undefined;
@@ -132,6 +142,14 @@ export async function PUT(
           return NextResponse.json({ error: "Project not found" }, { status: 404 });
         }
         row = cur.rows[0];
+      }
+
+      // Recompute the automatic status when the project went back to Automatic or
+      // its dates changed (end date = start + duration); then return the fresh row.
+      if (backToAuto || datesChanged) {
+        await refreshProjectStatuses(client, Number(id));
+        const fresh = await client.query(`SELECT * FROM reporting_platform.projects WHERE id = $1`, [id]);
+        if (fresh.rows.length) row = fresh.rows[0];
       }
 
       if (manageEditors) {

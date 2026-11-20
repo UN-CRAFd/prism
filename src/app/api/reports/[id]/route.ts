@@ -5,6 +5,7 @@ import { loadOptionOverrides } from "@/lib/option-settings";
 import { optionValues } from "@/lib/options";
 import { logger } from "@/lib/logger";
 import { logStatusChange } from "@/lib/version-log";
+import { refreshProjectStatuses } from "@/lib/project-status";
 
 const ALLOWED_FIELDS = ["year", "report_submission_date", "authorized", "status"];
 
@@ -166,36 +167,10 @@ export async function PUT(
         client
       );
 
-      // Approving a project document puts the project into "Ongoing" — in this same
-      // transaction and logged like any other status change — provided that status
-      // exists in the (admin-editable) project status options.
-      if (data_type === "prodoc" && newStatus === "Approved" && optionValues("projectStatus").includes("Ongoing")) {
-        const proj = await client.query<{ status: string | null; project_title: string }>(
-          `SELECT status, project_title FROM reporting_platform.projects WHERE id = $1 FOR UPDATE`,
-          [project_id]
-        );
-        if (proj.rows.length && proj.rows[0].status !== "Ongoing") {
-          await client.query(
-            `UPDATE reporting_platform.projects SET status = 'Ongoing' WHERE id = $1`,
-            [project_id]
-          );
-          await logStatusChange(
-            {
-              entity_type: "project",
-              entity_id: project_id,
-              entity_label: proj.rows[0].project_title,
-              project_id,
-              from_status: proj.rows[0].status,
-              to_status: "Ongoing",
-              actor_role: session.role,
-              actor_org: session.org ?? null,
-              actor_name: (body.actor_name as string | undefined) ?? null,
-              reason: (body.reason as string | undefined) ?? "Project document approved",
-            },
-            client
-          );
-        }
-      }
+      // A workflow change (a project document becoming Approved, the final report
+      // being Closed, …) can change the project's automatic status — recompute it in
+      // this same transaction (manual projects are skipped; changes are logged).
+      await refreshProjectStatuses(client, project_id);
 
       await client.query("COMMIT");
       return NextResponse.json(updateResult.rows[0]);

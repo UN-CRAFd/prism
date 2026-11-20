@@ -3,6 +3,7 @@ import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, editorProjectIds } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { stripAdminOnlyProjectFields } from "@/lib/project-fields";
+import { refreshProjectStatuses } from "@/lib/project-status";
 
 // The one project document every project owns is a reports row with
 // data_type='prodoc'. Its year is cosmetic (a prodoc is not tied to a reporting
@@ -19,6 +20,10 @@ export async function GET() {
   if (session instanceof NextResponse) return session;
 
   try {
+    // Admin Projects list: bring the automatic project statuses up to date first
+    // (they depend on dates, so they can change without any save).
+    if (session.role === "admin") await refreshProjectStatuses();
+
     // Partners see their own organization's projects PLUS any project they were
     // granted edit rights on (project_editors); admins see all.
     const scoped = session.role !== "admin";

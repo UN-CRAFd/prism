@@ -60,6 +60,8 @@ interface Project {
   project_title: string;
   short_name: string | null;
   status: ProjectStatus;
+  // true when an admin picked the status by hand (the automatic rules then skip it).
+  status_manual?: boolean;
   mptfo_project_number: string | null;
   grant_size_usd: string | null;
   project_start_date: string | null;
@@ -218,7 +220,7 @@ export default function ProjectsPage() {
   // Sort state (click a column header). Default: alphabetical by project title.
   type SortKey =
     | "project_title" | "partner_short_name" | "status"
-    | "mptfo_project_number" | "grant_size_usd" | "project_duration_months"
+    | "mptfo_project_number" | "grant_size_usd" | "project_start_date" | "project_duration_months"
     | "geographic_scope" | "prodoc" | "progress" | "last_edited" | "archived";
   const { sortKey, sortDir, toggle: toggleSort } = useTableSort<SortKey>("project_title");
 
@@ -405,10 +407,32 @@ export default function ProjectsPage() {
     setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, archived } : p)));
   }
 
+  // Sentinel for the "Automatic" item at the top of the Project Status dropdown.
+  const AUTO_STATUS = "__auto__";
+
+  // Re-read the project list quietly (the GET also refreshes the automatic statuses).
+  async function refreshProjects() {
+    const res = await fetch("/api/projects");
+    if (res.ok) setProjects(await res.json());
+  }
+
   async function handleStatusChange(id: number, newStatus: ProjectStatus) {
-    // Optimistic: reflect the change immediately, roll back on failure.
     const prev = projects;
-    setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
+    if (newStatus === AUTO_STATUS) {
+      // Hand the status back to the automatic rules; the server recomputes it and
+      // returns the fresh row.
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status_manual: false }),
+      });
+      if (!res.ok) return;
+      const row: Partial<Project> = await res.json();
+      setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, ...row } : p)));
+      return;
+    }
+    // A hand-picked status is saved as manual. Optimistic; roll back on failure.
+    setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, status: newStatus, status_manual: true } : p)));
     const res = await fetch(`/api/projects/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -530,8 +554,8 @@ export default function ProjectsPage() {
     setTimeout(() => setPrintingId(null), 1500);
   }
 
-  // Set the prodoc's workflow status (Open / Under Review / Partner Review / Approved). Approving
-  // also moves the project to Ongoing (done server-side in the same request). Opens the StatusChangeDialog to collect a name
+  // Set the prodoc's workflow status (Open / Under Review / Partner Review / Approved). The server
+  // recomputes the project's automatic status from it (not for manual projects). Opens the StatusChangeDialog to collect a name
   // and reason before applying. Optimistic; persisted via PUT /api/reports/:id.
   function handleProdocStatusChange(projectId: number, prodocId: number, status: ReportStatus) {
     setPendingStatusChange({
@@ -547,9 +571,6 @@ export default function ProjectsPage() {
     const { projectId, prodocId, status } = pendingStatusChange;
     setPendingStatusChange(null);
     setProdocByProject((prev) => ({ ...prev, [projectId]: { ...prev[projectId], id: prodocId, status } }));
-    if (status === "Approved" && optionValues("projectStatus").includes("Ongoing")) {
-      setProjects((ps) => ps.map((p) => (p.id === projectId ? { ...p, status: "Ongoing" } : p)));
-    }
     await fetch(`/api/reports/${prodocId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -559,6 +580,8 @@ export default function ProjectsPage() {
         reason: reason || null,
       }),
     });
+    // The server recomputes the project's automatic status from the new workflow.
+    await refreshProjects();
   }
 
   // ── Filter & sort ─────────────────────────────────────────────────────────
@@ -583,6 +606,7 @@ export default function ProjectsPage() {
         // Money, duration and MPTFO # sort numerically; statuses by their
         // workflow order; the rest lexically (nulls sink).
         if (sortKey === "grant_size_usd") return p.grant_size_usd != null ? parseFloat(p.grant_size_usd) : null;
+        if (sortKey === "project_start_date") return p.project_start_date;
         if (sortKey === "project_duration_months") return p.project_duration_months;
         if (sortKey === "mptfo_project_number") return p.mptfo_project_number ? Number(p.mptfo_project_number) : null;
         if (sortKey === "status") return statusOrder.indexOf(p.status);
@@ -772,14 +796,15 @@ export default function ProjectsPage() {
                 <SortableHead label="Partner" column="partner_short_name" {...sortProps} />
                 <SortableHead label="Project title" column="project_title" {...sortProps} />
                 <SortableHead label="Project Status" column="status" className="w-48" {...sortProps} />
-                <SortableHead label="Archive" column="archived" {...sortProps} />
                 <SortableHead label="MPTFO #" column="mptfo_project_number" {...sortProps} />
                 <SortableHead label="Grant size" column="grant_size_usd" align="right" className="text-right" {...sortProps} />
+                <SortableHead label="Start date" column="project_start_date" {...sortProps} />
                 <SortableHead label="Duration" column="project_duration_months" {...sortProps} />
                 <SortableHead label="Scope" column="geographic_scope" {...sortProps} />
                 <SortableHead label="Workflow" column="prodoc" {...sortProps} />
                 <SortableHead label="Progress" column="progress" {...sortProps} />
                 <SortableHead label="Last edited" column="last_edited" {...sortProps} />
+                <SortableHead label="Archive" column="archived" {...sortProps} />
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -801,22 +826,23 @@ export default function ProjectsPage() {
                     <TooltipContent>{p.project_title}</TooltipContent>
                   </Tooltip>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
-                      <SelectTrigger className="!h-7 w-full border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none [&>svg]:size-3 [&>svg]:shrink-0">
-                        <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
-                          {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
-                          <SelectValue />
-                        </span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {optionValues("projectStatus").map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <ArchiveSelect archived={!!p.archived} onChange={(a) => handleArchiveChange(p, a)} />
+                    <div className="flex items-center gap-1">
+                      <Select value={p.status} onValueChange={(v) => handleStatusChange(p.id, v as ProjectStatus)}>
+                        <SelectTrigger className="!h-7 w-full border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none [&>svg]:size-3 [&>svg]:shrink-0">
+                          <span className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                            {STATUS_ICONS[p.status] ?? STATUS_ICON_FALLBACK}
+                            <SelectValue />
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={AUTO_STATUS}>Automatic</SelectItem>
+                          {optionValues("projectStatus").map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {p.status_manual && <span className="shrink-0 text-[11px] text-muted-foreground">Manual</span>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs font-mono">
                     {p.mptfo_project_number ? (
@@ -835,6 +861,9 @@ export default function ProjectsPage() {
                     ) : <Dash />}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatUsd(p.grant_size_usd)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs whitespace-nowrap tabular-nums">
+                    {p.project_start_date ? formatDate(p.project_start_date) : <Dash />}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       {durationLabel(p.project_duration_months) || <Dash />}
@@ -881,6 +910,9 @@ export default function ProjectsPage() {
                       {pd?.last_edited ? timeAgo(pd.last_edited) : "—"}
                     </TableCell>
                   </Hint>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <ArchiveSelect archived={!!p.archived} onChange={(a) => handleArchiveChange(p, a)} />
+                  </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <Hint label="More actions">

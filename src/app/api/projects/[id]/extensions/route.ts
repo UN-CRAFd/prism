@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
 import { requireSession, requireAdmin, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
+import { refreshProjectStatuses } from "@/lib/project-status";
 
 // List the no-cost extensions granted on a project, newest first.
 export async function GET(
@@ -104,6 +105,9 @@ export async function POST(
         )`,
       [id]
     );
+
+    // The longer duration moves the end date, which can change the automatic status.
+    await refreshProjectStatuses(client, Number(id));
 
     await client.query("COMMIT");
     return NextResponse.json({ project: updated.rows[0], extension: inserted.rows[0] }, { status: 201 });

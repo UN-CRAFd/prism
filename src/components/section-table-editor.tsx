@@ -1002,7 +1002,7 @@ export function SectionTableEditor({
                       staticItems={f.options ?? []}
                       value={splitMulti(row.values[f.key])}
                       onChange={(next) => updateField(i, f.key, joinMulti(next))}
-                      placeholder="Select…"
+                      placeholder="Select."
                     />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
@@ -1022,7 +1022,7 @@ export function SectionTableEditor({
                       onAdd={() => mutateLinks(i, f.key, (arr) => [...arr, ""])}
                       onRemove={(li) => mutateLinks(i, f.key, (arr) => arr.filter((_, x) => x !== li))}
                       onUpdate={(li, val) => mutateLinks(i, f.key, (arr) => arr.map((l, x) => (x === li ? val : l)))}
-                      placeholder={f.placeholder ?? "https://…"}
+                      placeholder={f.placeholder ?? labels.common.placeholders.url}
                     />
                   )}
                 </td>
@@ -1111,8 +1111,8 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     max: 5,
     fields: [
       { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), headClass: "w-52" },
-      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned…", headClass: "w-[38%]", required: true },
-      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result…" },
+      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true },
+      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result." },
     ],
   },
   "external-coverage": {

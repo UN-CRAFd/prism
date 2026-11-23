@@ -54,7 +54,7 @@ export interface RiskSectionProps {
 }
 
 const HIST_COL_W = 80;     // width of each comparison sub-column (px)
-const BASE_MIN_W = 928;    // min-width with no comparison chips active
+const BASE_MIN_W = 848;    // min-width with no comparison chips active
 
 // Read-only badges for comparison columns. The wrapping cell already has
 // opacity-60, so the colours show as suitably muted without further changes.
@@ -284,7 +284,6 @@ export function RiskSection({
                     />
                   </span>
                 </th>
-                <th rowSpan={2} className={cn("border-b", HEAD_BG)} style={{ width: 80, minWidth: 80 }} />
               </tr>
 
               {/* Row 2: sub-column labels */}
@@ -366,6 +365,31 @@ export function RiskSection({
                             })()}
                             {addedYear !== null && <AddedBadge year={addedYear} />}
                           </div>
+                          {/* Edit / delete for risks added in a report — kept in
+                              this cell rather than an extra actions column, which
+                              stayed empty for every carried-over risk. */}
+                          {isNew && (
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => startEdit(risk, state)}
+                                aria-label="Edit risk"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleRiskDelete(risk.id)}
+                                aria-label="Delete risk"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          )}
                           <ItemComments section="risk" itemId={risk.id} />
                         </div>
                       )}
@@ -428,30 +452,6 @@ export function RiskSection({
                         className="size-4 rounded mt-1"
                       />
                     </td>
-
-                    {/* Actions — pencil + trash for new risks only */}
-                    <td className="px-3 py-3 border-t border-l">
-                      {isNew && !isEditing && (
-                        <div className="flex items-center gap-0.5">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-muted-foreground hover:text-foreground"
-                            onClick={() => startEdit(risk, state)}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleRiskDelete(risk.id)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
-                      )}
-                    </td>
                   </tr>
                 );
               })}
@@ -463,9 +463,8 @@ export function RiskSection({
                     <span className="text-sm tabular-nums text-crafd-grey-600">{risks.length + 1}.</span>
                   </td>
                   {/* One full-width form cell spanning every column after the row number
-                      (risk + comparison chips shown + updated-assessment + revision +
-                      actions), so it always reaches the right edge. */}
-                  <td colSpan={1 + selectedChipKeys.length * 2 + (isAdmin ? 4 : 3) + 2} className="px-3 py-3 border-t border-l">
+                      (risk + comparison chips shown + updated-assessment + revision), so it always reaches the right edge. */}
+                  <td colSpan={1 + selectedChipKeys.length * 2 + (isAdmin ? 4 : 3) + 1} className="px-3 py-3 border-t border-l">
                     {/* w-0 + min-w-full: fills the cell exactly but adds nothing to the
                         table's column sizing, so the form can never push past the table. */}
                     <div className="w-0 min-w-full space-y-2">

@@ -170,7 +170,7 @@ export default function MagicLinkPage() {
                   type="password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="Re-enter your password"
+                  placeholder="Re-enter your password."
                   className={fieldClass}
                 />
               </div>

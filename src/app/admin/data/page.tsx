@@ -622,7 +622,7 @@ export default function AdminFullDataPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search keywords…"
+            placeholder="Search keywords."
             className="h-9 pl-8"
           />
         </div>

@@ -210,6 +210,19 @@ export function ReportEditor({
   const visitedRef = useRef<Set<string>>(new Set([params.section ?? defaultSection]));
   const [, setMountTick] = useState(0);
 
+  // Every tab opens at the top. Sections are kept alive (hidden, not unmounted),
+  // so the page scroller — and any table's own scroll box inside the section —
+  // would otherwise keep the position left from the previous visit.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    root.scrollTo({ top: 0 });
+    root.querySelectorAll<HTMLElement>('[class*="overflow-"]').forEach((el) => {
+      if (el.scrollTop > 0) el.scrollTop = 0;
+    });
+  }, [params.section]);
+
 
   const [error, setError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -809,6 +822,8 @@ export function ReportEditor({
   // Sections whose table freezes its column header inside a bounded scroll box.
   const fillHeight = FILL_HEIGHT_SECTIONS.has(params.section);
 
+  const currentSection = sections.find((s) => s.value === params.section) ?? null;
+
   const nextSection = (() => {
     const i = sections.findIndex((s) => s.value === params.section);
     return i >= 0 && i < sections.length - 1 ? sections[i + 1] : null;
@@ -831,15 +846,9 @@ export function ReportEditor({
       {/* Top bar */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-4 shrink-0">
         <div className="min-w-0 flex-1">
-          <p className="text-neutral-400 text-sm mb-1">
-            {bannerTitle}
-            {(() => {
-              const section = sections.find((s) => s.value === params.section);
-              return section ? (
-                <><span className="mx-1">›</span><span className="text-neutral-200">{section.label}</span></>
-              ) : null;
-            })()}
-          </p>
+          {/* Title, then the page locator under it: document type › project.
+              The section itself is named by the headline on the page (below),
+              not up here — tabs that look alike are told apart by that headline. */}
           {selectedReport ? (
             <>
               <div className="flex items-center gap-3 min-w-0">
@@ -848,7 +857,11 @@ export function ReportEditor({
                 </h1>
               </div>
               <Hint label={selectedReport.project_title}>
-                <p className="text-neutral-400 text-sm mt-0.5 truncate">{selectedReport.project_title}</p>
+                <p className="text-neutral-400 text-sm mt-1 truncate">
+                  {bannerTitle}
+                  <span className="mx-1">›</span>
+                  <span className="text-neutral-200">{selectedReport.project_title}</span>
+                </p>
               </Hint>
             </>
           ) : (
@@ -875,7 +888,13 @@ export function ReportEditor({
 
       {/* Content — the workplan fills the leftover height and scrolls inside its
           own box (single scroller, frozen header); every other tab scrolls here. */}
-      <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
+      <div ref={contentRef} className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
+        {/* Page headline: the section's name, big, so tabs that look alike
+            (e.g. Achievements and Partnerships) can't be confused. */}
+        {currentSection && !notFound && (
+          <h2 className="t-title-banner text-neutral-900 mb-4 shrink-0">{currentSection.label}</h2>
+        )}
+
         {error && (
           <Notice variant="error" className="mb-4">
             {error}

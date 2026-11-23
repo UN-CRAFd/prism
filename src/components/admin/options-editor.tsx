@@ -231,7 +231,7 @@ export function OptionsEditor() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search dropdowns or option values…"
+            placeholder="Search dropdowns or option values."
             className="pl-9"
           />
         </div>

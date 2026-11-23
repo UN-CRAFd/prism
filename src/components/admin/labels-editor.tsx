@@ -145,7 +145,7 @@ export function LabelsEditor() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search labels by text or key…"
+            placeholder="Search labels by text or key."
             className="pl-9"
           />
         </div>

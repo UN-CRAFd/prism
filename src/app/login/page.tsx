@@ -98,7 +98,7 @@ export default function LoginPage() {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                placeholder="Enter your username."
                 className="border-transparent bg-white text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-crafd-yellow"
                 autoFocus
               />
@@ -112,7 +112,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="Enter your password."
                 className="border-transparent bg-white text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-crafd-yellow"
               />
               <div className="flex justify-end">

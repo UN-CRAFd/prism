@@ -134,7 +134,7 @@ export function FilterBar({ children }: { children: React.ReactNode }) {
 export function SearchInput({
   value,
   onChange,
-  placeholder = "Search…",
+  placeholder = "Search.",
   className,
 }: {
   value: string;

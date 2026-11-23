@@ -488,7 +488,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                             <RichTextEditor
                               value={replyDraft}
                               onChange={setReplyDraft}
-                              placeholder="Write a reply…"
+                              placeholder="Write a reply."
                               tools={COMMENT_TOOLS}
                               autoFocus
                               onSubmit={() => submitReply(c.id)}
@@ -553,7 +553,7 @@ export function ItemComments({ section, itemId }: { section: string; itemId?: nu
                 <RichTextEditor
                   value={draft}
                   onChange={setDraft}
-                  placeholder="Add a comment…"
+                  placeholder="Add a comment."
                   tools={COMMENT_TOOLS}
                   onSubmit={submit}
                   className="text-xs [--rte-min-height:56px]"

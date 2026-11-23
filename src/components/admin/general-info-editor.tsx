@@ -869,7 +869,7 @@ export function GeneralInfoAdminEditor({
                     placeholder={g.placeholders.implementingPartners}
                     exclude={implementingOrgs.map((o) => o.name)}
                     allowCustom
-                    searchPlaceholder="Search or type a new name…"
+                    searchPlaceholder="Search or type a new name."
                     className="w-full"
                   />
                 </div>

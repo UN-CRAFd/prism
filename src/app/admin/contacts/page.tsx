@@ -232,7 +232,7 @@ export default function ContactsPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, organisation, job title, email, or partner…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search contacts by name, organisation, job title, email, or partner." />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">
@@ -251,7 +251,7 @@ export default function ContactsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Field label="Partner" required>
                 <Select value={partnerId} onValueChange={setPartnerId} disabled={!!editId}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select partner" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select partner." /></SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.id} value={String(p.id)}>
@@ -281,7 +281,7 @@ export default function ContactsPage() {
                 <div className="max-w-xl">
                   <Combobox
                     items={projectComboItems}
-                    placeholder="Link a project…"
+                    placeholder="Link a project."
                     onSelect={(it) => addProjectLink(it.id)}
                     busy={addingLink}
                   />

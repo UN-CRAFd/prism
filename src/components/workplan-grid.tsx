@@ -723,7 +723,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                         <Textarea
                           value={ps?.comment ?? ""}
                           onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
-                          placeholder="Add a progress note…"
+                          placeholder="Add a progress note."
                           className="text-xs min-h-[56px] resize-none placeholder:text-muted-foreground/60"
                         />
                       ) : ps?.comment ? (
@@ -1487,7 +1487,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           rows={1}
                           value={cluster.outcome}
                           onChange={(e) => updateCluster(cluster.clusterId, e.target.value)}
-                          placeholder="Provide outcome heading…"
+                          placeholder="Provide outcome heading."
                           className="min-h-9 flex-1 resize-none text-sm bg-white text-crafd-grey-900 placeholder:text-muted-foreground/60"
                         />
                       </div>
@@ -1527,7 +1527,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           rows={1}
                           value={sec.objective_text}
                           onChange={(e) => updateSection(sec.sectionId, { objective_text: e.target.value })}
-                          placeholder="Describe output…"
+                          placeholder="Describe output."
                           className="min-h-9 flex-1 resize-none text-sm bg-white placeholder:text-muted-foreground/60"
                         />
                       </div>
@@ -1563,7 +1563,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                           <Textarea
                             value={row.activity_text}
                             onChange={(e) => updateRow(row.key, { activity_text: e.target.value })}
-                            placeholder="Describe activity…"
+                            placeholder="Describe activity."
                             className="text-sm min-h-[36px] h-full resize-y flex-1 bg-white placeholder:text-muted-foreground/60"
                           />
                           {/* Per-activity comment thread — only once the activity has
@@ -1716,7 +1716,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                             <Textarea
                               value={ps?.comment ?? ""}
                               onChange={(e) => canProgress && updateProgress(pid!, { comment: e.target.value })}
-                              placeholder={canProgress ? "Add a progress note…" : "Save the activity first…"}
+                              placeholder={canProgress ? "Add a progress note." : "Save the activity first."}
                               className="text-xs min-h-[56px] resize-y"
                               disabled={!canProgress}
                             />

@@ -127,7 +127,7 @@ function projectEndDate(startDate: string, durationMonths: number): Date {
 // grant prodoc edit rights. Mirrors the chip/checkbox look of ui/MultiSelect but
 // takes an explicit option list rather than the admin option registry.
 function PartnerMultiSelect({
-  partners, value, onChange, placeholder = "Select partners…",
+  partners, value, onChange, placeholder = "Select partners.",
 }: {
   partners: Partner[];
   value: number[];
@@ -654,7 +654,7 @@ export default function ProjectsPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search projects…" className="max-w-[220px]" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search projects." className="max-w-[220px]" />
         <FilterSelect
           icon={Building2}
           label="Partner"
@@ -713,7 +713,7 @@ export default function ProjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Field label="Partner" required>
                 <Select value={partnerId} onValueChange={setPartnerId}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select partner" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select partner." /></SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.id} value={String(p.id)}>
@@ -754,7 +754,7 @@ export default function ProjectsPage() {
                   value={scope || GEO_SCOPE_NONE}
                   onValueChange={(v) => setScope(v === GEO_SCOPE_NONE ? "" : v)}
                 >
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select a scope…" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select a scope." /></SelectTrigger>
                   <SelectContent>
                     {optionValues("geographicScope").map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -767,7 +767,7 @@ export default function ProjectsPage() {
                   partners={partners.filter((p) => String(p.id) !== partnerId)}
                   value={editorIds}
                   onChange={setEditorIds}
-                  placeholder="Partners who can edit this project's ProDoc and reports…"
+                  placeholder="Partners who can edit this project's ProDoc and reports."
                 />
               </Field>
             </div>

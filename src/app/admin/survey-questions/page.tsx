@@ -657,7 +657,7 @@ export default function SurveyQuestionsPage() {
 
                   <div className="border-t px-5 py-3 flex gap-2 mt-auto">
                     <Input
-                      placeholder="Add a standard question…"
+                      placeholder="Add a standard question."
                       value={drafts[t.value] ?? ""}
                       onChange={(e) => setDrafts((prev) => ({ ...prev, [t.value]: e.target.value }))}
                       onKeyDown={(e) => { if (e.key === "Enter") handleAdd(t.value); }}

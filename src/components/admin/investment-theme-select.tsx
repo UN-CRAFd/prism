@@ -22,7 +22,7 @@ import { Hint } from "@/components/ui/hint";
 export function InvestmentThemeSelect({
   value,
   onChange,
-  placeholder = "Select a theme…",
+  placeholder = "Select a theme.",
   disabled,
   className,
 }: {
@@ -122,7 +122,7 @@ export function InvestmentThemeSelect({
                   if (e.key === "Enter" && showAddRow) { e.preventDefault(); addTheme(); }
                 }}
                 maxLength={100}
-                placeholder="Search or type a new theme…"
+                placeholder="Search or type a new theme."
                 className="w-full rounded-sm bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>

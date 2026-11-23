@@ -763,6 +763,27 @@ export function ExpenditurePartnerEditor({
           />
         </div>
       )}
+      {/* Annual / final reports: no summary boxes, but a warning box appears as
+          soon as categories are overspent by more than 20% of the approved
+          project costs, or the indirect support costs spent exceed the approved
+          amount. Same measures as the update boxes above. */}
+      {!isUpdate && (overspendShare > 20 || iscLeft < -0.005) && (
+        // One warning triangle per problem, so two overspends read as two.
+        <div role="alert" className="shrink-0 space-y-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          {overspendShare > 20 && (
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
+              <span>Categories are overspent by {formatAmount(overspendTotal)} ({pct(overspendShare)}). CRAFd will be in contact.</span>
+            </p>
+          )}
+          {iscLeft < -0.005 && (
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
+              <span>Indirect support costs are overspent by {formatAmount(-iscLeft)}{iscCeiling > 0 && <> ({pct((-iscLeft / iscCeiling) * 100)})</>}. CRAFd will be in contact.</span>
+            </p>
+          )}
+        </div>
+      )}
       {showProposed && data.forecastsAvailable !== true && (
         <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs text-red-900">
           Estimated expenditure cannot be saved on this database yet — the administrator needs to run{" "}

@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     if (!testimonials.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // Leadership quotes may carry several portraits; a partner quote and a
-    // "Photos from the Ground" entry hold exactly one photo each.
+    // "Photos from Project Implementation" entry hold exactly one photo each.
     if (testimonials[0].kind !== "leadership") {
       const existing = await query<{ count: string }>(
         `SELECT COUNT(*) AS count FROM reporting_platform.testimonial_photos WHERE testimonial_id = $1`,

@@ -19,7 +19,7 @@
     },
     "imageStandards": "Image standards: Please label and upload all required photos below in a PNG format here with a minimum resolution of 3000x2000px (>1.5 MB) or send via email/download link to maintain quality. For examples, refer to CRAF'd Annual Report. Please also provide credits in your submitted photos and videos in the respective tables below.",
     "placeholders": {
-      "url": "https://…",
+      "url": "Provide link.",
       "organizationName": "Organization name…",
       "fullName": "Full name"
     }
@@ -364,11 +364,11 @@
     }
   },
   "testimonials": {
-    "leadershipInstruction": "Use this sub-section to provide one quote from your organization's leadership reflecting on the project's results and the contribution of CRAF'd support. Limit the quote to a maximum of 25 words. Also, submit a high-quality photo of the person quoted here and label them accordingly.",
-    "partnerInstruction": "Use this sub-section to provide up to three quotes from partners or users of the project's data or insights. Quotes should describe how partners contributed to the project or how they used the data or insights in practice, particularly for crisis anticipation, prevention, or response. Limit each quote to a maximum of 20 words. Provide properly labelled photos of the person quoted here if available.",
+    "leadershipInstruction": "Use this sub-section to provide one quote from your organization's leadership reflecting on the project's results and the contribution of CRAF'd support. Also, submit a high-quality photo of the person quoted here and label them accordingly.",
+    "partnerInstruction": "Use this sub-section to provide up to three quotes from partners or users of the project's data or insights. Quotes should describe how partners contributed to the project or how they used the data or insights in practice, particularly for crisis anticipation, prevention, or response. Provide properly labelled photos of the person quoted here if available.",
     "leadershipHeading": "Leadership Quote",
-    "partnerHeading": "Partner / User Quotes",
-    "groundHeading": "Photos from the Ground",
+    "partnerHeading": "Partner / User Quotes (optional)",
+    "groundHeading": "Photos from Project Implementation (optional)",
     "groundInstruction": "Use this sub-section to submit up to five photos that show how the project was implemented or how its data and insights were used in practice during the reporting period, e.g. data collection or validation, data analysis or use of tools and dashboards, collaboration with implementing or ecosystem partners, or decision-making informed by project data. Photos should reflect real project implementation and use. For each photo, add a short description, then upload the photo or add a link, with a photo caption and photo credits.",
     "columns": {
       "quote": "Quote",
@@ -376,13 +376,14 @@
       "personTitle": "Title of person quoted",
       "photoLabel": "Photo label",
       "photoLink": "Photo",
+      "photoOptional": "Photo (optional)",
       "photoCredits": "Photo credits",
       "caption": "Description & short caption"
     },
     "placeholders": {
-      "quote": "Enter the quote…",
-      "personName": "Full name",
-      "personTitle": "Role / Position",
+      "quote": "Enter the quote.",
+      "personName": "Provide name.",
+      "personTitle": "Provide title.",
       "photoLabel": "Photo caption",
       "photoCredits": "© Jane Doe",
       "caption": "What does the photo show, and how does it relate to the project?"

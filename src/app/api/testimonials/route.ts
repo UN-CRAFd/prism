@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 // Testimonials section (qualitative). Two kinds, each with its own per-report cap:
 //   • leadership — exactly one quote from the organisation's leadership (max 1)
 //   • partner    — up to three quotes from partners or users (max 3)
-//   • ground     — "Photos from the Ground": up to five implementation photos
+//   • ground     — "Photos from Project Implementation": up to five implementation photos
 //                  (max 5 rows); `quote` holds the description & caption,
 //                  and its one photo (upload or link, with caption and
 //                  credits) is its testimonial_photos row
@@ -32,7 +32,7 @@ function isKind(v: unknown): v is Kind {
 const KIND_NOUN: Record<Kind, [string, string]> = {
   leadership: ["leadership quote", "leadership quotes"],
   partner: ["partner quote", "partner quotes"],
-  ground: ["photo from the ground", "photos from the ground"],
+  ground: ["project implementation photo", "project implementation photos"],
 };
 
 export async function GET(req: NextRequest) {
@@ -189,7 +189,7 @@ export async function PATCH(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    // Only the fields the client sent: a Photos from the Ground row sends just
+    // Only the fields the client sent: a Photos from Project Implementation row sends just
     // its description (quote), so it never blanks person_name / person_title.
     const sent = FIELDS.filter((f) => f in body);
     if (sent.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 });

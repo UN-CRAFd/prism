@@ -180,7 +180,9 @@ export async function PUT(
       const assigned = new Map<string, string>();
       setClauses.forEach((c) => { const [col, ph] = c.split(" = "); assigned.set(col, ph); });
       const cols = ["name", "description", "means_of_verification", "category", "cycle"];
-      const select = cols.map((c) => assigned.get(c) ?? `o.${c}`).join(", ");
+      // Edited values are cast: inside INSERT … SELECT, Postgres doesn't take a
+      // parameter's type from the target column (all five columns are TEXT).
+      const select = cols.map((c) => (assigned.has(c) ? `${assigned.get(c)}::text` : `o.${c}`)).join(", ");
       values.push(id, copyForProject, editableStatusParam());
       const idIdx = idx, projIdx = idx + 1, statusIdx = idx + 2;
       const copied = await query(
@@ -188,7 +190,7 @@ export async function PUT(
            INSERT INTO reporting_platform.indicators (${cols.join(", ")}, is_standard)
            SELECT ${select}, FALSE
              FROM reporting_platform.indicators o
-            WHERE o.id = ${idIdx}
+            WHERE o.id = $${idIdx}
            RETURNING id, name, description, means_of_verification, category, cycle,
                      is_standard, archived_at, created_at, updated_at
          ), moved AS (
@@ -196,9 +198,9 @@ export async function PUT(
               SET indicator_id = (SELECT id FROM copy)
              FROM reporting_platform.reports r
             WHERE r.id = d.report_id
-              AND d.indicator_id = ${idIdx}
-              AND r.project_id = ${projIdx}
-              AND r.status = ANY(${statusIdx}::text[])
+              AND d.indicator_id = $${idIdx}
+              AND r.project_id = $${projIdx}
+              AND r.status = ANY($${statusIdx}::text[])
            RETURNING d.id
          )
          SELECT copy.*, (SELECT COUNT(*) FROM moved)::int AS moved_lines FROM copy`,

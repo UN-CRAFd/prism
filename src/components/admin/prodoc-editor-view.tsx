@@ -743,9 +743,14 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       });
       if (!res.ok) throw new Error("Failed to update indicator");
       const updated = await res.json();
+      // A project-specific copy was made (the indicator is shared with another
+      // project): the line moves to the copy's id, and the copy joins the library.
+      // Undo / redo then edit the copy, which only this project uses.
+      const targetId: number = updated.id ?? indicatorId;
+      if (updated.copied_from != null) setLibrary((prev) => [...prev, updated]);
       setIndicatorLines((prev) => prev.map((l) =>
         l.indicator_id === indicatorId
-          ? { ...l, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
+          ? { ...l, indicator_id: targetId, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
           : l
       ));
       setEditingIndicatorId(null);
@@ -753,27 +758,27 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       if (prevValues) {
         pushCommand({
           undo: async () => {
-            const res = await fetch(`/api/indicators/${indicatorId}`, {
+            const res = await fetch(`/api/indicators/${targetId}`, {
               method: "PUT", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(prevValues),
+              body: JSON.stringify({ ...prevValues, reportId: Number(selectedProdocId) }),
             });
             if (!res.ok) { setError("Failed to undo indicator edit"); return; }
             const reverted = await res.json();
             setIndicatorLines((prev) => prev.map((l) =>
-              l.indicator_id === indicatorId
+              l.indicator_id === targetId
                 ? { ...l, indicator_name: reverted.name, indicator_description: reverted.description, means_of_verification: reverted.means_of_verification }
                 : l
             ));
           },
           redo: async () => {
-            const res = await fetch(`/api/indicators/${indicatorId}`, {
+            const res = await fetch(`/api/indicators/${targetId}`, {
               method: "PUT", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(newValues),
+              body: JSON.stringify({ ...newValues, reportId: Number(selectedProdocId) }),
             });
             if (!res.ok) { setError("Failed to redo indicator edit"); return; }
             const reapplied = await res.json();
             setIndicatorLines((prev) => prev.map((l) =>
-              l.indicator_id === indicatorId
+              l.indicator_id === targetId
                 ? { ...l, indicator_name: reapplied.name, indicator_description: reapplied.description, means_of_verification: reapplied.means_of_verification }
                 : l
             ));

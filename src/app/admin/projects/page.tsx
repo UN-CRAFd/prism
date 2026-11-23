@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, X } from "lucide-react";
-import { Plus, FolderKanban, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Building2, CalendarPlus, FilePenLine, MoreHorizontal, FileText, Globe, Pencil, Trash2 } from "lucide-react";
+import { Plus, FolderKanban, ExternalLink, Printer, Loader2, Lightbulb, CircleDot, PauseCircle, Banknote, CheckCircle2, Building2, CalendarPlus, MoreHorizontal, FileText, Globe, Pencil, Trash2 } from "lucide-react";
 import {
   Dash, Field, LoadingState, ErrorBanner, FormShell, PageHeader,
   FilterBar, FilterSelect, SearchInput, ResultCount, ALL, SortableHead, sortBy, useTableSort,
@@ -33,7 +33,7 @@ import { ReportProgressCell } from "@/components/admin/report-components";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { optionValues } from "@/lib/options";
 import { formatDate, projectSlug, timeAgo, formatUsd } from "@/lib/utils";
-import { clampDuration, numericAmount, numericInteger } from "@/lib/numeric-input";
+import { clampDuration, numericAmount } from "@/lib/numeric-input";
 import { Hint } from "@/components/ui/hint";
 import { isPartnerEditable } from "@/lib/report-status";
 import { reportStatusLabel, prodocStatusLabel } from "@/lib/status-label";
@@ -79,22 +79,6 @@ interface Project {
   archived?: boolean;
 }
 
-interface ProjectExtension {
-  id: number;
-  months_added: number;
-  previous_duration_months: number;
-  new_duration_months: number;
-  note: string | null;
-  created_at: string;
-}
-
-interface ProjectRevision {
-  id: number;
-  revision_date: string;
-  comment: string | null;
-  created_at: string;
-}
-
 // Project STATUS presentation. Values are admin-editable via Settings → Dropdown
 // options ("projectStatus"); the icon map is keyed by the known values, with a
 // neutral fallback applied for any added value. The status itself is shown as
@@ -111,17 +95,6 @@ const STATUS_ICON_FALLBACK: ReactNode = <CircleDot className="size-3 shrink-0 te
 function durationLabel(months: number | null): string | null {
   return months && months > 0 ? `${months} months` : null;
 }
-
-// Derived project end date = start + duration months. Parsed in local time from
-// the YYYY-MM-DD portion so it never drifts a day across time zones. Mirrors the
-// DB's reporting_platform.project_end_date() used by budgets/workplan.
-function projectEndDate(startDate: string, durationMonths: number): Date {
-  const [y, m, d] = startDate.slice(0, 10).split("-").map(Number);
-  const dt = new Date(y, (m || 1) - 1, d || 1);
-  dt.setMonth(dt.getMonth() + durationMonths);
-  return dt;
-}
-
 
 // Multi-select over the partner list (dynamic options, numeric ids), used to
 // grant prodoc edit rights. Mirrors the chip/checkbox look of ui/MultiSelect but
@@ -439,94 +412,6 @@ export default function ProjectsPage() {
       body: JSON.stringify({ status: newStatus }),
     });
     if (!res.ok) setProjects(prev);
-  }
-
-  // ── No-cost extension ─────────────────────────────────────────────────────
-  // A no-cost extension only lengthens the project timeline: it adds months to
-  // project_duration_months. Everything derived from the period recomputes on
-  // reload — the budget year columns (project_year_range), the workplan quarter
-  // grid (project_end_date) and the Gantt — because they read the duration
-  // server-side. No budget figures change; the same grant covers more time.
-  const [nceProject, setNceProject] = useState<Project | null>(null);
-  const [nceMonths, setNceMonths] = useState("");
-  const [nceNote, setNceNote] = useState("");
-  const [nceHistory, setNceHistory] = useState<ProjectExtension[]>([]);
-  const [nceSaving, setNceSaving] = useState(false);
-  const [nceError, setNceError] = useState<string | null>(null);
-
-  function openNce(p: Project) {
-    setNceProject(p);
-    setNceMonths("");
-    setNceNote("");
-    setNceError(null);
-    // Show the project's prior extensions for context while granting a new one.
-    setNceHistory([]);
-    fetch(`/api/projects/${p.id}/extensions`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: ProjectExtension[]) => setNceHistory(Array.isArray(rows) ? rows : []))
-      .catch(() => setNceHistory([]));
-  }
-
-  async function submitNce() {
-    if (!nceProject || nceProject.project_duration_months == null) return;
-    const added = parseInt(nceMonths, 10);
-    if (!Number.isFinite(added) || added <= 0) { setNceError("Enter a positive number of months to add"); return; }
-    setNceSaving(true); setNceError(null);
-    try {
-      // Records the extension (project_extensions) and lengthens the period in
-      // one transaction; budget/workplan periods recompute on reload.
-      const res = await fetch(`/api/projects/${nceProject.id}/extensions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ months_added: added, note: nceNote.trim() || null }),
-      });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to extend project"); }
-      setNceProject(null);
-      load();
-    } catch (e) { setNceError(e instanceof Error ? e.message : "Unknown error"); }
-    finally { setNceSaving(false); }
-  }
-
-  // ── Project revision ──────────────────────────────────────────────────────
-  // A logged event only — the project was revised on a date, for a reason.
-  // Nothing derived from the project changes.
-  const [revProject, setRevProject] = useState<Project | null>(null);
-  const [revDate, setRevDate] = useState("");
-  const [revComment, setRevComment] = useState("");
-  const [revHistory, setRevHistory] = useState<ProjectRevision[]>([]);
-  const [revSaving, setRevSaving] = useState(false);
-  const [revError, setRevError] = useState<string | null>(null);
-
-  function openRevision(p: Project) {
-    // Default the date to today in local time (never drifts across time zones).
-    const d = new Date();
-    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    setRevProject(p);
-    setRevDate(today);
-    setRevComment("");
-    setRevError(null);
-    setRevHistory([]);
-    fetch(`/api/projects/${p.id}/revisions`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: ProjectRevision[]) => setRevHistory(Array.isArray(rows) ? rows : []))
-      .catch(() => setRevHistory([]));
-  }
-
-  async function submitRevision() {
-    if (!revProject) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(revDate)) { setRevError("Pick a revision date"); return; }
-    setRevSaving(true); setRevError(null);
-    try {
-      const res = await fetch(`/api/projects/${revProject.id}/revisions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ revision_date: revDate, comment: revComment.trim() || null }),
-      });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to log revision"); }
-      setRevProject(null);
-      load();
-    } catch (e) { setRevError(e instanceof Error ? e.message : "Unknown error"); }
-    finally { setRevSaving(false); }
   }
 
   const confirm = useConfirm();
@@ -923,16 +808,6 @@ export default function ProjectsPage() {
                         </DropdownMenuTrigger>
                       </Hint>
                       <DropdownMenuContent align="end">
-                        {p.project_start_date && p.project_duration_months != null && (
-                          <DropdownMenuItem onSelect={() => openNce(p)}>
-                            <CalendarPlus />
-                            No-cost extension
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onSelect={() => openRevision(p)}>
-                          <FilePenLine />
-                          Project revision
-                        </DropdownMenuItem>
                         <DropdownMenuItem disabled={!pd || printingId === p.id} onSelect={() => printProdoc(p)}>
                           {printingId === p.id ? <Loader2 className="animate-spin" /> : <Printer />}
                           Print
@@ -956,151 +831,6 @@ export default function ProjectsPage() {
           </Table>
         )}
       </div>
-
-      {/* No-cost extension dialog */}
-      {nceProject && nceProject.project_start_date && nceProject.project_duration_months != null && (() => {
-        const start = nceProject.project_start_date;
-        const currentDuration = nceProject.project_duration_months;
-        const added = parseInt(nceMonths, 10);
-        const validAdd = Number.isFinite(added) && added > 0 ? added : 0;
-        const newDuration = currentDuration + validAdd;
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { if (!nceSaving) setNceProject(null); }}>
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-            <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="p-6">
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-crafd-yellow-100 text-crafd-yellow-900">
-                    <CalendarPlus className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground leading-snug">No-cost extension</p>
-                    <p className="text-sm text-muted-foreground leading-snug truncate">{nceProject.project_title}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground mb-4 space-y-1">
-                  <div className="flex justify-between gap-2"><span className="truncate min-w-0">Start</span><span className="tabular-nums text-foreground shrink-0">{formatDate(start)}</span></div>
-                  <div className="flex justify-between gap-2"><span className="truncate min-w-0">Current end</span><span className="tabular-nums text-foreground shrink-0">{formatDate(projectEndDate(start, currentDuration))} · {currentDuration} mo</span></div>
-                </div>
-
-                {nceHistory.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                      Previous extensions
-                    </p>
-                    <ul className="space-y-1">
-                      {nceHistory.map((ext) => (
-                        <li key={ext.id} className="flex items-start justify-between gap-2 text-xs">
-                          <span className="min-w-0">
-                            <span className="font-semibold text-foreground">+{ext.months_added} mo</span>
-                            {ext.note && <span className="text-muted-foreground"> — {ext.note}</span>}
-                          </span>
-                          <span className="shrink-0 tabular-nums text-muted-foreground">{formatDate(ext.created_at)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <label className="text-xs font-medium text-foreground">Months to add</label>
-                <Input
-                  value={nceMonths}
-                  onChange={(e) => { setNceMonths(numericInteger(e.target.value)); setNceError(null); }}
-                  inputMode="numeric"
-                  placeholder="e.g. 6"
-                  autoFocus
-                  className="mt-1.5"
-                />
-
-                {validAdd > 0 && (
-                  <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                    New end date <span className="font-semibold text-foreground tabular-nums">{formatDate(projectEndDate(start, newDuration))}</span> · {newDuration} months total.
-                    <br />Budget and work plan periods update automatically; the grant amount is unchanged.
-                  </p>
-                )}
-
-                <label className="mt-4 block text-xs font-medium text-foreground">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
-                <Input
-                  value={nceNote}
-                  onChange={(e) => setNceNote(e.target.value)}
-                  placeholder="e.g. donor-approved extension"
-                  className="mt-1.5"
-                />
-
-                {nceError && <p className="mt-3 text-xs text-destructive">{nceError}</p>}
-              </div>
-
-              <div className="flex justify-end gap-2 px-6 pb-5">
-                <Button variant="outline" size="sm" onClick={() => setNceProject(null)} disabled={nceSaving}>Cancel</Button>
-                <Button size="sm" onClick={submitNce} disabled={nceSaving || !validAdd}>
-                  {nceSaving ? <Loader2 className="size-4 animate-spin" /> : "Extend project"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Project revision dialog */}
-      {revProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { if (!revSaving) setRevProject(null); }}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-          <div className="relative z-10 w-full max-w-sm mx-4 rounded-xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-start gap-3 mb-4">
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-crafd-yellow-100 text-crafd-yellow-900">
-                  <FilePenLine className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground leading-snug">Project revision</p>
-                  <p className="text-sm text-muted-foreground leading-snug truncate">{revProject.project_title}</p>
-                </div>
-              </div>
-
-              {revHistory.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                    Previous revisions
-                  </p>
-                  <ul className="space-y-1">
-                    {revHistory.map((rev) => (
-                      <li key={rev.id} className="flex items-start justify-between gap-2 text-xs">
-                        <span className="min-w-0 text-muted-foreground">{rev.comment || <span className="italic">No comment</span>}</span>
-                        <span className="shrink-0 tabular-nums text-foreground">{formatDate(rev.revision_date)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <label className="text-xs font-medium text-foreground">Revision date</label>
-              <DateInput
-                value={revDate}
-                onChange={(v) => { setRevDate(v); setRevError(null); }}
-                className="mt-1.5"
-              />
-
-              <label className="mt-4 block text-xs font-medium text-foreground">Comment <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <Input
-                value={revComment}
-                onChange={(e) => setRevComment(e.target.value)}
-                placeholder="e.g. revised scope and deliverables"
-                className="mt-1.5"
-              />
-
-              {revError && <p className="mt-3 text-xs text-destructive">{revError}</p>}
-            </div>
-
-            <div className="flex justify-end gap-2 px-6 pb-5">
-              <Button variant="outline" size="sm" onClick={() => setRevProject(null)} disabled={revSaving}>Cancel</Button>
-              <Button size="sm" onClick={submitRevision} disabled={revSaving || !revDate}>
-                {revSaving ? <Loader2 className="size-4 animate-spin" /> : "Log revision"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     <StatusChangeDialog
       open={pendingStatusChange !== null}
       fromStatus={prodocStatusLabel(pendingStatusChange?.fromStatus)}

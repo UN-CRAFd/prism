@@ -739,7 +739,7 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       const newValues = { name: editingIndName, description: editingIndDescription || null, means_of_verification: editingIndMov || null };
       const res = await fetch(`/api/indicators/${indicatorId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newValues),
+        body: JSON.stringify({ ...newValues, reportId: Number(selectedProdocId) }),
       });
       if (!res.ok) throw new Error("Failed to update indicator");
       const updated = await res.json();
@@ -795,13 +795,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           description: patch.description,
           means_of_verification: patch.means_of_verification,
           cycle: patch.cycle,
+          // Which document the edit comes from: a custom indicator shared with
+          // another project is copied for this project instead of being refused.
+          reportId: Number(selectedProdocId),
         }),
       });
       if (!indicatorRes.ok) throw new Error("Failed to update indicator");
       const updated = await indicatorRes.json();
+      // A project-specific copy was made: the line now points at the new id,
+      // and the copy joins the library next to the original.
+      if (updated.copied_from != null) {
+        setLibrary((prev) => [...prev, updated]);
+      }
       setIndicatorLines((prev) => prev.map((line) => line.id === lineId
         ? {
             ...line,
+            indicator_id: updated.id,
             indicator_name: updated.name,
             indicator_description: updated.description,
             means_of_verification: updated.means_of_verification,

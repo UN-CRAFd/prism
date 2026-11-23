@@ -14,10 +14,20 @@ const ALLOWED_FIELDS = [
 ] as const;
 
 // PUT /api/indicators/[id] — partial update of a library indicator.
-// Admins may edit any indicator. Partners may edit a CUSTOM indicator only when
-// every document it appears in belongs to a project they lead or co-implement,
-// and every one of those documents is still partner-editable (Open / Partner Review). Partners may only change
-// name, description, means_of_verification and cycle.
+// Admins may edit any indicator. Partners may edit CUSTOM indicators only, and
+// only name, description, means_of_verification and cycle.
+//
+// Custom indicators belong to one project. A partner edit carries `reportId`
+// (the document being edited) and is resolved against that document's project:
+//   • every use of the indicator is in this project's partner-editable documents
+//     → the indicator is edited in place;
+//   • it is also used elsewhere (another project, or a document no longer
+//     editable) → a project-specific copy is created with the edits applied, and
+//     this project's editable documents are re-pointed to it. Other projects and
+//     submitted documents keep the original untouched. The response then carries
+//     `copied_from` (the original id) so the client can swap the id.
+// Without `reportId` the old rule applies: every use must be in documents the
+// partner may edit, otherwise 403.
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -39,32 +49,68 @@ export async function PUT(
     if (indicator[0].is_standard && session.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    const rawBody = await request.json();
+    // `reportId` is context (which document the edit came from), not a field.
+    const { reportId: rawReportId, ...body } = rawBody ?? {};
+    const reportId = rawReportId == null ? null : Number(rawReportId);
+    if (reportId != null && !Number.isInteger(reportId)) {
+      return NextResponse.json({ error: "Invalid reportId" }, { status: 400 });
+    }
+
+    // Partner edits resolve to either an in-place update or a project copy.
+    let copyForProject: number | null = null;
     if (session.role !== "admin") {
       const partnerId = await resolvePartnerId(session);
       if (partnerId == null) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      const usage = await query<{ total: number; allowed: number }>(
+      // The project the edit belongs to — must be one the partner may edit.
+      let projectId: number | null = null;
+      if (reportId != null) {
+        const proj = await query<{ project_id: number }>(
+          `SELECT p.id AS project_id
+             FROM reporting_platform.reports r
+             JOIN reporting_platform.projects p ON p.id = r.project_id
+            WHERE r.id = $1
+              AND (p.partner_id = $2
+                   OR EXISTS (SELECT 1 FROM reporting_platform.project_editors pe
+                               WHERE pe.project_id = p.id AND pe.partner_id = $2))`,
+          [reportId, partnerId]
+        );
+        if (proj.length === 0) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        projectId = proj[0].project_id;
+      }
+      const usage = await query<{ total: number; allowed: number; here: number }>(
         `SELECT COUNT(*)::int AS total,
                 COUNT(*) FILTER (
                   WHERE r.status = ANY($3::text[])
                     AND (p.partner_id = $2
                          OR EXISTS (SELECT 1 FROM reporting_platform.project_editors pe
                                      WHERE pe.project_id = p.id AND pe.partner_id = $2))
-                )::int AS allowed
+                )::int AS allowed,
+                -- uses in this project's editable documents (what a copy would take over)
+                COUNT(*) FILTER (
+                  WHERE r.status = ANY($3::text[]) AND p.id = $4
+                )::int AS here
            FROM reporting_platform.indicator_data d
            JOIN reporting_platform.reports  r ON r.id = d.report_id
            JOIN reporting_platform.projects p ON p.id = r.project_id
           WHERE d.indicator_id = $1`,
-        [id, partnerId, editableStatusParam()]
+        [id, partnerId, editableStatusParam(), projectId]
       );
-      const { total, allowed } = usage[0];
-      if (total === 0 || allowed !== total) {
+      const { total, allowed, here } = usage[0];
+      if (projectId != null) {
+        // Not used in an editable document of this project → nothing to edit.
+        if (here === 0) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // Used anywhere else → copy instead of changing other projects' indicator.
+        if (here !== total) copyForProject = projectId;
+      } else if (total === 0 || allowed !== total) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
 
-    const body = await request.json();
     if (session.role !== "admin") {
       const PARTNER_FIELDS = ["name", "description", "means_of_verification", "cycle"];
       const notAllowed = Object.keys(body).filter((k) => !PARTNER_FIELDS.includes(k));
@@ -125,6 +171,43 @@ export async function PUT(
 
     if (setClauses.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
+
+    if (copyForProject != null) {
+      // One statement, so the copy and the re-pointing succeed or fail together.
+      // The copy takes the edited values and the original's other columns; it is
+      // always custom. Only this project's editable documents move to it.
+      const assigned = new Map<string, string>();
+      setClauses.forEach((c) => { const [col, ph] = c.split(" = "); assigned.set(col, ph); });
+      const cols = ["name", "description", "means_of_verification", "category", "cycle"];
+      const select = cols.map((c) => assigned.get(c) ?? `o.${c}`).join(", ");
+      values.push(id, copyForProject, editableStatusParam());
+      const idIdx = idx, projIdx = idx + 1, statusIdx = idx + 2;
+      const copied = await query(
+        `WITH copy AS (
+           INSERT INTO reporting_platform.indicators (${cols.join(", ")}, is_standard)
+           SELECT ${select}, FALSE
+             FROM reporting_platform.indicators o
+            WHERE o.id = ${idIdx}
+           RETURNING id, name, description, means_of_verification, category, cycle,
+                     is_standard, archived_at, created_at, updated_at
+         ), moved AS (
+           UPDATE reporting_platform.indicator_data d
+              SET indicator_id = (SELECT id FROM copy)
+             FROM reporting_platform.reports r
+            WHERE r.id = d.report_id
+              AND d.indicator_id = ${idIdx}
+              AND r.project_id = ${projIdx}
+              AND r.status = ANY(${statusIdx}::text[])
+           RETURNING d.id
+         )
+         SELECT copy.*, (SELECT COUNT(*) FROM moved)::int AS moved_lines FROM copy`,
+        values
+      );
+      if (copied.length === 0) {
+        return NextResponse.json({ error: "Indicator not found" }, { status: 404 });
+      }
+      return NextResponse.json({ ...copied[0], copied_from: Number(id) });
     }
 
     values.push(id);

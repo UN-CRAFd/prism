@@ -78,38 +78,44 @@ type AdminNavItem = {
 };
 
 const adminNavGroups: { heading?: string; items: AdminNavItem[] }[] = [
+  // Directly under Home, no heading.
   {
-    heading: "Administration",
     items: [
-      { href: "/admin/partners", label: "Partners", icon: Building2 },
-      { href: "/admin/contacts", label: "Contacts", icon: Contact },
+      { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
     ],
   },
   {
-    heading: "Editor",
+    heading: "Portfolio",
     items: [
       { href: "/admin/projects", label: "Project Documents", icon: FolderKanban, also: ["/admin/prodoc-editor"] },
       { href: "/admin/reports", label: "Project Reports", icon: ClipboardList, also: ["/admin/report-editor"] },
       { href: "/admin/project-updates", label: "Project Updates", icon: FilePen, also: ["/admin/project-update-editor"] },
+      { href: "/admin/comments", label: "Comments", icon: MessageSquare },
+      { href: "/admin/hact-recommendations", label: "HACT Recommendations", icon: ShieldCheck },
+    ],
+  },
+  // What partners fill in — changed a few times a year.
+  {
+    heading: "Setup",
+    items: [
+      { href: "/admin/partners", label: "Partners", icon: Building2 },
+      { href: "/admin/contacts", label: "Contacts", icon: Contact },
       { href: "/admin/indicators", label: "Indicators", icon: Target },
       { href: "/admin/survey-questions", label: "Survey Questions", icon: ListChecks },
       { href: "/admin/narrative-questions", label: "Narrative Questions", icon: FileText },
-      { href: "/admin/hact-recommendations", label: "HACT Recommendations", icon: ShieldCheck },
-      { href: "/admin/comments", label: "Comments", icon: MessageSquare },
-      { href: "/admin/guide", label: "Guide", icon: BookOpen },
+      { href: "/admin/guide", label: "Partner Guide", icon: BookOpen },
     ],
   },
   {
     heading: "Data",
     items: [
       { href: "/admin/data", label: "Full Data", icon: Database },
-      { href: "/admin/dashboards", label: "Dashboards", icon: BarChart3 },
-      { href: "/admin/version-log", label: "Version Log", icon: History },
       { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
+      { href: "/admin/version-log", label: "Version Log", icon: History },
     ],
   },
-  // Security and Settings sit on their own at the bottom, outside any group.
   {
+    heading: "System",
     items: [
       { href: "/admin/security", label: "Security", icon: ShieldAlert },
       { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -900,7 +906,7 @@ export function AppSidebar() {
           </Link>
 
           {adminNavGroups.map((group, gi) => (
-          <div key={group.heading ?? "bottom"} className={cn(gi > 0 && "mt-8")}>
+          <div key={group.heading ?? `group-${gi}`} className={cn(gi > 0 && "mt-8")}>
           {group.heading && (
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {group.heading}

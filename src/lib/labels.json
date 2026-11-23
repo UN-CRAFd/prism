@@ -639,6 +639,7 @@
     }
   },
   "expenditure": {
+    "iscDescription": "Indirect support costs cover general organisational expenses that aren’t tied to a specific project, such as administrative staff salaries, office rent, utilities and other operating costs. They are fixed at 7% of total project costs.",
     "categoryDescriptions": {
       "Staff and other personnel": "Salaries, benefits, and other personnel costs directly attributed to the project, including national and international staff.",
       "Supplies, commodities, materials": "Consumable goods required for project implementation, such as office supplies, training materials, and operational consumables.",

@@ -618,13 +618,15 @@ export function ExpenditurePartnerEditor({
   // away and build it again. That cost the indirect support costs input its
   // focus after every single keystroke. A plain call just returns the rows.
   function computedRow({
-    label, strong, flag, hint,
+    label, strong, flag, hint, info,
     approvedT, expT, proposedT, proposedTitle, approvedYear, expYear, expInput, plannedYear, planInput,
   }: {
     label: string;
     strong?: boolean;
     flag?: "warn" | "error";
     hint?: string;
+    /** Helper text shown in an info popover next to the row label. */
+    info?: string;
     approvedT: number;
     expT: number;
     proposedT: number;
@@ -654,6 +656,7 @@ export function ExpenditurePartnerEditor({
                 />
               )}
               {label}
+              {info && <InfoPopover description={info} triggerTitle="About this row" descriptionHeading={label} />}
             </span>
           </Hint>
         </td>
@@ -963,6 +966,7 @@ export function ExpenditurePartnerEditor({
               label: `Indirect support costs (${Math.round(indirectRate * 100)}%)`,
               flag: isUpdate && iscLeft < -0.005 ? "error" : undefined,
               hint: "More has been reported than the approved indirect support costs.",
+              info: labels.expenditure.iscDescription,
               approvedT: withIndirect(sumApprovedTotal, indirectRate),
               expT: iscTotal,
               proposedT: iscRequested,
@@ -1416,7 +1420,12 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                   {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y)} /></td>))}
                 </tr>
                 <tr className="border-t bg-muted/30">
-                  <td className="px-3 py-2 border-r">Indirect support costs ({Math.round(rate * 100)}%)</td>
+                  <td className="px-3 py-2 border-r">
+                    <span className="inline-flex items-center gap-1">
+                      Indirect support costs ({Math.round(rate * 100)}%)
+                      <InfoPopover description={labels.expenditure.iscDescription} triggerTitle="About this row" descriptionHeading="Indirect support costs" />
+                    </span>
+                  </td>
                   <td className="px-2 py-2 text-right border-l"><Num value={totalSub * rate} /></td>
                   <td className="border-l" />
                   {years.map((y) => (<td key={y} className="px-2 py-2 text-right border-l"><Num value={yearSub(y) * rate} /></td>))}

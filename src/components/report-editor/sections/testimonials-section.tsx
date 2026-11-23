@@ -1,6 +1,7 @@
 "use client";
 
 import { Notice } from "@/components/ui/notice";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { useMemo } from "react";
 import labels from "@/lib/labels";
 import { SectionTableEditor, buildTestimonialSpecs } from "@/components/section-table-editor";
@@ -18,7 +19,7 @@ export function TestimonialsSection({ reportId, readOnly, onSaveStateChange, pus
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <h3 className="t-heading-editor">{labels.testimonials.leadershipHeading}</h3>
+        <h3 className="t-heading-editor">{labels.testimonials.leadershipHeading}<RequiredMark /></h3>
         {!readOnly && (
           <Notice variant="info">
             {labels.testimonials.leadershipInstruction}

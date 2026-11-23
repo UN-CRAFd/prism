@@ -155,10 +155,11 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => !!r[0]?.ok),
 
-      // Testimonials — a leadership row and at least one partner row must each have
-      // quote, person_name and person_title filled; no started-but-incomplete row of
-      // either kind is allowed; and every photo must have caption and credits.
-      // "Photos from the Ground" (kind='ground') are optional, but a started entry
+      // Testimonials — a leadership row must have quote, person_name and
+      // person_title filled. Partner/user quotes are optional, but no
+      // started-but-incomplete row of either kind is allowed; and every photo
+      // must have caption and credits.
+      // "Photos from Project Implementation" (kind='ground') are optional, but a started entry
       // needs its description & caption and at least one photo; like every
       // testimonial photo, each needs a caption and credits.
       query<Row>(
@@ -167,11 +168,6 @@ export async function GET(req: NextRequest) {
                            AND COALESCE(trim(quote), '') <> ''
                            AND COALESCE(trim(person_name), '') <> ''
                            AND COALESCE(trim(person_title), '') <> '') AS leadership_ok,
-               EXISTS (SELECT 1 FROM reporting_platform.testimonials
-                         WHERE report_id = $1 AND kind = 'partner'
-                           AND COALESCE(trim(quote), '') <> ''
-                           AND COALESCE(trim(person_name), '') <> ''
-                           AND COALESCE(trim(person_title), '') <> '') AS partner_ok,
                NOT EXISTS (
                  SELECT 1 FROM reporting_platform.testimonials
                   WHERE report_id = $1
@@ -198,7 +194,7 @@ export async function GET(req: NextRequest) {
                     AND (COALESCE(trim(p.photo_label), '') = '' OR COALESCE(trim(p.photo_credits), '') = '')
                ) AS photos_ok`,
         [reportId]
-      ).then((r) => r[0]?.leadership_ok === true && r[0]?.partner_ok === true && r[0]?.fields_ok === true && r[0]?.ground_ok === true && r[0]?.photos_ok === true),
+      ).then((r) => r[0]?.leadership_ok === true &&r[0]?.fields_ok === true && r[0]?.ground_ok === true && r[0]?.photos_ok === true),
     ]);
 
     const sections: Record<string, boolean> = {

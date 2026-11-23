@@ -289,11 +289,11 @@ type TestimonialPhoto = {
 // Photos column for testimonials: fetches from /api/testimonial-photos, renders
 // each photo with editable label/credits (saved on blur), a remove button, and
 // an "Add photo" panel with upload and link options. Leadership rows can have
-// any number of photos; partner rows and "Photos from the Ground" entries hold
+// any number of photos; partner rows and "Photos from Project Implementation" entries hold
 // one each.
 //
 // `ensureId` creates the row on demand when it has not been saved yet, so a
-// photo can be added before anything is typed (a Photos from the Ground row
+// photo can be added before anything is typed (a Photos from Project Implementation row
 // usually starts with its photo).
 export type TestimonialKind = "leadership" | "partner" | "ground";
 
@@ -1022,7 +1022,7 @@ export function SectionTableEditor({
                       onAdd={() => mutateLinks(i, f.key, (arr) => [...arr, ""])}
                       onRemove={(li) => mutateLinks(i, f.key, (arr) => arr.filter((_, x) => x !== li))}
                       onUpdate={(li, val) => mutateLinks(i, f.key, (arr) => arr.map((l, x) => (x === li ? val : l)))}
-                      placeholder={f.placeholder ?? "https://…"}
+                      placeholder={f.placeholder ?? labels.common.placeholders.url}
                     />
                   )}
                 </td>
@@ -1131,16 +1131,17 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
 }
 
 // Testimonials render two tables in one tab, distinguished by `kind`: one
-// leadership quote (exactly one, 25-word limit) and up to three partner/user
-// quotes (20-word limit). Each has its own field set with the appropriate limit.
-const TESTIMONIAL_BASE_FIELDS = (maxWords: number): SectionField[] => [
-  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords, required: true },
-  { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40", required: true },
-  { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44", required: true },
-  { key: "_photos", header: labels.testimonials.columns.photoLink, type: "testimonial-photos", headClass: "w-64" },
+// leadership quote (exactly one, 25-word limit; required) and up to three
+// partner/user quotes (20-word limit; optional, so no required marks). The
+// photo of the person quoted is optional in both.
+const TESTIMONIAL_BASE_FIELDS = (maxWords: number, required: boolean): SectionField[] => [
+  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords, required },
+  { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40", required },
+  { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44", required },
+  { key: "_photos", header: labels.testimonials.columns.photoOptional, type: "testimonial-photos", headClass: "w-64" },
 ];
 
-// "Photos from the Ground": up to five entries, each a description & short
+// "Photos from Project Implementation": up to five entries, each a description & short
 // caption and one photo (upload or link) with its own caption and credits —
 // the same photo cell as the partner quotes. Stored as
 // testimonials rows of kind 'ground': `quote` holds the description, photos
@@ -1168,7 +1169,7 @@ export function buildTestimonialSpecs(): Record<TestimonialKind, SectionSpec> {
       addLabel: labels.partnerEditor.addTestimonial,
       min: 1,
       max: 1,
-      fields: TESTIMONIAL_BASE_FIELDS(25),
+      fields: TESTIMONIAL_BASE_FIELDS(25, true),
     },
     partner: {
       endpoint: "/api/testimonials",
@@ -1177,7 +1178,7 @@ export function buildTestimonialSpecs(): Record<TestimonialKind, SectionSpec> {
       addLabel: labels.partnerEditor.addTestimonial,
       emptyText: labels.partnerEditor.emptyTestimonials,
       max: 3,
-      fields: TESTIMONIAL_BASE_FIELDS(20),
+      fields: TESTIMONIAL_BASE_FIELDS(20, false),
     },
     ground: {
       endpoint: "/api/testimonials",

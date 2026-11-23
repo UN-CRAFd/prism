@@ -343,7 +343,7 @@ export default function PartnersPage() {
               </Field>
               <Field label="Website">
                 <ValidatedField value={website} validate={isValidWebsite}>
-                  <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.org" className="pr-9" />
+                  <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Provide link." className="pr-9" />
                 </ValidatedField>
               </Field>
               <Field label="Email account">

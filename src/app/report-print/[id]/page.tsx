@@ -699,13 +699,13 @@ export default function ReportPrintPage() {
           ) : (
             testimonials && <Empty />
           )}
-          {/* Photos from the Ground: description in `quote`, then its photo
+          {/* Photos from Project Implementation: description in `quote`, then its photo
               (uploads print as an image, links as their URL) with caption and
               credits. */}
           {testimonials && testimonials.some((t) => t.kind === "ground" && (t.quote || t.photos?.length)) && (
             <div style={{ marginTop: 16 }}>
               <div data-block style={{ fontSize: 9.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, marginBottom: 8 }}>
-                Photos from the Ground
+                Photos from Project Implementation
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {testimonials

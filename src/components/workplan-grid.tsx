@@ -204,6 +204,17 @@ const ACTIVITY_FILL = indentFill("var(--color-crafd-yellow-50)", "4rem", true);
 // The last activity of an output also closes off with a line below it, so the
 // quarter grid doesn't stay open before the next output / add button.
 const ACTIVITY_FILL_LAST = indentFill("var(--color-crafd-yellow-50)", "4rem", true, true);
+// Grey ramp for reports and project updates (the project document keeps the
+// yellow one above): outcome grey-200 → output grey-100 → activity near-white.
+// Keeps the hierarchy legible while the light-orange "fill this in" cues
+// (ACTION_BG) stand out against it.
+const OUTCOME_BG_GREY = "bg-crafd-grey-200";
+const OUTPUT_FILL_GREY = indentFill("var(--color-crafd-grey-100)", "2rem");
+const ACTIVITY_FILL_GREY = indentFill("var(--color-neutral-50, #fafafa)", "4rem", true);
+const ACTIVITY_FILL_GREY_LAST = indentFill("var(--color-neutral-50, #fafafa)", "4rem", true, true);
+// Light orange on a field that has just opened for input (a delay's updated
+// timeline and description): a call for action.
+const ACTION_BG = "bg-crafd-yellow-150";
 // Bottom rule on every cell of that last row except the activity cell (which
 // draws its own, starting at the activity indent).
 const ACTIVITY_ROW_BOTTOM = "[&>td]:border-b [&>td:first-child]:border-b-0";
@@ -610,17 +621,16 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
             quarters={quarters}
             extension={extensionKeys}
             firstRule={false}
-            // Column order: Activity | Project partner | Progress update |
-            // Description | Update | quarters. The Update label (Baseline /
-            // 2026 AR …) sits right beside the quarters it describes. Activity
+            // Column order: Activity | Progress update |
+            // Description | Timeline | quarters. The Timeline label (Latest approved plan /
+            // Updated plan) sits right beside the quarters it describes. Activity
             // takes the most room (~45%, at least 440px); the rest stay narrow.
             leadCols={
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW, width: "45%" }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[440px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-[80px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Project partner</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 w-[112px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 px-2 py-2 min-w-[150px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 text-left px-2 py-2 w-[72px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Update</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 text-left px-2 py-2 w-[72px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>
               </>
             }
             trailCols={null}
@@ -655,7 +665,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               const closeSpan = lastInOutput && split ? "border-b" : undefined;
 
               const activityCell = (
-                <td rowSpan={rowSpan} className={cn("pr-3 py-2 align-top border-r bg-card", INDENT_ACTIVITY)} style={lastInOutput ? ACTIVITY_FILL_LAST : ACTIVITY_FILL}>
+                <td rowSpan={rowSpan} className={cn("pr-3 py-2 align-top border-r bg-card", INDENT_ACTIVITY)} style={lastInOutput ? ACTIVITY_FILL_GREY_LAST : ACTIVITY_FILL_GREY}>
                   <div className="flex items-start gap-2">
                     <p className="text-sm font-medium leading-snug flex-1">
                       {/* "1.1.1. ACTIVITY", styled like the project document's label. */}
@@ -670,27 +680,24 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                   </div>
                 </td>
               );
-              const agentCell = (
-                <td rowSpan={rowSpan} className={cn("px-2 py-2 text-xs align-middle border-l text-muted-foreground", closeSpan)}>{a.implementing_agent ? <AgentStack tokens={parseAgents(a.implementing_agent)} /> : "—"}</td>
-              );
 
               return (
                 <Fragment key={a.id}>
                   {showOutcome && (
                     <tr>
-                      <td className={cn(OUTCOME_BG, "pr-3 py-2 text-xs font-semibold text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1.5 uppercase tracking-wide">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
-                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
+                      <td className={cn(OUTCOME_BG_GREY, "pr-3 py-2 text-xs font-semibold text-crafd-grey-900", INDENT_OUTCOME)}><span className="mr-1.5 uppercase tracking-wide">{outcomeOrdinal}. Outcome:</span>{a.outcome}</td>
+                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
                   )}
                   {showObjective && (
                     <tr>
-                      <td className={cn("pr-3 py-1.5 text-sm font-semibold text-crafd-grey-900", INDENT_OUTPUT)} style={OUTPUT_FILL}>
+                      <td className={cn("pr-3 py-1.5 text-sm font-semibold text-crafd-grey-900", INDENT_OUTPUT)} style={OUTPUT_FILL_GREY}>
                         {a.objective_num && (
                           <span className="mr-1.5 text-xs font-semibold uppercase tracking-wide tabular-nums">{a.objective_num}. Output:</span>
                         )}
                         {a.objective_text}
                       </td>
-                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true, true]} trailing={[]} firstRule={false} />
+                      <BandFill quarters={quarters} yearStart={yearStart} extension={extensionKeys} leading={[true, true, true]} trailing={[]} firstRule={false} />
                     </tr>
                   )}
 
@@ -698,7 +705,6 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                       + the last submitted timeline, greyed. */}
                   <tr className={cn(ACTIVITY_ROW_TOP, lastInOutput && !split && ACTIVITY_ROW_BOTTOM)}>
                     {activityCell}
-                    {agentCell}
                     <td rowSpan={rowSpan} className={cn("px-2 py-2 align-middle border-l", closeSpan)}>
                       {/* Renders the dropdown even when read-only: the surrounding
                           <ReadOnlyProvider> disables it, as in every other section. */}
@@ -724,7 +730,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                           value={ps?.comment ?? ""}
                           onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
                           placeholder="Add a progress note…"
-                          className="text-xs min-h-[56px] resize-none placeholder:text-muted-foreground/60"
+                          className={cn("text-xs min-h-[56px] resize-none border-crafd-yellow-400 placeholder:text-muted-foreground/60", ACTION_BG)}
                         />
                       ) : ps?.comment ? (
                         <p className="text-xs text-muted-foreground whitespace-pre-wrap">{ps.comment}</p>
@@ -732,7 +738,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                         <span className="text-muted-foreground/40 text-xs">—</span>
                       )}
                     </td>
-                    <td className="px-2 py-2 border-l text-xs text-muted-foreground whitespace-nowrap">{prev.label}</td>
+                    <td className="px-2 py-2 border-l text-xs text-muted-foreground whitespace-nowrap">Latest approved plan</td>
                     {quarters.map((q) => (
                       <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart, true, false), extensionKeys.has(q) && EXTENSION_CELL)}>
                         <QuarterCell checked={prev.quarters.includes(q)} variant="baseline" />
@@ -742,9 +748,11 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                   {/* Row 2 (delays only): this report's updated timeline. */}
                   {split && activeUpdate && (
                     <tr className={cn("border-t", lastInOutput && "[&>td]:border-b")}>
-                      <td className="px-2 py-2 border-l text-xs font-medium text-neutral-800 whitespace-nowrap">{workplanUpdateWindowLabel(activeUpdate)}</td>
+                      {/* Light orange across the open timeline row while editable
+                          (extension quarters keep their own tint). */}
+                      <td className={cn("px-2 py-2 border-l text-xs font-medium text-neutral-800 whitespace-nowrap", editable && ACTION_BG)}>Updated plan</td>
                       {quarters.map((q) => (
-                        <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart, true, false), extensionKeys.has(q) && EXTENSION_CELL)}>
+                        <td key={q} className={cn("px-0.5 py-1.5", quarterEdge(q, quarters, yearStart, true, false), extensionKeys.has(q) ? EXTENSION_CELL : editable && ACTION_BG)}>
                           <QuarterCell
                             checked={(ps?.updated_quarters ?? []).includes(q)}
                             variant={editable ? "editable" : "baseline"}

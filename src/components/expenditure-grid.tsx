@@ -740,7 +740,7 @@ export function ExpenditurePartnerEditor({
             label="ISC Budget (Remaining)"
             value={formatAmount(iscLeft) || "0"}
             tone={iscLeft < -0.005 ? "bad" : "good"}
-            note={iscLeft < -0.005 ? "Indirect support costs are above the approved amount. CRAFd will be in contact." : undefined}
+            note={iscLeft < -0.005 ? "Indirect support costs are above the approved amount. CRAF'd will be in contact." : undefined}
           />
           <SummaryBox
             label="Categories Overspent"
@@ -748,7 +748,7 @@ export function ExpenditurePartnerEditor({
             tone={overspendTotal <= 0.005 ? "good" : overspendLevel === "none" ? "warn" : "bad"}
             note={
               overspendLevel === "steering"
-                ? "Above 20%: the budget needs steering committee approval. CRAFd will be in contact."
+                ? "Above 20%: the budget needs steering committee approval. CRAF'd will be in contact."
                 : overspendLevel === "crafd"
                   ? "Above 10%: CRAFd will be in contact to review the budget."
                   : undefined
@@ -760,10 +760,31 @@ export function ExpenditurePartnerEditor({
             tone={iscShare === null ? "neutral" : iscShare - iscShareAllowed > 0.05 ? "bad" : "good"}
             note={
               iscShare !== null && iscShare - iscShareAllowed > 0.05
-                ? `Above the allowed ${pct(iscShareAllowed)}. CRAFd will be in contact.`
+                ? `Above the allowed ${pct(iscShareAllowed)}. CRAF'd will be in contact.`
                 : undefined
             }
           />
+        </div>
+      )}
+      {/* Annual / final reports: no summary boxes, but a warning box appears as
+          soon as categories are overspent by more than 20% of the approved
+          project costs, or the indirect support costs spent exceed the approved
+          amount. Same measures as the update boxes above. */}
+      {!isUpdate && (overspendShare > 20 || iscLeft < -0.005) && (
+        // One warning triangle per problem, so two overspends read as two.
+        <div role="alert" className="shrink-0 space-y-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          {overspendShare > 20 && (
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
+              <span>Categories are overspent by {formatAmount(overspendTotal)} ({pct(overspendShare)}). CRAF'd will be in contact.</span>
+            </p>
+          )}
+          {iscLeft < -0.005 && (
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
+              <span>Indirect support costs are overspent by {formatAmount(-iscLeft)}{iscCeiling > 0 && <> ({pct((-iscLeft / iscCeiling) * 100)})</>}. CRAF'd will be in contact.</span>
+            </p>
+          )}
         </div>
       )}
       {showProposed && data.forecastsAvailable !== true && (

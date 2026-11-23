@@ -1202,8 +1202,11 @@ export function AppSidebar() {
     </aside>
     <button
       onClick={() => setIsOpen(!isOpen)}
-      className="absolute top-1/2 right-0 translate-x-full -translate-y-1/2 z-20 flex items-center justify-center w-5 h-10 bg-sidebar border border-l-0 border-border rounded-r-md hover:bg-accent transition-colors"
+      // Brand-yellow tab with a bold chevron so it stands out against both the
+      // sidebar and the page (review feedback: the old grey tab was easy to miss).
+      className="absolute top-1/2 right-0 translate-x-full -translate-y-1/2 z-20 flex items-center justify-center w-5 h-10 bg-crafd-yellow-400 text-crafd-grey-900 rounded-r-md hover:bg-crafd-yellow-500 transition-colors focus-visible:outline-2 focus-visible:outline-crafd-grey-900"
       aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+      title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
     >
       {isOpen ? <ChevronLeft className="size-3" /> : <ChevronRight className="size-3" />}
     </button>

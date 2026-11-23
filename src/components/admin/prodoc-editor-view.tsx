@@ -1291,6 +1291,20 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
     !!selectedProdocId &&
     ["workplan", "indicators", "risk"].includes(selectedSection);
 
+  const currentSection = PRODOC_SECTIONS.find((s) => s.value === selectedSection) ?? null;
+
+  // Every section opens at the top: reset the page scroller and any table's own
+  // scroll box, which would otherwise keep the previous position.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    root.scrollTo({ top: 0 });
+    root.querySelectorAll<HTMLElement>('[class*="overflow-"]').forEach((el) => {
+      if (el.scrollTop > 0) el.scrollTop = 0;
+    });
+  }, [selectedSection]);
+
   const nextSection = (() => {
     const i = sections.findIndex((s) => s.value === selectedSection);
     return i >= 0 && i < sections.length - 1 ? sections[i + 1] : null;
@@ -1328,15 +1342,8 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       {/* Header */}
       <div className="on-dark bg-neutral-950 text-white px-8 h-32 flex items-center justify-between gap-12 shrink-0">
         <div className="min-w-0 flex-1">
-          {(() => {
-            const section = PRODOC_SECTIONS.find((s) => s.value === selectedSection);
-            return (
-              <p className="text-neutral-400 text-sm mb-1">
-                {labels.partnerProject.projectDocument}
-                {section && <><span className="mx-1">›</span><span className="text-neutral-200">{section.label}</span></>}
-              </p>
-            );
-          })()}
+          {/* Title, then the page locator under it. The section is named by the
+              headline on the page itself, not up here. */}
           <div className="flex items-center gap-3 min-w-0">
             {selectedDoc ? (
               <Tooltip>
@@ -1354,13 +1361,20 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                project lead) and ones they were granted editor rights on (owned by a
                different org — see [[project-editors-prodoc-rights]]). The role is
                shown inline after a separator so the two apart at a glance. */
-            <p className="text-sm text-muted-foreground mt-0.5 truncate">
-              {selectedDoc
-                ? `${selectedDoc.project_short_name || "Project Document"}${user?.partner_id != null ? ` · ${selectedDoc.owner_partner_id === user.partner_id ? "Project Lead" : "Implementing Partner"}` : ""}`
-                : "Your project document baseline."}
+            <p className="text-sm text-neutral-400 mt-1 truncate">
+              {labels.partnerProject.projectDocument}
+              {selectedDoc && (
+                <>
+                  {selectedDoc.project_short_name && <><span className="mx-1">›</span><span className="text-neutral-200">{selectedDoc.project_short_name}</span></>}
+                  {user?.partner_id != null && ` · ${selectedDoc.owner_partner_id === user.partner_id ? "Project Lead" : "Implementing Partner"}`}
+                </>
+              )}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground mt-0.5">Project Document Editor</p>
+            <p className="text-sm text-neutral-400 mt-1 truncate">
+              {labels.partnerProject.projectDocument}
+              {selectedDoc?.project_short_name && <><span className="mx-1">›</span><span className="text-neutral-200">{selectedDoc.project_short_name}</span></>}
+            </p>
           )}
         </div>
 
@@ -1388,7 +1402,13 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
 
       {/* Content — quant tables fill the leftover height and scroll inside their
           own box (single scroller, frozen header); every other section scrolls here. */}
-      <div className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
+      <div ref={contentRef} className={cn("flex-1 px-8 py-6", fillHeight ? "flex flex-col min-h-0 overflow-hidden" : "overflow-auto")}>
+        {/* Page headline: the section's name, big, so similar-looking sections
+            can't be confused. */}
+        {currentSection && selectedProdocId && (
+          <h2 className="text-2xl font-bold text-neutral-900 mb-4 shrink-0">{currentSection.label}</h2>
+        )}
+
         {error && (
           <Notice variant="error" className="mb-4">
             {error}

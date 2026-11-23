@@ -266,7 +266,7 @@ export default function ProjectUpdatesPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search updates…" className="max-w-[200px]" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search updates." className="max-w-[200px]" />
         <FilterSelect
           icon={FolderKanban}
           label="Project"

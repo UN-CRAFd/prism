@@ -1002,7 +1002,7 @@ export function SectionTableEditor({
                       staticItems={f.options ?? []}
                       value={splitMulti(row.values[f.key])}
                       onChange={(next) => updateField(i, f.key, joinMulti(next))}
-                      placeholder="Select…"
+                      placeholder="Select."
                     />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
@@ -1111,8 +1111,8 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     max: 5,
     fields: [
       { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), headClass: "w-52" },
-      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned…", headClass: "w-[38%]", required: true },
-      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result…" },
+      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true },
+      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result." },
     ],
   },
   "external-coverage": {

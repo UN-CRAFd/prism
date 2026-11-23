@@ -207,7 +207,7 @@ export default function NarrativeQuestionsPage() {
 
               <div className="border-t px-5 py-3 flex flex-col gap-2 mt-auto">
                 <Input
-                  placeholder="Add a narrative section…"
+                  placeholder="Add a narrative section."
                   value={draftLabel}
                   onChange={(e) => setDraftLabel(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}

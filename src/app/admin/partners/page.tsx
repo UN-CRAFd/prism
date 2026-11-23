@@ -305,7 +305,7 @@ export default function PartnersPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search partners by name, email, or project…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search partners by name, email, or project." />
         <SortSelect
           value={sortKey}
           dir={sortDir}

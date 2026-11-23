@@ -689,7 +689,7 @@ export function CreateReportForm({
           <Field label="Project" required>
             <Select value={projectId} onValueChange={setProjectId}>
               <SelectTrigger className="w-full [&>span]:truncate [&>span]:block">
-                <SelectValue placeholder="Select a project" />
+                <SelectValue placeholder="Select a project." />
               </SelectTrigger>
               <SelectContent>
                 {projects.map((p) => (
@@ -716,7 +716,7 @@ export function CreateReportForm({
 
           <Field label="Year" required>
             <Select value={year} onValueChange={setYear} disabled={!projectId || loadingYears || projectYears.length === 0}>
-              <SelectTrigger className="w-full"><SelectValue placeholder={loadingYears ? "Loading..." : "Select a year"} /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={loadingYears ? "Loading..." : "Select a year."} /></SelectTrigger>
               <SelectContent>
                 {projectYears.map((y) => (
                   <SelectItem key={y} value={String(y)}>{y}</SelectItem>
@@ -738,7 +738,7 @@ export function CreateReportForm({
                 value={updateName ?? ""}
                 readOnly
                 disabled
-                placeholder="Choose a project, year and update types"
+                placeholder="Choose a project, year and update types."
               />
             </Field>
           )}

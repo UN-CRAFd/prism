@@ -264,7 +264,7 @@ export function HactSection({
                             editable={canEditComment(r)}
                             onChange={(v) => edit(r.id, "partner_comment", v)}
                             label="Partner comment"
-                            placeholder="Describe the action taken…"
+                            placeholder="Describe the action taken."
                           />
                         </div>
                         <ItemComments section="hact" itemId={r.id} />
@@ -277,7 +277,7 @@ export function HactSection({
                           onValueChange={(v) => edit(r.id, "status", v === "none" ? null : v)}
                         >
                           <SelectTrigger className="h-8 w-full text-sm bg-background">
-                            <SelectValue placeholder="Select status" />
+                            <SelectValue placeholder="Select status." />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>

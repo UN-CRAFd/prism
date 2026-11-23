@@ -217,7 +217,7 @@ export default function IndicatorsPage() {
               <Field label={labels.indicators.columns.category}>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder="Select a category." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}><span className="text-muted-foreground">—</span></SelectItem>

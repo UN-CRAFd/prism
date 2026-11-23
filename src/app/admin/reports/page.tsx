@@ -203,7 +203,7 @@ export default function ReportsPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search reports…" className="max-w-[200px]" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search reports." className="max-w-[200px]" />
         <FilterSelect
           icon={FolderKanban}
           label="Project"

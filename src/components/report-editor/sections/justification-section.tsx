@@ -111,8 +111,8 @@ export function JustificationSection({
             rows={10}
             placeholder={
               applying
-                ? "Set out the reason, what changed, and why it is needed…"
-                : "Describe the reason for this update…"
+                ? "Set out the reason, what changed, and why it is needed."
+                : "Describe the reason for this update."
             }
           />
         </div>

@@ -56,7 +56,7 @@ export default function HactRecommendationsPage() {
       />
 
       <FilterBar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search projects…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search projects." />
       </FilterBar>
 
       <div className="flex-1 overflow-auto px-8 py-6">

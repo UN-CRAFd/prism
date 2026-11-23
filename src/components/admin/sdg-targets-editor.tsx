@@ -143,7 +143,7 @@ export function SdgTargetsEditor({
         <div className="flex flex-wrap items-center gap-2">
           <Select value={pickGoal} onValueChange={(v) => { setPickGoal(v); setPickTarget(""); }}>
             <SelectTrigger className="w-[280px] h-9">
-              <SelectValue placeholder="Select an SDG" />
+              <SelectValue placeholder="Select an SDG." />
             </SelectTrigger>
             <SelectContent>
               {SDG_GOALS.map((g) => (

@@ -739,13 +739,18 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       const newValues = { name: editingIndName, description: editingIndDescription || null, means_of_verification: editingIndMov || null };
       const res = await fetch(`/api/indicators/${indicatorId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newValues),
+        body: JSON.stringify({ ...newValues, reportId: Number(selectedProdocId) }),
       });
       if (!res.ok) throw new Error("Failed to update indicator");
       const updated = await res.json();
+      // A project-specific copy was made (the indicator is shared with another
+      // project): the line moves to the copy's id, and the copy joins the library.
+      // Undo / redo then edit the copy, which only this project uses.
+      const targetId: number = updated.id ?? indicatorId;
+      if (updated.copied_from != null) setLibrary((prev) => [...prev, updated]);
       setIndicatorLines((prev) => prev.map((l) =>
         l.indicator_id === indicatorId
-          ? { ...l, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
+          ? { ...l, indicator_id: targetId, indicator_name: updated.name, indicator_description: updated.description, means_of_verification: updated.means_of_verification }
           : l
       ));
       setEditingIndicatorId(null);
@@ -753,27 +758,27 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
       if (prevValues) {
         pushCommand({
           undo: async () => {
-            const res = await fetch(`/api/indicators/${indicatorId}`, {
+            const res = await fetch(`/api/indicators/${targetId}`, {
               method: "PUT", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(prevValues),
+              body: JSON.stringify({ ...prevValues, reportId: Number(selectedProdocId) }),
             });
             if (!res.ok) { setError("Failed to undo indicator edit"); return; }
             const reverted = await res.json();
             setIndicatorLines((prev) => prev.map((l) =>
-              l.indicator_id === indicatorId
+              l.indicator_id === targetId
                 ? { ...l, indicator_name: reverted.name, indicator_description: reverted.description, means_of_verification: reverted.means_of_verification }
                 : l
             ));
           },
           redo: async () => {
-            const res = await fetch(`/api/indicators/${indicatorId}`, {
+            const res = await fetch(`/api/indicators/${targetId}`, {
               method: "PUT", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(newValues),
+              body: JSON.stringify({ ...newValues, reportId: Number(selectedProdocId) }),
             });
             if (!res.ok) { setError("Failed to redo indicator edit"); return; }
             const reapplied = await res.json();
             setIndicatorLines((prev) => prev.map((l) =>
-              l.indicator_id === indicatorId
+              l.indicator_id === targetId
                 ? { ...l, indicator_name: reapplied.name, indicator_description: reapplied.description, means_of_verification: reapplied.means_of_verification }
                 : l
             ));
@@ -795,13 +800,22 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
           description: patch.description,
           means_of_verification: patch.means_of_verification,
           cycle: patch.cycle,
+          // Which document the edit comes from: a custom indicator shared with
+          // another project is copied for this project instead of being refused.
+          reportId: Number(selectedProdocId),
         }),
       });
       if (!indicatorRes.ok) throw new Error("Failed to update indicator");
       const updated = await indicatorRes.json();
+      // A project-specific copy was made: the line now points at the new id,
+      // and the copy joins the library next to the original.
+      if (updated.copied_from != null) {
+        setLibrary((prev) => [...prev, updated]);
+      }
       setIndicatorLines((prev) => prev.map((line) => line.id === lineId
         ? {
             ...line,
+            indicator_id: updated.id,
             indicator_name: updated.name,
             indicator_description: updated.description,
             means_of_verification: updated.means_of_verification,

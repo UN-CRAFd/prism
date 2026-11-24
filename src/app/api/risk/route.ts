@@ -45,6 +45,43 @@ const ORIGIN_JOIN = `
   LEFT JOIN reporting_platform.risk_management orig ON orig.id = rm.origin_risk_id
   LEFT JOIN reporting_platform.reports orig_r ON orig_r.id = orig.report_id`;
 
+const RISK_STATUSES = ["unchanged", "changed", "happened"];
+
+// The assessment "has not changed" carries forward: for each of likelihood / impact, the
+// value from the most recent EARLIER report of the same project that has one for this
+// risk (matched by origin_risk_id), otherwise the ProDoc baseline value. Looks at every
+// earlier report year, whether or not the admin has shared it with the partner.
+async function latestPreviousAssessment(
+  projectId: number,
+  year: number,
+  originRiskId: number | null
+): Promise<{ likelihood: number | null; impact: number | null }> {
+  if (originRiskId === null) return { likelihood: null, impact: null };
+  const latest = async (col: "updated_likelihood" | "updated_impact") => {
+    const rows = await query<{ v: number | null }>(
+      `SELECT rm.${col} AS v
+         FROM reporting_platform.risk_management rm
+         JOIN reporting_platform.reports r ON r.id = rm.report_id AND r.data_type = 'report'
+        WHERE r.project_id = $1 AND r.year < $2 AND rm.origin_risk_id = $3 AND rm.${col} IS NOT NULL
+        ORDER BY r.year DESC, r.id DESC
+        LIMIT 1`,
+      [projectId, year, originRiskId]
+    );
+    return rows.length ? rows[0].v : null;
+  };
+  const [l, i] = await Promise.all([latest("updated_likelihood"), latest("updated_impact")]);
+  if (l !== null && i !== null) return { likelihood: l, impact: i };
+  const base = await query<{ likelihood: number | null; impact: number | null }>(
+    `SELECT rm.likelihood, rm.impact
+       FROM reporting_platform.risk_management rm
+       JOIN reporting_platform.reports pd ON pd.id = rm.report_id AND pd.data_type = 'prodoc'
+      WHERE pd.project_id = $1 AND rm.origin_risk_id = $2
+      LIMIT 1`,
+    [projectId, originRiskId]
+  );
+  return { likelihood: l ?? base[0]?.likelihood ?? null, impact: i ?? base[0]?.impact ?? null };
+}
+
 async function fetchRisk(id: number) {
   const rows = await query(
     `SELECT rm.*, ${CATEGORY_AGG}, ${ORIGIN_YEAR_EXPR}
@@ -64,9 +101,42 @@ export async function GET(req: NextRequest) {
     if (reportId) {
       const gate = await guardReport(session, reportId);
       if (gate) return gate;
+      // previous_likelihood / previous_impact: for carried-over risks (source_risk_id NOT
+      // NULL), the latest PREVIOUS assessment — the most recent earlier report of the
+      // project (data_type 'report', year < this one) with a value for the risk's
+      // origin_risk_id, else the ProDoc value; NULL for risks added in this report. Same
+      // logic as latestPreviousAssessment, computed for every risk in this one query.
       const rows = await query(
-        `SELECT rm.*, ${CATEGORY_AGG}, ${ORIGIN_YEAR_EXPR}
+        `SELECT rm.*, ${CATEGORY_AGG}, ${ORIGIN_YEAR_EXPR},
+                CASE WHEN rm.source_risk_id IS NULL THEN NULL
+                     ELSE COALESCE(pl.v, pdb.likelihood) END AS previous_likelihood,
+                CASE WHEN rm.source_risk_id IS NULL THEN NULL
+                     ELSE COALESCE(pi.v, pdb.impact) END     AS previous_impact
            FROM reporting_platform.risk_management rm ${ORIGIN_JOIN}
+           JOIN reporting_platform.reports cur ON cur.id = rm.report_id
+           LEFT JOIN LATERAL (
+             SELECT rm2.updated_likelihood AS v
+               FROM reporting_platform.risk_management rm2
+               JOIN reporting_platform.reports r2 ON r2.id = rm2.report_id AND r2.data_type = 'report'
+              WHERE r2.project_id = cur.project_id AND r2.year < cur.year
+                AND rm2.origin_risk_id = rm.origin_risk_id AND rm2.updated_likelihood IS NOT NULL
+              ORDER BY r2.year DESC, r2.id DESC LIMIT 1
+           ) pl ON TRUE
+           LEFT JOIN LATERAL (
+             SELECT rm2.updated_impact AS v
+               FROM reporting_platform.risk_management rm2
+               JOIN reporting_platform.reports r2 ON r2.id = rm2.report_id AND r2.data_type = 'report'
+              WHERE r2.project_id = cur.project_id AND r2.year < cur.year
+                AND rm2.origin_risk_id = rm.origin_risk_id AND rm2.updated_impact IS NOT NULL
+              ORDER BY r2.year DESC, r2.id DESC LIMIT 1
+           ) pi ON TRUE
+           LEFT JOIN LATERAL (
+             SELECT pdm.likelihood, pdm.impact
+               FROM reporting_platform.risk_management pdm
+               JOIN reporting_platform.reports pd ON pd.id = pdm.report_id AND pd.data_type = 'prodoc'
+              WHERE pd.project_id = cur.project_id AND pdm.origin_risk_id = rm.origin_risk_id
+              LIMIT 1
+           ) pdb ON TRUE
           WHERE rm.report_id = $1
           ORDER BY rm.id`,
         [reportId]
@@ -177,8 +247,38 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // risk_status (carried-over risks only): what happened since the last report.
+  // Choosing 'unchanged' copies the latest previous likelihood / impact SERVER-SIDE and
+  // clears the updated mitigation — the client's own values for those three fields are
+  // ignored (overwritten below), so autosave can't replace the copy with stale values.
+  if ("risk_status" in fields) {
+    const rs = fields.risk_status;
+    if (rs !== null && rs !== "" && !RISK_STATUSES.includes(rs as string)) {
+      return badRequest("risk_status must be 'unchanged', 'changed', 'happened' or null");
+    }
+    if (rs) {
+      const info = await query<{ source_risk_id: number | null; origin_risk_id: number | null; project_id: number; year: number }>(
+        `SELECT rm.source_risk_id, rm.origin_risk_id, r.project_id, r.year
+           FROM reporting_platform.risk_management rm
+           JOIN reporting_platform.reports r ON r.id = rm.report_id
+          WHERE rm.id = $1`,
+        [id]
+      );
+      if (!info.length) return NextResponse.json({ error: "Risk not found" }, { status: 404 });
+      if (info[0].source_risk_id === null) {
+        return badRequest("Only risks carried over from earlier reports have a status");
+      }
+      if (rs === "unchanged") {
+        const prev = await latestPreviousAssessment(info[0].project_id, info[0].year, info[0].origin_risk_id);
+        fields.updated_likelihood = prev.likelihood;
+        fields.updated_impact = prev.impact;
+        fields.updated_mitigation = null;
+      }
+    }
+  }
+
   // risk_category lives in the junction table, not on risk_management.
-  const allowed = ["risk_name", "risk_description", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "updated_likelihood", "updated_impact", "project_revision"] as const;
+  const allowed = ["risk_name", "risk_description", "likelihood", "impact", "approved_mitigation", "updated_mitigation", "updated_likelihood", "updated_impact", "project_revision", "risk_status"] as const;
   const updates: string[] = [];
   const values: unknown[] = [id];
 

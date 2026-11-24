@@ -7,6 +7,7 @@ import { formatDate, shortName, formatUsd } from "@/lib/utils";
 import { likelihoodLabel, impactLabel } from "@/lib/risk";
 import { statusLabel } from "@/lib/indicators";
 import { reportStatusLabel } from "@/lib/status-label";
+import labels from "@/lib/labels";
 import { resultLabel, quarterRange, quartersAfter, quarterFromDate, groupQuartersByYear } from "@/lib/workplan";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,6 +132,7 @@ interface RiskRow {
   updated_likelihood: number | null; updated_impact: number | null;
   updated_mitigation: string | null;
   project_revision: boolean | null; source_risk_id: number | null;
+  risk_status: "unchanged" | "changed" | "happened" | null;
 }
 
 interface TransferPartnerRow {
@@ -1002,7 +1004,7 @@ export default function ReportPrintPage() {
                   <Th align="left" width="14%">Updated likelihood</Th>
                   <Th align="left" width="14%">Updated impact</Th>
                   <Th align="left">Updated mitigation</Th>
-                  <Th align="left" width="10%">Revision</Th>
+                  <Th align="left" width="14%">{labels.risk.columns.statusShort}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -1028,7 +1030,7 @@ export default function ReportPrintPage() {
                     <Td>{likelihoodLabel(r.updated_likelihood) || "—"}</Td>
                     <Td>{impactLabel(r.updated_impact) || "—"}</Td>
                     <Td>{r.updated_mitigation || "—"}</Td>
-                    <Td>{r.project_revision == null ? "—" : r.project_revision ? "Yes" : "No"}</Td>
+                    <Td>{r.source_risk_id == null || !r.risk_status ? "—" : labels.risk.status[r.risk_status]}</Td>
                   </tr>
                 ))}
               </tbody>

@@ -47,6 +47,8 @@ export const EMPTY_OVERVIEW: OverviewData = {
   authorized: false,
 };
 
+export type RiskStatus = "unchanged" | "changed" | "happened";
+
 export interface Risk {
   id: number;
   report_id: number;
@@ -60,6 +62,11 @@ export interface Risk {
   approved_mitigation: string | null;
   updated_mitigation: string | null;
   project_revision: boolean;
+  /** Carried-over risks only (source_risk_id not null): what happened since the last report. */
+  risk_status: RiskStatus | null;
+  /** Carried-over risks: the latest previous assessment (computed by GET /api/risk); null for new risks. */
+  previous_likelihood?: number | null;
+  previous_impact?: number | null;
   source_risk_id: number | null;
   origin_risk_id: number | null;
   origin_year: number | null;
@@ -73,6 +80,7 @@ export interface RiskState {
   updated_impact: number | null;
   updated_mitigation: string;
   project_revision: boolean;
+  risk_status: RiskStatus | null;
   dirty: boolean;
 }
 

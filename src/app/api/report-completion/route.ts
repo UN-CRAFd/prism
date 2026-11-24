@@ -63,10 +63,21 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
 
-      // Risk — every risk has a partner-entered updated assessment.
-      // Uses updated_likelihood / updated_impact (not the approved ProDoc columns).
+      // Risk — every risk is complete (and there is at least one):
+      //   • added in this report (source_risk_id NULL): updated likelihood + impact entered;
+      //   • carried over: it answered "Since the last report, this risk…" (risk_status) —
+      //       unchanged → complete (values are copied from the previous report);
+      //       changed   → updated likelihood + impact + mitigation entered;
+      //       happened  → updated impact + a mitigation (what happened / what was done).
+      // Uses updated_* (not the approved ProDoc columns). No status yet = incomplete.
       query<Row>(
-        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE updated_likelihood IS NOT NULL AND updated_impact IS NOT NULL)::int AS ok
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE
+                     (source_risk_id IS NULL AND updated_likelihood IS NOT NULL AND updated_impact IS NOT NULL)
+                  OR risk_status = 'unchanged'
+                  OR (risk_status = 'changed' AND updated_likelihood IS NOT NULL AND updated_impact IS NOT NULL AND NULLIF(TRIM(updated_mitigation), '') IS NOT NULL)
+                  OR (risk_status = 'happened' AND updated_impact IS NOT NULL AND NULLIF(TRIM(updated_mitigation), '') IS NOT NULL)
+                )::int AS ok
            FROM reporting_platform.risk_management WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),

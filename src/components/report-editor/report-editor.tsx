@@ -298,6 +298,7 @@ export function ReportEditor({
           updated_impact: r.updated_impact,
           updated_mitigation: r.updated_mitigation ?? "",
           project_revision: r.project_revision,
+          risk_status: r.risk_status ?? null,
           dirty: false,
         };
       }
@@ -533,7 +534,9 @@ export function ReportEditor({
     const dirtySurveys = surveys.filter((s) => rowStates[s.id]?.dirty);
     const surveySnap = new Map(dirtySurveys.map((s) => [s.id, JSON.stringify({ a: rowStates[s.id].assessment, c: rowStates[s.id].context })]));
     const dirtyRisks = risks.filter((r) => riskStates[r.id]?.dirty);
-    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ n: riskStates[r.id].risk_name, d: riskStates[r.id].risk_description, c: riskStates[r.id].risk_category, ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision })]));
+    const riskSnap = new Map(dirtyRisks.map((r) => [r.id, JSON.stringify({ n: riskStates[r.id].risk_name, d: riskStates[r.id].risk_description, c: riskStates[r.id].risk_category, ul: riskStates[r.id].updated_likelihood, ui: riskStates[r.id].updated_impact, m: riskStates[r.id].updated_mitigation, p: riskStates[r.id].project_revision, s: riskStates[r.id].risk_status })]));
+    // Rows the server rewrote for 'unchanged' risks (see the risk PATCH below).
+    const copiedByServer = new Map<number, Risk>();
     const dirtyInd = indicatorRows.filter((r) => indicatorStates[r.currentLineId]?.dirty);
     const indSnap = new Map(dirtyInd.map((r) => [r.currentLineId, JSON.stringify(indicatorStates[r.currentLineId])]));
     const saveOverview = overviewDirty;
@@ -555,7 +558,13 @@ export function ReportEditor({
           const st = riskStates[r.id];
           const patch: Record<string, unknown> = { id: r.id, updated_likelihood: st.updated_likelihood, updated_impact: st.updated_impact, updated_mitigation: st.updated_mitigation || null, project_revision: st.project_revision };
           if (r.source_risk_id === null) { patch.risk_name = st.risk_name; patch.risk_description = st.risk_description || null; patch.risk_category = st.risk_category; }
-          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then(ok);
+          else patch.risk_status = st.risk_status;
+          return fetch("/api/risk", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then(async (res) => {
+            await ok(res);
+            // 'unchanged': the server copied the previous likelihood / impact and cleared the
+            // mitigation (ignoring the values sent above) — keep its row to show those.
+            if (st.risk_status === "unchanged") copiedByServer.set(r.id, await res.json());
+          });
         }),
         ...dirtyInd.map((r) => {
           const st = indicatorStates[r.currentLineId];
@@ -584,7 +593,17 @@ export function ReportEditor({
     });
     if (dirtyRisks.length) setRiskStates((prev) => {
       const n = { ...prev };
-      for (const r of dirtyRisks) { const cur = prev[r.id]; if (cur && JSON.stringify({ n: cur.risk_name, d: cur.risk_description, c: cur.risk_category, ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision }) === riskSnap.get(r.id)) n[r.id] = { ...cur, dirty: false }; }
+      for (const r of dirtyRisks) {
+        const cur = prev[r.id];
+        if (cur && JSON.stringify({ n: cur.risk_name, d: cur.risk_description, c: cur.risk_category, ul: cur.updated_likelihood, ui: cur.updated_impact, m: cur.updated_mitigation, p: cur.project_revision, s: cur.risk_status }) === riskSnap.get(r.id)) {
+          // Unedited since the save: not dirty again. For an 'unchanged' risk, take the
+          // server's copied values straight into state (no updateRisk, so no re-save).
+          const copy = copiedByServer.get(r.id);
+          n[r.id] = copy
+            ? { ...cur, updated_likelihood: copy.updated_likelihood, updated_impact: copy.updated_impact, updated_mitigation: copy.updated_mitigation ?? "", dirty: false }
+            : { ...cur, dirty: false };
+        }
+      }
       return n;
     });
     if (dirtyInd.length) setIndicatorStates((prev) => {
@@ -655,6 +674,7 @@ export function ReportEditor({
           updated_impact: assessment?.updated_impact ?? created.updated_impact,
           updated_mitigation: created.updated_mitigation ?? "",
           project_revision: created.project_revision,
+          risk_status: null, // risks added in this report have no status
           dirty: assessment != null,
         },
       }));

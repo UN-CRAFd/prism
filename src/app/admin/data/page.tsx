@@ -31,6 +31,7 @@ import {
 import { Loader2, TableIcon, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { cn, shortName } from "@/lib/utils";
 import { optionLabel } from "@/lib/options";
+import labels from "@/lib/labels";
 import {
   computeRiskLevelKey,
   RISK_LEVEL_COLORS,
@@ -333,7 +334,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
     ],
   },
   {
-    value: "risk", label: "Risk Management", endpoint: "/api/risk", reportIdKey: "report_id", minWidth: 1300,
+    value: "risk", label: "Risk Management", endpoint: "/api/risk", reportIdKey: "report_id", minWidth: 1450,
     columns: [
       ...leadCols,
       { header: "Risk", headClass: "w-[160px]", cell: (r) => <p className="break-words font-medium">{r.risk_name as string}</p> },
@@ -385,6 +386,12 @@ const SECTION_CONFIGS: SectionConfig[] = [
         header: "Revision", headClass: "w-[68px]", center: true, cell: (r) => {
           const v = r.project_revision as boolean | null;
           return <div className="text-center">{v == null ? DASH : v ? <span className="text-green-600 font-medium">Yes</span> : <span className="text-muted-foreground">No</span>}</div>;
+        },
+      },
+      {
+        header: "Since last report", headClass: "w-[150px]", cell: (r) => {
+          const v = r.risk_status as keyof typeof labels.risk.status | null;
+          return v ? <span className="text-xs">{labels.risk.status[v] ?? v}</span> : DASH;
         },
       },
     ],

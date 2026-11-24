@@ -51,7 +51,7 @@
     "general": "Edit the core project data, lifecycle status and description. List the project contacts (focal points and signatories) below. Changes save automatically.",
     "overview": "Complete all required fields. These form the foundation of your annual report.",
     "surveys": "Use this section to self-assess your project's performance across four areas: data quality, ecosystem and collaboration, data uptake and use, and the contribution of pooled funding. For each question, select a rating and explain your choice clearly and concisely, using evidence from the reporting period. Keep responses short (2-3 sentences) and focused on what changed, improved, or was enabled. Avoid lengthy narrative or descriptions of activities alone.",
-    "risk": "Identify and assess risks to your project. For each risk, evaluate its likelihood and impact, then describe how you plan to mitigate it.",
+    "risk": "For each risk, say what has changed since the last report. If it is more or less likely, or has happened, update it and explain your mitigation. You can also add new risks below.",
     "achievements": "Highlight up to three key achievements from this reporting period. For each, briefly describe what was achieved, explain its significance to the project's goals and target population, and include links to any supporting evidence or outputs. Keep entries concise and evidence-based.",
     "partnerships": "List the organizations that contributed as implementing, counterpart, or ecosystem partners to the project. For each, describe what improved or changed because of the partnership, and provide links to supporting evidence.",
     "results": "Document cases where your project's data informed real decisions and produced measurable outcomes. Add at least 3 results. For each, describe the context and decision gap, explain how your data drove a concrete decision, and describe the resulting impact with quantitative evidence where available.",
@@ -333,8 +333,20 @@
       "approvedMitigation": "Mitigation strategy",
       "updatedMitigation": "Updated mitigation",
       "revision": "Revision",
-      "actions": "Actions"
+      "actions": "Actions",
+      "status": "Since the last report, this risk…",
+      "statusShort": "Since the last report"
     },
+    "lastReport": "Last report",
+    "statusPlaceholder": "Select a response",
+    "status": {
+      "unchanged": "has not changed",
+      "changed": "is more or less likely",
+      "happened": "has happened"
+    },
+    "newMitigationPlaceholder": "Describe how you will mitigate this risk.",
+    "changedMitigationPlaceholder": "Describe how you are adjusting your mitigation.",
+    "happenedMitigationPlaceholder": "Describe what happened and what you did.",
     "remarks": {
       "revision": "Tick if this risk led to a project revision, such as a budget revision or a no-cost extension. For example: delays in licensing led to project delays and a no-cost extension."
     }

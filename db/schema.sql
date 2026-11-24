@@ -540,6 +540,7 @@ CREATE TABLE IF NOT EXISTS risk_management (
     approved_mitigation TEXT,
     updated_mitigation  TEXT,
     project_revision    BOOLEAN      NOT NULL DEFAULT FALSE,
+    risk_status         TEXT         CHECK (risk_status IN ('unchanged', 'changed', 'happened')),  -- carried-over risks only: what happened since the last report (see db/021_risk_status.sql)
     source_risk_id      INTEGER      REFERENCES risk_management(id) ON DELETE SET NULL,
     origin_risk_id      INTEGER,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

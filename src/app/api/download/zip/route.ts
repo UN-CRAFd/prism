@@ -208,7 +208,7 @@ const EXPORTS: Record<string, SectionExport> = {
       "approved_likelihood", "updated_likelihood",
       "approved_impact", "updated_impact",
       "approved_risk_level", "updated_risk_level",
-      "approved_mitigation", "updated_mitigation", "project_revision",
+      "approved_mitigation", "updated_mitigation", "project_revision", "risk_status",
     ],
     sql: reportScoped(
       "risk_management", "rm", "report_id",
@@ -224,7 +224,7 @@ const EXPORTS: Record<string, SectionExport> = {
             THEN (rm.likelihood * rm.impact)::text ELSE NULL END AS approved_risk_level,
        CASE WHEN rm.updated_likelihood IS NOT NULL AND rm.updated_impact IS NOT NULL
             THEN (rm.updated_likelihood * rm.updated_impact)::text ELSE NULL END AS updated_risk_level,
-       rm.approved_mitigation, rm.updated_mitigation, rm.project_revision`,
+       rm.approved_mitigation, rm.updated_mitigation, rm.project_revision, rm.risk_status`,
       "rm.id"
     ),
   },

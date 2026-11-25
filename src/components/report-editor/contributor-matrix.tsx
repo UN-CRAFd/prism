@@ -58,7 +58,10 @@ function frozenLayout(showWebsite: boolean) {
   for (const k of keys) { left[k] = x; x += TCOL_W[k]; }
   const tfz = (key: TColKey, z = 20): CSSProperties => {
     const w = TCOL_W[key];
-    return { position: "sticky", left: left[key] ?? 0, width: w, minWidth: w, maxWidth: w, zIndex: z };
+    // The name column has no max width: with fixed 180px amount columns the table's
+    // leftover width goes to it. When the table overflows (and scrolls) it sits at
+    // its 220px minimum, so the offsets of the columns after it stay exact.
+    return { position: "sticky", left: left[key] ?? 0, width: w, minWidth: w, ...(key === "org" ? {} : { maxWidth: w }), zIndex: z };
   };
   return { tfz, frozenWidth: x };
 }
@@ -650,7 +653,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             ...(showActivities ? [{ label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth }] : []),
           ]}
           pastSubCols={[
-            { label: config.labels.amountColumn, minWidth: "min-w-[110px]" },
+            { label: config.labels.amountColumn, minWidth: "w-[180px] min-w-[180px]" },
           ]}
           trailingCols={[
             { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
@@ -821,7 +824,7 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
     identityPlaceholder: labels.common.placeholders.organizationName,
     websitePlaceholder: labels.common.placeholders.url,
     amountPlaceholder: labels.placeholders.transferAmount,
-    amountMinWidth: "min-w-[140px]",
+    amountMinWidth: "w-[180px] min-w-[180px]",
     activityMinWidth: "min-w-[220px]",
   },
 };
@@ -863,7 +866,7 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
     identityPlaceholder: labels.placeholders.complementaryContributorName,
     websitePlaceholder: labels.common.placeholders.url,
     amountPlaceholder: labels.placeholders.complementaryAmount,
-    amountMinWidth: "min-w-[150px]",
+    amountMinWidth: "w-[180px] min-w-[180px]",
     activityMinWidth: "min-w-[240px]",
   },
 };

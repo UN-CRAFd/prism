@@ -517,7 +517,7 @@
     "title": "Transfers to implementing partners",
     "currency": "USD",
     "columns": {
-      "organizationName": "Organization name",
+      "organizationName": "Institution / Organisation",
       "website": "Website link",
       "partnerType": "Partner type",
       "amountTransferred": "Amount transferred",

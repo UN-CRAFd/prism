@@ -56,14 +56,13 @@ export async function POST(request: NextRequest) {
       project_start_date: string | null;
       project_duration_months: number | null;
       geographic_scope: string | null;
-      gender_equality_marker: string | null;
       description: string | null;
       tranche_total: string;
       budget_total: string;
     }>(
       `SELECT
          p.project_title, p.grant_size_usd, p.project_start_date,
-         p.project_duration_months, p.geographic_scope, p.gender_equality_marker, p.description,
+         p.project_duration_months, p.geographic_scope, p.description,
          COALESCE(SUM(tc.amount), 0) AS tranche_total,
          ROUND(COALESCE(
            (SELECT SUM(b.approved_amount)
@@ -92,7 +91,6 @@ export async function POST(request: NextRequest) {
     if (proj.project_duration_months == null) emptyFields.push("Duration (months)");
     if (!proj.geographic_scope?.trim()) emptyFields.push("Geographic scope");
     if (richTextLength(proj.description ?? "") === 0) emptyFields.push("Description");
-    if (!proj.gender_equality_marker?.trim()) emptyFields.push("Gender Equality Marker");
     if (emptyFields.length > 0) {
       return NextResponse.json(
         { error: `Complete required fields in General: ${emptyFields.join(", ")}.` },

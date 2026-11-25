@@ -56,7 +56,6 @@ export async function GET(req: NextRequest) {
               AND p.project_start_date IS NOT NULL
               AND p.project_duration_months IS NOT NULL
               AND p.geographic_scope IS NOT NULL AND p.geographic_scope <> ''
-              AND p.gender_equality_marker IS NOT NULL AND p.gender_equality_marker <> ''
               AND p.description IS NOT NULL AND p.description <> '') AS complete,
               p.description
            FROM reporting_platform.projects p

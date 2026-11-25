@@ -27,7 +27,6 @@ import {
   Database,
   History,
   UploadCloud,
-  FileInput,
   Target,
   ListChecks,
   ShieldCheck,
@@ -111,7 +110,6 @@ const adminNavGroups: { heading?: string; items: AdminNavItem[] }[] = [
     heading: "Data",
     items: [
       { href: "/admin/data", label: "Full Data", icon: Database },
-      { href: "/admin/report-import", label: "Report Import", icon: FileInput },
       { href: "/admin/upload", label: "Upload / Download", icon: UploadCloud },
       { href: "/admin/version-log", label: "Version Log", icon: History },
     ],

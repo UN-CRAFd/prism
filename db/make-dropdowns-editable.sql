@@ -47,6 +47,7 @@ ALTER TABLE external_coverage  DROP CONSTRAINT IF EXISTS external_coverage_type_
 ALTER TABLE workplan_updates   DROP CONSTRAINT IF EXISTS workplan_updates_type_code_check;
 ALTER TABLE workplan_entries   DROP CONSTRAINT IF EXISTS workplan_entries_status_check;
 ALTER TABLE project_sdg_targets DROP CONSTRAINT IF EXISTS project_sdg_targets_priority_check;
+ALTER TABLE complementary_contributors DROP CONSTRAINT IF EXISTS complementary_contributors_funding_type_check;
 
 -- ── Drop the now-unused ENUM types ───────────────────────────────────────────
 -- (data_type_enum is intentionally kept — 'report'/'prodoc' is not user-editable.)

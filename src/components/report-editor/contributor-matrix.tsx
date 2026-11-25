@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { MatrixTableShell, HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
+import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { optionValues } from "@/lib/options";
@@ -121,7 +121,6 @@ export interface ContributorMatrixConfig {
     typeColumn: string;
     amountColumn: string;
     activityColumn: string;
-    subTotalColumn: string;
     totalColumn: string;
     selectType: string;
     selectActivity: string;
@@ -582,9 +581,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
     const v = Number(raw);
     return raw == null || raw === "" || Number.isNaN(v) ? 0 : v;
   };
-  const rowSubtotal = (row: MatrixRow) => years.reduce((s, y) => s + cellAmount(row, y), 0);
   const yearTotal = (year: number) => rows.reduce((s, r) => s + cellAmount(r, year), 0);
-  const grandTotal = rows.reduce((s, r) => s + rowSubtotal(r), 0);
 
   // Add a blank row — the partner fills every field inline in the table. Sits directly
   // under the table (the shell's `footer` slot keeps it on the card's real bottom
@@ -649,7 +646,6 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             { label: config.labels.amountColumn, minWidth: "min-w-[110px]" },
           ]}
           trailingCols={[
-            { label: config.labels.subTotalColumn, className: `px-3 py-2 text-right ${HEAD_TEXT} ${HEAD_COLOR} border-l border-b ${HEAD_BG} align-bottom min-w-[150px]` },
             { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
           ]}
         >
@@ -741,10 +737,6 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                       );
                     })}
 
-                    {/* Sub-total across all years */}
-                    <td className="px-3 py-2 border-l border-t text-right font-medium tabular-nums bg-muted/20">
-                      {formatAmount(rowSubtotal(row))}
-                    </td>
                     <td className="px-2 py-2 border-l border-t text-center">
                       <button onClick={() => onDelete(row)} disabled={deleting === row.entityId} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label={config.deleteAriaLabel}>
                         {deleting === row.entityId ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
@@ -772,7 +764,6 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                     <td key={year} className="px-2 py-3 border-l border-t text-right tabular-nums bg-neutral-100 opacity-60">{formatAmount(yearTotal(year))}</td>
                   );
                 })}
-                <td className="px-3 py-3 border-l border-t text-right tabular-nums bg-neutral-100">{formatAmount(grandTotal)}</td>
                 <td className="border-l border-t bg-neutral-100" />
               </tr>
             </tfoot>
@@ -818,7 +809,6 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
     typeColumn: labels.transfers.columns.partnerType,
     amountColumn: labels.transfers.columns.amountTransferred,
     activityColumn: labels.transfers.columns.linkedActivities,
-    subTotalColumn: labels.transfers.columns.subTotal,
     totalColumn: labels.transfers.columns.total,
     selectType: labels.transfers.selectPartnerType,
     selectActivity: labels.transfers.selectActivities,
@@ -861,7 +851,6 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
     typeColumn: labels.complementary.columns.fundingType,
     amountColumn: labels.complementary.columns.contributionAmount,
     activityColumn: labels.complementary.columns.linkedActivities,
-    subTotalColumn: labels.complementary.columns.subTotal,
     totalColumn: labels.complementary.columns.total,
     selectType: labels.complementary.selectFundingType,
     selectActivity: labels.complementary.selectActivities,

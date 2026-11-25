@@ -182,13 +182,13 @@ export function IndicatorsSection({
                           </p>
                           <ItemComments section="indicators" itemId={row.currentLineId} />
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {row.category && <Tag>{row.category}</Tag>}
-                          {row.cycle && <Tag>{cycleLabel(row.cycle)}</Tag>}
-                          {row.is_standard
-                            ? <Tag>Standard</Tag>
-                            : <Tag variant="highlight">Custom</Tag>}
-                        </div>
+                        {/* Theme/type and standard/custom tags are omitted here —
+                            they don't matter at reporting stage. */}
+                        {row.cycle && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <Tag>{cycleLabel(row.cycle)}</Tag>
+                          </div>
+                        )}
                       </>
                     </div>
                   </div>

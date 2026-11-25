@@ -230,7 +230,7 @@
     "description": "Contribution type in the Complementary Funding section.",
     "kind": "flat",
     "items": [
-      { "value": "In Cash", "label": "In Cash" },
+      { "value": "Cash", "label": "Cash" },
       { "value": "In Kind", "label": "In Kind" }
     ]
   },

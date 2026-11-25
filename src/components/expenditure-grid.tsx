@@ -24,6 +24,7 @@ import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 import { CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER, HEAD_DIVIDER_COLOR, SUBHEAD_BG, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { Hint } from "@/components/ui/hint";
+import { WordCounter } from "@/components/ui/word-counter";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenditure reporting grid. Stored inputs are approved annual budgets (admin),
@@ -915,6 +916,7 @@ export function ExpenditurePartnerEditor({
                     placeholder="Include all the key outputs yearwise."
                     className="text-xs min-h-[60px] resize-y w-full"
                   />
+                  <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
                 </td>
                 {columnYears.map((y) => {
                     const ap = budFor(y, c.id);

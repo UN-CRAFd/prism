@@ -25,7 +25,7 @@ import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
 import { optionItems, optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
-import { useCharLimits } from "@/lib/use-char-limits";
+import { useWordLimits } from "@/lib/use-word-limits";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { InvestmentThemeSelect } from "@/components/admin/investment-theme-select";
@@ -159,7 +159,7 @@ export function GeneralInfoAdminEditor({
   pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
   const confirm = useConfirm();
-  const charLimits = useCharLimits();
+  const wordLimits = useWordLimits();
 
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [partnerId, setPartnerId] = useState<number | null>(null);
@@ -791,7 +791,7 @@ export function GeneralInfoAdminEditor({
             onChange={(html) => setField("description", html)}
             placeholder={g.placeholders.description}
             disabled={readOnly}
-            maxChars={charLimits.description}
+            maxWords={wordLimits.limit("prodoc.description")}
           />
         </div>
 

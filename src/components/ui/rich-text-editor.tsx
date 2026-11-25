@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bold, Italic, Underline, List, ListOrdered, Link2, Table as TableIcon, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadOnly } from "@/components/ui/read-only-context";
-import { toDisplayHtml, toWikiDisplayHtml, richTextLength } from "@/lib/richtext";
+import { toDisplayHtml, toWikiDisplayHtml } from "@/lib/richtext";
+import { wordCount } from "@/lib/word-count";
 import labels from "@/lib/labels";
 import { Hint } from "@/components/ui/hint";
 import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
@@ -52,7 +53,7 @@ export function RichTextEditor({
   placeholder,
   className,
   disabled,
-  maxChars,
+  maxWords,
   onUploadImage,
   tools,
   onSubmit,
@@ -63,10 +64,9 @@ export function RichTextEditor({
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  // When set, blocks input that would push plain-text length past this limit.
-  // Paste into a selection accounts for the removed characters. Paste truncates;
-  // regular typing stops at the boundary. A counter is shown below the editor.
-  maxChars?: number;
+  // Word limit (plain text, HTML stripped — see lib/word-count.ts). A counter is shown
+  // below the editor and turns red over the limit; it does NOT block typing or saving.
+  maxWords?: number;
   // When provided: enables the "Insert image" toolbar button, paste-from-clipboard,
   // and file-drop. The callback receives the File and must return a URL string (the
   // image URL to insert). Without this prop the editor behaves exactly as today.
@@ -168,7 +168,7 @@ export function RichTextEditor({
     }
   }, [onUploadImage, emit, uploadOk]);
 
-  const remaining = maxChars !== undefined ? maxChars - richTextLength(value) : null;
+  const remaining = maxWords !== undefined ? maxWords - wordCount(value) : null;
 
   return (
     <div
@@ -290,7 +290,7 @@ export function RichTextEditor({
                 remaining < 0 ? "text-destructive font-medium" : "text-muted-foreground"
               )}
             >
-              {`${(maxChars! - remaining).toLocaleString()}/${maxChars!.toLocaleString()} char.`}
+              {`${(maxWords! - remaining).toLocaleString()}/${maxWords!.toLocaleString()} words`}
             </p>
           )}
           {remaining !== null && remaining < 0 && (

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LabelsEditor } from "@/components/admin/labels-editor";
 import { OptionsEditor } from "@/components/admin/options-editor";
-import { CharLimitsEditor } from "@/components/admin/char-limits-editor";
+import { WordLimitsEditor } from "@/components/admin/word-limits-editor";
 import { PASSWORD_RULES, passwordPolicyError } from "@/lib/password-policy";
 
 export default function AdminSettingsPage() {
@@ -178,21 +178,22 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Character limits */}
+        {/* Word limits */}
         <div className="rounded-xl border bg-card p-6">
           <div className="flex items-center gap-3 mb-1">
             <Type className="size-5 text-crafd-yellow-900 shrink-0" />
-            <h2 className="t-heading-section">Character limits</h2>
+            <h2 className="t-heading-section">Word limits</h2>
           </div>
           <p className="text-sm text-muted-foreground mb-1">
-            Set the maximum plain-text length for each rich-text field in the project document.
-            Narrative questions added later default to 4,500 characters.
+            Set the maximum number of words for each free-text field in the project document, the
+            reports and the project updates. Narrative questions added later default to 500 words.
           </p>
           <p className="text-sm text-muted-foreground mb-6">
             <span className="font-medium">Note:</span> Lowering a limit does not change existing
-            text. Over-limit text must be shortened before the project document can be submitted.
+            text. Over-limit text is flagged in the editor and must be shortened before the
+            section counts as complete (and before submitting).
           </p>
-          <CharLimitsEditor />
+          <WordLimitsEditor />
         </div>
       </div>
     </div>

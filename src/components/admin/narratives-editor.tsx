@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
-import { useCharLimits } from "@/lib/use-char-limits";
+import { useWordLimits } from "@/lib/use-word-limits";
+import { narrativeLimitKey } from "@/lib/limits";
 import { RequiredMark } from "@/components/ui/required-mark";
 
 // ── Narratives editor ─────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ export function NarrativesAdminEditor({
   // parent shows the amber view-only bar instead).
   readOnly?: boolean;
 }) {
-  const charLimits = useCharLimits();
+  const wordLimits = useWordLimits();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
@@ -158,7 +159,7 @@ export function NarrativesAdminEditor({
                 onChange={(html) => update(q.key, { answer: html })}
                 placeholder={labels.narratives.placeholder}
                 disabled={readOnly}
-                maxChars={charLimits.narrativeLimit(q.key)}
+                maxWords={wordLimits.limit(narrativeLimitKey(q.key))}
               />
             </div>
           </div>

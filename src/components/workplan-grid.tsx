@@ -43,6 +43,7 @@ import {
   type WorkplanStatus,
   workplanStatusNeedsDetail,
 } from "@/lib/workplan";
+import { WordCounter } from "@/components/ui/word-counter";
 
 const AGENT_DELIM = " | ";
 function parseAgents(v: string) { return v.split(AGENT_DELIM).map((s) => s.trim()).filter(Boolean); }
@@ -732,12 +733,15 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     </td>
                     <td rowSpan={rowSpan} className={cn("px-2 py-2 border-l", closeSpan)}>
                       {!split ? null : editable ? (
-                        <Textarea
-                          value={ps?.comment ?? ""}
-                          onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
-                          placeholder="Add a progress note."
-                          className={cn("text-xs min-h-[56px] resize-none border-crafd-yellow-400 placeholder:text-muted-foreground/60", ACTION_BG)}
-                        />
+                        <>
+                          <Textarea
+                            value={ps?.comment ?? ""}
+                            onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
+                            placeholder="Add a progress note."
+                            className={cn("text-xs min-h-[56px] resize-none border-crafd-yellow-400 placeholder:text-muted-foreground/60", ACTION_BG)}
+                          />
+                          <WordCounter value={ps?.comment} limitKey="workplan_entries.comment" />
+                        </>
                       ) : ps?.comment ? (
                         <p className="text-xs text-muted-foreground whitespace-pre-wrap">{ps.comment}</p>
                       ) : (

@@ -9,6 +9,7 @@ import {
   appliedTypes,
   justificationPrompt,
 } from "@/lib/update-justifications";
+import { WordCounter } from "@/components/ui/word-counter";
 
 // Justification — why the partner is applying for this update. ONE open field,
 // whatever the document covers: a combined Budget Revision + Reprogramming is a
@@ -115,6 +116,7 @@ export function JustificationSection({
                 : "Describe the reason for this update."
             }
           />
+          <WordCounter value={value} limitKey="update_justifications.justification" />
         </div>
       )}
     </div>

@@ -9,7 +9,7 @@ export type SaveState = "idle" | "saving" | "saved" | "error" | "over-limit";
 
 export class OverLimitError extends Error {
   constructor(message?: string) {
-    super(message ?? "Content exceeds the character limit");
+    super(message ?? "Content exceeds the word limit");
     this.name = "OverLimitError";
   }
 }
@@ -109,7 +109,7 @@ export function AutosaveIndicator({
   if (s === "over-limit") {
     return (
       <span className={cn("text-sm", tone === "dark" ? "text-crafd-yellow-600" : "text-crafd-grey-800")}>
-        Not saving — content is over the character limit
+        Not saving — content is over the word limit
       </span>
     );
   }

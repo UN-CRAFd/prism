@@ -20,6 +20,7 @@ import type { IndicatorMatrixRow, IndicatorRecord, IndicatorState, IndicatorYear
 import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
 import { resultLabel } from "@/lib/workplan";
 import { Tag } from "@/components/ui/tag";
+import { WordCounter } from "@/components/ui/word-counter";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
   return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
@@ -246,6 +247,7 @@ export function IndicatorsSection({
                             placeholder={labels.placeholders.indicatorComment}
                             className="text-sm min-h-[36px] resize-y"
                           />
+                          <WordCounter value={state.comment} limitKey="indicator_data.comment" />
                         </td>
                       </Fragment>
                     );

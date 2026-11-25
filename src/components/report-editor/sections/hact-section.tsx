@@ -13,6 +13,7 @@ import { HEAD_TEXT, HEAD_BG, HEAD_COLOR, CURRENT_YEAR_HEAD } from "@/components/
 import { optionValues } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { Hint } from "@/components/ui/hint";
+import { WordCounter } from "@/components/ui/word-counter";
 
 // HACT Recommendations — the assurance findings a tranche release depends on,
 // and what the partner has done about each.
@@ -264,6 +265,7 @@ export function HactSection({
                             editable={canEditComment(r)}
                             onChange={(v) => edit(r.id, "partner_comment", v)}
                             label="Partner comment"
+                            limitKey="hact_recommendations.partner_comment"
                             placeholder="Describe the action taken."
                           />
                         </div>
@@ -350,12 +352,14 @@ function TextCell({
   onChange,
   label,
   placeholder,
+  limitKey,
 }: {
   value: string;
   editable: boolean;
   onChange: (v: string) => void;
   label: string;
   placeholder?: string;
+  limitKey?: string;
 }) {
   if (!editable) {
     return (
@@ -365,13 +369,16 @@ function TextCell({
     );
   }
   return (
-    <Textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      rows={3}
-      className="text-sm min-h-[64px] resize-y"
-      aria-label={label}
-      placeholder={placeholder}
-    />
+    <>
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+        className="text-sm min-h-[64px] resize-y"
+        aria-label={label}
+        placeholder={placeholder}
+      />
+      {limitKey && <WordCounter value={value} limitKey={limitKey} />}
+    </>
   );
 }

@@ -20,6 +20,7 @@ import type { RiskHistory } from "@/components/report-editor/report-editor";
 import { Hint } from "@/components/ui/hint";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Tag } from "@/components/ui/tag";
+import { WordCounter } from "@/components/ui/word-counter";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -363,6 +364,7 @@ export function RiskSection({
                             className="text-sm min-h-[60px] resize-y"
                             placeholder={labels.placeholders.riskDescription}
                           />
+                          <WordCounter value={draftDescription} limitKey="risk_management.risk_description" />
                           <MultiSelect
                             optionKey="riskCategory"
                             value={draftCategory}
@@ -476,12 +478,15 @@ export function RiskSection({
                     {/* Updated mitigation (empty unless editable) */}
                     <td className="px-3 py-3 border-t">
                       {editMitigation && (
-                        <Textarea
-                          value={state.updated_mitigation}
-                          onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                          placeholder={answeredHappened ? labels.risk.happenedMitigationPlaceholder : answeredChanged ? labels.risk.changedMitigationPlaceholder : labels.risk.newMitigationPlaceholder}
-                          className="text-sm min-h-[80px] resize-y w-full"
-                        />
+                        <>
+                          <Textarea
+                            value={state.updated_mitigation}
+                            onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
+                            placeholder={answeredHappened ? labels.risk.happenedMitigationPlaceholder : answeredChanged ? labels.risk.changedMitigationPlaceholder : labels.risk.newMitigationPlaceholder}
+                            className="text-sm min-h-[80px] resize-y w-full"
+                          />
+                          <WordCounter value={state.updated_mitigation} limitKey="risk_management.updated_mitigation" />
+                        </>
                       )}
                     </td>
 
@@ -540,6 +545,7 @@ export function RiskSection({
                         placeholder={labels.placeholders.riskDescription}
                         className={cn("text-sm min-h-[60px] resize-y", addTried && !newRiskDescription.trim() && "border-destructive focus-visible:ring-destructive")}
                       />
+                      <WordCounter value={newRiskDescription} limitKey="risk_management.risk_description" />
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="w-64 max-w-full">

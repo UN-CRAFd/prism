@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
-import { getCharLimits } from "@/lib/char-limits";
-import { narrativeLimit } from "@/lib/limits";
-import { richTextLength } from "@/lib/richtext";
+import { getWordLimits } from "@/lib/word-limits";
+import { narrativeLimitKey } from "@/lib/limits";
+import { wordCount } from "@/lib/word-count";
 import { uncoveredResults } from "@/lib/workplan";
 
 // Project-document completion, per section.
@@ -43,13 +43,13 @@ export async function GET(req: NextRequest) {
           WHERE project_id = $1 AND data_type = 'prodoc'`,
         [projectId]
       ),
-      getCharLimits(),
+      getWordLimits(),
     ]);
     if (prodoc.length === 0) return NextResponse.json({ error: "Project document not found" }, { status: 404 });
     const prodocId = prodoc[0].id;
 
     const [general, narratives, indicators, risk, expenditure, workplan, documents] = await Promise.all([
-      // General — required fields present and description within char limit.
+      // General — required fields present and description within its word limit.
       query<Row>(
         `SELECT (p.project_title IS NOT NULL AND p.project_title <> ''
               AND p.grant_size_usd IS NOT NULL
@@ -64,11 +64,11 @@ export async function GET(req: NextRequest) {
       ).then((r) => {
         const desc = r[0]?.description as string | null;
         if (r[0]?.complete !== true) return false;
-        if (richTextLength(desc) === 0) return false;
-        return richTextLength(desc) <= limits.description;
+        if (wordCount(desc) === 0) return false;
+        return wordCount(desc) <= limits.limit("prodoc.description");
       }),
 
-      // Narratives — every question answered and within its char limit.
+      // Narratives — every question answered and within its word limit.
       query<Row>(
         `SELECT narrative_key, answer FROM reporting_platform.project_narratives WHERE project_id = $1`,
         [projectId]
@@ -76,9 +76,8 @@ export async function GET(req: NextRequest) {
         if (rows.length === 0) return false;
         return rows.every((r) => {
           const a = (r.answer as string | null) ?? "";
-          if (richTextLength(a) === 0) return false;
-          const lim = limits.narratives[r.narrative_key as string] ?? narrativeLimit(r.narrative_key as string);
-          return richTextLength(a) <= lim;
+          if (wordCount(a) === 0) return false;
+          return wordCount(a) <= limits.limit(narrativeLimitKey(r.narrative_key as string));
         });
       }),
 

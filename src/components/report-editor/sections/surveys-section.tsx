@@ -112,7 +112,7 @@ function SurveyCard({ survey, index, rowStates, updateRow }: SurveyCardProps) {
           />
         </div>
         <div className="flex-1 space-y-1.5">
-          <p className="text-xs text-muted-foreground">{labels.partnerEditor.contextLabel}</p>
+          <p className="text-xs text-muted-foreground">{labels.partnerEditor.contextLabel}<RequiredMark /></p>
           <Textarea
             value={state.context}
             onChange={(e) => updateRow(survey.id, { context: e.target.value })}

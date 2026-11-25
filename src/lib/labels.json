@@ -584,7 +584,7 @@
     "baselineValue": "Baseline.",
     "targetValue": "Target.",
     "year": "e.g. 2025",
-    "achievedValue": "Value achieved this year.",
+    "achievedValue": "Enter value",
     "indicatorComment": "Explain the result.",
     "transferAmount": "e.g. 15000",
     "complementaryContributorName": "Contributor name.",

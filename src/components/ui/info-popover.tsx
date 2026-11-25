@@ -37,7 +37,7 @@ export function InfoPopover({
   }, [cancelClose]);
   const close = useCallback(() => { cancelClose(); setHovered(false); setPinned(false); }, [cancelClose]);
   useEffect(() => cancelClose, [cancelClose]);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -70,8 +70,13 @@ export function InfoPopover({
     top = Math.min(top, window.innerHeight - panelHeight - margin);
     top = Math.max(top, margin);
 
-    const right = Math.max(margin, window.innerWidth - r.right);
-    setPos({ top, right });
+    // Horizontal: open to the left of the icon (panel's right edge under the icon's);
+    // if that would run off the left edge, open to the right instead; then clamp.
+    const w = panelRef.current?.offsetWidth ?? 288;
+    let left = r.right - w;
+    if (left < margin) left = r.left;
+    left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+    setPos({ top, left });
   }, []);
 
   useLayoutEffect(() => {
@@ -131,8 +136,8 @@ export function InfoPopover({
             // offsetHeight below always fits, and the text scrolls inside.
             className="fixed z-50 w-72 max-h-[70vh] overflow-y-auto overscroll-contain rounded-lg border bg-popover shadow-lg text-popover-foreground p-3 space-y-3"
             style={pos
-              ? { top: pos.top, right: pos.right }
-              : { top: -9999, right: -9999, visibility: "hidden" }}
+              ? { top: pos.top, left: pos.left }
+              : { top: -9999, left: -9999, visibility: "hidden" }}
           >
             {description && (
               <div>

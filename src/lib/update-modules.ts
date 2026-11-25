@@ -67,16 +67,16 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
     modules: [{ value: "surveys", label: "Surveys", section: "surveys" }],
   },
   {
+    label: "Results",
+    modules: [{ value: "results", label: "Results", section: "results" }],
+  },
+  {
     label: "Key Achievements",
     modules: [{ value: "achievements", label: "Key Achievements", section: "achievements" }],
   },
   {
     label: "Partnerships",
     modules: [{ value: "partnerships", label: "Partnerships", section: "partnerships" }],
-  },
-  {
-    label: "Results",
-    modules: [{ value: "results", label: "Results", section: "results" }],
   },
   {
     label: "Lessons Learned",
@@ -109,6 +109,10 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
       { value: "expenditure",        label: "Budget (actual spending)",           section: "expenditure" },
       { value: "expenditure_budget", label: "+ proposed new budget",              section: "expenditure" },
       { value: "expenditure_months", label: "+ extended time frame by {months} months", section: "expenditure" },
+      // Transfers to Implementing Partners is part of the Budget tab (below the
+      // budget table). Kept as its own stored key "transfers" so existing updates
+      // and admin requirement settings still match.
+      { value: "transfers",          label: "+ transfers to implementing partners", section: "expenditure" },
     ],
   },
   {
@@ -122,10 +126,6 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
     modules: [
       { value: "risk_management", label: "Risk management", section: "risk" },
     ],
-  },
-  {
-    label: "Transfers",
-    modules: [{ value: "transfers", label: "Transfers", section: "transfers" }],
   },
   {
     label: "Complementary Funding",
@@ -153,7 +153,7 @@ export type UpdateRequirements = Record<string, string[]>;
 // sections, since an update standing in for one of those carries everything a
 // report would. The narrower types tick only what they need.
 const FULL_REPORT_MODULES = [
-  "surveys", "achievements", "partnerships", "results", "lessons",
+  "surveys", "results", "achievements", "partnerships", "lessons",
   "external_coverage", "testimonials", "workplan", "indicators",
   "expenditure", "risk_management", "transfers", "complementary",
 ];

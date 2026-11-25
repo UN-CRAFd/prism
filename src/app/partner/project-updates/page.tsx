@@ -8,6 +8,7 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
+import { PartnerStatusChips, matchesPartnerStatus, type PartnerStatusFilterValue } from "@/components/partner/status-filter";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
 import { progressSections } from "@/lib/report-sections";
 import { isPartnerEditable } from "@/lib/report-status";
@@ -68,6 +69,10 @@ export default function ProjectUpdatesPage() {
     return acc;
   }, {});
   const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
+  const [statusFilter, setStatusFilter] = useState<PartnerStatusFilterValue>("all");
+  const matches = (u: UpdateReport) => matchesPartnerStatus(u.status, statusFilter);
+  // Year groups with nothing left after filtering are hidden.
+  const visibleYears = years.filter((y) => byYear[y].some(matches));
 
   const completionPct = (id: number) => {
     const { completed, total } = completion[id] ?? { completed: 0, total: 0 };
@@ -75,7 +80,7 @@ export default function ProjectUpdatesPage() {
   };
   // Within a year: least complete first, then project title A–Z. Sorted copy.
   const sortedForYear = (year: number) =>
-    [...byYear[year]].sort(
+    byYear[year].filter(matches).sort(
       (a, b) =>
         completionPct(a.id) - completionPct(b.id) ||
         a.project_title.localeCompare(b.project_title),
@@ -85,6 +90,7 @@ export default function ProjectUpdatesPage() {
     <div className="flex flex-col min-h-full bg-background">
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <h1 className="t-title-banner">Project Updates</h1>
+        <p className="mt-1 text-sm text-neutral-400">{labels.partnerListDescriptions.update}</p>
       </div>
 
       <div className="flex-1 px-8 py-8">
@@ -104,8 +110,11 @@ export default function ProjectUpdatesPage() {
         )}
 
         {!loading && !error && years.length > 0 && (
-          <div className="flex flex-col gap-10 pt-8">
-            {years.map((year) => (
+          <div className="flex flex-col gap-10">
+            <div className="-mb-6">
+              <PartnerStatusChips statuses={updates.map((u) => u.status)} value={statusFilter} onChange={setStatusFilter} />
+            </div>
+            {visibleYears.map((year) => (
               <section key={year}>
                 <h2 className="text-xl font-bold mb-3">{year}</h2>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
@@ -118,6 +127,7 @@ export default function ProjectUpdatesPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-base font-semibold truncate">{documentTitle(update)}</p>
                             <StatusPill
+                              partner
                               status={update.status}
                               label={isPartnerEditable(update.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
                             />

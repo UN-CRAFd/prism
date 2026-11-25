@@ -1,7 +1,7 @@
 import type { Report } from "@/lib/types";
 import { projectSlug, formatDate } from "@/lib/utils";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
-import { isPartnerEditable } from "@/lib/report-status";
+import { isPartnerEditable, partnerStatusLabel } from "@/lib/report-status";
 import labels from "@/lib/labels";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
         warn: false,
       };
     }
-    if (d.status === "Under Review") return { state: "crafd", detail: t.withCrafd, warn: false };
+    if (d.status === "Under Review") return { state: "crafd", detail: partnerStatusLabel(d.status), warn: false };
     if (isPartnerEditable(d.status)) {
       if (d.report_submission_date) {
         const due = new Date(d.report_submission_date);

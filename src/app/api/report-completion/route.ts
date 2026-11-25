@@ -6,13 +6,20 @@ import { workplanTypeCodeSql } from "@/lib/workplan";
 import { countsTowardProgress } from "@/lib/report-sections";
 import { getWordLimits } from "@/lib/word-limits";
 import { wordCount } from "@/lib/word-count";
+import { hasUpdateModuleColumns } from "@/lib/update-columns";
+import { hasModule } from "@/lib/update-modules";
 
 // Report completion, per section.
 //
 //   • `sections`      — { [sectionValue]: boolean } map used for sidebar checkmarks.
 //   • `completed`     — number of progress-counting sections that are true.
 //   • `totalSections` — number of progress-counting sections (all of them now,
-//                       including Transfers and Complementary).
+//                       including Complementary).
+//
+// Transfers to Implementing Partners is part of the Budget tab, so it has no
+// entry of its own: Budget ("expenditure") is complete only when the budget AND
+// the transfers are — on reports always, on updates only when the update carries
+// the Budget "+ transfers" add-on module.
 //
 // A section is "complete" only when it is actually filled out — an empty section
 // is never complete (so the checkmark means "done", not "nothing to do").
@@ -31,12 +38,15 @@ export async function GET(req: NextRequest) {
   if (gate) return gate;
 
   try {
-    const meta = await query<{ project_id: number; data_type: string }>(
-      `SELECT project_id, data_type FROM reporting_platform.reports WHERE id = $1`,
+    const withModules = await hasUpdateModuleColumns();
+    const meta = await query<{ project_id: number; data_type: string; update_modules: string[] | null }>(
+      `SELECT project_id, data_type, ${withModules ? "update_modules" : "NULL::text[] AS update_modules"}
+         FROM reporting_platform.reports WHERE id = $1`,
       [reportId]
     );
     if (meta.length === 0) return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    const { project_id: projectId, data_type: dataType } = meta[0];
+    const { project_id: projectId, data_type: dataType, update_modules: updateModules } = meta[0];
+    const includesTransfers = dataType !== "update" || hasModule(updateModules, "transfers");
 
     // A row-list section: complete when it has >= min filled rows and no empty ones.
     // `field` may be several columns: a row then counts as filled only when ALL are set.
@@ -142,7 +152,15 @@ export async function GET(req: NextRequest) {
       ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
 
       listSection("key_achievements", "achievement", 1),
-      listSection("partnerships", "partner_organization", 1),
+      // Partnerships — every row has the partner organisation filled, OR zero rows
+      // and "No partnerships to report" ticked (reports.no_partnerships_confirmed).
+      query<Row>(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE partner_organization IS NOT NULL AND partner_organization <> '')::int AS ok,
+                (SELECT no_partnerships_confirmed FROM reporting_platform.reports WHERE id = $1) AS confirmed
+           FROM reporting_platform.partnerships WHERE report_id = $1`,
+        [reportId]
+      ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
       listSection("results", "context", 3),
       // Lessons learned: category, lesson learned and adjustment informed are ALL required per row.
       listSection("lessons_learned", ["category", "lesson_learned", "adjustment_informed"], 1),
@@ -306,8 +324,7 @@ export async function GET(req: NextRequest) {
       risk: risk && !riskOver,
       indicators: indicators && !indicatorsOver,
       workplan: workplan && !workplanOver,
-      expenditure: expenditure && !expenditureOver,
-      transfers,
+      expenditure: expenditure && !expenditureOver && (!includesTransfers || transfers),
       complementary,
       testimonials: testimonials && !testimonialsOver,
       // Project updates only: complete unless over the word limit (no other rule).

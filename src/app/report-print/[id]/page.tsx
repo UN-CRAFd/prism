@@ -991,6 +991,35 @@ export default function ReportPrintPage() {
           ) : (
             expenditure && <Empty />
           )}
+
+          {/* ── Transfers to Implementing Partners (part of Budget) ── */}
+          <SubSection title={labels.sections.transfers} error={sectionErrors["transfers"]}>
+            {transferRows.length > 0 && transferCurrentYear != null ? (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr>
+                    <Th align="left">Organisation</Th>
+                    <Th align="left" width="20%">Type</Th>
+                    <Th align="right" width="22%">Amount transferred {transferCurrentYear}</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transferRows.map((r) => {
+                    const byYear = r.byYear[String(transferCurrentYear)];
+                    return (
+                      <tr key={r.transfer_partner_id}>
+                        <Td>{r.organization_name}</Td>
+                        <Td>{r.partner_type || "—"}</Td>
+                        <Td align="right">{formatUsd(byYear?.amount_transferred != null ? num(byYear.amount_transferred) : null)}</Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              transfers && <Empty />
+            )}
+          </SubSection>
         </Section>
 
         {/* ── Risk ── */}
@@ -1037,35 +1066,6 @@ export default function ReportPrintPage() {
             </table>
           ) : (
             risks && <Empty />
-          )}
-        </Section>
-
-        {/* ── Transfers ── */}
-        <Section title="Transfers" error={sectionErrors["transfers"]}>
-          {transferRows.length > 0 && transferCurrentYear != null ? (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead>
-                <tr>
-                  <Th align="left">Organisation</Th>
-                  <Th align="left" width="20%">Type</Th>
-                  <Th align="right" width="22%">Amount transferred {transferCurrentYear}</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {transferRows.map((r) => {
-                  const byYear = r.byYear[String(transferCurrentYear)];
-                  return (
-                    <tr key={r.transfer_partner_id}>
-                      <Td>{r.organization_name}</Td>
-                      <Td>{r.partner_type || "—"}</Td>
-                      <Td align="right">{formatUsd(byYear?.amount_transferred != null ? num(byYear.amount_transferred) : null)}</Td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            transfers && <Empty />
           )}
         </Section>
 
@@ -1124,6 +1124,26 @@ function Section({
       >
         {title}
       </h2>
+      {error ? (
+        <div style={{ fontSize: 11, color: "#b91c1c", padding: "6px 0" }}>Failed to load: {error}</div>
+      ) : (
+        children
+      )}
+    </div>
+  );
+}
+
+// A titled block inside a Section (e.g. Transfers within Budget).
+function SubSection({
+  title, children, error,
+}: {
+  title: string; children: React.ReactNode; error?: string;
+}) {
+  return (
+    <div style={{ marginTop: 18 }}>
+      <h3 data-block style={{ fontFamily: "var(--font-roboto)", fontWeight: 700, fontSize: 13, margin: "0 0 8px" }}>
+        {title}
+      </h3>
       {error ? (
         <div style={{ fontSize: 11, color: "#b91c1c", padding: "6px 0" }}>Failed to load: {error}</div>
       ) : (

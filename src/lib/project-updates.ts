@@ -15,9 +15,9 @@ export const PROJECT_UPDATE_SECTIONS = [
   "overview",
   "justification",
   "surveys",
+  "results",
   "achievements",
   "partnerships",
-  "results",
   "lessons",
   "external-coverage",
   "testimonials",
@@ -26,7 +26,6 @@ export const PROJECT_UPDATE_SECTIONS = [
   "expenditure",
   "hact",
   "risk",
-  "transfers",
   "complementary",
 ] as const;
 

@@ -8,6 +8,7 @@ import { ArrowRight, FileText } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
 import { StatusPill } from "@/components/partner/status-pill";
+import { PartnerStatusChips, matchesPartnerStatus, type PartnerStatusFilterValue } from "@/components/partner/status-filter";
 import { isPartnerEditable } from "@/lib/report-status";
 
 export function ProdocList() {
@@ -42,7 +43,8 @@ export function ProdocList() {
   const slug = (r: Report) => projectSlug(r.project_short_name, r.project_title);
   const items = Array.from(new Map(prodocs.map((p) => [slug(p), p])).values());
   // Least complete first, then A–Z by title. Sorted copy: `items` is not mutated.
-  const sortedItems = [...items].sort(
+  const [statusFilter, setStatusFilter] = useState<PartnerStatusFilterValue>("all");
+  const sortedItems = items.filter((r) => matchesPartnerStatus(r.status, statusFilter)).sort(
     (a, b) =>
       (completion[a.project_id] ?? 0) - (completion[b.project_id] ?? 0) ||
       a.project_title.localeCompare(b.project_title),
@@ -77,6 +79,7 @@ export function ProdocList() {
       {/* Header */}
       <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <h1 className="t-title-banner">{labels.prodocList.title}</h1>
+        <p className="mt-1 text-sm text-neutral-400">{labels.partnerListDescriptions.prodoc}</p>
       </div>
 
       <div className="flex-1 px-8 py-8">
@@ -98,7 +101,10 @@ export function ProdocList() {
         )}
 
         {!loading && !error && items.length > 0 && (
-          <div className="pt-8">
+          <div>
+            <div className="mb-4">
+              <PartnerStatusChips statuses={items.map((r) => r.status)} value={statusFilter} onChange={setStatusFilter} />
+            </div>
             <div className="rounded-xl border bg-card overflow-hidden divide-y">
               {sortedItems.map((row) => {
                 const pct = completion[row.project_id] ?? 0;
@@ -111,6 +117,7 @@ export function ProdocList() {
                       <div className="flex items-center gap-2 mb-2">
                         <p className="text-base font-semibold truncate">{row.project_title}</p>
                         <StatusPill
+                          partner
                           status={row.status}
                           kind="prodoc"
                           label={isPartnerEditable(row.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}

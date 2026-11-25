@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { editorTabFor } from "@/lib/report-sections";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare, ArrowRight, Pencil, Check, X, RotateCcw, Loader2, Send, CheckCircle2, Archive, Trash2,
@@ -230,7 +231,7 @@ export default function AdminCommentsPage() {
                   onClick={() => router.push(
                     c.data_type === "prodoc"
                       ? `/admin/prodoc-editor/${toSlug(c)}/${c.section}`
-                      : `/admin/report-editor/${toSlug(c)}/${c.year}/${c.section}`
+                      : `/admin/report-editor/${toSlug(c)}/${c.year}/${editorTabFor(c.section)}`
                   )}
                   className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >

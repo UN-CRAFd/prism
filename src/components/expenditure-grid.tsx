@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
 import { numericAmount } from "@/lib/numeric-input";
-import { Loader2, CheckCircle2, Wallet, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, Wallet, AlertTriangle, Lock } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RequiredMark } from "@/components/ui/required-mark";
@@ -87,6 +87,9 @@ interface ExpenditurePayload {
   /** Version 3/4: `years` are the ones the extension adds past the project end;
    *  empty when the extra months stay inside the final year. */
   extension?: { months: number; years: number[]; endDate: string | null };
+  /** The project document's description per budget category. A project report
+   *  shows it read-only in the Description column. */
+  categoryNotes?: { category_id: number; description: string | null }[];
 }
 
 function parseAmount(s: string): number | null {
@@ -461,6 +464,7 @@ export function ExpenditurePartnerEditor({
 
   // ── Which version of the page this is ──────────────────────────────────────
   const isUpdate = data.isUpdate === true;
+  const noteByCat = new Map((data.categoryNotes ?? []).map((n) => [n.category_id, n.description?.trim() ?? ""]));
   const toDate = data.currentYearToDate === true;
   const showProposed = data.proposedBudget === true;
   // Budget revision: the requested total is ALWAYS computed — spent so far +
@@ -909,15 +913,26 @@ export function ExpenditurePartnerEditor({
                     </Hint>
                   </>
                 )}
-                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
-                  <Textarea
-                    value={edits[c.id]?.comment ?? ""}
-                    onChange={(e) => update(c.id, { comment: e.target.value })}
-                    placeholder="Include all the key outputs yearwise."
-                    className="text-xs min-h-[60px] resize-y w-full"
-                  />
-                  <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
-                </td>
+                {isUpdate ? (
+                  <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                    <Textarea
+                      value={edits[c.id]?.comment ?? ""}
+                      onChange={(e) => update(c.id, { comment: e.target.value })}
+                      placeholder="Include all the key outputs yearwise."
+                      className="text-xs min-h-[60px] resize-y w-full"
+                    />
+                    <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
+                  </td>
+                ) : (
+                  // Project report: the description is the one approved in the
+                  // project document, shown locked.
+                  <td className="px-2 py-2 border-l border-t bg-neutral-50 min-w-[200px] text-xs text-muted-foreground whitespace-pre-wrap align-top">
+                    <span className="inline-flex items-start gap-1">
+                      <Lock className="size-3 mt-0.5 shrink-0" aria-label="Locked" />
+                      <span>{noteByCat.get(c.id) || "—"}</span>
+                    </span>
+                  </td>
+                )}
                 {columnYears.map((y) => {
                     const ap = budFor(y, c.id);
                     // Plannable year: approved | planned (editable) | difference.

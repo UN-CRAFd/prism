@@ -769,15 +769,15 @@
       "totalLabel": "Total budgeted",
       "remainingLabel": "Remaining to be budgeted",
       "ok": "The total budget matches the requested funding amount.",
-      "under": "{amount} remains to be budgeted. The project document can be submitted once the total budget matches the requested funding amount.",
-      "over": "The total budget exceeds the requested funding amount by {amount}. The project document can be submitted once the total budget matches the requested funding amount."
+      "under": "The total budget is {amount} under the requested funding amount. The project document can be submitted once the total budget matches the requested funding amount.",
+      "over": "The total budget is {amount} over the requested funding amount. The project document can be submitted once the total budget matches the requested funding amount."
     },
     "tranche": {
       "totalLabel": "Total scheduled",
       "remainingLabel": "Remaining to be scheduled",
       "ok": "The tranche release schedule matches the requested funding amount.",
-      "under": "{amount} remains to be scheduled. The project document can be submitted once the tranche release schedule matches the requested funding amount.",
-      "over": "The tranche release schedule exceeds the requested funding amount by {amount}. The project document can be submitted once the tranche release schedule matches the requested funding amount."
+      "under": "The tranche release schedule is {amount} under the requested funding amount. The project document can be submitted once the tranche release schedule matches the requested funding amount.",
+      "over": "The tranche release schedule is {amount} over the requested funding amount. The project document can be submitted once the tranche release schedule matches the requested funding amount."
     }
   },
   "prodocList": {

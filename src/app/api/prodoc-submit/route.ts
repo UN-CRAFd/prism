@@ -157,8 +157,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: trancheDiffCents < 0
-            ? `The tranche release schedule exceeds the requested funding amount by ${fmt(Math.abs(trancheDiffCents) / 100)}.`
-            : `${fmt(trancheDiffCents / 100)} remains to be scheduled in the tranche release schedule.`,
+            ? `The tranche release schedule is ${fmt(Math.abs(trancheDiffCents) / 100)} over the requested funding amount.`
+            : `The tranche release schedule is ${fmt(trancheDiffCents / 100)} under the requested funding amount.`,
         },
         { status: 422 }
       );
@@ -170,8 +170,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: budgetDiffCents < 0
-            ? `The total budget exceeds the requested funding amount by ${fmt(Math.abs(budgetDiffCents) / 100)}.`
-            : `${fmt(budgetDiffCents / 100)} remains to be budgeted.`,
+            ? `The total budget is ${fmt(Math.abs(budgetDiffCents) / 100)} over the requested funding amount.`
+            : `The total budget is ${fmt(budgetDiffCents / 100)} under the requested funding amount.`,
         },
         { status: 422 }
       );

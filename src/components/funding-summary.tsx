@@ -27,12 +27,11 @@ export function FundingSummary({
   const status: MatchStatus | null = requested != null ? matchStatus(requested, total) : null;
 
   // Only the status message is shown (no requested / total / remaining figures).
-  // The amount inside the message is highlighted: green when it still remains
-  // to be scheduled/budgeted, red when the total exceeds the requested amount.
+  // Only the amount is coloured: green when under the requested amount, red when over.
   let template: string;
   let amount: string | null = null;
   let amountClass = "";
-  let statusVariant: "ok" | "warn" | "missing";
+    let statusVariant: "ok" | "warn" | "missing";
 
   if (requested == null) {
     template = fs.missingRequested;
@@ -71,7 +70,7 @@ export function FundingSummary({
       <span>
         {before}
         {amount != null && template.includes("{amount}") && (
-          <span className={cn("font-semibold tabular-nums", amountClass)}>{amount}</span>
+          <span className={cn("text-base font-bold tabular-nums", amountClass)}>{amount}</span>
         )}
         {after}
       </span>

@@ -56,9 +56,9 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => r[0]?.authorized === true),
 
-      // Surveys — every question assessed.
+      // Surveys — every question assessed and its context filled in.
       query<Row>(
-        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE assessment IS NOT NULL)::int AS ok
+        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE assessment IS NOT NULL AND btrim(COALESCE(context, '')) <> '')::int AS ok
            FROM reporting_platform.surveys WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),

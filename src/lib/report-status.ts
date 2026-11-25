@@ -1,3 +1,5 @@
+import labels from "@/lib/labels";
+
 // Workflow status values for reports, project updates and project documents.
 // Client-safe: constants and pure functions only — no server imports.
 //
@@ -26,6 +28,33 @@ export const LOCKED_STATUS_GROUPS: readonly string[] = ["reportStatus", "prodocS
 /** True only for the partner-editable statuses; unknown / empty values are false. */
 export function isPartnerEditable(status: string | null | undefined): boolean {
   return typeof status === "string" && PARTNER_EDITABLE_STATUSES.includes(status);
+}
+
+/** Partner-facing groups of the workflow statuses (what partners see instead of the
+ *  admin-editable labels): Open → To complete, Under Review → Under review,
+ *  Partner Review → To revise, Closed / Approved → Approved. */
+export type PartnerStatusKey = "open" | "underReview" | "partnerReview" | "approved";
+export const PARTNER_STATUS_ORDER: readonly PartnerStatusKey[] = ["open", "underReview", "partnerReview", "approved"];
+
+export function partnerStatusKey(status: string | null | undefined): PartnerStatusKey | null {
+  switch (status) {
+    case STATUS_OPEN: return "open";
+    case STATUS_UNDER_REVIEW: return "underReview";
+    case STATUS_PARTNER_REVIEW: return "partnerReview";
+    case STATUS_CLOSED:
+    case STATUS_APPROVED: return "approved";
+    default: return null;
+  }
+}
+
+export function partnerStatusKeyLabel(key: PartnerStatusKey): string {
+  return labels.partnerStatus[key];
+}
+
+/** The label partners see for a workflow status; an unknown value shows as-is. */
+export function partnerStatusLabel(status: string | null | undefined): string {
+  const key = partnerStatusKey(status);
+  return key ? labels.partnerStatus[key] : (status ?? "");
 }
 
 /** True when the document is finished and not even an admin edits it. */

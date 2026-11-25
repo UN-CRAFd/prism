@@ -695,6 +695,18 @@
     "print": "Print Guide",
     "tocTitle": "Contents"
   },
+  "partnerStatus": {
+    "open": "To complete",
+    "underReview": "Under review",
+    "partnerReview": "To revise",
+    "approved": "Approved"
+  },
+  "partnerListFilterAll": "All",
+  "partnerListDescriptions": {
+    "prodoc": "Your project documents appear here. Documents are locked once approved by the CRAF'd Secretariat.",
+    "report": "Your Annual and Final project reports appear here. Reports are locked once approved by the CRAF'd Secretariat.",
+    "update": "Your project updates appear here. Submit an update to request a project revision or the release of a tranche. Updates are locked once approved by the CRAF'd Secretariat."
+  },
   "partnerHome": {
     "pageTitle": "Home",
     "yourProjects": "Your projects",

@@ -631,6 +631,39 @@ export function GeneralInfoAdminEditor({
 
   if (loading) return <LoadingState className="py-8" />;
 
+  // Gender Equality Marker field — rendered in the admin Classification card,
+  // or under Description in the project data card for partners.
+  const gemField = (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <label className="text-sm text-muted-foreground">{g.fields.genderEqualityMarker}<RequiredMark /></label>
+        <InfoPopover
+          description={g.genderEqualityMarkerDescription}
+          meansOfVerification={g.genderEqualityMarkerAssessment}
+          triggerTitle={g.fields.genderEqualityMarker}
+          descriptionHeading="What it means"
+          secondaryHeading="How to assess it"
+        />
+      </div>
+      <Select
+        value={form.gender_equality_marker}
+        onValueChange={(v) => setField("gender_equality_marker", v)}
+      >
+        <SelectTrigger className="w-full text-sm">
+          <SelectValue placeholder={g.placeholders.select} />
+        </SelectTrigger>
+        <SelectContent>
+          {optionItems("genderEqualityMarker").map((it) => (
+            <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+          ))}
+          {form.gender_equality_marker && !optionItems("genderEqualityMarker").some((it) => it.value === form.gender_equality_marker) && (
+            <SelectItem value={form.gender_equality_marker}>{form.gender_equality_marker}</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     // Card order via flex `order-*`: Title/data card first, contacts second.
     <div className="flex flex-col gap-6">
@@ -795,6 +828,9 @@ export function GeneralInfoAdminEditor({
           />
         </div>
 
+        {/* Partners: Gender Equality Marker sits here (no Classification card). */}
+        {!isAdmin && gemField}
+
         {/* Participating Organizations list */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
@@ -892,16 +928,18 @@ export function GeneralInfoAdminEditor({
       </div>
 
       {/* Classification — admin-only allocation/investment fields, plus the
-          Gender Equality Marker that partners fill in. Sits between the
-          project data card and Contacts (same order-1, later in the DOM). */}
-      <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
+          Gender Equality Marker. Admin view only: partners don’t see this card —
+          their Gender Equality Marker sits in the project data card, under
+          Description. Sits between the project data card and Contacts
+          (same order-1, later in the DOM). */}
+      {isAdmin && (
+        <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-center gap-2">
           <Tags className="size-4 text-muted-foreground" />
           <h3 className="t-heading-editor">{g.classificationHeading}</h3>
         </div>
 
-        {isAdmin && (
-          <div className="space-y-2">
+        <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="size-3" />
               <span>{g.adminOnlyNote}</span>
@@ -953,38 +991,10 @@ export function GeneralInfoAdminEditor({
               </div>
             </div>
           </div>
-        )}
 
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <label className="text-sm text-muted-foreground">{g.fields.genderEqualityMarker}</label>
-            <InfoPopover
-              description={g.genderEqualityMarkerDescription}
-              meansOfVerification={g.genderEqualityMarkerAssessment}
-              triggerTitle={g.fields.genderEqualityMarker}
-              descriptionHeading="What it means"
-              secondaryHeading="How to assess it"
-            />
-          </div>
-          <Select
-            value={form.gender_equality_marker || OPTION_NONE}
-            onValueChange={(v) => setField("gender_equality_marker", v === OPTION_NONE ? "" : v)}
-          >
-            <SelectTrigger className="w-full text-sm">
-              <SelectValue placeholder={g.placeholders.select} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={OPTION_NONE} className="text-muted-foreground">{g.placeholders.none}</SelectItem>
-              {optionItems("genderEqualityMarker").map((it) => (
-                <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-              ))}
-              {form.gender_equality_marker && !optionItems("genderEqualityMarker").some((it) => it.value === form.gender_equality_marker) && (
-                <SelectItem value={form.gender_equality_marker}>{form.gender_equality_marker}</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+        {gemField}
       </div>
+      )}
 
       {/* Applicants — project contacts */}
       <div className="order-2 rounded-xl border bg-card p-6 space-y-4">

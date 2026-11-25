@@ -46,16 +46,21 @@ import {
 
 // Frozen left columns for the matrix (org identity stays put while the per-year
 // amount/linked-activity columns scroll horizontally).
-const TCOL = {
-  org:     { left: 0,   w: 220 },
-  website: { left: 220, w: 170 },
-  type:    { left: 390, w: 170 },
-} as const;
-const TRANSFER_FROZEN_WIDTH = 560;
+// The website column is optional (config.showWebsite), so offsets are
+// computed per config rather than fixed.
+const TCOL_W = { org: 220, website: 170, type: 170 } as const;
+type TColKey = keyof typeof TCOL_W;
 
-function tfz(key: keyof typeof TCOL, z = 20): CSSProperties {
-  const c = TCOL[key];
-  return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
+function frozenLayout(showWebsite: boolean) {
+  const keys: TColKey[] = showWebsite ? ["org", "website", "type"] : ["org", "type"];
+  const left: Partial<Record<TColKey, number>> = {};
+  let x = 0;
+  for (const k of keys) { left[k] = x; x += TCOL_W[k]; }
+  const tfz = (key: TColKey, z = 20): CSSProperties => {
+    const w = TCOL_W[key];
+    return { position: "sticky", left: left[key] ?? 0, width: w, minWidth: w, maxWidth: w, zIndex: z };
+  };
+  return { tfz, frozenWidth: x };
 }
 
 // Coloured word-badge for the (optional) type column — mirrors the report editor.
@@ -93,6 +98,8 @@ export interface ContributorMatrixConfig {
   amountField: string;              // "amount_transferred" | "contribution_amount"
   activityField: string;            // "linked_activity_id" | "linked_activity_ids"
   activityMode: "single" | "multi"; // single Select vs multi-select dropdown
+  showWebsite?: boolean;            // website column (default true)
+  showActivities?: boolean;         // linked-activity column (default true)
   typeOptionsKey: string;           // options-registry key resolved live at render
   typeBadgeColors?: Record<string, { bg: string; text: string; border: string }>;
   deleteAriaLabel: string;
@@ -565,6 +572,9 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   if (loading) return <LoadingState />;
 
   const activityById = new Map(activities.map((a) => [a.id, a]));
+  const showWebsite = config.showWebsite !== false;
+  const showActivities = config.showActivities !== false;
+  const { tfz, frozenWidth } = frozenLayout(showWebsite);
   const cellAmount = (row: MatrixRow, year: number) => {
     const raw = year === currentYear
       ? states[row.entityId]?.amount
@@ -623,17 +633,17 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
           fillHeight={props.fillHeight}
           hugContent
           footer={addRow}
-          minWidth={TRANSFER_FROZEN_WIDTH}
+          minWidth={frozenWidth}
           leadingCols={[
             { label: <>{config.labels.identityColumn}<RequiredMark /></>, style: tfz("org", 30) },
-            { label: config.labels.websiteColumn, style: tfz("website", 30) },
+            ...(showWebsite ? [{ label: config.labels.websiteColumn, style: tfz("website", 30) }] : []),
             { label: config.labels.typeColumn, style: tfz("type", 30) },
           ]}
           years={visibleYears}
           currentYear={currentYear}
           subCols={[
             { label: <>{config.labels.amountColumn}<RequiredMark /></>, minWidth: config.labels.amountMinWidth },
-            { label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth },
+            ...(showActivities ? [{ label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth }] : []),
           ]}
           pastSubCols={[
             { label: config.labels.amountColumn, minWidth: "min-w-[110px]" },
@@ -657,9 +667,11 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                         <ItemComments section={config.section} itemId={row.entityId} />
                       </div>
                     </td>
-                    <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
-                      <Input value={state.website} onChange={(e) => updateMaster(row.entityId, { website: e.target.value })} placeholder={config.labels.websitePlaceholder} className="text-sm h-8" />
-                    </td>
+                    {showWebsite && (
+                      <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
+                        <Input value={state.website} onChange={(e) => updateMaster(row.entityId, { website: e.target.value })} placeholder={config.labels.websitePlaceholder} className="text-sm h-8" />
+                      </td>
+                      )}
                     <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
                       <Select value={state.type || "none"} onValueChange={(v) => updateMaster(row.entityId, { type: v === "none" ? null : v })}>
                         <SelectTrigger className="w-full h-8 px-2">
@@ -706,16 +718,18 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                                 className="text-sm h-8 text-right tabular-nums"
                               />
                             </td>
-                            <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                              <LinkedActivityPicker
-                                activities={activities}
-                                activityById={activityById}
-                                selected={state.activityIds}
-                                multiple={config.activityMode === "multi"}
-                                emptyLabel={config.labels.selectActivity}
-                                onChange={(ids) => updateCell(row.entityId, { activityIds: ids })}
-                              />
-                            </td>
+                            {showActivities && (
+                              <td className="px-1 py-1 border-t bg-crafd-yellow/10">
+                                <LinkedActivityPicker
+                                  activities={activities}
+                                  activityById={activityById}
+                                  selected={state.activityIds}
+                                  multiple={config.activityMode === "multi"}
+                                  emptyLabel={config.labels.selectActivity}
+                                  onChange={(ids) => updateCell(row.entityId, { activityIds: ids })}
+                                />
+                              </td>
+                              )}
                           </Fragment>
                         );
                       }
@@ -743,14 +757,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             <tfoot>
               <tr className="text-sm font-semibold">
                 <td style={tfz("org", 30)} className="px-3 py-3 border-r border-t bg-neutral-100 whitespace-nowrap">{config.labels.totalColumn}</td>
-                <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />
+                {showWebsite && <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />}
                 <td style={tfz("type", 30)} className="border-r border-t bg-neutral-100" />
                 {visibleYears.map((year) => {
                   if (year === currentYear) {
                     return (
                       <Fragment key={year}>
                         <td className="px-2 py-3 border-l border-t text-right tabular-nums bg-crafd-yellow/20">{formatAmount(yearTotal(year))}</td>
-                        <td className="border-t bg-crafd-yellow/20" />
+                        {showActivities && <td className="border-t bg-crafd-yellow/20" />}
                       </Fragment>
                     );
                   }
@@ -782,6 +796,9 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
   activityField: "linked_activity_ids",
   activityMode: "multi",
   typeOptionsKey: "transferPartnerType",
+  // Transfers only ask who received the money and how much.
+  showWebsite: false,
+  showActivities: false,
   deleteAriaLabel: "Delete transfer",
   deleteConfirm: (name) => `Delete transfer for "${name}"?`,
   messages: {

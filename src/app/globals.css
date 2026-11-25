@@ -10,6 +10,18 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Indeterminate progress track (partner list pages): a w-1/5 segment starting at
+   left-0 that slides across (translateX % is relative to the segment, so 500% = the
+   full track). Used as `animate-progress-slide`; the component hides it under
+   prefers-reduced-motion, leaving the plain grey track. */
+@theme {
+  --animate-progress-slide: progress-slide 2s ease-in-out infinite;
+  @keyframes progress-slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(500%); }
+  }
+}
+
 /* LiquidityWarning slide-in animation */
 @keyframes slide-in-down {
   from {

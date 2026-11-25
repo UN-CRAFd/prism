@@ -7,6 +7,7 @@ import { projectSlug } from "@/lib/utils";
 import { ArrowRight, FileText } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
+import { ProgressBar } from "@/components/partner/progress-bar";
 import { StatusPill } from "@/components/partner/status-pill";
 import { PartnerStatusChips, matchesPartnerStatus, type PartnerStatusFilterValue } from "@/components/partner/status-filter";
 import { isPartnerEditable } from "@/lib/report-status";
@@ -42,18 +43,14 @@ export default function ReportEditorPage() {
   // Load completion data for each report
   useEffect(() => {
     if (reports.length === 0) return;
-    Promise.all(
-      reports.map((r) =>
+    setCompletion({});
+    reports.forEach((r) =>
         fetch(`/api/report-completion?reportId=${r.id}`)
           .then((res) => res.json())
           .then((data) => ({ id: r.id, completed: data.completed ?? 0, totalSections: data.totalSections ?? 0 }))
           .catch(() => ({ id: r.id, completed: 0, totalSections: 0 }))
-      )
-    ).then((results) => {
-      const c: Record<number, { completed: number; totalSections: number }> = {};
-      for (const { id, completed, totalSections } of results) c[id] = { completed, totalSections };
-      setCompletion(c);
-    });
+          .then(({ id, completed, totalSections }) => setCompletion((prev) => ({ ...prev, [id]: { completed, totalSections } })))
+    );
   }, [reports]);
 
   // Group all reports by year, newest first.
@@ -71,11 +68,14 @@ export default function ReportEditorPage() {
     const { completed, totalSections } = completion[id] ?? { completed: 0, totalSections: 0 };
     return totalSections > 0 ? Math.round((completed / totalSections) * 100) : 0;
   };
+  // Every card stays in the loading state until ALL completion numbers are in (or failed → 0);
+  // then the values and the sort appear together.
+  const allLoaded = reports.every((r) => completion[r.id] !== undefined);
   // Within a year: least complete first, then project title A–Z. Sorted copy.
   const sortedForYear = (year: number) =>
     byYear[year].filter(matches).sort(
       (a, b) =>
-        completionPct(a.id) - completionPct(b.id) ||
+        (allLoaded ? completionPct(a.id) - completionPct(b.id) : 0) ||
         a.project_title.localeCompare(b.project_title),
     );
 
@@ -115,7 +115,7 @@ export default function ReportEditorPage() {
                 <h2 className="text-xl font-bold mb-3">{year}</h2>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {sortedForYear(year).map((report) => {
-                    const pct = completionPct(report.id);
+                    const pct = allLoaded ? completionPct(report.id) : 0;
                     return (
                       <div
                         key={report.id}
@@ -135,17 +135,7 @@ export default function ReportEditorPage() {
                               label={isPartnerEditable(report.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
                             />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className={`h-full ${isPartnerEditable(report.status) ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">
-                              {pct}%
-                            </span>
-                          </div>
+                          <ProgressBar pct={allLoaded ? pct : null} editable={isPartnerEditable(report.status)} />
                         </div>
                         <button
                           onClick={() =>

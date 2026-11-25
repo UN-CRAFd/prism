@@ -7,6 +7,7 @@ import { projectSlug } from "@/lib/utils";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
+import { ProgressBar } from "@/components/partner/progress-bar";
 import { StatusPill } from "@/components/partner/status-pill";
 import { PartnerStatusChips, matchesPartnerStatus, type PartnerStatusFilterValue } from "@/components/partner/status-filter";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
@@ -45,8 +46,8 @@ export default function ProjectUpdatesPage() {
 
   useEffect(() => {
     if (updates.length === 0) return;
-    Promise.all(
-      updates.map((u) =>
+    setCompletion({});
+    updates.forEach((u) =>
         fetch(`/api/report-completion?reportId=${u.id}`)
           .then((res) => res.json())
           .then((data) => {
@@ -56,12 +57,8 @@ export default function ProjectUpdatesPage() {
             return { id: u.id, completed, total: unlocked.length };
           })
           .catch(() => ({ id: u.id, completed: 0, total: 0 }))
-      )
-    ).then((results) => {
-      const c: Record<number, { completed: number; total: number }> = {};
-      for (const { id, completed, total } of results) c[id] = { completed, total };
-      setCompletion(c);
-    });
+          .then(({ id, completed, total }) => setCompletion((prev) => ({ ...prev, [id]: { completed, total } })))
+    );
   }, [updates]);
 
   const byYear = updates.reduce<Record<number, UpdateReport[]>>((acc, u) => {
@@ -78,11 +75,14 @@ export default function ProjectUpdatesPage() {
     const { completed, total } = completion[id] ?? { completed: 0, total: 0 };
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   };
+  // Every card stays in the loading state until ALL completion numbers are in (or failed → 0);
+  // then the values and the sort appear together.
+  const allLoaded = updates.every((u) => completion[u.id] !== undefined);
   // Within a year: least complete first, then project title A–Z. Sorted copy.
   const sortedForYear = (year: number) =>
     byYear[year].filter(matches).sort(
       (a, b) =>
-        completionPct(a.id) - completionPct(b.id) ||
+        (allLoaded ? completionPct(a.id) - completionPct(b.id) : 0) ||
         a.project_title.localeCompare(b.project_title),
     );
 
@@ -119,7 +119,7 @@ export default function ProjectUpdatesPage() {
                 <h2 className="text-xl font-bold mb-3">{year}</h2>
                 <div className="rounded-xl border bg-card overflow-hidden divide-y">
                   {sortedForYear(year).map((update) => {
-                    const pct = completionPct(update.id);
+                    const pct = allLoaded ? completionPct(update.id) : 0;
                     const firstSection = firstUnlockedSection(update.unlocked_sections);
                     return (
                       <div key={update.id} className="px-6 py-4 flex items-center gap-4">
@@ -133,17 +133,7 @@ export default function ProjectUpdatesPage() {
                             />
                           </div>
                           <p className="text-sm text-muted-foreground truncate mb-2">{update.project_title}</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className={`h-full ${isPartnerEditable(update.status) ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">
-                              {pct}%
-                            </span>
-                          </div>
+                          <ProgressBar pct={allLoaded ? pct : null} editable={isPartnerEditable(update.status)} />
                         </div>
                         <button
                           onClick={() =>

@@ -7,6 +7,7 @@ import { projectSlug } from "@/lib/utils";
 import { ArrowRight, FileText } from "lucide-react";
 import labels from "@/lib/labels";
 import type { Report } from "@/lib/types";
+import { ProgressBar } from "@/components/partner/progress-bar";
 import { StatusPill } from "@/components/partner/status-pill";
 import { PartnerStatusChips, matchesPartnerStatus, type PartnerStatusFilterValue } from "@/components/partner/status-filter";
 import { isPartnerEditable } from "@/lib/report-status";
@@ -44,17 +45,20 @@ export function ProdocList() {
   const items = Array.from(new Map(prodocs.map((p) => [slug(p), p])).values());
   // Least complete first, then A–Z by title. Sorted copy: `items` is not mutated.
   const [statusFilter, setStatusFilter] = useState<PartnerStatusFilterValue>("all");
+  // Every card stays in the loading state until ALL completion numbers are in (or failed → 0);
+  // then the values and the sort appear together.
+  const allLoaded = items.every((r) => completion[r.project_id] !== undefined);
   const sortedItems = items.filter((r) => matchesPartnerStatus(r.status, statusFilter)).sort(
     (a, b) =>
-      (completion[a.project_id] ?? 0) - (completion[b.project_id] ?? 0) ||
+      (allLoaded ? (completion[a.project_id] ?? 0) - (completion[b.project_id] ?? 0) : 0) ||
       a.project_title.localeCompare(b.project_title),
   );
 
   // Fetch completion for each unique project
   useEffect(() => {
     if (items.length === 0) return;
-    Promise.all(
-      items.map((r) =>
+    setCompletion({});
+    items.forEach((r) =>
         fetch(`/api/prodoc-completion?projectId=${r.project_id}`)
           .then((res) => res.json())
           .then((data: { sections?: Record<string, boolean> }) => {
@@ -65,12 +69,8 @@ export function ProdocList() {
             return { id: r.project_id, pct };
           })
           .catch(() => ({ id: r.project_id, pct: 0 }))
-      )
-    ).then((results) => {
-      const c: Record<number, number> = {};
-      for (const { id, pct } of results) c[id] = pct;
-      setCompletion(c);
-    });
+          .then(({ id, pct }) => setCompletion((prev) => ({ ...prev, [id]: pct })))
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prodocs]);
 
@@ -107,7 +107,7 @@ export function ProdocList() {
             </div>
             <div className="rounded-xl border bg-card overflow-hidden divide-y">
               {sortedItems.map((row) => {
-                const pct = completion[row.project_id] ?? 0;
+                const pct = allLoaded ? (completion[row.project_id] ?? 0) : 0;
                 return (
                   <div
                     key={slug(row)}
@@ -123,17 +123,7 @@ export function ProdocList() {
                           label={isPartnerEditable(row.status) && pct === 100 ? labels.prodocList.readyToSubmit : undefined}
                         />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${isPartnerEditable(row.status) ? "bg-crafd-yellow" : "bg-crafd-grey-400"} rounded-full transition-all duration-300`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">
-                          {pct}%
-                        </span>
-                      </div>
+                      <ProgressBar pct={allLoaded ? pct : null} editable={isPartnerEditable(row.status)} />
                     </div>
                     <button
                       onClick={() =>

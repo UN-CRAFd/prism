@@ -109,6 +109,10 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
       { value: "expenditure",        label: "Budget (actual spending)",           section: "expenditure" },
       { value: "expenditure_budget", label: "+ proposed new budget",              section: "expenditure" },
       { value: "expenditure_months", label: "+ extended time frame by {months} months", section: "expenditure" },
+      // Transfers to Implementing Partners is part of the Budget tab (below the
+      // budget table). Kept as its own stored key "transfers" so existing updates
+      // and admin requirement settings still match.
+      { value: "transfers",          label: "+ transfers to implementing partners", section: "expenditure" },
     ],
   },
   {
@@ -122,10 +126,6 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
     modules: [
       { value: "risk_management", label: "Risk management", section: "risk" },
     ],
-  },
-  {
-    label: "Transfers",
-    modules: [{ value: "transfers", label: "Transfers", section: "transfers" }],
   },
   {
     label: "Complementary Funding",

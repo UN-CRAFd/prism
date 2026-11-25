@@ -11,6 +11,7 @@ import { Loader2, FileQuestion, Lock, AlertTriangle, Printer } from "lucide-reac
 import { cn, projectSlug } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
+import { hasModule } from "@/lib/update-modules";
 import { WorkplanPartnerEditor } from "@/components/workplan-grid";
 import { useUndoHistory } from "@/components/report-editor/use-undo-history";
 import { SectionTableEditor, buildSectionSpecs } from "@/components/section-table-editor";
@@ -71,7 +72,9 @@ function toSlug(r: Report): string {
 // leftover height so the header stays pinned while the body scrolls.
 // Budget (expenditure) is deliberately absent: like the ProDoc Budget tab, the
 // whole page scrolls rather than the table inside a fixed-height box.
-const FILL_HEIGHT_SECTIONS = new Set(["workplan", "transfers", "complementary", "indicators"]);
+// Transfers to Implementing Partners lives inside the Budget tab (below the
+// budget table), so it scrolls with the page too.
+const FILL_HEIGHT_SECTIONS = new Set(["workplan", "complementary", "indicators"]);
 
 export interface ReportEditorProps {
   // "partner" filters reports to the logged-in partner and is editable;
@@ -191,6 +194,10 @@ export function ReportEditor({
   const bannerTitle = isUpdateDoc ? labels.partnerEditor.updateTitle : labels.partnerEditor.title;
 
   const defaultSection = sections[0]?.value ?? "overview";
+
+  // Transfers sits inside the Budget tab: always on reports, and on updates
+  // only when the "+ transfers to implementing partners" add-on was chosen.
+  const showTransfers = dataType !== "update" || hasModule(activeUpdate?.update_modules, "transfers");
 
   // Keep-alive: each section mounts once and is hidden via the `hidden` attribute
   // rather than being unmounted on tab switch. visitedRef tracks which sections have
@@ -1084,21 +1091,7 @@ export function ReportEditor({
               </div>
             )}
 
-            {/* Child-managed: transfers, complementary, testimonials, sectionSpecs, workplan, expenditure */}
-            {visitedRef.current.has("transfers") && reportId && (
-              <div hidden={params.section !== "transfers"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
-                <ContributorMatrix
-                  reportId={reportId}
-                  projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
-                  config={TRANSFERS_MATRIX_CONFIG}
-                  pushCommand={pushCommand}
-                  onSaveStateChange={handleChildSaveStateChange}
-                  onError={setError}
-                  fillHeight={fillHeight}
-                />
-              </div>
-            )}
-
+            {/* Child-managed: complementary, testimonials, sectionSpecs, workplan, expenditure (+ transfers) */}
             {visitedRef.current.has("complementary") && reportId && (
               <div hidden={params.section !== "complementary"} className={cn(fillHeight && "flex flex-col flex-1 min-h-0")}>
                 <ContributorMatrix
@@ -1155,6 +1148,25 @@ export function ReportEditor({
                   onSaveStateChange={handleChildSaveStateChange}
                   fillHeight={fillHeight}
                 />
+                {/* Transfers to Implementing Partners — part of the Budget tab, below
+                    the budget table. Reports always carry it; a project update only
+                    when its modules include the Budget "+ transfers" add-on. */}
+                {showTransfers && (
+                  <div className="mt-10 space-y-4">
+                    <h3 className="t-heading-editor">{labels.sections.transfers}</h3>
+                    {typeof labels.tabInstructions.transfers === "string" && labels.tabInstructions.transfers.trim() !== "" && (
+                      <Notice variant="info">{formatInstruction(labels.tabInstructions.transfers)}</Notice>
+                    )}
+                    <ContributorMatrix
+                      reportId={reportId}
+                      projectId={reports.find((r) => r.id === reportId)?.project_id ?? null}
+                      config={TRANSFERS_MATRIX_CONFIG}
+                      pushCommand={pushCommand}
+                      onSaveStateChange={handleChildSaveStateChange}
+                      onError={setError}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

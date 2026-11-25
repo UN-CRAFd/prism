@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
+import { editorTabFor } from "@/lib/report-sections";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import labels from "@/lib/labels";
@@ -285,7 +286,7 @@ export default function AdminHomePage() {
                       onClick={() => router.push(
                         c.data_type === "prodoc"
                           ? `/admin/prodoc-editor/${slug}/${c.section}`
-                          : `/admin/report-editor/${slug}/${c.year}/${c.section}`
+                          : `/admin/report-editor/${slug}/${c.year}/${editorTabFor(c.section)}`
                       )}
                       className="group w-full px-5 py-3.5 flex items-start gap-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
                     >

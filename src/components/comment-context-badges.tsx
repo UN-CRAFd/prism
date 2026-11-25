@@ -9,12 +9,14 @@ import { Hint } from "@/components/ui/hint";
 function sectionLabelFor(section: string): string | undefined {
   const reportSection = REPORT_SECTIONS.find((s) => s.value === section);
   if (reportSection) return reportSection.label;
-  // Prodoc-only sections that aren't in the report tab list.
+  // Sections that aren't in the report tab list (prodoc-only, or nested in a tab).
   const extras: Record<string, string> = {
     general: labels.sections.general,
     narratives: labels.sections.narratives,
     signatures: labels.sections.signatures,
     sdg: labels.sections.sdg,
+    // Part of the Budget tab, but its row comments keep their own section.
+    transfers: labels.sections.transfers,
   };
   return extras[section];
 }

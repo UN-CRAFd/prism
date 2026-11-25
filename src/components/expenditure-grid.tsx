@@ -820,7 +820,7 @@ export function ExpenditurePartnerEditor({
                 return (
                   <>
                     <th style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left border-r", base, HEAD_BG, fillHeight && "sticky")}>Budget categories</th>
-                    <th style={stick} className={cn("text-left border-l min-w-[200px]", base, HEAD_BG)}>Description</th>
+                    <th style={stick} className={cn("text-left border-l w-[280px] min-w-[280px] max-w-[280px]", base, HEAD_BG)}>Description</th>
                     <th style={stick} className={cn("text-right border-l min-w-[130px]", base, HEAD_BG)}>Approved budget</th>
                     <th style={stick} className={cn("text-right border-l min-w-[130px]", base, CURRENT_YEAR_HEAD)}>{toDate ? "Expenditure (to date)" : "Expenditure"}</th>
                     <th style={stick} className={cn("text-right border-l min-w-[120px]", base, HEAD_BG)}>Difference</th>
@@ -836,7 +836,7 @@ export function ExpenditurePartnerEditor({
             <th
               rowSpan={2}
               className={cn(
-                "text-left px-2 py-2 border-l border-b align-bottom min-w-[200px]",
+                "text-left px-2 py-2 border-l border-b align-bottom w-[280px] min-w-[280px] max-w-[280px]",
                 HEAD_DIVIDER,
                 HEAD_COLOR,
                 HEAD_BG,
@@ -925,7 +925,7 @@ export function ExpenditurePartnerEditor({
                 {singleYear ? (
                   <>
                     {isUpdate ? (
-                      <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                      <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 w-[280px] min-w-[280px] max-w-[280px]">
                         <CollapsedTextarea
                           value={edits[c.id]?.comment ?? ""}
                           onChange={(e) => update(c.id, { comment: e.target.value })}
@@ -937,7 +937,7 @@ export function ExpenditurePartnerEditor({
                     ) : (
                       // Project report: the description is the one approved in the
                       // project document, shown read-only.
-                      <td className="px-2 py-2 border-l border-t bg-card min-w-[200px] text-xs whitespace-pre-wrap align-top">
+                      <td className="px-2 py-2 border-l border-t bg-card w-[280px] min-w-[280px] max-w-[280px] text-xs whitespace-pre-wrap align-top">
                         <CollapsedText text={noteByCat.get(c.id) || "—"} />
                       </td>
                     )}
@@ -972,7 +972,7 @@ export function ExpenditurePartnerEditor({
                   </>
                 )}
                 {isUpdate ? (
-                  <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                  <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 w-[280px] min-w-[280px] max-w-[280px]">
                     <CollapsedTextarea
                       value={edits[c.id]?.comment ?? ""}
                       onChange={(e) => update(c.id, { comment: e.target.value })}
@@ -984,7 +984,7 @@ export function ExpenditurePartnerEditor({
                 ) : (
                   // Project report: the description is the one approved in the
                   // project document, shown read-only.
-                  <td className="px-2 py-2 border-l border-t bg-card min-w-[200px] text-xs whitespace-pre-wrap align-top">
+                  <td className="px-2 py-2 border-l border-t bg-card w-[280px] min-w-[280px] max-w-[280px] text-xs whitespace-pre-wrap align-top">
                     <CollapsedText text={noteByCat.get(c.id) || "—"} />
                   </td>
                 )}

@@ -77,7 +77,7 @@ export function CollapsedText({ text, lines = 3, className }: { text: string; li
           ref={ref}
           onPointerEnter={() => setHovered(true)}
           onPointerLeave={() => setHovered(false)}
-          className={cn(clamp, className)}
+          className={cn(clamp, "w-full", className)}
         >
           {text}
         </span>

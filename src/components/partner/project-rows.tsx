@@ -1,10 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { STATUS_PARTNER_REVIEW } from "@/lib/report-status";
 import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import type { ProjectAction } from "@/lib/partner-projects";
+
+// The row's button: Continue (to complete), Revise (back with the partner for changes).
+function actionButtonLabel(status: string): string {
+  const b = labels.partnerHome.actionButton;
+  if (status === STATUS_PARTNER_REVIEW) return b.revise;
+  if (status === "Open") return b.continue;
+  return b.open;
+}
 
 export function ActionRow({ action }: { action: ProjectAction }) {
   const router = useRouter();
@@ -23,25 +33,27 @@ export function ActionRow({ action }: { action: ProjectAction }) {
     subtitleClass = "text-red-600";
   } else if (action.dueSoon) {
     subtitle = `Due ${action.dueDateFormatted}`;
-    subtitleClass = "text-crafd-grey-800";
+    subtitleClass = "text-crafd-yellow-900";
   } else {
     subtitle = `Due ${action.dueDateFormatted}`;
     subtitleClass = "text-muted-foreground";
   }
 
+  // The title follows the button: "Revise …" in Partner Review, "Complete …" when Open.
+  const title =
+    action.status === STATUS_PARTNER_REVIEW ? action.label.replace(/^Complete /, "Revise ") : action.label;
+
   return (
-    <button
+    // A div, not a button: it holds a real button. The whole row is clickable; the
+    // inner button keeps keyboard access and its click bubbles to the same handler.
+    <div
       onClick={() => router.push(action.href)}
-      className={cn("w-full flex items-start gap-3 px-4 py-3 text-left transition-colors group cursor-pointer", action.overdue ? "bg-red-50 hover:bg-red-100" : "hover:bg-accent/60")}
+      className={cn("w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer", action.overdue ? "bg-red-50 hover:bg-red-100" : "hover:bg-accent/60")}
     >
-      <AlertCircle
-        className={cn(
-          "size-4 mt-0.5 shrink-0",
-          action.overdue ? "text-red-500" : "text-crafd-yellow-900"
-        )}
-      />
+      {/* Only overdue rows carry the red "!" icon. */}
+      {action.overdue && <AlertCircle className="size-4 shrink-0 self-start mt-0.5 text-red-500" />}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium">{action.label}</p>
+        <p className="text-sm font-medium">{title}</p>
         {subtitle && (
           <p className={cn("text-xs mt-0.5", subtitleClass)}>{subtitle}</p>
         )}
@@ -54,7 +66,9 @@ export function ActionRow({ action }: { action: ProjectAction }) {
           </p>
         )}
       </div>
-      <ArrowRight className="size-3.5 shrink-0 mt-0.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-    </button>
+      <Button type="button" size="sm" variant="add" className="shrink-0 min-w-[100px]">
+        {actionButtonLabel(action.status)}
+      </Button>
+    </div>
   );
 }

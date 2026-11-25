@@ -1,7 +1,7 @@
 import type { Report } from "@/lib/types";
 import { projectSlug, formatDate } from "@/lib/utils";
 import { documentPath, documentTitle, firstUnlockedSection } from "@/lib/project-updates";
-import { isPartnerEditable, partnerStatusLabel } from "@/lib/report-status";
+import { isPartnerEditable } from "@/lib/report-status";
 import labels from "@/lib/labels";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -29,10 +29,12 @@ export interface ProjectAction {
   // Report actions
   dueDateFormatted: string | null;
   overdue: boolean;
-  dueSoon: boolean;       // due within 30 days, not yet overdue
+  dueSoon: boolean;       // due within 14 days, not yet overdue
   // Prodoc actions
   prodocStatus: string | null;
   commentCount: number;
+  status: string;         // the document's workflow status ("Open" / "Partner Review")
+  dueIso: string | null;  // raw due date, for ordering by urgency
 }
 
 // One dot on a project's timeline.
@@ -45,7 +47,8 @@ export interface TimelineEvent {
   label: string;
   state: TimelineDotState;
   detail: string;   // line under the label ("Approved 12/03/2026", "Due 30/06/2026", …)
-  warn: boolean;    // detail in red: overdue or due within 30 days
+  warn: boolean;    // detail in red: overdue only
+  soon?: boolean;   // detail in dark yellow: due within 14 days (not overdue)
   _dateObj: Date;   // sort key for the documents between Project Document and Project end
 }
 
@@ -71,6 +74,7 @@ export interface PartnerProject {
   periodEnd: string | null;     // DD/MM/YYYY
   periodMonths: number | null;
   openCommentCount: number;     // open comments across all of the project's documents
+  nextDeadlineIso: string | null; // same date, raw (for overdue / due-soon colouring)
   nextDeadline: string | null;  // earliest due date of a document still with the partner, DD/MM/YYYY
   // Names of documents currently with CRAF'd for review (nothing to do for now).
   underReview: string[];
@@ -139,7 +143,7 @@ export function buildPartnerProjects(
   }
 
   const today = new Date();
-  const thirtyDaysOut = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const soonLimit = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
   const seenProjectIds = new Set<number>();
   const result: PartnerProject[] = [];
@@ -162,7 +166,7 @@ export function buildPartnerProjects(
       if (isPartnerEditable(r.status)) {
         const dueDate = r.report_submission_date ? new Date(r.report_submission_date) : null;
         const overdue = dueDate != null && dueDate < today;
-        const dueSoon = dueDate != null && !overdue && dueDate <= thirtyDaysOut;
+        const dueSoon = dueDate != null && !overdue && dueDate <= soonLimit;
         actions.push({
           type: "report",
           label: `Complete ${reportName(r.year, r.report_type)}`,
@@ -172,6 +176,8 @@ export function buildPartnerProjects(
           dueSoon,
           prodocStatus: null,
           commentCount: openComments.filter((c) => c.data_type === "report" && c.year === r.year).length,
+          status: r.status,
+          dueIso: r.report_submission_date ?? null,
         });
       }
     }
@@ -180,7 +186,7 @@ export function buildPartnerProjects(
       if (!isPartnerEditable(u.status)) continue;
       const dueDate = u.report_submission_date ? new Date(u.report_submission_date) : null;
       const overdue = dueDate != null && dueDate < today;
-      const dueSoon = dueDate != null && !overdue && dueDate <= thirtyDaysOut;
+      const dueSoon = dueDate != null && !overdue && dueDate <= soonLimit;
       actions.push({
         type: "update",
         label: `Complete Project Update ${updateName(u)}`,
@@ -190,6 +196,8 @@ export function buildPartnerProjects(
         dueSoon,
         prodocStatus: null,
         commentCount: openComments.filter((c) => c.report_id === u.id).length,
+        status: u.status,
+        dueIso: u.report_submission_date ?? null,
       });
     }
     if (isPartnerEditable(prodoc.status)) {
@@ -202,6 +210,8 @@ export function buildPartnerProjects(
         dueSoon: false,
         prodocStatus: prodoc.status,
         commentCount: openComments.filter((c) => c.data_type === "prodoc").length,
+        status: prodoc.status,
+        dueIso: null,
       });
     }
 
@@ -256,6 +266,7 @@ export function buildPartnerProjects(
       periodEnd: endDate ? formatDate(endDate) : null,
       periodMonths: prodoc.project_duration_months ?? null,
       openCommentCount: openComments.length,
+      nextDeadlineIso: nextDue,
       nextDeadline: nextDue ? formatDate(nextDue) : null,
       underReview,
     });
@@ -277,7 +288,7 @@ function updateName(u: UpdateDoc): string {
 function buildProjectTimeline(prodoc: Report, reports: Report[], updates: UpdateDoc[] = []): TimelineEvent[] {
   const t = labels.partnerHome.timeline;
   const today = new Date();
-  const soon = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const soon = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
   let projectEnd: Date | null = null;
   if (prodoc.project_start_date && prodoc.project_duration_months) {
@@ -292,7 +303,7 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
   const isApproved = (status: string) => status === "Approved" || status === "Closed";
 
   // State + detail line for one document.
-  function docState(d: Report, fallbackDue: Date | null): Pick<TimelineEvent, "state" | "detail" | "warn"> {
+  function docState(d: Report, fallbackDue: Date | null): Pick<TimelineEvent, "state" | "detail" | "warn" | "soon"> {
     if (isApproved(d.status)) {
       return {
         state: "approved",
@@ -300,11 +311,17 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
         warn: false,
       };
     }
-    if (d.status === "Under Review") return { state: "crafd", detail: partnerStatusLabel(d.status), warn: false };
+    if (d.status === "Under Review") return { state: "crafd", detail: t.withCrafd, warn: false };
     if (isPartnerEditable(d.status)) {
       if (d.report_submission_date) {
         const due = new Date(d.report_submission_date);
-        return { state: "editing", detail: t.due.replace("{date}", formatDate(d.report_submission_date)), warn: due <= soon };
+        const overdue = due < today;
+        return {
+          state: "editing",
+          detail: t.due.replace("{date}", formatDate(d.report_submission_date)),
+          warn: overdue,
+          soon: !overdue && due <= soon,
+        };
       }
       if (fallbackDue) return { state: "editing", detail: t.dueBy.replace("{date}", formatDate(fallbackDue)), warn: false };
       return { state: "editing", detail: t.inProgress, warn: false };
@@ -312,26 +329,25 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
     return { state: "pending", detail: "", warn: false };
   }
 
-  const events: TimelineEvent[] = [];
+  // Project Document first, Closure last; everything between is sorted by date (due date
+  // for reports / updates, the date itself for Project end). An undated document sits
+  // just before Project end, and the sort is stable, so equal dates keep their order.
+  const first: TimelineEvent = { label: t.projectDocument, ...docState(prodoc, null), _dateObj: new Date(0) };
 
-  // 1. Project Document (no due date: a partner-editable one reads "In progress").
-  events.push({ label: t.projectDocument, ...docState(prodoc, null), _dateObj: new Date(0) });
+  const middle: TimelineEvent[] = [
+    ...[
+      ...reports.filter((r) => r.report_type !== "final").map((r) => ({ r, label: reportName(r.year, r.report_type) })),
+      ...updates.map((u) => ({ r: u as Report, label: `Project Update ${updateName(u)}` })),
+    ].map(({ r, label }) => ({
+      label,
+      ...docState(r, null),
+      _dateObj: r.report_submission_date ? new Date(r.report_submission_date) : noDueSentinel,
+    })),
+  ];
 
-  // 2. Annual reports and project updates, by due date.
-  const docs: TimelineEvent[] = [
-    ...reports.filter((r) => r.report_type !== "final").map((r) => ({ r, label: reportName(r.year, r.report_type) })),
-    ...updates.map((u) => ({ r: u as Report, label: `Project Update ${updateName(u)}` })),
-  ].map(({ r, label }) => ({
-    label,
-    ...docState(r, null),
-    _dateObj: r.report_submission_date ? new Date(r.report_submission_date) : noDueSentinel,
-  }));
-  docs.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
-  events.push(...docs);
-
-  // 3. Project end.
+  // Project end.
   if (projectEnd) {
-    events.push({
+    middle.push({
       label: t.projectEnd,
       state: projectEnd < today ? "passed" : "pending",
       detail: formatDate(projectEnd),
@@ -340,24 +356,27 @@ function buildProjectTimeline(prodoc: Report, reports: Report[], updates: Update
     });
   }
 
-  // 4. Final Report: its own state when it exists; a final report without a due date
-  //    (or none yet) reads "Due by <end + 6 months>".
+  // Final Report: its own state when it exists; a final report without a due date
+  // (or none yet) reads "Due by <end + 6 months>".
   const finalReport = reports.find((r) => r.report_type === "final");
   const dueByText = finalDueBy ? t.dueBy.replace("{date}", formatDate(finalDueBy)) : "";
   if (finalReport) {
-    events.push({ label: t.finalReport, ...docState(finalReport, finalDueBy), _dateObj: finalDueBy ?? noDueSentinel });
+    middle.push({ label: t.finalReport, ...docState(finalReport, finalDueBy), _dateObj: finalDueBy ?? noDueSentinel });
   } else {
-    events.push({ label: t.finalReport, state: "pending", detail: dueByText, warn: false, _dateObj: finalDueBy ?? noDueSentinel });
+    middle.push({ label: t.finalReport, state: "pending", detail: dueByText, warn: false, _dateObj: finalDueBy ?? noDueSentinel });
   }
+  middle.sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime());
 
-  // 5. Closure: done once the final report is approved.
-  events.push({
+  // Closure: done once the final report is approved.
+  const last: TimelineEvent = {
     label: t.closure,
     state: finalReport && isApproved(finalReport.status) ? "approved" : "pending",
     detail: "",
     warn: false,
     _dateObj: finalDueBy ?? noDueSentinel,
-  });
+  };
+
+  const events = [first, ...middle, last];
 
   return events;
 }

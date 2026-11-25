@@ -734,13 +734,27 @@
     },
     "tiles": {
       "grant": "Grant",
+      "requested": "Requested",
       "period": "Period",
       "months": "{n} months",
       "openComments": "Open comments",
       "nextDeadline": "Next deadline"
     },
     "nextSteps": "Your next steps",
-    "withCrafdNote": "{name} is with CRAF'd for review. Nothing to do for now.",
+    "summary": {
+      "project": "project",
+      "projects": "projects",
+      "thing": "thing to do",
+      "things": "things to do",
+      "nextDeadline": "next deadline {date}"
+    },
+    "actionButton": {
+      "continue": "Continue",
+      "revise": "Revise",
+      "open": "Open"
+    },
+    "withCrafdRow": "With CRAF'd for review",
+    "nothingNow": "Nothing to do right now.",
     "timeline": {
       "projectDocument": "Project Document",
       "projectEnd": "Project end",

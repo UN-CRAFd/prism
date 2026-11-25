@@ -448,6 +448,7 @@ export function RiskSection({
                         <ScaleSelect
                           kind="likelihood"
                           value={state.updated_likelihood}
+                          placeholder={labels.risk.selectLikelihood}
                           onValueChange={(v) => updateRisk(risk.id, { updated_likelihood: v })}
                         />
                       )}
@@ -459,6 +460,7 @@ export function RiskSection({
                         <ScaleSelect
                           kind="impact"
                           value={state.updated_impact}
+                          placeholder={labels.risk.selectImpact}
                           onValueChange={(v) => updateRisk(risk.id, { updated_impact: v })}
                         />
                       )}
@@ -552,10 +554,10 @@ export function RiskSection({
                             <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
                           </div>
                           <div className={cn(addTried && newLikelihood == null && "rounded-md ring-1 ring-destructive")}>
-                            <ScaleSelect kind="likelihood" value={newLikelihood} onValueChange={setNewLikelihood} placeholder="Likelihood" />
+                            <ScaleSelect kind="likelihood" value={newLikelihood} onValueChange={setNewLikelihood} placeholder={labels.risk.selectLikelihood} />
                           </div>
                           <div className={cn(addTried && newImpact == null && "rounded-md ring-1 ring-destructive")}>
-                            <ScaleSelect kind="impact" value={newImpact} onValueChange={setNewImpact} placeholder="Impact" />
+                            <ScaleSelect kind="impact" value={newImpact} onValueChange={setNewImpact} placeholder={labels.risk.selectImpact} />
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">

@@ -27,6 +27,7 @@ import { optionValues } from "@/lib/options";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
 import { Hint } from "@/components/ui/hint";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
 import { WordCounter } from "@/components/ui/word-counter";
 import { useWordLimits } from "@/lib/use-word-limits";
@@ -903,7 +904,6 @@ export function SectionTableEditor({
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   }
 
-  const hasRemarks = fields.some((f) => f.remark);
   // number + fields (incl. any spanned columns) + actions
   const colCount = 2 + fields.reduce((n, f) => n + 1 + (f.spanCols?.length ?? 0), 0);
   const minRows = min ?? 0;
@@ -934,7 +934,15 @@ export function SectionTableEditor({
                     </Tooltip>
                   </span>
                 ) : (
-                  <>{f.header}{f.required && <RequiredMark />}</>
+                  <>
+                    {f.header}{f.required && <RequiredMark />}
+                    {/* The column's instruction / example, behind an info icon. */}
+                    {f.remark && (
+                      <span className="ml-1.5 inline-block align-middle">
+                        <InfoPopover description={f.remark} triggerTitle={f.header} descriptionHeading={labels.common.aboutColumn} />
+                      </span>
+                    )}
+                  </>
                 )}
               </th>
               {f.spanCols?.map((c, ci) => (
@@ -944,17 +952,6 @@ export function SectionTableEditor({
             ))}
             <th className={cn("w-10 px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
           </tr>
-          {hasRemarks && (
-            <tr className="border-b bg-background">
-              <td />
-              {fields.map((f) => (
-                <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-1 text-sm text-muted-foreground leading-snug align-top">
-                  {f.remark}
-                </td>
-              ))}
-              <td />
-            </tr>
-          )}
         </thead>
         <tbody className="divide-y">
           {rows.map((row, i) => (
@@ -996,12 +993,12 @@ export function SectionTableEditor({
                       staticItems={f.options ?? []}
                       value={splitMulti(row.values[f.key])}
                       onChange={(next) => updateField(i, f.key, joinMulti(next))}
-                      placeholder={f.placeholder ?? "Select."}
+                      placeholder={f.placeholder ?? "Select"}
                     />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
                       <SelectTrigger className="w-full h-9 text-sm">
-                        {row.values[f.key] ? <span>{row.values[f.key]}</span> : <span className="text-muted-foreground">{f.placeholder ?? "Select."}</span>}
+                        {row.values[f.key] ? <span>{row.values[f.key]}</span> : <span className="text-muted-foreground">{f.placeholder ?? "Select"}</span>}
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
@@ -1104,7 +1101,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyLessons,
     max: 5,
     fields: [
-      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), placeholder: "Select category.", headClass: "w-52" },
+      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), placeholder: "Select category", headClass: "w-52" },
       { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true, limitKey: "lessons_learned.lesson_learned" },
       { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result.", limitKey: "lessons_learned.adjustment_informed" },
     ],
@@ -1116,7 +1113,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     max: 3,
     seed: 3,
     fields: [
-      { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: optionValues("externalCoverageType"), headClass: "w-44" },
+      { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: optionValues("externalCoverageType"), headClass: "w-44", placeholder: labels.placeholders.coverageType },
       { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]", required: true, limitKey: "external_coverage.description" },
       { key: "reach_indicator", header: labels.externalCoverage.columns.reachIndicator, remark: labels.externalCoverage.remarks.reachIndicator, type: "textarea", placeholder: labels.placeholders.reachIndicator, headClass: "w-[20%]", limitKey: "external_coverage.reach_indicator" },
       { key: "links", header: labels.common.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-52" },

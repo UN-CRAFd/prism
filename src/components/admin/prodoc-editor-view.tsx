@@ -1602,10 +1602,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 align-top">
-                                    <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
+                                    <ScaleSelect kind="likelihood" value={risk.likelihood} placeholder={labels.risk.selectLikelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
                                   </td>
                                   <td className="px-4 py-3 align-top">
-                                    <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
+                                    <ScaleSelect kind="impact" value={risk.impact} placeholder={labels.risk.selectImpact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
                                   </td>
                                   <td className="px-4 py-3 align-top">
                                     <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
@@ -1640,10 +1640,10 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 align-top">
-                                    <ScaleSelect kind="likelihood" value={risk.likelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
+                                    <ScaleSelect kind="likelihood" value={risk.likelihood} placeholder={labels.risk.selectLikelihood} onValueChange={(v) => updateRiskAssessment(risk.id, { likelihood: v })} />
                                   </td>
                                   <td className="px-4 py-3 align-top">
-                                    <ScaleSelect kind="impact" value={risk.impact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
+                                    <ScaleSelect kind="impact" value={risk.impact} placeholder={labels.risk.selectImpact} onValueChange={(v) => updateRiskAssessment(risk.id, { impact: v })} />
                                   </td>
                                   <td className="px-4 py-3 align-top">
                                     <RiskLevelBadge likelihood={risk.likelihood} impact={risk.impact} />
@@ -1705,12 +1705,12 @@ export function ProdocEditorView({ mode = "admin" }: { mode?: "admin" | "partner
                               </td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className={cn(newRiskErrors.likelihood && "rounded-md ring-1 ring-destructive")}>
-                                  <ScaleSelect kind="likelihood" value={newRiskLikelihood} placeholder="Likelihood" onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
+                                  <ScaleSelect kind="likelihood" value={newRiskLikelihood} placeholder={labels.risk.selectLikelihood} onValueChange={(v) => { setNewRiskLikelihood(v); if (newRiskErrors.likelihood) setNewRiskErrors((p) => ({ ...p, likelihood: false })); }} />
                                 </div>
                               </td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>
                                 <div className={cn(newRiskErrors.impact && "rounded-md ring-1 ring-destructive")}>
-                                  <ScaleSelect kind="impact" value={newRiskImpact} placeholder="Impact" onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
+                                  <ScaleSelect kind="impact" value={newRiskImpact} placeholder={labels.risk.selectImpact} onValueChange={(v) => { setNewRiskImpact(v); if (newRiskErrors.impact) setNewRiskErrors((p) => ({ ...p, impact: false })); }} />
                                 </div>
                               </td>
                               <td className={cn("px-4 py-3 align-top", stickyFoot)} style={stickyFootStyle}>

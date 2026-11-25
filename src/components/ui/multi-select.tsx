@@ -21,7 +21,7 @@ export function MultiSelect({
   staticItems,
   value,
   onChange,
-  placeholder = "Select.",
+  placeholder = "Select",
   className,
   disabled,
   triggerDisplay = "chips",

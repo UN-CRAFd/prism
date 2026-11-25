@@ -279,7 +279,7 @@ export function HactSection({
                           onValueChange={(v) => edit(r.id, "status", v === "none" ? null : v)}
                         >
                           <SelectTrigger className="h-8 w-full text-sm bg-background">
-                            <SelectValue placeholder="Select status." />
+                            <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>

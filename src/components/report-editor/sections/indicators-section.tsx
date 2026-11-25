@@ -17,8 +17,6 @@ import { FALLBACK_COLORS } from "@/lib/risk";
 import { statusKeysFor, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
 import { numericAmount } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorRecord, IndicatorState, IndicatorYearCell } from "@/components/report-editor/types";
-import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
-import { resultLabel } from "@/lib/workplan";
 import { Tag } from "@/components/ui/tag";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
@@ -45,10 +43,10 @@ function ifz(key: keyof typeof ICOL, z = 20): CSSProperties {
   return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
 }
 
-// "value (year)" for the baseline / target reference cells.
-function ValueYear({ value, year }: { value: string | null; year: number | null }) {
+// Baseline / target reference value (the year isn't shown at reporting stage).
+function RefValue({ value }: { value: string | null }) {
   if (!value) return <span className="text-muted-foreground/40">—</span>;
-  return <>{value}{year ? <span className="text-muted-foreground"> ({year})</span> : null}</>;
+  return <>{value}</>;
 }
 
 export interface IndicatorsSectionProps {
@@ -66,7 +64,6 @@ export interface IndicatorsSectionProps {
   isAdmin: boolean;
   // Freeze the column headers to the top while the matrix body scrolls.
   fillHeight?: boolean;
-  activities: ContributorActivity[];
 }
 
 export function IndicatorsSection({
@@ -80,7 +77,6 @@ export function IndicatorsSection({
   updateIndicator,
   isAdmin,
   fillHeight = false,
-  activities,
 }: IndicatorsSectionProps) {
   const statusKeys = statusKeysFor(indicatorReportType);
 
@@ -120,10 +116,9 @@ export function IndicatorsSection({
     // An empty table keeps its box, border and frozen header and says so on a row
     // inside — same as the project document's indicator table. A separate dashed
     // placeholder would make the empty state look unlike the populated one.
-    // 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
+    // 3 frozen + columns per visible year (3 for current, 2 for past).
     const emptyColSpan = 3
-      + visibleKeys.reduce((acc, k) => acc + (k === currentKey ? 3 : 2), 0)
-      + 1;
+      + visibleKeys.reduce((acc, k) => acc + (k === currentKey ? 3 : 2), 0);
 
     const pastSubCols = [
       { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[90px]" },
@@ -152,9 +147,6 @@ export function IndicatorsSection({
           { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
         ]}
         pastSubCols={pastSubCols}
-        trailingCols={[
-          { label: "Linked outcome / output", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
-        ]}
       >
         <tbody>
           {rows.length === 0 && (
@@ -201,10 +193,10 @@ export function IndicatorsSection({
                   </div>
                 </td>
                 <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
-                  <ValueYear value={!row.is_standard ? state.baseline_value : row.baseline_value} year={!row.is_standard ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />
+                  <RefValue value={!row.is_standard ? state.baseline_value : row.baseline_value} />
                 </td>
                 <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
-                  <ValueYear value={!row.is_standard ? state.target_value : row.target_value} year={!row.is_standard ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
+                  <RefValue value={!row.is_standard ? state.target_value : row.target_value} />
                 </td>
 
                 {visibleKeys.map((key) => {
@@ -262,14 +254,6 @@ export function IndicatorsSection({
                     </Fragment>
                   );
                 })}
-
-                <td className="px-3 py-2 border-l border-t text-sm text-muted-foreground">
-                  {row.linked_results.length > 0
-                    ? row.linked_results.map((k) => (
-                        <div key={k}>{resultLabel(k, activities)}</div>
-                      ))
-                    : <span className="text-muted-foreground/40">—</span>}
-                </td>
               </tr>
             );
           })}

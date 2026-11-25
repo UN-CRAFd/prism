@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { cn } from "@/lib/utils";
 import { HEAD_TEXT, SUBHEAD_TEXT, CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, SUBHEAD_BG } from "@/components/report-editor/matrix-table";
@@ -13,11 +13,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { ItemComments } from "@/components/report-editor/comments-context";
 import { Badge, ScaleSelect } from "@/components/report-editor/scale-select";
 import { SCALE_COLORS, FALLBACK_COLORS, likelihoodLabel, impactLabel, computeRiskLevelKey, riskLevelLabel, RISK_LEVEL_COLORS } from "@/lib/risk";
-import { FilterChip } from "@/components/report-editor/past-year-chips";
-import { useStickySet } from "@/components/report-editor/sticky-filter";
 import type { Risk, RiskState, RiskStatus } from "@/components/report-editor/types";
-import type { RiskHistory } from "@/components/report-editor/report-editor";
-import { Hint } from "@/components/ui/hint";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Tag } from "@/components/ui/tag";
 import { WordCounter } from "@/components/ui/word-counter";
@@ -28,8 +24,8 @@ function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; imp
   return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
 }
 
-// Column layout (base + 2 extra columns per selected comparison chip):
-//   #(48) | Risk(280) | [chip: L(80)+I(80) each] | Last report L(80)+I(80) |
+// Column layout:
+//   #(48) | Risk(280) | Last report L(80)+I(80) |
 //   Status(170)+Upd.L(100)+Upd.I(100)+[Level]+Upd.Mit.(230) | Actions(80, only when the report has a new risk)
 // "Last report" (always shown, read-only, greyed like the chips): the latest previous
 // likelihood / impact of a carried-over risk, computed by GET /api/risk; "—" for new risks.
@@ -46,9 +42,7 @@ export interface RiskSectionProps {
   risks: Risk[];
   riskStates: Record<number, RiskState>;
   reportYear: number;
-  riskHistory: RiskHistory | null;
   isAdmin: boolean;
-  onShareYear: (year: number, shared: boolean) => Promise<void>;
 
   newRiskName: string;
   setNewRiskName: (v: string) => void;
@@ -63,10 +57,9 @@ export interface RiskSectionProps {
   handleRiskDelete: (id: number) => Promise<void>;
 }
 
-const HIST_COL_W = 80;     // width of each comparison sub-column (px)
-const BASE_MIN_W = 1168;   // min-width with no comparison chips active (incl. the 160px "Last report" group and the 170px status column)
+const BASE_MIN_W = 1168;   // min-width of the table (incl. the 160px "Last report" group and the 170px status column)
 
-// Read-only badges for comparison columns. The wrapping cell already has
+// Read-only badges for the "Last report" columns. The wrapping cell already has
 // opacity-60, so the colours show as suitably muted without further changes.
 function HistLikelihood({ v }: { v: number | null | undefined }) {
   if (v == null) return <span className="text-muted-foreground/40">—</span>;
@@ -76,37 +69,6 @@ function HistLikelihood({ v }: { v: number | null | undefined }) {
 function HistImpact({ v }: { v: number | null | undefined }) {
   if (v == null) return <span className="text-muted-foreground/40">—</span>;
   return <Badge colors={SCALE_COLORS[v] ?? FALLBACK_COLORS}>{impactLabel(v)}</Badge>;
-}
-
-// Sharing toggle — span role="button" so it works regardless of fieldset[disabled].
-function ShareToggle({
-  year,
-  shared,
-  onToggle,
-}: {
-  year: number;
-  shared: boolean;
-  onToggle: (year: number, shared: boolean) => void;
-}) {
-  return (
-    <Hint label={shared ? "Shown to partner — click to hide" : "Hidden from partner — click to show"}>
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={() => onToggle(year, !shared)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(year, !shared); }
-        }}
-        className={cn(
-          "inline-flex items-center justify-center size-5 rounded cursor-pointer transition-colors",
-          "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          shared ? "text-crafd-grey-900 hover:text-black" : "text-muted-foreground/40 hover:text-muted-foreground"
-        )}
-      >
-        {shared ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
-      </span>
-    </Hint>
-  );
 }
 
 // Small "Added in YYYY" badge shown under a risk name for non-ProDoc risks.
@@ -122,9 +84,7 @@ export function RiskSection({
   risks,
   riskStates,
   reportYear,
-  riskHistory,
   isAdmin,
-  onShareYear,
   newRiskName,
   setNewRiskName,
   newRiskDescription,
@@ -196,38 +156,10 @@ export function RiskSection({
     setNewRiskCategory([]);
   }
 
-  const [shownChips, updateShownChips] = useStickySet<string>("risk-history-chips");
-
-  function toggleChip(key: string) {
-    updateShownChips((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  const historyYears = riskHistory?.years ?? [];
-  // Past-year chips only (the ProDoc "Baseline" chip is gone: the "Last report" group
-  // already shows the ProDoc values when there is no earlier report). No years → no row.
-  const showChipsRow = historyYears.length > 0;
-
-  // Ordered selected chip keys: years ascending.
-  const selectedChipKeys: string[] = [];
-  for (const { year } of historyYears) {
-    if (shownChips.has(String(year))) selectedChipKeys.push(String(year));
-  }
-
   // The Actions column only exists when there is something to act on: a
   // risk added in this report (carried-over risks can't be edited or deleted).
   const hasNewRisk = risks.some((r) => r.source_risk_id === null);
-  const minWidth = BASE_MIN_W - (hasNewRisk ? 0 : 80) + selectedChipKeys.length * HIST_COL_W * 2;
-
-  function getHistValue(chipKey: string, originRiskId: number | null) {
-    if (originRiskId === null) return { likelihood: null, impact: null };
-    const yearEntry = riskHistory?.years.find((y) => y.year === Number(chipKey));
-    return yearEntry?.values[originRiskId] ?? { likelihood: null, impact: null };
-  }
+  const minWidth = BASE_MIN_W - (hasNewRisk ? 0 : 80);
 
   // "Since the last report, this risk…": picking a response resets the current-year
   // assessment. 'changed' / 'happened' start from empty likelihood, impact and
@@ -255,30 +187,13 @@ export function RiskSection({
     setEditingRiskId(null);
   }
 
-  // Shared sub-header cell classes for comparison columns (read-only, greyed).
+  // Sub-header cell classes for the "Last report" columns (read-only, greyed).
   const histSubHead = cn("px-2 py-1.5 text-left border-b", SUBHEAD_BG, HEAD_COLOR, SUBHEAD_TEXT);
   // Current-year sub-header cell classes.
   const curSubHead = cn("px-2 py-1.5 text-left border-b", SUBHEAD_TEXT, HEAD_COLOR, CURRENT_YEAR_HEAD);
 
   return (
     <div className="space-y-4">
-      {/* Comparison chips — only when there is history to show */}
-      {showChipsRow && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-muted-foreground">{labels.common.formerReports}</span>
-          {historyYears.map(({ year, shared }) => (
-            <span key={year} className="inline-flex items-center gap-1">
-              <FilterChip on={shownChips.has(String(year))} onClick={() => toggleChip(String(year))}>
-                {year}
-              </FilterChip>
-              {isAdmin && (
-                <ShareToggle year={year} shared={shared} onToggle={onShareYear} />
-              )}
-            </span>
-          ))}
-        </div>
-      )}
-
       {risks.length === 0 && !showAddRow ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
           {labels.partnerEditor.emptyRisks}
@@ -296,23 +211,11 @@ export function RiskSection({
                   {labels.risk.columns.risk}
                 </th>
 
-                {/* One group header per selected comparison chip */}
-                {selectedChipKeys.map((key) => (
-                  <th
-                    key={key}
-                    colSpan={2}
-                    className={cn("px-2 py-2 text-center border-l border-b", HEAD_COLOR, HEAD_BG)}
-                    style={{ width: HIST_COL_W * 2, minWidth: HIST_COL_W * 2 }}
-                  >
-                    {key}
-                  </th>
-                ))}
-
                 {/* Last report: latest previous likelihood + impact (read-only) */}
                 <th
                   colSpan={2}
                   className={cn("px-2 py-2 text-center border-l border-b", HEAD_COLOR, HEAD_BG)}
-                  style={{ width: HIST_COL_W * 2, minWidth: HIST_COL_W * 2 }}
+                  style={{ width: 160, minWidth: 160 }}
                 >
                   {labels.risk.lastReport}
                 </th>
@@ -327,12 +230,8 @@ export function RiskSection({
 
               {/* Row 2: sub-column labels */}
               <tr>
-                {selectedChipKeys.map((key) => [
-                  <th key={`${key}-l`} className={cn(histSubHead, "border-l")} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Likelihood</th>,
-                  <th key={`${key}-i`} className={histSubHead} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Impact</th>,
-                ])}
-                <th className={cn(histSubHead, "border-l")} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Likelihood</th>
-                <th className={histSubHead} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Impact</th>
+                <th className={cn(histSubHead, "border-l")} style={{ width: 80, minWidth: 80 }}>Likelihood</th>
+                <th className={histSubHead} style={{ width: 80, minWidth: 80 }}>Impact</th>
                 <th className={cn(curSubHead, "border-l")} style={{ width: 170, minWidth: 170 }}>{labels.risk.columns.status}<RequiredMark className="text-crafd-yellow-900" /></th>
                 <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>Likelihood<RequiredMark className="text-crafd-yellow-900" /></th>
                 <th className={curSubHead} style={{ width: 100, minWidth: 100 }}>Impact<RequiredMark className="text-crafd-yellow-900" /></th>
@@ -421,19 +320,6 @@ export function RiskSection({
                         </div>
                       )}
                     </td>
-
-                    {/* Comparison columns — greyed, read-only; opacity-60 on the cell mutes the badges */}
-                    {selectedChipKeys.map((key) => {
-                      const { likelihood, impact } = getHistValue(key, risk.origin_risk_id);
-                      return [
-                        <td key={`${key}-l`} className="px-3 py-3 border-t border-l bg-neutral-50 opacity-60">
-                          <HistLikelihood v={likelihood} />
-                        </td>,
-                        <td key={`${key}-i`} className="px-3 py-3 border-t bg-neutral-50 opacity-60">
-                          <HistImpact v={impact} />
-                        </td>,
-                      ];
-                    })}
 
                     {/* Last report: latest previous likelihood / impact — greyed, read-only; "—" for new risks */}
                     <td className="px-3 py-3 border-t border-l bg-neutral-50 opacity-60">
@@ -549,9 +435,9 @@ export function RiskSection({
                     <span className="text-sm tabular-nums text-crafd-grey-600">{risks.length + 1}.</span>
                   </td>
                   {/* One full-width form cell spanning every column after the row number
-                      (risk + comparison chips shown + last report + status +
+                      (risk + last report + status +
                       updated-assessment + actions), so it always reaches the right edge. */}
-                  <td colSpan={1 + selectedChipKeys.length * 2 + 2 + (isAdmin ? 5 : 4) + (hasNewRisk ? 1 : 0)} className="px-3 py-3 border-t border-l">
+                  <td colSpan={1 + 2 + (isAdmin ? 5 : 4) + (hasNewRisk ? 1 : 0)} className="px-3 py-3 border-t border-l">
                     {/* w-0 + min-w-full: fills the cell exactly but adds nothing to the
                         table's column sizing, so the form can never push past the table. */}
                     <div className="w-0 min-w-full space-y-2">

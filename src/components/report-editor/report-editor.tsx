@@ -47,15 +47,6 @@ import { Hint } from "@/components/ui/hint";
 import { isPartnerEditable, isFinalStatus } from "@/lib/report-status";
 import { SectionNavBar } from "@/components/ui/section-nav-bar";
 
-export interface RiskHistory {
-  prodoc: Record<number, { likelihood: number | null; impact: number | null }>;
-  years: Array<{
-    year: number;
-    shared: boolean;
-    values: Record<number, { likelihood: number | null; impact: number | null }>;
-  }>;
-}
-
 // Fixed view-only sentence, chosen by status VALUE (not the admin-editable label).
 function viewOnlyText(status: string | null | undefined, noun: string): string {
   if (status === "Under Review") return `This ${noun} is with the CRAF'd Secretariat for review and is view-only.`;
@@ -118,7 +109,6 @@ export function ReportEditor({
   const [loadingRisk, setLoadingRisk] = useState(false);
 
   // Past-year risk history (prodoc baseline + updated values per report year).
-  const [riskHistory, setRiskHistory] = useState<RiskHistory | null>(null);
 
   // Risks are report-scoped and can be added here; editing and deleting their
   // core (admin-owned) fields is the ProDoc editor's job.
@@ -305,15 +295,6 @@ export function ReportEditor({
     }
   }, []);
 
-  const loadRiskHistory = useCallback(async (id: number) => {
-    try {
-      const res = await fetch(`/api/risk/history?reportId=${id}`);
-      if (!res.ok) return;
-      const data: RiskHistory = await res.json();
-      setRiskHistory(data);
-    } catch { /* quiet — history is non-blocking */ }
-  }, []);
-
   const loadIndicators = useCallback(async (id: number) => {
     setLoadingIndicators(true);
     setError(null);
@@ -421,10 +402,9 @@ export function ReportEditor({
     loadSurveys(reportId);
     loadOverview(reportId);
     loadRisk(reportId);
-    loadRiskHistory(reportId);
     loadIndicators(reportId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportId, loadSurveys, loadOverview, loadRisk, loadRiskHistory, loadIndicators, reports]);
+  }, [reportId, loadSurveys, loadOverview, loadRisk, loadIndicators, reports]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -699,20 +679,6 @@ export function ReportEditor({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
-  }
-
-  async function handleShareYear(year: number, shared: boolean) {
-    if (!reportId || !riskHistory) return;
-    const currentShared = riskHistory.years.filter((y) => y.shared).map((y) => y.year);
-    const next = shared
-      ? [...new Set([...currentShared, year])]
-      : currentShared.filter((y) => y !== year);
-    await fetch(`/api/reports/${reportId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ risk_shared_years: next }),
-    });
-    loadRiskHistory(reportId);
   }
 
   function updateIndicator(id: number, patch: Partial<IndicatorState>) {
@@ -1052,9 +1018,7 @@ export function ReportEditor({
                     risks={risks}
                     riskStates={riskStates}
                     reportYear={selectedReport?.year ?? 0}
-                    riskHistory={riskHistory}
                     isAdmin={mode === "admin"}
-                    onShareYear={handleShareYear}
                     newRiskName={newRiskName}
                     setNewRiskName={setNewRiskName}
                     newRiskDescription={newRiskDescription}

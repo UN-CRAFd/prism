@@ -472,6 +472,13 @@ export function ExpenditurePartnerEditor({
   const extensionYears = data.extension?.years ?? [];
   const extensionSet = new Set(extensionYears);
   const L = frozenLayout(showProposed);
+  // SINGLE-YEAR PROJECT: the approved budget covers exactly one year column —
+  // `years` (the project's years, plus any extension years, plus the reported
+  // year) holds one entry. The "Total" group would only repeat that year, so the
+  // table drops it and the year header: Categories | Description | Approved
+  // budget | Expenditure | Difference. A budget revision (proposed columns) keeps
+  // the full layout; extension years make `years` longer, so those are unchanged.
+  const singleYear = years.length === 1 && !showProposed;
 
   // A year's expenditure columns show only when a report exists for it (the
   // current report year always qualifies). Years without a report show just the
@@ -645,8 +652,7 @@ export function ExpenditurePartnerEditor({
       flag === "error" ? "bg-red-50" :
       flag === "warn" ? "bg-crafd-yellow-100" :
       strong ? "bg-neutral-100" : "bg-neutral-50";
-    return (
-      <tr className={cn("border-t", bg, strong && "font-semibold", flag === "error" && "text-red-900", flag === "warn" && "text-crafd-grey-800")}>
+    const labelCell = (
         <td style={L.fz("cat")} className={cn("px-3 py-2 text-sm border-r border-t", bg)}>
           <Hint label={flag ? hint : undefined}>
             <span className="inline-flex items-center gap-1.5">
@@ -661,6 +667,27 @@ export function ExpenditurePartnerEditor({
             </span>
           </Hint>
         </td>
+    );
+    if (singleYear) {
+      return (
+        <tr className={cn("border-t", bg, strong && "font-semibold", flag === "error" && "text-red-900", flag === "warn" && "text-crafd-grey-800")}>
+          {labelCell}
+          <td className={cn("border-l border-t", bg)} />
+          <td className={cn("px-3 py-2 text-right border-l border-t", bg)}><Num value={approvedT} kind="approved" /></td>
+          {expInput ? (
+            <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
+              <AmountInput value={expInput.value} onChange={expInput.onChange} className="h-8 text-sm text-right tabular-nums" aria-label="Indirect support costs spent" />
+            </td>
+          ) : (
+            <td className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
+          )}
+          <td className={cn("px-3 py-2 text-right border-t", bg)}><Num value={approvedT - expT} kind="diff" /></td>
+        </tr>
+      );
+    }
+    return (
+      <tr className={cn("border-t", bg, strong && "font-semibold", flag === "error" && "text-red-900", flag === "warn" && "text-crafd-grey-800")}>
+        {labelCell}
         <td style={L.fz("app")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={approvedT} kind="approved" /></td>
         <td style={L.fz("exp")} className={cn("px-3 py-2 text-right border-t", bg)}><Num value={expT} kind={strong ? "strong" : "plain"} /></td>
         <td style={L.fz("diff")} className={cn("px-3 py-2 text-right border-t", !showProposed && "border-r", bg)}><Num value={approvedT - expT} kind="diff" /></td>
@@ -801,6 +828,24 @@ export function ExpenditurePartnerEditor({
       style={{ "--scroll-fade-left": `${FCOL_WIDTH.cat}px` } as CSSProperties}>
       <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
+          {singleYear ? (
+            <tr className="text-xs" ref={headRowRef}>
+              {(() => {
+                const stick = fillHeight ? { position: "sticky" as const, top: 0, zIndex: 30 } : undefined;
+                const base = cn("px-3 py-2 border-b align-bottom", HEAD_DIVIDER, HEAD_COLOR, HEAD_TEXT, fillHeight && "sticky top-0 z-30");
+                return (
+                  <>
+                    <th style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left border-r", base, HEAD_BG, fillHeight && "sticky")}>Budget categories</th>
+                    <th style={stick} className={cn("text-left border-l min-w-[200px]", base, HEAD_BG)}>Description</th>
+                    <th style={stick} className={cn("text-right border-l min-w-[130px]", base, HEAD_BG)}>Approved budget</th>
+                    <th style={stick} className={cn("text-right border-l min-w-[130px]", base, CURRENT_YEAR_HEAD)}>{toDate ? "Expenditure (to date)" : "Expenditure"}</th>
+                    <th style={stick} className={cn("text-right border-l min-w-[120px]", base, HEAD_BG)}>Difference</th>
+                  </>
+                );
+              })()}
+            </tr>
+          ) : (
+          <>
           <tr className="text-xs" ref={headRowRef}>
             <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 border-r border-b align-bottom", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
             <th colSpan={showProposed ? 4 : 3} style={fillHeight ? { position: "sticky", top: 0, zIndex: 30 } : undefined} className={cn("px-2 py-2 text-center border-r border-b", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "h-8")}>Total</th>
@@ -857,6 +902,8 @@ export function ExpenditurePartnerEditor({
                   : <ApprovedOnlyHead key={y} fillHeight={fillHeight} extension={extensionSet.has(y)} top={headRowHeight} />
             )}
           </tr>
+          </>
+          )}
         </thead>
         <tbody>
           {categories.map((c) => {
@@ -891,6 +938,29 @@ export function ExpenditurePartnerEditor({
                     </span>
                   </Hint>
                 </td>
+                {singleYear ? (
+                  <>
+                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                  <Textarea
+                    value={edits[c.id]?.comment ?? ""}
+                    onChange={(e) => update(c.id, { comment: e.target.value })}
+                    placeholder="Include all the key outputs yearwise."
+                    className="text-xs min-h-[60px] resize-y w-full"
+                  />
+                  <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
+                </td>
+                    <td className="px-2 py-2 text-right border-l border-t"><Num value={approvedT} kind="strong" /></td>
+                    <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
+                      <AmountInput
+                        value={edits[c.id]?.exp ?? ""}
+                        onChange={(v) => update(c.id, { exp: numericAmount(v) })}
+                        className="h-8 text-sm text-right tabular-nums"
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-right border-t"><Num value={approvedT - expT} kind="diff" /></td>
+                  </>
+                ) : (
+                  <>
                 {/* Totals render bold in the default (black) text colour — review feedback. */}
                 <td style={L.fz("app")} className="px-2 py-2 text-right border-t bg-card"><Num value={approvedT} kind="strong" /></td>
                 <td style={L.fz("exp")} className="px-2 py-2 text-right border-t bg-card"><Num value={expT} kind="strong" /></td>
@@ -918,7 +988,9 @@ export function ExpenditurePartnerEditor({
                   />
                   <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
                 </td>
-                {columnYears.map((y) => {
+                  </>
+                )}
+                {!singleYear && columnYears.map((y) => {
                     const ap = budFor(y, c.id);
                     // Plannable year: approved | planned (editable) | difference.
                     if (forecastYearSet.has(y)) {

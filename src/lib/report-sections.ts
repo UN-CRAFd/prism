@@ -21,6 +21,13 @@ export function progressSections(unlocked: string[]): string[] {
   return counted.length > 0 ? counted : unlocked;
 }
 
+// Comment / data sections that live inside another editor tab. Transfers to
+// Implementing Partners is part of the Budget tab, but its row comments keep
+// section "transfers" — links to them open the Budget tab.
+export function editorTabFor(section: string): string {
+  return section === "transfers" ? "expenditure" : section;
+}
+
 export type ReportSectionGroup = "Qualitative" | "Quantitative";
 
 export interface ReportSection {
@@ -76,7 +83,6 @@ export const REPORT_SECTIONS: ReportSection[] = [
   { value: "indicators", get label() { return labels.sections.indicators; }, group: "Quantitative" },
   { value: "expenditure", get label() { return labels.sections.expenditure; }, group: "Quantitative" },
   { value: "risk", get label() { return labels.sections.risk; }, group: "Quantitative" },
-  { value: "transfers", get label() { return labels.sections.transfers; }, group: "Quantitative" },
   { value: "complementary", get label() { return labels.sections.complementary; }, group: "Quantitative" },
 ];
 

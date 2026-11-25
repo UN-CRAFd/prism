@@ -52,7 +52,7 @@ export interface RiskHistory {
   years: Array<{
     year: number;
     shared: boolean;
-    values: Record<number, { likelihood: number | null; impact: number | null }>;
+    values: Record<number, { likelihood: number | null; impact: number | null; mitigation: string | null }>;
   }>;
 }
 

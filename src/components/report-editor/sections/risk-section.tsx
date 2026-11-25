@@ -28,8 +28,8 @@ function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; imp
   return <Badge colors={RISK_LEVEL_COLORS[key]}>{riskLevelLabel(key)}</Badge>;
 }
 
-// Column layout (base + 2 extra columns per selected comparison chip):
-//   #(48) | Risk(280) | [chip: L(80)+I(80) each] | Last report L(80)+I(80) |
+// Column layout (base + 3 extra columns per selected comparison chip):
+//   #(48) | Risk(280) | [chip: L(80)+I(80)+Mitigation(200) each] | Last report L(80)+I(80) |
 //   Status(170)+Upd.L(100)+Upd.I(100)+[Level]+Upd.Mit.(230) | Actions(80, only when the report has a new risk)
 // "Last report" (always shown, read-only, greyed like the chips): the latest previous
 // likelihood / impact of a carried-over risk, computed by GET /api/risk; "—" for new risks.
@@ -64,6 +64,7 @@ export interface RiskSectionProps {
 }
 
 const HIST_COL_W = 80;     // width of each comparison sub-column (px)
+const HIST_MIT_W = 200;    // width of a comparison chip's Mitigation column (px)
 const BASE_MIN_W = 1168;   // min-width with no comparison chips active (incl. the 160px "Last report" group and the 170px status column)
 
 // Read-only badges for comparison columns. The wrapping cell already has
@@ -221,12 +222,12 @@ export function RiskSection({
   // The Actions column only exists when there is something to act on: a
   // risk added in this report (carried-over risks can't be edited or deleted).
   const hasNewRisk = risks.some((r) => r.source_risk_id === null);
-  const minWidth = BASE_MIN_W - (hasNewRisk ? 0 : 80) + selectedChipKeys.length * HIST_COL_W * 2;
+  const minWidth = BASE_MIN_W - (hasNewRisk ? 0 : 80) + selectedChipKeys.length * (HIST_COL_W * 2 + HIST_MIT_W);
 
   function getHistValue(chipKey: string, originRiskId: number | null) {
-    if (originRiskId === null) return { likelihood: null, impact: null };
+    if (originRiskId === null) return { likelihood: null, impact: null, mitigation: null };
     const yearEntry = riskHistory?.years.find((y) => y.year === Number(chipKey));
-    return yearEntry?.values[originRiskId] ?? { likelihood: null, impact: null };
+    return yearEntry?.values[originRiskId] ?? { likelihood: null, impact: null, mitigation: null };
   }
 
   // "Since the last report, this risk…": picking a response resets the current-year
@@ -300,9 +301,9 @@ export function RiskSection({
                 {selectedChipKeys.map((key) => (
                   <th
                     key={key}
-                    colSpan={2}
+                    colSpan={3}
                     className={cn("px-2 py-2 text-center border-l border-b", HEAD_COLOR, HEAD_BG)}
-                    style={{ width: HIST_COL_W * 2, minWidth: HIST_COL_W * 2 }}
+                    style={{ width: HIST_COL_W * 2 + HIST_MIT_W, minWidth: HIST_COL_W * 2 + HIST_MIT_W }}
                   >
                     {key}
                   </th>
@@ -330,6 +331,7 @@ export function RiskSection({
                 {selectedChipKeys.map((key) => [
                   <th key={`${key}-l`} className={cn(histSubHead, "border-l")} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Likelihood</th>,
                   <th key={`${key}-i`} className={histSubHead} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Impact</th>,
+                  <th key={`${key}-m`} className={histSubHead} style={{ width: HIST_MIT_W, minWidth: HIST_MIT_W }}>Mitigation</th>,
                 ])}
                 <th className={cn(histSubHead, "border-l")} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Likelihood</th>
                 <th className={histSubHead} style={{ width: HIST_COL_W, minWidth: HIST_COL_W }}>Impact</th>
@@ -424,13 +426,18 @@ export function RiskSection({
 
                     {/* Comparison columns — greyed, read-only; opacity-60 on the cell mutes the badges */}
                     {selectedChipKeys.map((key) => {
-                      const { likelihood, impact } = getHistValue(key, risk.origin_risk_id);
+                      const { likelihood, impact, mitigation } = getHistValue(key, risk.origin_risk_id);
                       return [
                         <td key={`${key}-l`} className="px-3 py-3 border-t border-l bg-neutral-50 opacity-60">
                           <HistLikelihood v={likelihood} />
                         </td>,
                         <td key={`${key}-i`} className="px-3 py-3 border-t bg-neutral-50 opacity-60">
                           <HistImpact v={impact} />
+                        </td>,
+                        <td key={`${key}-m`} className="px-3 py-3 border-t bg-neutral-50 opacity-60">
+                          {mitigation?.trim()
+                            ? <p className="text-xs whitespace-pre-wrap [overflow-wrap:anywhere]">{mitigation}</p>
+                            : <span className="text-muted-foreground/40">—</span>}
                         </td>,
                       ];
                     })}

@@ -43,10 +43,12 @@ export async function GET(req: NextRequest) {
       origin_risk_id: number;
       likelihood: number | null;
       impact: number | null;
+      mitigation: string | null;
     }>(
       `SELECT r.year, rm.origin_risk_id,
               rm.updated_likelihood AS likelihood,
-              rm.updated_impact     AS impact
+              rm.updated_impact     AS impact,
+              rm.updated_mitigation AS mitigation
          FROM reporting_platform.risk_management rm
          JOIN reporting_platform.reports r ON r.id = rm.report_id AND r.data_type = 'report'
         WHERE r.project_id = $1 AND r.year < $2 AND rm.origin_risk_id IS NOT NULL
@@ -54,10 +56,10 @@ export async function GET(req: NextRequest) {
       [project_id, currentYear]
     );
 
-    const yearMap = new Map<number, Record<number, { likelihood: number | null; impact: number | null }>>();
+    const yearMap = new Map<number, Record<number, { likelihood: number | null; impact: number | null; mitigation: string | null }>>();
     for (const row of historyRows) {
       if (!yearMap.has(row.year)) yearMap.set(row.year, {});
-      yearMap.get(row.year)![row.origin_risk_id] = { likelihood: row.likelihood, impact: row.impact };
+      yearMap.get(row.year)![row.origin_risk_id] = { likelihood: row.likelihood, impact: row.impact, mitigation: row.mitigation };
     }
 
     let years = Array.from(yearMap.entries())

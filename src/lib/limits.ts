@@ -42,6 +42,7 @@ const d = (label: string, section: string, def = 100): WordLimitDef => ({ label,
 export const WORD_LIMITS: Record<string, WordLimitDef> = {
   // ProDoc
   "prodoc.description": d("Project description", SECTION_PRODOC_GENERAL, 500),
+  "expenditure_budget_category_notes.description": d("Budget category description", SECTION_PRODOC_GENERAL, 200),
 
   // Report / project update fields
   "key_achievements.achievement": d("Achievement", "Key achievements"),

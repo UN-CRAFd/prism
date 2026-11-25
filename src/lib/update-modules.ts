@@ -67,16 +67,16 @@ export const UPDATE_MODULE_GROUPS: UpdateModuleGroup[] = [
     modules: [{ value: "surveys", label: "Surveys", section: "surveys" }],
   },
   {
+    label: "Results",
+    modules: [{ value: "results", label: "Results", section: "results" }],
+  },
+  {
     label: "Key Achievements",
     modules: [{ value: "achievements", label: "Key Achievements", section: "achievements" }],
   },
   {
     label: "Partnerships",
     modules: [{ value: "partnerships", label: "Partnerships", section: "partnerships" }],
-  },
-  {
-    label: "Results",
-    modules: [{ value: "results", label: "Results", section: "results" }],
   },
   {
     label: "Lessons Learned",
@@ -153,7 +153,7 @@ export type UpdateRequirements = Record<string, string[]>;
 // sections, since an update standing in for one of those carries everything a
 // report would. The narrower types tick only what they need.
 const FULL_REPORT_MODULES = [
-  "surveys", "achievements", "partnerships", "results", "lessons",
+  "surveys", "results", "achievements", "partnerships", "lessons",
   "external_coverage", "testimonials", "workplan", "indicators",
   "expenditure", "risk_management", "transfers", "complementary",
 ];

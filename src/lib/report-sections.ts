@@ -65,9 +65,9 @@ export const REPORT_SECTIONS: ReportSection[] = [
   // Qualitative: Overview → External Coverage
   { value: "overview", get label() { return labels.sections.overview; }, group: "Qualitative" },
   { value: "surveys", get label() { return labels.sections.surveys; }, group: "Qualitative" },
+  { value: "results", get label() { return labels.sections.results; }, group: "Qualitative" },
   { value: "achievements", get label() { return labels.sections.keyAchievements; }, group: "Qualitative" },
   { value: "partnerships", get label() { return labels.sections.partnerships; }, group: "Qualitative" },
-  { value: "results", get label() { return labels.sections.results; }, group: "Qualitative" },
   { value: "lessons", get label() { return labels.sections.lessons; }, group: "Qualitative" },
   { value: "external-coverage", get label() { return labels.sections.externalCoverage; }, group: "Qualitative" },
   { value: "testimonials", get label() { return labels.sections.testimonials; }, group: "Qualitative" },

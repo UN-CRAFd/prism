@@ -13,7 +13,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Download, Info, Loader2, Plus, Trash2, X } from "lucide-react";
+import { CircleCheck, Download, Info, Loader2, Plus, Trash2, X } from "lucide-react";
 import { LoadingState } from "@/components/admin/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -91,6 +91,9 @@ export interface SectionSpec {
   seed?: number; // seed empty rows up to this many on load (convenience only; unlike `min`, these stay deletable)
   max?: number; // cap the number of rows
   kind?: string; // optional sub-kind filter/tag (e.g. testimonials leadership|partner)
+  // "Nothing to report" checkbox (reports.no_<section>_confirmed via
+  // /api/report-no-rows), shown while the report has no rows — same as Transfers.
+  noRows?: { section: string; label: string; confirmedLabel: string };
 }
 
 interface RowState {
@@ -633,11 +636,15 @@ export function SectionTableEditor({
   commentSection?: string;
   pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
-  const { endpoint, fields, requiredField, addLabel, emptyText, min, seed, max, kind } = spec;
+  const { endpoint, fields, requiredField, addLabel, emptyText, min, seed, max, kind, noRows } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
 
   const confirm = useConfirm();
+  const readOnly = useReadOnly();
   const [rows, setRows] = useState<RowState[]>([]);
+  const [noRowsConfirmed, setNoRowsConfirmed] = useState(false);
+  const [noRowsSaving, setNoRowsSaving] = useState(false);
+  const [noRowsError, setNoRowsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -894,6 +901,47 @@ export function SectionTableEditor({
     });
   }
 
+  // "Nothing to report" confirmation. The section counts as complete with zero
+  // rows only when it is set; the server clears it when a row is added, so it is
+  // mirrored here once a saved row exists.
+  const savedCount = rows.filter((r) => r.id != null).length;
+  const noRowsSection = noRows?.section;
+  useEffect(() => {
+    if (!noRowsSection) return;
+    let cancelled = false;
+    fetch(`/api/report-no-rows?reportId=${reportId}&section=${noRowsSection}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setNoRowsConfirmed(data.confirmed === true); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [reportId, noRowsSection]);
+  useEffect(() => { if (savedCount > 0) setNoRowsConfirmed(false); }, [savedCount]);
+
+  async function setNoRowsFlag(confirmed: boolean) {
+    if (!noRows) return;
+    setNoRowsSaving(true);
+    setNoRowsError(null);
+    // Same save-state channel as the autosave, so the editor refetches
+    // completion and the sidebar tick updates.
+    onSaveStateChange?.("saving");
+    try {
+      const res = await fetch("/api/report-no-rows", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId, section: noRows.section, confirmed }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || labels.common.saveFailed); }
+      const data = await res.json();
+      setNoRowsConfirmed(data.confirmed === true);
+      onSaveStateChange?.("saved");
+    } catch (e) {
+      onSaveStateChange?.("error");
+      setNoRowsError(e instanceof Error ? e.message : labels.common.saveFailed);
+    } finally {
+      setNoRowsSaving(false);
+    }
+  }
+
   if (loading) return <LoadingState />;
   if (error) {
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
@@ -1049,14 +1097,36 @@ export function SectionTableEditor({
         </tbody>
       </table>
     </div>
-    {/* Below the table, right-aligned — like the project document's Add buttons. */}
-    {canAdd && (
-      <div className="flex justify-end">
-        <Button onClick={addRow} variant="add" size="sm" className="gap-1">
-          <Plus className="size-4" />{addLabel}
-        </Button>
+    {/* Below the table, right-aligned — like the project document's Add buttons.
+        With noRows, the "nothing to report" checkbox sits on the left while the
+        report has no rows (same layout as Transfers / Complementary Funding). */}
+    {(canAdd || (noRows && rows.length === 0)) && (
+      <div className={cn("flex items-center gap-3", noRows ? "justify-between" : "justify-end")}>
+        {noRows && rows.length === 0 && noRowsConfirmed && readOnly ? (
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
+            <CircleCheck className="size-4" />{noRows.confirmedLabel}
+          </span>
+        ) : noRows && rows.length === 0 && !readOnly ? (
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={noRowsConfirmed}
+              disabled={noRowsSaving}
+              onChange={(e) => setNoRowsFlag(e.target.checked)}
+              className="size-4"
+            />
+            {noRows.label}
+            {noRowsSaving && <Loader2 className="size-3.5 animate-spin" />}
+          </label>
+        ) : noRows ? <span /> : null}
+        {canAdd && (
+          <Button onClick={addRow} variant="add" size="sm" className="gap-1">
+            <Plus className="size-4" />{addLabel}
+          </Button>
+        )}
       </div>
     )}
+    {noRowsError && <p className="text-xs text-destructive">{noRowsError}</p>}
     </div>
   );
 }
@@ -1085,6 +1155,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     requiredField: "partner_organization",
     addLabel: labels.partnerEditor.addPartner,
     emptyText: labels.partnerEditor.emptyPartnerships,
+    noRows: { section: "partnerships", label: labels.partnerships.noRows, confirmedLabel: labels.partnerships.noRowsConfirmed },
     fields: [
       { key: "partner_organization", header: labels.partnerships.columns.partnerOrganization, remark: labels.partnerships.remarks.partnerOrganization, type: "input", placeholder: labels.common.placeholders.organizationName, headClass: "w-[28%]", required: true },
       { key: "result", header: labels.partnerships.columns.result, remark: labels.partnerships.remarks.result, type: "textarea", placeholder: labels.placeholders.partnershipResult },

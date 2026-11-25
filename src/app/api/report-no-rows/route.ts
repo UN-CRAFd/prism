@@ -3,19 +3,21 @@ import { query } from "@/lib/db";
 import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 
-// "Nothing to report" confirmation for the Transfers to Implementing Partners and
-// Complementary Funding sections of a report / project update. Like the project
+// "Nothing to report" confirmation for the Transfers to Implementing Partners,
+// Complementary Funding and Partnerships sections of a report / project update. Like the project
 // document's "No documents to upload": a section with zero rows counts as complete
 // only when its flag is set (see /api/report-completion). The flag is cleared
-// automatically when a row is added (POST /api/transfer-data, /api/complementary-data).
+// automatically when a row is added (POST /api/transfer-data, /api/complementary-data,
+// /api/partnerships).
 //
-//   GET ?reportId=X&section=transfers|complementary          → { confirmed: boolean }
+//   GET ?reportId=X&section=transfers|complementary|partnerships          → { confirmed: boolean }
 //   PUT { reportId, section, confirmed: boolean }            → { confirmed: boolean }
 
 // Fixed whitelist — the column name is interpolated into SQL, never taken from input.
 const COLUMN: Record<string, string> = {
   transfers: "no_transfers_confirmed",
   complementary: "no_complementary_confirmed",
+  partnerships: "no_partnerships_confirmed",
 };
 
 export async function GET(req: NextRequest) {
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
   const section = req.nextUrl.searchParams.get("section") ?? "";
   if (!reportId) return NextResponse.json({ error: "reportId is required" }, { status: 400 });
   const column = COLUMN[section];
-  if (!column) return NextResponse.json({ error: "section must be 'transfers' or 'complementary'" }, { status: 400 });
+  if (!column) return NextResponse.json({ error: "section must be 'transfers', 'complementary' or 'partnerships'" }, { status: 400 });
 
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -53,7 +55,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "reportId is required" }, { status: 400 });
   }
   const column = COLUMN[typeof body.section === "string" ? body.section : ""];
-  if (!column) return NextResponse.json({ error: "section must be 'transfers' or 'complementary'" }, { status: 400 });
+  if (!column) return NextResponse.json({ error: "section must be 'transfers', 'complementary' or 'partnerships'" }, { status: 400 });
   if (typeof body.confirmed !== "boolean") {
     return NextResponse.json({ error: "confirmed must be a boolean" }, { status: 400 });
   }

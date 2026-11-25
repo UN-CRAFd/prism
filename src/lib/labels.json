@@ -450,6 +450,8 @@
     }
   },
   "partnerships": {
+    "noRows": "No partnerships to report",
+    "noRowsConfirmed": "Confirmed: no partnerships to report",
     "columns": {
       "partnerOrganization": "Partner organization",
       "result": "Result of the partnership"

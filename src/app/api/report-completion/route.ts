@@ -136,7 +136,15 @@ export async function GET(req: NextRequest) {
       ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
 
       listSection("key_achievements", "achievement", 1),
-      listSection("partnerships", "partner_organization", 1),
+      // Partnerships — every row has the partner organisation filled, OR zero rows
+      // and "No partnerships to report" ticked (reports.no_partnerships_confirmed).
+      query<Row>(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE partner_organization IS NOT NULL AND partner_organization <> '')::int AS ok,
+                (SELECT no_partnerships_confirmed FROM reporting_platform.reports WHERE id = $1) AS confirmed
+           FROM reporting_platform.partnerships WHERE report_id = $1`,
+        [reportId]
+      ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
       listSection("results", "context", 3),
       listSection("lessons_learned", "lesson_learned", 1),
       listSection("external_coverage", "description", 3),

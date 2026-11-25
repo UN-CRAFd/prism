@@ -10,7 +10,6 @@ import {
   type CSSProperties,
 } from "react";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import labels from "@/lib/labels";
 import { numericAmount } from "@/lib/numeric-input";
 import { Loader2, CheckCircle2, Wallet, AlertTriangle } from "lucide-react";
@@ -24,7 +23,9 @@ import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 import { CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER, HEAD_DIVIDER_COLOR, SUBHEAD_BG, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { Hint } from "@/components/ui/hint";
+import { Textarea } from "@/components/ui/textarea";
 import { WordCounter } from "@/components/ui/word-counter";
+import { CollapsedTextarea, CollapsedText } from "@/components/ui/collapsed-textarea";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenditure reporting grid. Stored inputs are approved annual budgets (admin),
@@ -87,6 +88,9 @@ interface ExpenditurePayload {
   /** Version 3/4: `years` are the ones the extension adds past the project end;
    *  empty when the extra months stay inside the final year. */
   extension?: { months: number; years: number[]; endDate: string | null };
+  /** The project document's description per budget category. A project report
+   *  shows it read-only in the Description column. */
+  categoryNotes?: { category_id: number; description: string | null }[];
 }
 
 function parseAmount(s: string): number | null {
@@ -461,6 +465,7 @@ export function ExpenditurePartnerEditor({
 
   // ── Which version of the page this is ──────────────────────────────────────
   const isUpdate = data.isUpdate === true;
+  const noteByCat = new Map((data.categoryNotes ?? []).map((n) => [n.category_id, n.description?.trim() ?? ""]));
   const toDate = data.currentYearToDate === true;
   const showProposed = data.proposedBudget === true;
   // Budget revision: the requested total is ALWAYS computed — spent so far +
@@ -794,27 +799,6 @@ export function ExpenditurePartnerEditor({
           />
         </div>
       )}
-      {/* Annual / final reports: no summary boxes, but a warning box appears as
-          soon as categories are overspent by more than 20% of the approved
-          project costs, or the indirect support costs spent exceed the approved
-          amount. Same measures as the update boxes above. */}
-      {!isUpdate && (overspendShare > 20 || iscLeft < -0.005) && (
-        // One warning triangle per problem, so two overspends read as two.
-        <div role="alert" className="shrink-0 space-y-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-          {overspendShare > 20 && (
-            <p className="flex items-start gap-2">
-              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
-              <span>Categories are overspent by {formatAmount(overspendTotal)} ({pct(overspendShare)}). CRAF'd will be in contact.</span>
-            </p>
-          )}
-          {iscLeft < -0.005 && (
-            <p className="flex items-start gap-2">
-              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
-              <span>Indirect support costs are overspent by {formatAmount(-iscLeft)}{iscCeiling > 0 && <> ({pct((-iscLeft / iscCeiling) * 100)})</>}. CRAF'd will be in contact.</span>
-            </p>
-          )}
-        </div>
-      )}
       {showProposed && data.forecastsAvailable !== true && (
         <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs text-red-900">
           Estimated expenditure cannot be saved on this database yet — the administrator needs to run{" "}
@@ -940,15 +924,23 @@ export function ExpenditurePartnerEditor({
                 </td>
                 {singleYear ? (
                   <>
-                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
-                  <Textarea
-                    value={edits[c.id]?.comment ?? ""}
-                    onChange={(e) => update(c.id, { comment: e.target.value })}
-                    placeholder="Include all the key outputs yearwise."
-                    className="text-xs min-h-[60px] resize-y w-full"
-                  />
-                  <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
-                </td>
+                    {isUpdate ? (
+                      <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                        <CollapsedTextarea
+                          value={edits[c.id]?.comment ?? ""}
+                          onChange={(e) => update(c.id, { comment: e.target.value })}
+                          placeholder="Include all the key outputs yearwise."
+                          className="text-xs"
+                        />
+                        <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
+                      </td>
+                    ) : (
+                      // Project report: the description is the one approved in the
+                      // project document, shown read-only.
+                      <td className="px-2 py-2 border-l border-t bg-card min-w-[200px] text-xs whitespace-pre-wrap align-top">
+                        <CollapsedText text={noteByCat.get(c.id) || "—"} />
+                      </td>
+                    )}
                     <td className="px-2 py-2 text-right border-l border-t"><Num value={approvedT} kind="strong" /></td>
                     <td className="px-1 py-1 text-right border-t bg-crafd-yellow/10">
                       <AmountInput
@@ -979,15 +971,23 @@ export function ExpenditurePartnerEditor({
                     </Hint>
                   </>
                 )}
-                <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
-                  <Textarea
-                    value={edits[c.id]?.comment ?? ""}
-                    onChange={(e) => update(c.id, { comment: e.target.value })}
-                    placeholder="Include all the key outputs yearwise."
-                    className="text-xs min-h-[60px] resize-y w-full"
-                  />
-                  <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
-                </td>
+                {isUpdate ? (
+                  <td className="px-1 py-1 border-l border-t bg-crafd-yellow/10 min-w-[200px]">
+                    <CollapsedTextarea
+                      value={edits[c.id]?.comment ?? ""}
+                      onChange={(e) => update(c.id, { comment: e.target.value })}
+                      placeholder="Include all the key outputs yearwise."
+                      className="text-xs"
+                    />
+                    <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
+                  </td>
+                ) : (
+                  // Project report: the description is the one approved in the
+                  // project document, shown read-only.
+                  <td className="px-2 py-2 border-l border-t bg-card min-w-[200px] text-xs whitespace-pre-wrap align-top">
+                    <CollapsedText text={noteByCat.get(c.id) || "—"} />
+                  </td>
+                )}
                   </>
                 )}
                 {!singleYear && columnYears.map((y) => {
@@ -1087,6 +1087,27 @@ export function ExpenditurePartnerEditor({
           </tbody>
         </table>
       </div>
+      {/* Annual / final reports: no summary boxes, but a warning box appears
+          under the table as soon as categories are overspent by more than 20%
+          of the approved project costs, or the indirect support costs spent
+          exceed the approved amount. Same measures as the update boxes above. */}
+      {!isUpdate && (overspendShare > 20 || iscLeft < -0.005) && (
+        // One warning triangle per problem, so two overspends read as two.
+        <div role="alert" className="shrink-0 space-y-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          {overspendShare > 20 && (
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
+              <span>Categories are overspent by {formatAmount(overspendTotal)} ({pct(overspendShare)}). CRAF'd will be in contact.</span>
+            </p>
+          )}
+          {iscLeft < -0.005 && (
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-red-600" aria-hidden />
+              <span>Indirect support costs are overspent by {formatAmount(-iscLeft)}{iscCeiling > 0 && <> ({pct((-iscLeft / iscCeiling) * 100)})</>}. CRAF'd will be in contact.</span>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1496,6 +1517,7 @@ export function ExpenditureAdminEditor({ projectId, isAdmin = true, fillHeight =
                         placeholder="Include all the key outputs yearwise."
                         className="text-xs min-h-[60px] resize-y w-full"
                       />
+                      <WordCounter value={categoryNotes[c.id]} limitKey="expenditure_budget_category_notes.description" />
                     </td>
                     {years.map((y) => (
                       <td key={y} className="px-1 py-1 border-l">

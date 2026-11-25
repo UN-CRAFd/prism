@@ -130,6 +130,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const budgetNoteLimit = limits.limit("expenditure_budget_category_notes.description");
+    const budgetNotes = await query<{ description: string | null }>(
+      `SELECT description FROM reporting_platform.expenditure_budget_category_notes WHERE project_id = $1`,
+      [projectId]
+    );
+    if (budgetNotes.some((r) => wordCount(r.description) > budgetNoteLimit)) {
+      return NextResponse.json(
+        { error: `Shorten each budget category description to ${budgetNoteLimit.toLocaleString("en-US")} words or fewer.` },
+        { status: 422 }
+      );
+    }
+
     // Validate tranche and budget totals against the requested funding amount.
     // Tolerance: each total must be within [grant_size_usd − $1, grant_size_usd].
     // Exceeding the requested amount is never accepted; being more than $1 short

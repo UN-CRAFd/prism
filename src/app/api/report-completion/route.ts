@@ -289,7 +289,11 @@ export async function GET(req: NextRequest) {
         [projectId, reportId],
         { comment: "workplan_entries.comment" }
       ),
-      listOver("expenditure_entries", { comment: "expenditure_entries.comment" }),
+      // The Budget description is only typed on project updates; on a report it shows
+      // the project document's text, locked, so an old per-report comment never counts.
+      dataType === "update"
+        ? listOver("expenditure_entries", { comment: "expenditure_entries.comment" })
+        : Promise.resolve(false),
       query<Row>(`SELECT kind, quote FROM reporting_platform.testimonials WHERE report_id = $1`, [reportId]).then((rows) =>
         rows.some((t) => {
           const key =

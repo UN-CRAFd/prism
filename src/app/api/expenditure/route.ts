@@ -232,6 +232,13 @@ export async function GET(req: NextRequest) {
          FROM reporting_platform.expenditure_budgets WHERE project_id = $1`,
       [project_id]
     );
+    // The project document's description per budget category — shown read-only in
+    // the Description column of a project report (updates keep their own text).
+    const categoryNotes = await query<{ category_id: number; description: string | null }>(
+      `SELECT category_id, description
+         FROM reporting_platform.expenditure_budget_category_notes WHERE project_id = $1`,
+      [project_id]
+    );
     // Expenditure across all relevant reports. For an update: past years use the
     // report's entries; the update's own year uses the update's own entries.
     // The proposed new budget rides along on the update's own row (it is a
@@ -312,6 +319,7 @@ export async function GET(req: NextRequest) {
       years,
       reportYears,
       budgets: budgets.map((b) => ({ ...b, approved_amount: toAmount(b.approved_amount) })),
+      categoryNotes,
       expenditure: expenditure.map((e) => ({
         ...e,
         annual_expenditure: toAmount(e.annual_expenditure),

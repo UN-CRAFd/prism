@@ -155,6 +155,15 @@ export async function GET(req: NextRequest) {
         const trancheOk = trancheDiffCents >= 0 && trancheDiffCents <= 100;
         const releaseDatesOk = n(row.missing_release_dates) === 0;
         return budgetOk && trancheOk && releaseDatesOk;
+      }).then(async (ok) => {
+        if (!ok) return false;
+        // Every budget category description within its word limit.
+        const notes = await query<Row>(
+          `SELECT description FROM reporting_platform.expenditure_budget_category_notes WHERE project_id = $1`,
+          [projectId]
+        );
+        const lim = limits.limit("expenditure_budget_category_notes.description");
+        return notes.every((r) => wordCount(r.description as string | null) <= lim);
       }),
 
       // Workplan — every activity has outcome, objective text and activity text.

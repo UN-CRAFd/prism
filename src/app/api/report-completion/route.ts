@@ -39,13 +39,17 @@ export async function GET(req: NextRequest) {
     const { project_id: projectId, data_type: dataType } = meta[0];
 
     // A row-list section: complete when it has >= min filled rows and no empty ones.
-    const listSection = (table: string, field: string, min: number) =>
-      query<Row>(
+    // `field` may be several columns: a row then counts as filled only when ALL are set.
+    const listSection = (table: string, field: string | string[], min: number) => {
+      const cols = Array.isArray(field) ? field : [field];
+      const filledSql = cols.map((c) => `(${c} IS NOT NULL AND ${c} <> '')`).join(" AND ");
+      return query<Row>(
         `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE ${field} IS NOT NULL AND ${field} <> '')::int AS filled
+                COUNT(*) FILTER (WHERE ${filledSql})::int AS filled
            FROM reporting_platform.${table} WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.filled) >= min && n(r[0]?.filled) === n(r[0]?.total));
+    };
 
     const [
       overview, surveys, risk, indicators, transfers, complementary,
@@ -140,7 +144,8 @@ export async function GET(req: NextRequest) {
       listSection("key_achievements", "achievement", 1),
       listSection("partnerships", "partner_organization", 1),
       listSection("results", "context", 3),
-      listSection("lessons_learned", "lesson_learned", 1),
+      // Lessons learned: category, lesson learned and adjustment informed are ALL required per row.
+      listSection("lessons_learned", ["category", "lesson_learned", "adjustment_informed"], 1),
       listSection("external_coverage", "description", 3),
 
       // Workplan — every activity has a progress status in this report's own window

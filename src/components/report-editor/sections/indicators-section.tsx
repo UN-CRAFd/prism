@@ -143,9 +143,9 @@ export function IndicatorsSection({
         currentYear={currentKey}
         yearLabel={keyLabel}
         subCols={[
-          { label: <>{labels.indicators.columns.achievedValue}<RequiredMark /></>, minWidth: "w-[100px] min-w-[100px]" },
-          { label: <>{labels.indicators.columns.status}<RequiredMark /></>, minWidth: "w-px whitespace-nowrap" },
-          { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
+          { label: <>{labels.indicators.columns.achievedValue}<RequiredMark /></>, minWidth: "w-[130px] min-w-[130px] whitespace-nowrap" },
+          { label: <>{labels.indicators.columns.status}<RequiredMark /></>, minWidth: "w-[170px] min-w-[170px] whitespace-nowrap" },
+          { label: labels.indicators.columns.comment, minWidth: "w-full min-w-[120px]" },
         ]}
         pastSubCols={pastSubCols}
       >
@@ -162,7 +162,7 @@ export function IndicatorsSection({
             if (!state) return null;
             return (
               <tr key={row.indicator_id} className="align-top">
-                <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-crafd-yellow-100")}>
+                <td style={ifz("ind")} className="px-3 py-2 border-r border-t bg-card">
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 mt-0.5 w-6 text-sm tabular-nums text-crafd-grey-600 text-right">{idx + 1}.</span>
                     <div className="flex-1 min-w-0">
@@ -193,10 +193,10 @@ export function IndicatorsSection({
                     </div>
                   </div>
                 </td>
-                <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
+                <td style={ifz("baseline")} className="px-2 py-2 border-r border-t bg-card tabular-nums">
                   <RefValue value={!row.is_standard ? state.baseline_value : row.baseline_value} />
                 </td>
-                <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
+                <td style={ifz("target")} className="px-2 py-2 border-r border-t bg-card tabular-nums">
                   <RefValue value={!row.is_standard ? state.target_value : row.target_value} />
                 </td>
 
@@ -219,7 +219,7 @@ export function IndicatorsSection({
                             value={state.status ?? "none"}
                             onValueChange={(v) => updateIndicator(row.currentLineId, { status: v === "none" ? null : v })}
                           >
-                            <SelectTrigger className="w-auto h-8 px-2 gap-1.5">
+                            <SelectTrigger className="w-full h-8 px-2 gap-1.5">
                               {state.status
                                 ? <StatusBadge value={state.status as IndicatorStatus} />
                                 : <span className="text-muted-foreground text-sm px-1">—</span>}

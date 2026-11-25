@@ -640,6 +640,16 @@ export function SectionTableEditor({
   const { endpoint, fields, requiredField, addLabel, emptyText, min, seed, max, kind } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
   const wordLimits = useWordLimits();
+  // Only a NEWLY ADDED row is highlighted yellow; it fades back to white after ~2 s.
+  // Editing an existing row never highlights it.
+  const [freshKey, setFreshKey] = useState<number | null>(null);
+  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashRow = (key: number) => {
+    if (freshTimer.current) clearTimeout(freshTimer.current);
+    setFreshKey(key);
+    freshTimer.current = setTimeout(() => setFreshKey(null), 2000);
+  };
+  useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
 
   const confirm = useConfirm();
   const [rows, setRows] = useState<RowState[]>([]);
@@ -836,6 +846,7 @@ export function SectionTableEditor({
     if (max !== undefined && rows.length >= max) return;
     const newRow = emptyRow(true);
     setRows((prev) => [...prev, newRow]);
+    flashRow(newRow.key);
     let currentId: number | null = null;
     let snapshot: RowState = newRow;
     pushCommand({
@@ -955,7 +966,7 @@ export function SectionTableEditor({
         </thead>
         <tbody className="divide-y">
           {rows.map((row, i) => (
-            <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-crafd-yellow-100")}>
+            <tr key={row.key} className={cn("transition-colors duration-700", row.key === freshKey && "bg-crafd-yellow-100")}>
               <td className="px-4 py-3 align-top text-sm tabular-nums text-crafd-grey-600">{i + 1}.</td>
               {fields.map((f) => (
                 <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-3 align-top">
@@ -1101,9 +1112,9 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyLessons,
     max: 5,
     fields: [
-      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), placeholder: "Select category", headClass: "w-52" },
+      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), placeholder: "Select category", headClass: "w-52", required: true },
       { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true, limitKey: "lessons_learned.lesson_learned" },
-      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result.", limitKey: "lessons_learned.adjustment_informed" },
+      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result.", limitKey: "lessons_learned.adjustment_informed", required: true },
     ],
   },
   "external-coverage": {

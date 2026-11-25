@@ -152,12 +152,33 @@ export function RiskSection({
     if (showAddRow) draftRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [showAddRow]);
 
+  // Only a NEWLY ADDED risk row is highlighted yellow, fading back to white after ~2 s;
+  // editing an existing row never highlights it. saveNewRisk remembers the ids that
+  // existed before the add, and the effect picks out the one that appears afterwards.
+  const [freshRiskId, setFreshRiskId] = useState<number | null>(null);
+  const idsBeforeAddRef = useRef<Set<number> | null>(null);
+  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const before = idsBeforeAddRef.current;
+    if (!before) return;
+    const added = risks.find((r) => !before.has(r.id));
+    if (!added) return;
+    idsBeforeAddRef.current = null;
+    if (freshTimer.current) clearTimeout(freshTimer.current);
+    setFreshRiskId(added.id);
+    freshTimer.current = setTimeout(() => setFreshRiskId(null), 2000);
+  }, [risks]);
+  useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
+
   async function saveNewRisk() {
     if (!newRiskName.trim() || !newRiskDescription.trim() || newLikelihood == null || newImpact == null) {
       setAddTried(true);
       return;
     }
-    if (await handleRiskAdd({ updated_likelihood: newLikelihood, updated_impact: newImpact })) {
+    idsBeforeAddRef.current = new Set(risks.map((r) => r.id));
+    const added = await handleRiskAdd({ updated_likelihood: newLikelihood, updated_impact: newImpact });
+    if (!added) idsBeforeAddRef.current = null;
+    if (added) {
       setShowAddRow(false);
       setAddTried(false);
       setNewLikelihood(null);
@@ -340,7 +361,7 @@ export function RiskSection({
                 const levelReady = state.updated_likelihood != null && state.updated_impact != null;
 
                 return (
-                  <tr key={risk.id} className={cn("align-top transition-colors", state.dirty && "bg-crafd-yellow-100")}>
+                  <tr key={risk.id} className={cn("align-top transition-colors duration-700", risk.id === freshRiskId && "bg-crafd-yellow-100")}>
                     {/* # */}
                     <td className="px-3 py-3 border-t">
                       <span className="text-sm tabular-nums text-crafd-grey-600">{i + 1}.</span>

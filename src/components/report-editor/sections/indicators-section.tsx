@@ -17,9 +17,8 @@ import { FALLBACK_COLORS } from "@/lib/risk";
 import { statusKeysFor, statusLabel, cycleLabel, STATUS_COLORS, type IndicatorStatus } from "@/lib/indicators";
 import { numericAmount } from "@/lib/numeric-input";
 import type { IndicatorMatrixRow, IndicatorRecord, IndicatorState, IndicatorYearCell } from "@/components/report-editor/types";
-import { type ContributorActivity } from "@/components/report-editor/contributor-matrix";
-import { resultLabel } from "@/lib/workplan";
 import { Tag } from "@/components/ui/tag";
+import { WordCounter } from "@/components/ui/word-counter";
 
 function StatusBadge({ value }: { value: IndicatorStatus }) {
   return <Badge colors={STATUS_COLORS[value] ?? FALLBACK_COLORS}>{statusLabel(value)}</Badge>;
@@ -45,10 +44,10 @@ function ifz(key: keyof typeof ICOL, z = 20): CSSProperties {
   return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
 }
 
-// "value (year)" for the baseline / target reference cells.
-function ValueYear({ value, year }: { value: string | null; year: number | null }) {
+// Baseline / target reference value (the year isn't shown at reporting stage).
+function RefValue({ value }: { value: string | null }) {
   if (!value) return <span className="text-muted-foreground/40">—</span>;
-  return <>{value}{year ? <span className="text-muted-foreground"> ({year})</span> : null}</>;
+  return <>{value}</>;
 }
 
 export interface IndicatorsSectionProps {
@@ -66,7 +65,6 @@ export interface IndicatorsSectionProps {
   isAdmin: boolean;
   // Freeze the column headers to the top while the matrix body scrolls.
   fillHeight?: boolean;
-  activities: ContributorActivity[];
 }
 
 export function IndicatorsSection({
@@ -80,7 +78,6 @@ export function IndicatorsSection({
   updateIndicator,
   isAdmin,
   fillHeight = false,
-  activities,
 }: IndicatorsSectionProps) {
   const statusKeys = statusKeysFor(indicatorReportType);
 
@@ -120,10 +117,9 @@ export function IndicatorsSection({
     // An empty table keeps its box, border and frozen header and says so on a row
     // inside — same as the project document's indicator table. A separate dashed
     // placeholder would make the empty state look unlike the populated one.
-    // 3 frozen + columns per visible year (3 for current, 2 for past) + trailing.
+    // 3 frozen + columns per visible year (3 for current, 2 for past).
     const emptyColSpan = 3
-      + visibleKeys.reduce((acc, k) => acc + (k === currentKey ? 3 : 2), 0)
-      + 1;
+      + visibleKeys.reduce((acc, k) => acc + (k === currentKey ? 3 : 2), 0);
 
     const pastSubCols = [
       { label: labels.indicators.columns.achievedValue, minWidth: "min-w-[90px]" },
@@ -147,14 +143,11 @@ export function IndicatorsSection({
         currentYear={currentKey}
         yearLabel={keyLabel}
         subCols={[
-          { label: <>{labels.indicators.columns.achievedValue}<RequiredMark /></>, minWidth: "w-[100px] min-w-[100px]" },
-          { label: <>{labels.indicators.columns.status}<RequiredMark /></>, minWidth: "w-px whitespace-nowrap" },
-          { label: labels.indicators.columns.comment, minWidth: "min-w-[200px]" },
+          { label: <>{labels.indicators.columns.achievedValue}<RequiredMark /></>, minWidth: "w-[130px] min-w-[130px] whitespace-nowrap" },
+          { label: <>{labels.indicators.columns.status}<RequiredMark /></>, minWidth: "w-[170px] min-w-[170px] whitespace-nowrap" },
+          { label: labels.indicators.columns.comment, minWidth: "w-full min-w-[120px]" },
         ]}
         pastSubCols={pastSubCols}
-        trailingCols={[
-          { label: "Linked outcome / output", className: "px-3 py-2 border-l border-b bg-neutral-100 text-left text-sm font-bold text-muted-foreground align-bottom whitespace-nowrap w-48" },
-        ]}
       >
         <tbody>
           {rows.length === 0 && (
@@ -169,7 +162,7 @@ export function IndicatorsSection({
             if (!state) return null;
             return (
               <tr key={row.indicator_id} className="align-top">
-                <td style={ifz("ind")} className={cn("px-3 py-2 border-r border-t bg-card", state.dirty && "bg-crafd-yellow-100")}>
+                <td style={ifz("ind")} className="px-3 py-2 border-r border-t bg-card">
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 mt-0.5 w-6 text-sm tabular-nums text-crafd-grey-600 text-right">{idx + 1}.</span>
                     <div className="flex-1 min-w-0">
@@ -189,22 +182,22 @@ export function IndicatorsSection({
                           </p>
                           <ItemComments section="indicators" itemId={row.currentLineId} />
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {row.category && <Tag>{row.category}</Tag>}
-                          {row.cycle && <Tag>{cycleLabel(row.cycle)}</Tag>}
-                          {row.is_standard
-                            ? <Tag>Standard</Tag>
-                            : <Tag variant="highlight">Custom</Tag>}
-                        </div>
+                        {/* Theme/type and standard/custom tags are omitted here —
+                            they don't matter at reporting stage. */}
+                        {row.cycle && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <Tag>{cycleLabel(row.cycle)}</Tag>
+                          </div>
+                        )}
                       </>
                     </div>
                   </div>
                 </td>
-                <td style={ifz("baseline")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
-                  <ValueYear value={!row.is_standard ? state.baseline_value : row.baseline_value} year={!row.is_standard ? (state.baseline_year ? Number(state.baseline_year) : null) : row.baseline_year} />
+                <td style={ifz("baseline")} className="px-2 py-2 border-r border-t bg-card tabular-nums">
+                  <RefValue value={!row.is_standard ? state.baseline_value : row.baseline_value} />
                 </td>
-                <td style={ifz("target")} className={cn("px-2 py-2 border-r border-t bg-card tabular-nums", state.dirty && "bg-crafd-yellow-100")}>
-                  <ValueYear value={!row.is_standard ? state.target_value : row.target_value} year={!row.is_standard ? (state.target_year ? Number(state.target_year) : null) : row.target_year} />
+                <td style={ifz("target")} className="px-2 py-2 border-r border-t bg-card tabular-nums">
+                  <RefValue value={!row.is_standard ? state.target_value : row.target_value} />
                 </td>
 
                 {visibleKeys.map((key) => {
@@ -226,7 +219,7 @@ export function IndicatorsSection({
                             value={state.status ?? "none"}
                             onValueChange={(v) => updateIndicator(row.currentLineId, { status: v === "none" ? null : v })}
                           >
-                            <SelectTrigger className="w-auto h-8 px-2 gap-1.5">
+                            <SelectTrigger className="w-full h-8 px-2 gap-1.5">
                               {state.status
                                 ? <StatusBadge value={state.status as IndicatorStatus} />
                                 : <span className="text-muted-foreground text-sm px-1">—</span>}
@@ -246,6 +239,7 @@ export function IndicatorsSection({
                             placeholder={labels.placeholders.indicatorComment}
                             className="text-sm min-h-[36px] resize-y"
                           />
+                          <WordCounter value={state.comment} limitKey="indicator_data.comment" />
                         </td>
                       </Fragment>
                     );
@@ -262,14 +256,6 @@ export function IndicatorsSection({
                     </Fragment>
                   );
                 })}
-
-                <td className="px-3 py-2 border-l border-t text-sm text-muted-foreground">
-                  {row.linked_results.length > 0
-                    ? row.linked_results.map((k) => (
-                        <div key={k}>{resultLabel(k, activities)}</div>
-                      ))
-                    : <span className="text-muted-foreground/40">—</span>}
-                </td>
               </tr>
             );
           })}

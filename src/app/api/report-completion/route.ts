@@ -4,6 +4,8 @@ import { requireSession, guardReport } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { workplanTypeCodeSql } from "@/lib/workplan";
 import { countsTowardProgress } from "@/lib/report-sections";
+import { getWordLimits } from "@/lib/word-limits";
+import { wordCount } from "@/lib/word-count";
 
 // Report completion, per section.
 //
@@ -37,13 +39,17 @@ export async function GET(req: NextRequest) {
     const { project_id: projectId, data_type: dataType } = meta[0];
 
     // A row-list section: complete when it has >= min filled rows and no empty ones.
-    const listSection = (table: string, field: string, min: number) =>
-      query<Row>(
+    // `field` may be several columns: a row then counts as filled only when ALL are set.
+    const listSection = (table: string, field: string | string[], min: number) => {
+      const cols = Array.isArray(field) ? field : [field];
+      const filledSql = cols.map((c) => `(${c} IS NOT NULL AND ${c} <> '')`).join(" AND ");
+      return query<Row>(
         `SELECT COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE ${field} IS NOT NULL AND ${field} <> '')::int AS filled
+                COUNT(*) FILTER (WHERE ${filledSql})::int AS filled
            FROM reporting_platform.${table} WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.filled) >= min && n(r[0]?.filled) === n(r[0]?.total));
+    };
 
     const [
       overview, surveys, risk, indicators, transfers, complementary,
@@ -56,9 +62,9 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => r[0]?.authorized === true),
 
-      // Surveys — every question assessed.
+      // Surveys — every question assessed and its context filled in.
       query<Row>(
-        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE assessment IS NOT NULL)::int AS ok
+        `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE assessment IS NOT NULL AND btrim(COALESCE(context, '')) <> '')::int AS ok
            FROM reporting_platform.surveys WHERE report_id = $1`,
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 && n(r[0]?.ok) === n(r[0]?.total)),
@@ -146,7 +152,8 @@ export async function GET(req: NextRequest) {
         [reportId]
       ).then((r) => n(r[0]?.total) > 0 ? n(r[0]?.ok) === n(r[0]?.total) : r[0]?.confirmed === true),
       listSection("results", "context", 3),
-      listSection("lessons_learned", "lesson_learned", 1),
+      // Lessons learned: category, lesson learned and adjustment informed are ALL required per row.
+      listSection("lessons_learned", ["category", "lesson_learned", "adjustment_informed"], 1),
       listSection("external_coverage", "description", 3),
 
       // Workplan — every activity has a progress status in this report's own window
@@ -216,21 +223,99 @@ export async function GET(req: NextRequest) {
       ).then((r) => r[0]?.leadership_ok === true &&r[0]?.fields_ok === true && r[0]?.ground_ok === true && r[0]?.photos_ok === true),
     ]);
 
+    // ── Word limits ──────────────────────────────────────────────────────────
+    // A section is also incomplete when ANY limited text in it is over its word limit —
+    // optional columns included (significance, survey context, indicator / workplan /
+    // expenditure comment, …). Counted in JS after selecting the text columns.
+    const wl = await getWordLimits();
+    const anyOver = (rows: Row[], cols: Record<string, string>) =>
+      rows.some((row) => Object.entries(cols).some(([col, key]) => wordCount(row[col] as string | null) > wl.limit(key)));
+    const overIn = (sql: string, params: unknown[], cols: Record<string, string>) =>
+      query<Row>(sql, params).then((rows) => anyOver(rows, cols));
+    // Tables that may not exist on every database (HACT, justifications): treat as within limits.
+    const overInSafe = (sql: string, params: unknown[], cols: Record<string, string>) =>
+      overIn(sql, params, cols).catch(() => false);
+    const listOver = (table: string, cols: Record<string, string>) =>
+      overIn(`SELECT ${Object.keys(cols).join(", ")} FROM reporting_platform.${table} WHERE report_id = $1`, [reportId], cols);
+
+    const [
+      surveysOver, riskOver, indicatorsOver, achievementsOver, partnershipsOver, resultsOver,
+      lessonsOver, coverageOver, workplanOver, expenditureOver, testimonialsOver, hactOver, justificationOver,
+    ] = await Promise.all([
+      listOver("surveys", { context: "surveys.context" }),
+      // risk_description only counts for risks added in this report: carried-over risks
+      // keep the ProDoc's description, which the partner can't edit.
+      overIn(
+        `SELECT CASE WHEN source_risk_id IS NULL THEN risk_description END AS risk_description, updated_mitigation
+           FROM reporting_platform.risk_management WHERE report_id = $1`,
+        [reportId],
+        { risk_description: "risk_management.risk_description", updated_mitigation: "risk_management.updated_mitigation" }
+      ),
+      overIn(
+        dataType === "report"
+          ? `SELECT comment FROM reporting_platform.indicator_data
+              WHERE report_id = $1
+                AND indicator_id IN (
+                      SELECT pd.indicator_id
+                        FROM reporting_platform.indicator_data pd
+                        JOIN reporting_platform.reports prodoc ON prodoc.id = pd.report_id
+                       WHERE prodoc.project_id = $2 AND prodoc.data_type = 'prodoc')`
+          : `SELECT comment FROM reporting_platform.indicator_data WHERE report_id = $1`,
+        dataType === "report" ? [reportId, projectId] : [reportId],
+        { comment: "indicator_data.comment" }
+      ),
+      listOver("key_achievements", { achievement: "key_achievements.achievement", significance: "key_achievements.significance" }),
+      listOver("partnerships", { result: "partnerships.result" }),
+      listOver("results", { context: "results.context", data_driven_decision: "results.data_driven_decision", resulting_impact: "results.resulting_impact" }),
+      listOver("lessons_learned", { lesson_learned: "lessons_learned.lesson_learned", adjustment_informed: "lessons_learned.adjustment_informed" }),
+      listOver("external_coverage", { description: "external_coverage.description", reach_indicator: "external_coverage.reach_indicator" }),
+      // The report's own work plan window (same match as the Workplan rule above).
+      overIn(
+        `SELECT e.comment
+           FROM reporting_platform.workplan_entries e
+           JOIN reporting_platform.workplan_updates wu ON wu.id = e.update_id AND wu.project_id = $1
+           JOIN reporting_platform.reports r ON r.id = $2
+          WHERE wu.year = r.year AND wu.type_code = ${workplanTypeCodeSql("r")}`,
+        [projectId, reportId],
+        { comment: "workplan_entries.comment" }
+      ),
+      listOver("expenditure_entries", { comment: "expenditure_entries.comment" }),
+      query<Row>(`SELECT kind, quote FROM reporting_platform.testimonials WHERE report_id = $1`, [reportId]).then((rows) =>
+        rows.some((t) => {
+          const key =
+            t.kind === "leadership" ? "testimonials.leadership_quote"
+            : t.kind === "partner" ? "testimonials.partner_quote"
+            : t.kind === "ground" ? "testimonials.ground_description"
+            : null;
+          return key !== null && wordCount(t.quote as string | null) > wl.limit(key);
+        })
+      ),
+      // HACT and Justification only exist on project updates.
+      dataType === "update"
+        ? overInSafe(`SELECT partner_comment FROM reporting_platform.hact_recommendations WHERE project_id = $1`, [projectId], { partner_comment: "hact_recommendations.partner_comment" })
+        : Promise.resolve(false),
+      dataType === "update"
+        ? overInSafe(`SELECT justification FROM reporting_platform.update_justifications WHERE report_id = $1`, [reportId], { justification: "update_justifications.justification" })
+        : Promise.resolve(false),
+    ]);
+
     const sections: Record<string, boolean> = {
       overview,
-      surveys,
-      achievements,
-      partnerships,
-      results,
-      lessons,
-      "external-coverage": coverage,
-      risk,
-      indicators,
-      workplan,
-      expenditure,
+      surveys: surveys && !surveysOver,
+      achievements: achievements && !achievementsOver,
+      partnerships: partnerships && !partnershipsOver,
+      results: results && !resultsOver,
+      lessons: lessons && !lessonsOver,
+      "external-coverage": coverage && !coverageOver,
+      risk: risk && !riskOver,
+      indicators: indicators && !indicatorsOver,
+      workplan: workplan && !workplanOver,
+      expenditure: expenditure && !expenditureOver,
       transfers,
       complementary,
-      testimonials,
+      testimonials: testimonials && !testimonialsOver,
+      // Project updates only: complete unless over the word limit (no other rule).
+      ...(dataType === "update" ? { hact: !hactOver, justification: !justificationOver } : {}),
     };
 
     // The progress figures use countsTowardProgress (currently every section);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import labels from "@/lib/labels";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { ItemComments } from "@/components/report-editor/comments-context";
-import { MatrixTableShell, HEAD_TEXT, HEAD_BG, HEAD_COLOR } from "@/components/report-editor/matrix-table";
+import { MatrixTableShell } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { FALLBACK_COLORS } from "@/lib/risk";
 import { optionValues } from "@/lib/options";
@@ -46,16 +46,21 @@ import {
 
 // Frozen left columns for the matrix (org identity stays put while the per-year
 // amount/linked-activity columns scroll horizontally).
-const TCOL = {
-  org:     { left: 0,   w: 220 },
-  website: { left: 220, w: 170 },
-  type:    { left: 390, w: 170 },
-} as const;
-const TRANSFER_FROZEN_WIDTH = 560;
+// The website column is optional (config.showWebsite), so offsets are
+// computed per config rather than fixed.
+const TCOL_W = { org: 220, website: 170, type: 170 } as const;
+type TColKey = keyof typeof TCOL_W;
 
-function tfz(key: keyof typeof TCOL, z = 20): CSSProperties {
-  const c = TCOL[key];
-  return { position: "sticky", left: c.left, width: c.w, minWidth: c.w, maxWidth: c.w, zIndex: z };
+function frozenLayout(showWebsite: boolean) {
+  const keys: TColKey[] = showWebsite ? ["org", "website", "type"] : ["org", "type"];
+  const left: Partial<Record<TColKey, number>> = {};
+  let x = 0;
+  for (const k of keys) { left[k] = x; x += TCOL_W[k]; }
+  const tfz = (key: TColKey, z = 20): CSSProperties => {
+    const w = TCOL_W[key];
+    return { position: "sticky", left: left[key] ?? 0, width: w, minWidth: w, maxWidth: w, zIndex: z };
+  };
+  return { tfz, frozenWidth: x };
 }
 
 // Coloured word-badge for the (optional) type column — mirrors the report editor.
@@ -93,6 +98,8 @@ export interface ContributorMatrixConfig {
   amountField: string;              // "amount_transferred" | "contribution_amount"
   activityField: string;            // "linked_activity_id" | "linked_activity_ids"
   activityMode: "single" | "multi"; // single Select vs multi-select dropdown
+  showWebsite?: boolean;            // website column (default true)
+  showActivities?: boolean;         // linked-activity column (default true)
   typeOptionsKey: string;           // options-registry key resolved live at render
   typeBadgeColors?: Record<string, { bg: string; text: string; border: string }>;
   deleteAriaLabel: string;
@@ -114,7 +121,6 @@ export interface ContributorMatrixConfig {
     typeColumn: string;
     amountColumn: string;
     activityColumn: string;
-    subTotalColumn: string;
     totalColumn: string;
     selectType: string;
     selectActivity: string;
@@ -185,6 +191,10 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  // Only a NEWLY ADDED row is highlighted yellow, fading back to white after ~2 s.
+  const [freshId, setFreshId] = useState<number | null>(null);
+  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
 
   // Normalise a raw per-year cell onto the generic { amount, activityIds } shape.
   const normCell = useCallback((raw: RawCell): YearCell => {
@@ -373,6 +383,9 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
       if (!lRes.ok) throw new Error(config.messages.addLine);
 
       await load();
+      if (freshTimer.current) clearTimeout(freshTimer.current);
+      setFreshId(master.id as number);
+      freshTimer.current = setTimeout(() => setFreshId(null), 2000);
     } catch (e) {
       onError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -449,7 +462,7 @@ function useContributorMatrix({ reportId, projectId, config, pushCommand, onSave
     }
   }, [reportId, states, config, confirm, onError, load, pushCommand, cellBody]);
 
-  return { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell };
+  return { rows, years, currentYear, activities, states, loading, adding, deleting, freshId, onAdd, onDelete, updateMaster, updateCell };
 }
 
 // Linked-activity picker shared by BOTH matrix modes so transfers and
@@ -516,7 +529,7 @@ export function LinkedActivityPicker({
 
 export function ContributorMatrix(props: ContributorMatrixProps) {
   const { config } = props;
-  const { rows, years, currentYear, activities, states, loading, adding, deleting, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
+  const { rows, years, currentYear, activities, states, loading, adding, deleting, freshId, onAdd, onDelete, updateMaster, updateCell } = useContributorMatrix(props);
   const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
   const { pastYears, shownYears, toggleYear, visibleYears } = usePastYears(years, currentYear, config.section);
   const readOnly = useReadOnly();
@@ -565,6 +578,9 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
   if (loading) return <LoadingState />;
 
   const activityById = new Map(activities.map((a) => [a.id, a]));
+  const showWebsite = config.showWebsite !== false;
+  const showActivities = config.showActivities !== false;
+  const { tfz, frozenWidth } = frozenLayout(showWebsite);
   const cellAmount = (row: MatrixRow, year: number) => {
     const raw = year === currentYear
       ? states[row.entityId]?.amount
@@ -572,9 +588,7 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
     const v = Number(raw);
     return raw == null || raw === "" || Number.isNaN(v) ? 0 : v;
   };
-  const rowSubtotal = (row: MatrixRow) => years.reduce((s, y) => s + cellAmount(row, y), 0);
   const yearTotal = (year: number) => rows.reduce((s, r) => s + cellAmount(r, year), 0);
-  const grandTotal = rows.reduce((s, r) => s + rowSubtotal(r), 0);
 
   // Add a blank row — the partner fills every field inline in the table. Sits directly
   // under the table (the shell's `footer` slot keeps it on the card's real bottom
@@ -623,23 +637,22 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
           fillHeight={props.fillHeight}
           hugContent
           footer={addRow}
-          minWidth={TRANSFER_FROZEN_WIDTH}
+          minWidth={frozenWidth}
           leadingCols={[
             { label: <>{config.labels.identityColumn}<RequiredMark /></>, style: tfz("org", 30) },
-            { label: config.labels.websiteColumn, style: tfz("website", 30) },
+            ...(showWebsite ? [{ label: config.labels.websiteColumn, style: tfz("website", 30) }] : []),
             { label: config.labels.typeColumn, style: tfz("type", 30) },
           ]}
           years={visibleYears}
           currentYear={currentYear}
           subCols={[
             { label: <>{config.labels.amountColumn}<RequiredMark /></>, minWidth: config.labels.amountMinWidth },
-            { label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth },
+            ...(showActivities ? [{ label: config.labels.activityColumn, minWidth: config.labels.activityMinWidth }] : []),
           ]}
           pastSubCols={[
             { label: config.labels.amountColumn, minWidth: "min-w-[110px]" },
           ]}
           trailingCols={[
-            { label: config.labels.subTotalColumn, className: `px-3 py-2 text-right ${HEAD_TEXT} ${HEAD_COLOR} border-l border-b ${HEAD_BG} align-bottom min-w-[150px]` },
             { className: "px-2 py-2 border-l border-b bg-neutral-100 w-12" },
           ]}
         >
@@ -647,20 +660,21 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
               {rows.map((row) => {
                 const state = states[row.entityId];
                 if (!state) return null;
-                const dirty = state.masterDirty || state.cellDirty;
                 return (
                   <tr key={row.entityId} className="align-top">
                     {/* Frozen: organisation identity (master, editable anytime) */}
-                    <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
+                    <td style={tfz("org")} className={cn("px-2 py-1 border-r border-t bg-card transition-colors duration-700", freshId === row.entityId && "bg-crafd-yellow-100")}>
                       <div className="flex items-center gap-1">
                         <Input value={state.name} onChange={(e) => updateMaster(row.entityId, { name: e.target.value })} placeholder={config.labels.identityPlaceholder} className="text-sm h-8 flex-1" />
                         <ItemComments section={config.section} itemId={row.entityId} />
                       </div>
                     </td>
-                    <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
-                      <Input value={state.website} onChange={(e) => updateMaster(row.entityId, { website: e.target.value })} placeholder={config.labels.websitePlaceholder} className="text-sm h-8" />
-                    </td>
-                    <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card", dirty && "bg-crafd-yellow-100")}>
+                    {showWebsite && (
+                      <td style={tfz("website")} className={cn("px-2 py-1 border-r border-t bg-card transition-colors duration-700", freshId === row.entityId && "bg-crafd-yellow-100")}>
+                        <Input value={state.website} onChange={(e) => updateMaster(row.entityId, { website: e.target.value })} placeholder={config.labels.websitePlaceholder} className="text-sm h-8" />
+                      </td>
+                      )}
+                    <td style={tfz("type")} className={cn("px-2 py-1 border-r border-t bg-card transition-colors duration-700", freshId === row.entityId && "bg-crafd-yellow-100")}>
                       <Select value={state.type || "none"} onValueChange={(v) => updateMaster(row.entityId, { type: v === "none" ? null : v })}>
                         <SelectTrigger className="w-full h-8 px-2">
                           {state.type
@@ -706,16 +720,18 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                                 className="text-sm h-8 text-right tabular-nums"
                               />
                             </td>
-                            <td className="px-1 py-1 border-t bg-crafd-yellow/10">
-                              <LinkedActivityPicker
-                                activities={activities}
-                                activityById={activityById}
-                                selected={state.activityIds}
-                                multiple={config.activityMode === "multi"}
-                                emptyLabel={config.labels.selectActivity}
-                                onChange={(ids) => updateCell(row.entityId, { activityIds: ids })}
-                              />
-                            </td>
+                            {showActivities && (
+                              <td className="px-1 py-1 border-t bg-crafd-yellow/10">
+                                <LinkedActivityPicker
+                                  activities={activities}
+                                  activityById={activityById}
+                                  selected={state.activityIds}
+                                  multiple={config.activityMode === "multi"}
+                                  emptyLabel={config.labels.selectActivity}
+                                  onChange={(ids) => updateCell(row.entityId, { activityIds: ids })}
+                                />
+                              </td>
+                              )}
                           </Fragment>
                         );
                       }
@@ -727,10 +743,6 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                       );
                     })}
 
-                    {/* Sub-total across all years */}
-                    <td className="px-3 py-2 border-l border-t text-right font-medium tabular-nums bg-muted/20">
-                      {formatAmount(rowSubtotal(row))}
-                    </td>
                     <td className="px-2 py-2 border-l border-t text-center">
                       <button onClick={() => onDelete(row)} disabled={deleting === row.entityId} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40" aria-label={config.deleteAriaLabel}>
                         {deleting === row.entityId ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
@@ -743,14 +755,14 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
             <tfoot>
               <tr className="text-sm font-semibold">
                 <td style={tfz("org", 30)} className="px-3 py-3 border-r border-t bg-neutral-100 whitespace-nowrap">{config.labels.totalColumn}</td>
-                <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />
+                {showWebsite && <td style={tfz("website", 30)} className="border-r border-t bg-neutral-100" />}
                 <td style={tfz("type", 30)} className="border-r border-t bg-neutral-100" />
                 {visibleYears.map((year) => {
                   if (year === currentYear) {
                     return (
                       <Fragment key={year}>
                         <td className="px-2 py-3 border-l border-t text-right tabular-nums bg-crafd-yellow/20">{formatAmount(yearTotal(year))}</td>
-                        <td className="border-t bg-crafd-yellow/20" />
+                        {showActivities && <td className="border-t bg-crafd-yellow/20" />}
                       </Fragment>
                     );
                   }
@@ -758,7 +770,6 @@ export function ContributorMatrix(props: ContributorMatrixProps) {
                     <td key={year} className="px-2 py-3 border-l border-t text-right tabular-nums bg-neutral-100 opacity-60">{formatAmount(yearTotal(year))}</td>
                   );
                 })}
-                <td className="px-3 py-3 border-l border-t text-right tabular-nums bg-neutral-100">{formatAmount(grandTotal)}</td>
                 <td className="border-l border-t bg-neutral-100" />
               </tr>
             </tfoot>
@@ -782,6 +793,9 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
   activityField: "linked_activity_ids",
   activityMode: "multi",
   typeOptionsKey: "transferPartnerType",
+  // Transfers only ask who received the money and how much.
+  showWebsite: false,
+  showActivities: false,
   deleteAriaLabel: "Delete transfer",
   deleteConfirm: (name) => `Delete transfer for "${name}"?`,
   messages: {
@@ -801,7 +815,6 @@ export const TRANSFERS_MATRIX_CONFIG: ContributorMatrixConfig = {
     typeColumn: labels.transfers.columns.partnerType,
     amountColumn: labels.transfers.columns.amountTransferred,
     activityColumn: labels.transfers.columns.linkedActivities,
-    subTotalColumn: labels.transfers.columns.subTotal,
     totalColumn: labels.transfers.columns.total,
     selectType: labels.transfers.selectPartnerType,
     selectActivity: labels.transfers.selectActivities,
@@ -844,7 +857,6 @@ export const COMPLEMENTARY_MATRIX_CONFIG: ContributorMatrixConfig = {
     typeColumn: labels.complementary.columns.fundingType,
     amountColumn: labels.complementary.columns.contributionAmount,
     activityColumn: labels.complementary.columns.linkedActivities,
-    subTotalColumn: labels.complementary.columns.subTotal,
     totalColumn: labels.complementary.columns.total,
     selectType: labels.complementary.selectFundingType,
     selectActivity: labels.complementary.selectActivities,

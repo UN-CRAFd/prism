@@ -13,7 +13,8 @@ import {
   Building2,
   FolderKanban,
   FileStack,
-  ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   ChevronRight,
   ChevronDown,
   Edit,
@@ -42,6 +43,7 @@ import { cn, projectSlug, shortName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Hint } from "@/components/ui/hint";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // Full-name tooltip for a truncated label — the same Tooltip the editor headers
@@ -572,12 +574,12 @@ export function AppSidebar() {
   return (
     // `no-print` only bites under body.guide-print (see globals.css), so printing
     // any other page is unchanged.
-    <div className="no-print relative shrink-0">
+    <div className={cn("no-print relative shrink-0", !isOpen && "w-14 border-r border-border bg-sidebar")}>
     <aside className={cn(
       "flex h-screen flex-col border-r border-border bg-sidebar overflow-hidden transition-all duration-300 ease-in-out",
       isOpen ? "w-64" : "w-0"
     )}>
-      <div className="flex shrink-0 items-center gap-3 px-6 h-24">
+      <div className="flex shrink-0 items-center justify-between gap-3 pl-6 pr-3 h-24">
         <Image
           src="/images/crafd-logo-full-black.svg"
           alt="CRAF'd"
@@ -586,6 +588,18 @@ export function AppSidebar() {
           className="h-auto w-[92px]"
           priority
         />
+        {/* Collapse button: top right of the sidebar header while open. */}
+        <Hint label="Collapse sidebar">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+            aria-label="Collapse sidebar"
+            className="size-8 shrink-0 text-crafd-grey-600 hover:text-crafd-grey-900"
+          >
+            <PanelLeftClose className="size-5" />
+          </Button>
+        </Hint>
       </div>
 
       <Separator />
@@ -1206,16 +1220,24 @@ export function AppSidebar() {
         </div>
       </div>
     </aside>
-    <button
-      onClick={() => setIsOpen(!isOpen)}
-      // Brand-yellow tab with a bold chevron so it stands out against both the
-      // sidebar and the page (review feedback: the old grey tab was easy to miss).
-      className="absolute top-1/2 right-0 translate-x-full -translate-y-1/2 z-20 flex items-center justify-center w-5 h-10 bg-crafd-yellow-400 text-crafd-grey-900 rounded-r-md hover:bg-crafd-yellow-500 transition-colors focus-visible:outline-2 focus-visible:outline-crafd-grey-900"
-      aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-      title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-    >
-      {isOpen ? <ChevronLeft className="size-3" /> : <ChevronRight className="size-3" />}
-    </button>
+    {/* Expand button: while collapsed this wrapper becomes a 56px rail on the left edge
+        (so the page content starts to its right and the button can never overlap a
+        page title); the button sits at the top of that rail. */}
+    {!isOpen && (
+      <div className="absolute left-3 top-3 z-30">
+        <Hint label="Expand sidebar">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(true)}
+            aria-label="Expand sidebar"
+            className="size-8 text-crafd-grey-600 hover:text-crafd-grey-900"
+          >
+            <PanelLeftOpen className="size-5" />
+          </Button>
+        </Hint>
+      </div>
+    )}
     </div>
   );
 }

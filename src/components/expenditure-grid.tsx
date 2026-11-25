@@ -24,6 +24,7 @@ import { formatAmount, num, type ExpenditureCategory } from "@/lib/expenditure";
 import { CURRENT_YEAR_HEAD, HEAD_BG, HEAD_COLOR, HEAD_DIVIDER, HEAD_DIVIDER_COLOR, SUBHEAD_BG, HEAD_TEXT, SUBHEAD_TEXT } from "@/components/report-editor/matrix-table";
 import { usePastYears, PastYearChips } from "@/components/report-editor/past-year-chips";
 import { Hint } from "@/components/ui/hint";
+import { WordCounter } from "@/components/ui/word-counter";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenditure reporting grid. Stored inputs are approved annual budgets (admin),
@@ -793,12 +794,12 @@ export function ExpenditurePartnerEditor({
           <code>db/add-expenditure-forecasts.sql</code>.
         </div>
       )}
-    {/* Box hugs the table (w-fit) so few columns don't leave an empty bordered
-        area; max-w-full keeps wide grids scrolling inside the page. */}
-    <div className={cn("scroll-fade w-fit max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}
+    {/* Box and table stretch to the full width when there is room (e.g. sidebar
+        collapsed); the table keeps its min-width, so a narrow page scrolls instead. */}
+    <div className={cn("scroll-fade w-full max-w-full rounded-xl border bg-card", fillHeight ? "flex-1 min-h-0 overflow-auto" : "overflow-x-auto")}
       // Left edge fade starts after the frozen "Budget categories" column.
       style={{ "--scroll-fade-left": `${FCOL_WIDTH.cat}px` } as CSSProperties}>
-      <table className="text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
+      <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: L.width }}>
         <thead>
           <tr className="text-xs" ref={headRowRef}>
             <th rowSpan={2} style={fillHeight ? { ...L.fz("cat", 40), top: 0 } : L.fz("cat", 30)} className={cn("text-left px-3 py-2 border-r border-b align-bottom", HEAD_DIVIDER, HEAD_COLOR, HEAD_BG, HEAD_TEXT, fillHeight && "sticky")}>Budget categories</th>
@@ -915,6 +916,7 @@ export function ExpenditurePartnerEditor({
                     placeholder="Include all the key outputs yearwise."
                     className="text-xs min-h-[60px] resize-y w-full"
                   />
+                  <WordCounter value={edits[c.id]?.comment} limitKey="expenditure_entries.comment" />
                 </td>
                 {columnYears.map((y) => {
                     const ap = budFor(y, c.id);

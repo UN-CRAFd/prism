@@ -25,7 +25,7 @@ import labels from "@/lib/labels";
 import { formatInstruction } from "@/lib/format-instruction";
 import { optionItems, optionValues } from "@/lib/options";
 import { CONTACT_ROLES } from "@/lib/contact-roles";
-import { useCharLimits } from "@/lib/use-char-limits";
+import { useWordLimits } from "@/lib/use-word-limits";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { InvestmentThemeSelect } from "@/components/admin/investment-theme-select";
@@ -159,7 +159,7 @@ export function GeneralInfoAdminEditor({
   pushCommand: (cmd: { undo: () => void; redo: () => void }) => void;
 }) {
   const confirm = useConfirm();
-  const charLimits = useCharLimits();
+  const wordLimits = useWordLimits();
 
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [partnerId, setPartnerId] = useState<number | null>(null);
@@ -631,6 +631,39 @@ export function GeneralInfoAdminEditor({
 
   if (loading) return <LoadingState className="py-8" />;
 
+  // Gender Equality Marker field — rendered in the admin Classification card,
+  // or under Description in the project data card for partners.
+  const gemField = (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <label className="text-sm text-muted-foreground">{g.fields.genderEqualityMarker}<RequiredMark /></label>
+        <InfoPopover
+          description={g.genderEqualityMarkerDescription}
+          meansOfVerification={g.genderEqualityMarkerAssessment}
+          triggerTitle={g.fields.genderEqualityMarker}
+          descriptionHeading="What it means"
+          secondaryHeading="How to assess it"
+        />
+      </div>
+      <Select
+        value={form.gender_equality_marker}
+        onValueChange={(v) => setField("gender_equality_marker", v)}
+      >
+        <SelectTrigger className="w-full text-sm">
+          <SelectValue placeholder={g.placeholders.genderEqualityMarker} />
+        </SelectTrigger>
+        <SelectContent>
+          {optionItems("genderEqualityMarker").map((it) => (
+            <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+          ))}
+          {form.gender_equality_marker && !optionItems("genderEqualityMarker").some((it) => it.value === form.gender_equality_marker) && (
+            <SelectItem value={form.gender_equality_marker}>{form.gender_equality_marker}</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     // Card order via flex `order-*`: Title/data card first, contacts second.
     <div className="flex flex-col gap-6">
@@ -791,9 +824,12 @@ export function GeneralInfoAdminEditor({
             onChange={(html) => setField("description", html)}
             placeholder={g.placeholders.description}
             disabled={readOnly}
-            maxChars={charLimits.description}
+            maxWords={wordLimits.limit("prodoc.description")}
           />
         </div>
+
+        {/* Partners: Gender Equality Marker sits here (no Classification card). */}
+        {!isAdmin && gemField}
 
         {/* Participating Organizations list */}
         <div className="space-y-2">
@@ -892,16 +928,18 @@ export function GeneralInfoAdminEditor({
       </div>
 
       {/* Classification — admin-only allocation/investment fields, plus the
-          Gender Equality Marker that partners fill in. Sits between the
-          project data card and Contacts (same order-1, later in the DOM). */}
-      <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
+          Gender Equality Marker. Admin view only: partners don’t see this card —
+          their Gender Equality Marker sits in the project data card, under
+          Description. Sits between the project data card and Contacts
+          (same order-1, later in the DOM). */}
+      {isAdmin && (
+        <div className="order-1 rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-center gap-2">
           <Tags className="size-4 text-muted-foreground" />
           <h3 className="t-heading-editor">{g.classificationHeading}</h3>
         </div>
 
-        {isAdmin && (
-          <div className="space-y-2">
+        <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="size-3" />
               <span>{g.adminOnlyNote}</span>
@@ -953,38 +991,10 @@ export function GeneralInfoAdminEditor({
               </div>
             </div>
           </div>
-        )}
 
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <label className="text-sm text-muted-foreground">{g.fields.genderEqualityMarker}</label>
-            <InfoPopover
-              description={g.genderEqualityMarkerDescription}
-              meansOfVerification={g.genderEqualityMarkerAssessment}
-              triggerTitle={g.fields.genderEqualityMarker}
-              descriptionHeading="What it means"
-              secondaryHeading="How to assess it"
-            />
-          </div>
-          <Select
-            value={form.gender_equality_marker || OPTION_NONE}
-            onValueChange={(v) => setField("gender_equality_marker", v === OPTION_NONE ? "" : v)}
-          >
-            <SelectTrigger className="w-full text-sm">
-              <SelectValue placeholder={g.placeholders.select} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={OPTION_NONE} className="text-muted-foreground">{g.placeholders.none}</SelectItem>
-              {optionItems("genderEqualityMarker").map((it) => (
-                <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-              ))}
-              {form.gender_equality_marker && !optionItems("genderEqualityMarker").some((it) => it.value === form.gender_equality_marker) && (
-                <SelectItem value={form.gender_equality_marker}>{form.gender_equality_marker}</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+        {gemField}
       </div>
+      )}
 
       {/* Applicants — project contacts */}
       <div className="order-2 rounded-xl border bg-card p-6 space-y-4">
@@ -1022,49 +1032,47 @@ export function GeneralInfoAdminEditor({
                   <tr key={c.id} className="transition-colors hover:bg-muted/20">
                     <td className="px-4 py-3 align-middle">
                       {editingContactId === c.id ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={splitName(c.name).first}
-                            onChange={(e) => editContactField(c.id, { name: joinName(e.target.value, splitName(c.name).last) })}
-                            onBlur={() => commitContactIdentity(c.id)}
-                            placeholder={g.contactFirstName}
-                            className="h-8 flex-1 min-w-0 text-sm font-medium"
-                            aria-label={g.contactFirstName}
-                            autoFocus
-                          />
-                          <Input
-                            value={splitName(c.name).last}
-                            onChange={(e) => editContactField(c.id, { name: joinName(splitName(c.name).first, e.target.value) })}
-                            onBlur={() => commitContactIdentity(c.id)}
-                            placeholder={g.contactLastName}
-                            className="h-8 flex-1 min-w-0 text-sm font-medium"
-                            aria-label={g.contactLastName}
-                          />
-                          <Combobox
-                            items={orgSuggestions}
-                            value={c.organization ?? ""}
-                            onChange={(v) => editContactField(c.id, { organization: v || null })}
-                            onBlur={() => commitContactIdentity(c.id)}
-                            placeholder="Organisation"
-                            className="flex-1 min-w-0"
-                          />
-                          <Input
-                            value={c.job_title ?? ""}
-                            onChange={(e) => editContactField(c.id, { job_title: e.target.value || null })}
-                            onBlur={() => commitContactIdentity(c.id)}
-                            placeholder={g.contactRole}
-                            className="h-8 flex-1 min-w-0 text-sm"
-                            aria-label={g.contactRole}
-                          />
-                          <Input
-                            value={c.email ?? ""}
-                            onChange={(e) => editContactField(c.id, { email: e.target.value })}
-                            onBlur={() => commitContactIdentity(c.id)}
-                            placeholder={g.contactEmail}
-                            type="email"
-                            className="h-8 flex-1 min-w-0 text-sm"
-                            aria-label={g.contactEmail}
-                          />
+                        <div className="flex flex-col gap-2">
+                          {/* Line 1: first + last name. Line 2: job title + email. The
+                              organisation search sits in the Organisation column. */}
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={splitName(c.name).first}
+                              onChange={(e) => editContactField(c.id, { name: joinName(e.target.value, splitName(c.name).last) })}
+                              onBlur={() => commitContactIdentity(c.id)}
+                              placeholder={g.contactFirstName}
+                              className="h-8 flex-1 min-w-0 text-sm font-medium"
+                              aria-label={g.contactFirstName}
+                              autoFocus
+                            />
+                            <Input
+                              value={splitName(c.name).last}
+                              onChange={(e) => editContactField(c.id, { name: joinName(splitName(c.name).first, e.target.value) })}
+                              onBlur={() => commitContactIdentity(c.id)}
+                              placeholder={g.contactLastName}
+                              className="h-8 flex-1 min-w-0 text-sm font-medium"
+                              aria-label={g.contactLastName}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={c.job_title ?? ""}
+                              onChange={(e) => editContactField(c.id, { job_title: e.target.value || null })}
+                              onBlur={() => commitContactIdentity(c.id)}
+                              placeholder={g.contactRole}
+                              className="h-8 flex-1 min-w-0 text-sm"
+                              aria-label={g.contactRole}
+                            />
+                            <Input
+                              value={c.email ?? ""}
+                              onChange={(e) => editContactField(c.id, { email: e.target.value })}
+                              onBlur={() => commitContactIdentity(c.id)}
+                              placeholder={g.contactEmail}
+                              type="email"
+                              className="h-8 flex-1 min-w-0 text-sm"
+                              aria-label={g.contactEmail}
+                            />
+                          </div>
                         </div>
                       ) : (
                         <p className="truncate">
@@ -1078,14 +1086,23 @@ export function GeneralInfoAdminEditor({
                       )}
                     </td>
                     <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                      {editingContactId !== c.id ? (c.organization || "—") : null}
+                      {editingContactId === c.id ? (
+                        <Combobox
+                          items={orgSuggestions}
+                          value={c.organization ?? ""}
+                          onChange={(v) => editContactField(c.id, { organization: v || null })}
+                          onBlur={() => commitContactIdentity(c.id)}
+                          placeholder={g.placeholders.organization}
+                          className="min-w-0"
+                        />
+                      ) : (c.organization || "—")}
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <MultiSelect
                         staticItems={CONTACT_ROLES}
                         value={c.roles?.split("|").filter(Boolean) ?? []}
                         onChange={(v) => patchContact(c.id, { roles: v.length ? v.join("|") : null })}
-                        placeholder="No roles"
+                        placeholder={g.placeholders.role}
                         triggerDisplay="text"
                         className="h-8 text-sm"
                       />
@@ -1162,23 +1179,25 @@ export function GeneralInfoAdminEditor({
                                 aria-label={g.contactLastName}
                               />
                             </div>
-                            <Input
-                              value={pendingContactEmail}
-                              onChange={(e) => { setPendingContactEmail(e.target.value); if (pendingContactErrors.email) setPendingContactErrors((p) => ({ ...p, email: false })); }}
-                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") cancelAddContact(); }}
-                              placeholder={`${g.contactEmail} *`}
-                              type="email"
-                              className={cn("h-8 text-sm", pendingContactErrors.email && "border-destructive focus-visible:ring-destructive")}
-                              aria-label={g.contactEmail}
-                            />
-                            <Input
-                              value={pendingContactJobTitle}
-                              onChange={(e) => setPendingContactJobTitle(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") cancelAddContact(); }}
-                              placeholder={`${g.contactRole} (optional)`}
-                              className="h-8 text-sm"
-                              aria-label={g.contactRole}
-                            />
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={pendingContactJobTitle}
+                                onChange={(e) => setPendingContactJobTitle(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") cancelAddContact(); }}
+                                placeholder={`${g.contactRole} (optional)`}
+                                className="h-8 flex-1 min-w-0 text-sm"
+                                aria-label={g.contactRole}
+                              />
+                              <Input
+                                value={pendingContactEmail}
+                                onChange={(e) => { setPendingContactEmail(e.target.value); if (pendingContactErrors.email) setPendingContactErrors((p) => ({ ...p, email: false })); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPendingContact(); } if (e.key === "Escape") cancelAddContact(); }}
+                                placeholder={`${g.contactEmail} *`}
+                                type="email"
+                                className={cn("h-8 flex-1 min-w-0 text-sm", pendingContactErrors.email && "border-destructive focus-visible:ring-destructive")}
+                                aria-label={g.contactEmail}
+                              />
+                            </div>
                           </>
                         )}
                         {(pendingContactErrors.name || pendingContactErrors.email || pendingContactErrors.organisation) && (
@@ -1193,7 +1212,7 @@ export function GeneralInfoAdminEditor({
                             items={orgSuggestions}
                             value={pendingContactOrg}
                             onChange={(v) => { setPendingContactOrg(v); if (pendingContactErrors.organisation) setPendingContactErrors((p) => ({ ...p, organisation: false })); }}
-                            placeholder="Organisation"
+                            placeholder={g.placeholders.organization}
                           />
                         </div>
                       )}
@@ -1204,7 +1223,7 @@ export function GeneralInfoAdminEditor({
                           staticItems={CONTACT_ROLES}
                           value={pendingContactRoles}
                           onChange={setPendingContactRoles}
-                          placeholder="Roles (optional)"
+                          placeholder={g.placeholders.role}
                           className="h-8 text-sm"
                         />
                         <div className="flex items-center justify-end gap-2">

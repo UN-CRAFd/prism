@@ -24,7 +24,7 @@ import { DOC_ID_PARAM, documentPath, documentTitle, resolveDocument } from "@/li
 import { UPDATE_SECTIONS } from "@/lib/update-sections";
 import { JustificationSection } from "@/components/report-editor/sections/justification-section";
 import { HactSection } from "@/components/report-editor/sections/hact-section";
-import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG, type ContributorActivity } from "@/components/report-editor/contributor-matrix";
+import { ContributorMatrix, TRANSFERS_MATRIX_CONFIG, COMPLEMENTARY_MATRIX_CONFIG } from "@/components/report-editor/contributor-matrix";
 import {
   EMPTY_OVERVIEW,
   type Survey,
@@ -131,18 +131,6 @@ export function ReportEditor({
   const [indicatorRecords, setIndicatorRecords] = useState<IndicatorRecord[]>([]);
   const [indicatorStates, setIndicatorStates] = useState<Record<number, IndicatorState>>({});
   const [loadingIndicators, setLoadingIndicators] = useState(false);
-
-  // Activities for the linked outcome / objective column in the indicators table (read-only display).
-  const [activities, setActivities] = useState<ContributorActivity[]>([]);
-
-  const loadActivities = useCallback(async (projectId: number) => {
-    try {
-      const res = await fetch(`/api/workplan-activities?projectId=${projectId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setActivities(Array.isArray(data.activities) ? data.activities : []);
-    } catch { /* quiet — empty list is fine */ }
-  }, []);
 
   // Undo / redo over the parent-managed section edits. History is per section
   // visit (reset when the section or report changes, inside the hook).
@@ -428,10 +416,8 @@ export function ReportEditor({
     loadRisk(reportId);
     loadRiskHistory(reportId);
     loadIndicators(reportId);
-    const projectId = reports.find((r) => r.id === reportId)?.project_id;
-    if (projectId) loadActivities(projectId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportId, loadSurveys, loadOverview, loadRisk, loadRiskHistory, loadIndicators, loadActivities, reports]);
+  }, [reportId, loadSurveys, loadOverview, loadRisk, loadRiskHistory, loadIndicators, reports]);
 
   useEffect(() => {
     if (!reportId) return;
@@ -1093,7 +1079,6 @@ export function ReportEditor({
                     updateIndicator={updateIndicator}
                     isAdmin={mode === "admin"}
                     fillHeight={fillHeight}
-                    activities={activities}
                   />
                 )}
               </div>

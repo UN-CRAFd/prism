@@ -27,7 +27,11 @@ import { optionValues } from "@/lib/options";
 import { useAutosave, type SaveState } from "@/components/autosave";
 import { IMAGE_ACCEPT, MAX_PHOTO_BYTES, MAX_PHOTO_MB, isAllowedImageExtension } from "@/lib/documents";
 import { Hint } from "@/components/ui/hint";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { UploadSuccess, useUploadSuccess } from "@/components/ui/upload-status";
+import { WordCounter } from "@/components/ui/word-counter";
+import { useWordLimits } from "@/lib/use-word-limits";
+import { wordCount } from "@/lib/word-count";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config-driven editor for the repeatable "list of items under a report" sections
@@ -71,7 +75,11 @@ export interface SectionField {
   placeholder?: string;
   options?: readonly string[];
   headClass?: string; // column width utility class
-  maxWords?: number; // optional word limit for textareas (shows counter but allows over-limit)
+  // Word-limit key (lib/limits.ts): shows a "used/max words" counter under the textarea.
+  limitKey?: string;
+  // Hold rows back from saving while this field is over its limit (Testimonials only);
+  // other fields still autosave over the limit and just show the red counter.
+  blockOverLimit?: boolean;
   // Mandatory column: /api/report-completion requires it, so the header gets a
   // red asterisk (<RequiredMark />).
   required?: boolean;
@@ -107,10 +115,6 @@ interface RowState {
 
 // Row coming back from the API: scalar columns + comma-joined link strings.
 type ApiRow = { id: number } & Record<string, unknown>;
-
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
 
 function MultiLinkInput({
   links,
@@ -638,6 +642,17 @@ export function SectionTableEditor({
 }) {
   const { endpoint, fields, requiredField, addLabel, emptyText, min, seed, max, kind, noRows } = spec;
   const linkKeys = useMemo(() => fields.filter((f) => f.type === "links").map((f) => f.key), [fields]);
+  const wordLimits = useWordLimits();
+  // Only a NEWLY ADDED row is highlighted yellow; it fades back to white after ~2 s.
+  // Editing an existing row never highlights it.
+  const [freshKey, setFreshKey] = useState<number | null>(null);
+  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashRow = (key: number) => {
+    if (freshTimer.current) clearTimeout(freshTimer.current);
+    setFreshKey(key);
+    freshTimer.current = setTimeout(() => setFreshKey(null), 2000);
+  };
+  useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
 
   const confirm = useConfirm();
   const readOnly = useReadOnly();
@@ -739,12 +754,12 @@ export function SectionTableEditor({
     return saved.id;
   }, [endpoint, reportId, kind, buildPayload]);
 
-  // Does any word-limited field on this row exceed its cap? Over-limit rows are
-  // held back from saving and surface as an autosave error (see flush).
+  // Does a field marked blockOverLimit (Testimonials) exceed its cap on this row? Such
+  // rows are held back from saving and surface as an autosave error (see flush).
   const isOverLimit = useCallback(
     (row: RowState) =>
-      fields.some((f) => f.maxWords && f.type !== "links" && countWords(row.values[f.key] ?? "") > f.maxWords),
-    [fields]
+      fields.some((f) => f.blockOverLimit && f.limitKey && f.type !== "links" && wordCount(row.values[f.key] ?? "") > wordLimits.limit(f.limitKey)),
+    [fields, wordLimits]
   );
 
   // Save every dirty row. New rows (no id) POST once — tracked by client key so a
@@ -838,6 +853,7 @@ export function SectionTableEditor({
     if (max !== undefined && rows.length >= max) return;
     const newRow = emptyRow(true);
     setRows((prev) => [...prev, newRow]);
+    flashRow(newRow.key);
     let currentId: number | null = null;
     let snapshot: RowState = newRow;
     pushCommand({
@@ -947,7 +963,6 @@ export function SectionTableEditor({
     return <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   }
 
-  const hasRemarks = fields.some((f) => f.remark);
   // number + fields (incl. any spanned columns) + actions
   const colCount = 2 + fields.reduce((n, f) => n + 1 + (f.spanCols?.length ?? 0), 0);
   const minRows = min ?? 0;
@@ -978,7 +993,15 @@ export function SectionTableEditor({
                     </Tooltip>
                   </span>
                 ) : (
-                  <>{f.header}{f.required && <RequiredMark />}</>
+                  <>
+                    {f.header}{f.required && <RequiredMark />}
+                    {/* The column's instruction / example, behind an info icon. */}
+                    {f.remark && (
+                      <span className="ml-1.5 inline-block align-middle">
+                        <InfoPopover description={f.remark} triggerTitle={f.header} descriptionHeading={labels.common.aboutColumn} />
+                      </span>
+                    )}
+                  </>
                 )}
               </th>
               {f.spanCols?.map((c, ci) => (
@@ -988,21 +1011,10 @@ export function SectionTableEditor({
             ))}
             <th className={cn("w-10 px-4 py-3", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
           </tr>
-          {hasRemarks && (
-            <tr className="border-b bg-background">
-              <td />
-              {fields.map((f) => (
-                <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-1 text-sm text-muted-foreground leading-snug align-top">
-                  {f.remark}
-                </td>
-              ))}
-              <td />
-            </tr>
-          )}
         </thead>
         <tbody className="divide-y">
           {rows.map((row, i) => (
-            <tr key={row.key} className={cn("transition-colors", row.dirty && "bg-crafd-yellow-100")}>
+            <tr key={row.key} className={cn("transition-colors duration-700", row.key === freshKey && "bg-crafd-yellow-100")}>
               <td className="px-4 py-3 align-top text-sm tabular-nums text-crafd-grey-600">{i + 1}.</td>
               {fields.map((f) => (
                 <td key={f.key} colSpan={1 + (f.spanCols?.length ?? 0)} className="px-4 py-3 align-top">
@@ -1011,17 +1023,7 @@ export function SectionTableEditor({
                   ) : f.type === "textarea" ? (
                     <div className="space-y-1">
                       <AutoTextarea value={row.values[f.key]} onChange={(e) => updateField(i, f.key, e.target.value)} placeholder={f.placeholder} />
-                      {f.maxWords && (
-                        <div className={cn(
-                          "text-xs text-right",
-                          countWords(row.values[f.key]) > f.maxWords
-                            ? "text-destructive font-medium"
-                            : "text-muted-foreground"
-                        )}>
-                          Words: {countWords(row.values[f.key])}/{f.maxWords}
-                          {countWords(row.values[f.key]) > f.maxWords && " — over limit, won't save until shortened"}
-                        </div>
-                      )}
+                      {f.limitKey && <WordCounter value={row.values[f.key]} limitKey={f.limitKey} overNote={f.blockOverLimit ? "Won't save until shortened." : undefined} />}
                     </div>
                   ) : f.type === "photo" ? (
                     <PhotoField
@@ -1050,12 +1052,12 @@ export function SectionTableEditor({
                       staticItems={f.options ?? []}
                       value={splitMulti(row.values[f.key])}
                       onChange={(next) => updateField(i, f.key, joinMulti(next))}
-                      placeholder="Select."
+                      placeholder={f.placeholder ?? "Select"}
                     />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
                       <SelectTrigger className="w-full h-9 text-sm">
-                        {row.values[f.key] ? <span>{row.values[f.key]}</span> : <span className="text-muted-foreground">Select…</span>}
+                        {row.values[f.key] ? <span>{row.values[f.key]}</span> : <span className="text-muted-foreground">{f.placeholder ?? "Select"}</span>}
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
@@ -1145,8 +1147,8 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyKeyAchievements,
     max: 3,
     fields: [
-      { key: "achievement", header: labels.keyAchievements.columns.achievement, remark: labels.keyAchievements.remarks.achievement, type: "textarea", placeholder: labels.placeholders.achievement, headClass: "w-[35%]", required: true },
-      { key: "significance", header: labels.keyAchievements.columns.significance, remark: labels.keyAchievements.remarks.significance, type: "textarea", placeholder: labels.placeholders.significance, headClass: "w-[35%]" },
+      { key: "achievement", header: labels.keyAchievements.columns.achievement, remark: labels.keyAchievements.remarks.achievement, type: "textarea", placeholder: labels.placeholders.achievement, headClass: "w-[35%]", required: true, limitKey: "key_achievements.achievement" },
+      { key: "significance", header: labels.keyAchievements.columns.significance, remark: labels.keyAchievements.remarks.significance, type: "textarea", placeholder: labels.placeholders.significance, headClass: "w-[35%]", limitKey: "key_achievements.significance" },
       { key: "links", header: labels.common.columns.links, remark: labels.keyAchievements.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-64" },
     ],
   },
@@ -1158,7 +1160,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     noRows: { section: "partnerships", label: labels.partnerships.noRows, confirmedLabel: labels.partnerships.noRowsConfirmed },
     fields: [
       { key: "partner_organization", header: labels.partnerships.columns.partnerOrganization, remark: labels.partnerships.remarks.partnerOrganization, type: "input", placeholder: labels.common.placeholders.organizationName, headClass: "w-[28%]", required: true },
-      { key: "result", header: labels.partnerships.columns.result, remark: labels.partnerships.remarks.result, type: "textarea", placeholder: labels.placeholders.partnershipResult },
+      { key: "result", header: labels.partnerships.columns.result, remark: labels.partnerships.remarks.result, type: "textarea", placeholder: labels.placeholders.partnershipResult, limitKey: "partnerships.result" },
       { key: "links", header: labels.common.columns.links, remark: labels.partnerships.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-64" },
     ],
   },
@@ -1168,9 +1170,9 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     addLabel: labels.partnerEditor.addResult,
     min: 3,
     fields: [
-      { key: "context", header: labels.results.columns.context, remark: labels.results.remarks.context, type: "textarea", placeholder: labels.placeholders.resultContext, headClass: "w-[25%]", required: true },
-      { key: "data_driven_decision", header: labels.results.columns.dataDrivenDecision, remark: labels.results.remarks.dataDrivenDecision, type: "textarea", placeholder: labels.placeholders.dataDrivenDecision, headClass: "w-[25%]" },
-      { key: "resulting_impact", header: labels.results.columns.resultingImpact, remark: labels.results.remarks.resultingImpact, type: "textarea", placeholder: labels.placeholders.resultingImpact, headClass: "w-[25%]" },
+      { key: "context", header: labels.results.columns.context, remark: labels.results.remarks.context, type: "textarea", placeholder: labels.placeholders.resultContext, headClass: "w-[25%]", required: true, limitKey: "results.context" },
+      { key: "data_driven_decision", header: labels.results.columns.dataDrivenDecision, remark: labels.results.remarks.dataDrivenDecision, type: "textarea", placeholder: labels.placeholders.dataDrivenDecision, headClass: "w-[25%]", limitKey: "results.data_driven_decision" },
+      { key: "resulting_impact", header: labels.results.columns.resultingImpact, remark: labels.results.remarks.resultingImpact, type: "textarea", placeholder: labels.placeholders.resultingImpact, headClass: "w-[25%]", limitKey: "results.resulting_impact" },
       { key: "links", header: labels.common.columns.links, remark: labels.results.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-48" },
     ],
   },
@@ -1181,20 +1183,21 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyLessons,
     max: 5,
     fields: [
-      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), headClass: "w-52" },
-      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true },
-      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result." },
+      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), placeholder: "Select category", headClass: "w-52", required: true },
+      { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true, limitKey: "lessons_learned.lesson_learned" },
+      { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result.", limitKey: "lessons_learned.adjustment_informed", required: true },
     ],
   },
   "external-coverage": {
     endpoint: "/api/external-coverage",
     requiredField: "description",
     addLabel: labels.partnerEditor.addCoverage,
+    max: 3,
     seed: 3,
     fields: [
-      { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: optionValues("externalCoverageType"), headClass: "w-44" },
-      { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]", required: true },
-      { key: "reach_indicator", header: labels.externalCoverage.columns.reachIndicator, remark: labels.externalCoverage.remarks.reachIndicator, type: "textarea", placeholder: labels.placeholders.reachIndicator, headClass: "w-[20%]" },
+      { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: optionValues("externalCoverageType"), headClass: "w-44", placeholder: labels.placeholders.coverageType },
+      { key: "description", header: labels.externalCoverage.columns.description, remark: labels.externalCoverage.remarks.description, type: "textarea", placeholder: labels.placeholders.coverageDescription, headClass: "w-[28%]", required: true, limitKey: "external_coverage.description" },
+      { key: "reach_indicator", header: labels.externalCoverage.columns.reachIndicator, remark: labels.externalCoverage.remarks.reachIndicator, type: "textarea", placeholder: labels.placeholders.reachIndicator, headClass: "w-[20%]", limitKey: "external_coverage.reach_indicator" },
       { key: "links", header: labels.common.columns.links, remark: labels.externalCoverage.remarks.links, type: "links", placeholder: labels.common.placeholders.url, headClass: "w-52" },
     ],
   },
@@ -1205,8 +1208,8 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
 // leadership quote (exactly one, 25-word limit; required) and up to three
 // partner/user quotes (20-word limit; optional, so no required marks). The
 // photo of the person quoted is optional in both.
-const TESTIMONIAL_BASE_FIELDS = (maxWords: number, required: boolean): SectionField[] => [
-  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", maxWords, required },
+const TESTIMONIAL_BASE_FIELDS = (limitKey: string, required: boolean): SectionField[] => [
+  { key: "quote", header: labels.testimonials.columns.quote, type: "textarea", placeholder: labels.testimonials.placeholders.quote, headClass: "w-[30%] min-w-[240px]", limitKey, blockOverLimit: true, required },
   { key: "person_name", header: labels.testimonials.columns.personName, type: "input", placeholder: labels.testimonials.placeholders.personName, headClass: "w-40", required },
   { key: "person_title", header: labels.testimonials.columns.personTitle, type: "input", placeholder: labels.testimonials.placeholders.personTitle, headClass: "w-44", required },
   { key: "_photos", header: labels.testimonials.columns.photoOptional, type: "testimonial-photos", headClass: "w-64" },
@@ -1225,7 +1228,7 @@ const TESTIMONIAL_BASE_FIELDS = (maxWords: number, required: boolean): SectionFi
 const GROUND_PHOTO_FIELDS: SectionField[] = [
   {
     key: "quote", header: labels.testimonials.columns.caption, type: "textarea",
-    placeholder: labels.testimonials.placeholders.caption, maxWords: 200,
+    placeholder: labels.testimonials.placeholders.caption, limitKey: "testimonials.ground_description", blockOverLimit: true,
     headClass: "w-[30%] min-w-[240px]", spanCols: ["w-40", "w-44"],
   },
   { key: "_photos", header: labels.testimonials.columns.photoLink, type: "testimonial-photos", headClass: "w-64" },
@@ -1240,7 +1243,7 @@ export function buildTestimonialSpecs(): Record<TestimonialKind, SectionSpec> {
       addLabel: labels.partnerEditor.addTestimonial,
       min: 1,
       max: 1,
-      fields: TESTIMONIAL_BASE_FIELDS(25, true),
+      fields: TESTIMONIAL_BASE_FIELDS("testimonials.leadership_quote", true),
     },
     partner: {
       endpoint: "/api/testimonials",
@@ -1249,7 +1252,7 @@ export function buildTestimonialSpecs(): Record<TestimonialKind, SectionSpec> {
       addLabel: labels.partnerEditor.addTestimonial,
       emptyText: labels.partnerEditor.emptyTestimonials,
       max: 3,
-      fields: TESTIMONIAL_BASE_FIELDS(20, false),
+      fields: TESTIMONIAL_BASE_FIELDS("testimonials.partner_quote", false),
     },
     ground: {
       endpoint: "/api/testimonials",

@@ -22,7 +22,7 @@ import { Hint } from "@/components/ui/hint";
 export function InvestmentThemeSelect({
   value,
   onChange,
-  placeholder = "Select a theme.",
+  placeholder = "Select a theme",
   disabled,
   className,
 }: {

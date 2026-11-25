@@ -3,9 +3,9 @@ import pool, { query } from "@/lib/db";
 import { requireSession, guardProject } from "@/lib/authz";
 import { logger } from "@/lib/logger";
 import { logStatusChange } from "@/lib/version-log";
-import { getCharLimits } from "@/lib/char-limits";
-import { narrativeLimit } from "@/lib/limits";
-import { richTextLength } from "@/lib/richtext";
+import { getWordLimits } from "@/lib/word-limits";
+import { narrativeLimitKey } from "@/lib/limits";
+import { wordCount } from "@/lib/word-count";
 import { isPartnerEditable, editableStatusParam } from "@/lib/report-status";
 
 // POST /api/prodoc-submit — partner submits their project document for review.
@@ -56,13 +56,14 @@ export async function POST(request: NextRequest) {
       project_start_date: string | null;
       project_duration_months: number | null;
       geographic_scope: string | null;
+      gender_equality_marker: string | null;
       description: string | null;
       tranche_total: string;
       budget_total: string;
     }>(
       `SELECT
          p.project_title, p.grant_size_usd, p.project_start_date,
-         p.project_duration_months, p.geographic_scope, p.description,
+         p.project_duration_months, p.geographic_scope, p.gender_equality_marker, p.description,
          COALESCE(SUM(tc.amount), 0) AS tranche_total,
          ROUND(COALESCE(
            (SELECT SUM(b.approved_amount)
@@ -90,7 +91,8 @@ export async function POST(request: NextRequest) {
     if (!proj.project_start_date) emptyFields.push("Start date");
     if (proj.project_duration_months == null) emptyFields.push("Duration (months)");
     if (!proj.geographic_scope?.trim()) emptyFields.push("Geographic scope");
-    if (richTextLength(proj.description ?? "") === 0) emptyFields.push("Description");
+    if (wordCount(proj.description) === 0) emptyFields.push("Description");
+    if (!proj.gender_equality_marker?.trim()) emptyFields.push("Gender Equality Marker");
     if (emptyFields.length > 0) {
       return NextResponse.json(
         { error: `Complete required fields in General: ${emptyFields.join(", ")}.` },
@@ -98,13 +100,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate char limits.
-    const limits = await getCharLimits();
+    // Validate word limits.
+    const limits = await getWordLimits();
     if (proj.description) {
-      const descLen = richTextLength(proj.description);
-      if (descLen > limits.description) {
+      const descLimit = limits.limit("prodoc.description");
+      if (wordCount(proj.description) > descLimit) {
         return NextResponse.json(
-          { error: `Shorten the project description to ${limits.description.toLocaleString("en-US")} characters or fewer.` },
+          { error: `Shorten the project description to ${descLimit.toLocaleString("en-US")} words or fewer.` },
           { status: 422 }
         );
       }
@@ -118,11 +120,11 @@ export async function POST(request: NextRequest) {
       [projectId]
     );
     for (const nr of narrativeRows) {
-      const lim = limits.narratives[nr.narrative_key] ?? narrativeLimit(nr.narrative_key);
-      if (richTextLength(nr.answer) > lim) {
+      const lim = limits.limit(narrativeLimitKey(nr.narrative_key));
+      if (wordCount(nr.answer) > lim) {
         const label = nr.label || nr.narrative_key;
         return NextResponse.json(
-          { error: `Shorten the answer to "${label}" to ${lim.toLocaleString("en-US")} characters or fewer.` },
+          { error: `Shorten the answer to "${label}" to ${lim.toLocaleString("en-US")} words or fewer.` },
           { status: 422 }
         );
       }

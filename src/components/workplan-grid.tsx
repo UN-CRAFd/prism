@@ -43,6 +43,7 @@ import {
   type WorkplanStatus,
   workplanStatusNeedsDetail,
 } from "@/lib/workplan";
+import { WordCounter } from "@/components/ui/word-counter";
 
 const AGENT_DELIM = " | ";
 function parseAgents(v: string) { return v.split(AGENT_DELIM).map((s) => s.trim()).filter(Boolean); }
@@ -635,7 +636,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
               <>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW, width: "45%" }} className={cn("sticky top-0 z-20 text-left px-3 py-2 min-w-[440px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)} />
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L, width: PROGRESS_W, minWidth: PROGRESS_W }} className={cn("sticky top-0 z-20 px-2 py-2 align-bottom whitespace-nowrap", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Progress update<RequiredMark /></th>
-                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L, width: DESC_W, minWidth: DESC_W }} className={cn("sticky top-0 z-20 px-2 py-2 align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Description</th>
+                <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L, width: DESC_W, minWidth: DESC_W }} className={cn("sticky top-0 z-20 px-2 py-2 align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>{labels.workplanHelp.explanationHeader}</th>
                 <th rowSpan={2} style={{ boxShadow: HEAD_SHADOW_L }} className={cn("sticky top-0 z-20 text-left px-2 py-2 w-[72px] align-bottom", HEAD_BG, HEAD_COLOR, HEAD_TEXT)}>Timeline</th>
               </>
             }
@@ -717,7 +718,7 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                       {activeUpdate ? (
                         <Select value={status ?? "none"} onValueChange={(v) => setStatus(a, v)}>
                           <SelectTrigger className="h-8 px-1 w-full min-w-0">
-                            {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground/60 text-sm whitespace-nowrap">Select status</span>}
+                            {status ? <StatusBadge value={status} /> : <span className="text-muted-foreground/60 text-sm whitespace-nowrap">{labels.workplanHelp.selectStatus}</span>}
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
@@ -732,12 +733,15 @@ export function WorkplanPartnerEditor({ reportId, onSaveStateChange, fillHeight,
                     </td>
                     <td rowSpan={rowSpan} className={cn("px-2 py-2 border-l", closeSpan)}>
                       {!split ? null : editable ? (
-                        <Textarea
-                          value={ps?.comment ?? ""}
-                          onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
-                          placeholder="Add a progress note."
-                          className={cn("text-xs min-h-[56px] resize-none border-crafd-yellow-400 placeholder:text-muted-foreground/60", ACTION_BG)}
-                        />
+                        <>
+                          <Textarea
+                            value={ps?.comment ?? ""}
+                            onChange={(e) => updateProgress(a.id, { comment: e.target.value })}
+                            placeholder={labels.workplanHelp.explanationPlaceholder}
+                            className={cn("text-xs min-h-[56px] resize-none border-crafd-yellow-400 placeholder:text-muted-foreground/60", ACTION_BG)}
+                          />
+                          <WordCounter value={ps?.comment} limitKey="workplan_entries.comment" />
+                        </>
                       ) : ps?.comment ? (
                         <p className="text-xs text-muted-foreground whitespace-pre-wrap">{ps.comment}</p>
                       ) : (
@@ -1612,7 +1616,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                               <button className={cn("min-h-8 w-full rounded-md border border-input bg-transparent px-2 py-0.5 text-sm text-left flex justify-between gap-1", selected.length > 1 ? "items-start" : "items-center")}>
                                 {selected.length
                                   ? <AgentStack tokens={selected} className="leading-5" />
-                                  : <span className="text-muted-foreground/60">Select…</span>}
+                                  : <span className="text-muted-foreground/60">Select.</span>}
                                 <ChevronDown className={cn("size-3 shrink-0 opacity-50", selected.length > 1 && "mt-1.5")} />
                               </button>
                             </DropdownMenuTrigger>

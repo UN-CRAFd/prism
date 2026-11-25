@@ -70,7 +70,7 @@ function LinkedResultsPicker({
         <button className={"w-full min-h-8 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent/40 flex items-start justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-50" + (missing ? " border-crafd-yellow-400" : "")}>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             {selected.length === 0
-              ? <span className="text-muted-foreground py-0.5">Select outcome / output</span>
+              ? <span className="text-muted-foreground py-0.5">{labels.placeholders.outcomeOrOutput}</span>
               : selected.map((key) => (
                   <span key={key} className="line-clamp-1 font-medium">{options.find((o) => o.key === key)?.label ?? key}</span>
                 ))}

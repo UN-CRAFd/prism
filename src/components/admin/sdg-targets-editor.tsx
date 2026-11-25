@@ -143,7 +143,7 @@ export function SdgTargetsEditor({
         <div className="flex flex-wrap items-center gap-2">
           <Select value={pickGoal} onValueChange={(v) => { setPickGoal(v); setPickTarget(""); }}>
             <SelectTrigger className="w-[280px] h-9">
-              <SelectValue placeholder="Select an SDG." />
+              <SelectValue placeholder="Select an SDG" />
             </SelectTrigger>
             <SelectContent>
               {SDG_GOALS.map((g) => (
@@ -163,12 +163,12 @@ export function SdgTargetsEditor({
 
           <Select value={pickTarget} onValueChange={setPickTarget} disabled={!pickGoal}>
             <SelectTrigger className="w-[280px] h-9">
-              <SelectValue placeholder={pickGoal ? "Select a target" : "Pick an SDG first"} />
+              <SelectValue placeholder={pickGoal ? labels.placeholders.sdgTarget : labels.placeholders.sdgFirst} />
             </SelectTrigger>
             <SelectContent align="start" className="w-[560px] max-w-[calc(100vw-2rem)]">
               {availableTargets.length === 0 ? (
                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                  {pickGoal ? "No targets available" : "Pick an SDG first"}
+                  {pickGoal ? "No targets available" : labels.placeholders.sdgFirst}
                 </div>
               ) : (
                 availableTargets.map((t) => (

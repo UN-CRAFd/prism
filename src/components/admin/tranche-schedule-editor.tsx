@@ -257,7 +257,7 @@ export function TrancheScheduleEditor({
 
       {participatingOrgs.length === 0 ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-          Add participating organisations in General information first.
+          Add project partners in General Information first.
         </div>
       ) : (
         <>
@@ -356,7 +356,7 @@ export function TrancheScheduleEditor({
                             <Textarea
                               value={desc}
                               onChange={(e) => setCell(org.id, tn, { date_description: e.target.value })}
-                              placeholder="Activities covered by this tranche"
+                              placeholder={labels.placeholders.trancheActivities}
                               className="text-sm min-h-[60px] resize-y w-full"
                               aria-label={`Tranche ${tn} activities for ${org.name}`}
                               disabled={readOnly}

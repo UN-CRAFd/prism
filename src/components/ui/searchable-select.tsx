@@ -16,7 +16,7 @@ export function SearchableSelect({
   optionKey,
   value,
   onChange,
-  placeholder = "Select.",
+  placeholder = "Select",
   exclude,
   allowCustom = false,
   searchPlaceholder = "Search.",

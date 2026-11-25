@@ -9,6 +9,7 @@ import { ItemComments } from "@/components/report-editor/comments-context";
 import { ScaleSelect } from "@/components/report-editor/scale-select";
 import type { Survey, RowState } from "@/components/report-editor/types";
 import { optionItems } from "@/lib/options";
+import { WordCounter } from "@/components/ui/word-counter";
 
 export interface SurveysSectionProps {
   surveys: Survey[];
@@ -111,13 +112,14 @@ function SurveyCard({ survey, index, rowStates, updateRow }: SurveyCardProps) {
           />
         </div>
         <div className="flex-1 space-y-1.5">
-          <p className="text-xs text-muted-foreground">{labels.partnerEditor.contextLabel}</p>
+          <p className="text-xs text-muted-foreground">{labels.partnerEditor.contextLabel}<RequiredMark /></p>
           <Textarea
             value={state.context}
             onChange={(e) => updateRow(survey.id, { context: e.target.value })}
             placeholder={labels.placeholders.assessmentContext}
             className="text-sm min-h-[80px] resize-y"
           />
+          <WordCounter value={state.context} limitKey="surveys.context" />
         </div>
       </div>
     </div>

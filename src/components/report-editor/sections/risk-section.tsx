@@ -20,6 +20,7 @@ import type { RiskHistory } from "@/components/report-editor/report-editor";
 import { Hint } from "@/components/ui/hint";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Tag } from "@/components/ui/tag";
+import { WordCounter } from "@/components/ui/word-counter";
 
 function RiskLevelBadge({ likelihood, impact }: { likelihood: number | null; impact: number | null }) {
   const key = computeRiskLevelKey(likelihood, impact);
@@ -151,12 +152,33 @@ export function RiskSection({
     if (showAddRow) draftRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [showAddRow]);
 
+  // Only a NEWLY ADDED risk row is highlighted yellow, fading back to white after ~2 s;
+  // editing an existing row never highlights it. saveNewRisk remembers the ids that
+  // existed before the add, and the effect picks out the one that appears afterwards.
+  const [freshRiskId, setFreshRiskId] = useState<number | null>(null);
+  const idsBeforeAddRef = useRef<Set<number> | null>(null);
+  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const before = idsBeforeAddRef.current;
+    if (!before) return;
+    const added = risks.find((r) => !before.has(r.id));
+    if (!added) return;
+    idsBeforeAddRef.current = null;
+    if (freshTimer.current) clearTimeout(freshTimer.current);
+    setFreshRiskId(added.id);
+    freshTimer.current = setTimeout(() => setFreshRiskId(null), 2000);
+  }, [risks]);
+  useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
+
   async function saveNewRisk() {
     if (!newRiskName.trim() || !newRiskDescription.trim() || newLikelihood == null || newImpact == null) {
       setAddTried(true);
       return;
     }
-    if (await handleRiskAdd({ updated_likelihood: newLikelihood, updated_impact: newImpact })) {
+    idsBeforeAddRef.current = new Set(risks.map((r) => r.id));
+    const added = await handleRiskAdd({ updated_likelihood: newLikelihood, updated_impact: newImpact });
+    if (!added) idsBeforeAddRef.current = null;
+    if (added) {
       setShowAddRow(false);
       setAddTried(false);
       setNewLikelihood(null);
@@ -339,7 +361,7 @@ export function RiskSection({
                 const levelReady = state.updated_likelihood != null && state.updated_impact != null;
 
                 return (
-                  <tr key={risk.id} className={cn("align-top transition-colors", state.dirty && "bg-crafd-yellow-100")}>
+                  <tr key={risk.id} className={cn("align-top transition-colors duration-700", risk.id === freshRiskId && "bg-crafd-yellow-100")}>
                     {/* # */}
                     <td className="px-3 py-3 border-t">
                       <span className="text-sm tabular-nums text-crafd-grey-600">{i + 1}.</span>
@@ -363,6 +385,7 @@ export function RiskSection({
                             className="text-sm min-h-[60px] resize-y"
                             placeholder={labels.placeholders.riskDescription}
                           />
+                          <WordCounter value={draftDescription} limitKey="risk_management.risk_description" />
                           <MultiSelect
                             optionKey="riskCategory"
                             value={draftCategory}
@@ -446,6 +469,7 @@ export function RiskSection({
                         <ScaleSelect
                           kind="likelihood"
                           value={state.updated_likelihood}
+                          placeholder={labels.risk.selectLikelihood}
                           onValueChange={(v) => updateRisk(risk.id, { updated_likelihood: v })}
                         />
                       )}
@@ -457,6 +481,7 @@ export function RiskSection({
                         <ScaleSelect
                           kind="impact"
                           value={state.updated_impact}
+                          placeholder={labels.risk.selectImpact}
                           onValueChange={(v) => updateRisk(risk.id, { updated_impact: v })}
                         />
                       )}
@@ -476,12 +501,15 @@ export function RiskSection({
                     {/* Updated mitigation (empty unless editable) */}
                     <td className="px-3 py-3 border-t">
                       {editMitigation && (
-                        <Textarea
-                          value={state.updated_mitigation}
-                          onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
-                          placeholder={answeredHappened ? labels.risk.happenedMitigationPlaceholder : answeredChanged ? labels.risk.changedMitigationPlaceholder : labels.risk.newMitigationPlaceholder}
-                          className="text-sm min-h-[80px] resize-y w-full"
-                        />
+                        <>
+                          <Textarea
+                            value={state.updated_mitigation}
+                            onChange={(e) => updateRisk(risk.id, { updated_mitigation: e.target.value })}
+                            placeholder={answeredHappened ? labels.risk.happenedMitigationPlaceholder : answeredChanged ? labels.risk.changedMitigationPlaceholder : labels.risk.newMitigationPlaceholder}
+                            className="text-sm min-h-[80px] resize-y w-full"
+                          />
+                          <WordCounter value={state.updated_mitigation} limitKey="risk_management.updated_mitigation" />
+                        </>
                       )}
                     </td>
 
@@ -540,16 +568,17 @@ export function RiskSection({
                         placeholder={labels.placeholders.riskDescription}
                         className={cn("text-sm min-h-[60px] resize-y", addTried && !newRiskDescription.trim() && "border-destructive focus-visible:ring-destructive")}
                       />
+                      <WordCounter value={newRiskDescription} limitKey="risk_management.risk_description" />
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="w-64 max-w-full">
                             <MultiSelect optionKey="riskCategory" value={newRiskCategory} onChange={setNewRiskCategory} placeholder={labels.placeholders.riskCategories} />
                           </div>
                           <div className={cn(addTried && newLikelihood == null && "rounded-md ring-1 ring-destructive")}>
-                            <ScaleSelect kind="likelihood" value={newLikelihood} onValueChange={setNewLikelihood} placeholder="Likelihood" />
+                            <ScaleSelect kind="likelihood" value={newLikelihood} onValueChange={setNewLikelihood} placeholder={labels.risk.selectLikelihood} />
                           </div>
                           <div className={cn(addTried && newImpact == null && "rounded-md ring-1 ring-destructive")}>
-                            <ScaleSelect kind="impact" value={newImpact} onValueChange={setNewImpact} placeholder="Impact" />
+                            <ScaleSelect kind="impact" value={newImpact} onValueChange={setNewImpact} placeholder={labels.risk.selectImpact} />
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">

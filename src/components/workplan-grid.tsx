@@ -1612,7 +1612,7 @@ export function WorkplanAdminEditor({ projectId, defaultAgent, reportId, onSaveS
                               <button className={cn("min-h-8 w-full rounded-md border border-input bg-transparent px-2 py-0.5 text-sm text-left flex justify-between gap-1", selected.length > 1 ? "items-start" : "items-center")}>
                                 {selected.length
                                   ? <AgentStack tokens={selected} className="leading-5" />
-                                  : <span className="text-muted-foreground/60">Select…</span>}
+                                  : <span className="text-muted-foreground/60">Select.</span>}
                                 <ChevronDown className={cn("size-3 shrink-0 opacity-50", selected.length > 1 && "mt-1.5")} />
                               </button>
                             </DropdownMenuTrigger>

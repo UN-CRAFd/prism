@@ -677,3 +677,42 @@ h6:hover > .wiki-anchor,
 .rich-html h5,
 .rich-html h6 { font-size: 1em; }
 .rich-html > :first-child { margin-top: 0; }
+
+/* ── PDF viewer (Report Import) ─────────────────────────────────────────────
+   Minimal pdf.js text-layer styles (from pdfjs-dist/web/pdf_viewer.css): the
+   text runs sit invisibly over the rendered page so they can be highlighted.
+   The page wrapper sets --total-scale-factor. */
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  transform-origin: 0 0;
+  z-index: 0;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.textLayer .markedContent { display: contents; }
+.textLayer ::selection { background: rgb(0 0 255 / 0.25); }
+.textLayer .pdf-hl { background: rgb(255 214 0 / 0.45); border-radius: 2px; }
+.textLayer .pdf-hl-active { background: rgb(255 140 0 / 0.55); border-radius: 2px; }
+.textLayer [data-hl-id] { cursor: pointer; }
+.textLayer .pdf-hl:hover { background: rgb(255 180 0 / 0.6); }

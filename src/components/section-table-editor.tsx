@@ -1002,12 +1002,12 @@ export function SectionTableEditor({
                       staticItems={f.options ?? []}
                       value={splitMulti(row.values[f.key])}
                       onChange={(next) => updateField(i, f.key, joinMulti(next))}
-                      placeholder="Select."
+                      placeholder={f.placeholder ?? "Select."}
                     />
                   ) : f.type === "select" ? (
                     <Select value={row.values[f.key] || "none"} onValueChange={(v) => updateField(i, f.key, v === "none" ? "" : v)}>
                       <SelectTrigger className="w-full h-9 text-sm">
-                        {row.values[f.key] ? <span>{row.values[f.key]}</span> : <span className="text-muted-foreground">Select…</span>}
+                        {row.values[f.key] ? <span>{row.values[f.key]}</span> : <span className="text-muted-foreground">{f.placeholder ?? "Select."}</span>}
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none"><span className="text-muted-foreground">—</span></SelectItem>
@@ -1110,7 +1110,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     emptyText: labels.partnerEditor.emptyLessons,
     max: 5,
     fields: [
-      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), headClass: "w-52" },
+      { key: "category", header: labels.lessons.columns.category, remark: labels.lessons.remarks.category, type: "multiselect", options: optionValues("lessonsCategory"), placeholder: "Select category.", headClass: "w-52" },
       { key: "lesson_learned", header: labels.lessons.columns.lessonLearned, remark: labels.lessons.remarks.lessonLearned, type: "textarea", placeholder: "Briefly describe what your organization learned.", headClass: "w-[38%]", required: true },
       { key: "adjustment_informed", header: labels.lessons.columns.adjustmentInformed, remark: labels.lessons.remarks.adjustmentInformed, type: "textarea", placeholder: "Explain what you changed or will change as a result." },
     ],
@@ -1119,6 +1119,7 @@ export function buildSectionSpecs(): Record<string, SectionSpec> {
     endpoint: "/api/external-coverage",
     requiredField: "description",
     addLabel: labels.partnerEditor.addCoverage,
+    max: 3,
     seed: 3,
     fields: [
       { key: "type", header: labels.externalCoverage.columns.type, remark: labels.externalCoverage.remarks.type, type: "select", options: optionValues("externalCoverageType"), headClass: "w-44" },

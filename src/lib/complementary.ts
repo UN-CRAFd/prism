@@ -11,6 +11,6 @@ export function fundingTypes(): string[] {
 // Badge colours kept in code (valid Tailwind classes), keyed by the type text;
 // unknown/added types fall back to a neutral treatment via fundingTypeColor().
 export const FUNDING_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  "In Cash": { bg: "bg-green-50", text: "text-green-700", border: "border-green-300" },
+  "Cash": { bg: "bg-green-50", text: "text-green-700", border: "border-green-300" },
   "In Kind": { bg: "bg-crafd-yellow-100", text: "text-crafd-grey-800", border: "border-crafd-yellow-400" },
 };

@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { hasUpdateIndex } from "@/lib/report-conflict";
 import { hasUpdateModuleColumns } from "@/lib/update-columns";
 import { documentTitle } from "@/lib/project-updates";
+import { syncAnnualIndicators } from "@/lib/indicator-sync";
 
 // Per-report indicator lines. Keyed by reportId for consistency with every other
 // section route. Each row joins its master indicator for display fields.
@@ -48,29 +49,8 @@ function validateYear(v: unknown, fieldName: string): NextResponse | null {
   return null;
 }
 
-// Keep existing annual reports AND project updates in sync when a
-// project-document indicator is added after they were created. The unique
-// constraint makes this safe to call repeatedly while loading a document.
-//
-// Updates are included because an update that carries the Indicators page must
-// show exactly what an annual report would — without this it would be stuck with
-// whatever the prodoc held on the day it was created.
-async function syncAnnualIndicators(projectId: number) {
-  await query(
-    `INSERT INTO reporting_platform.indicator_data
-       (report_id, indicator_id, baseline_value, baseline_year, target_value, target_year, linked_activity_id, linked_results, sort_order)
-     SELECT annual.id, pd.indicator_id, pd.baseline_value, pd.baseline_year,
-            pd.target_value, pd.target_year, pd.linked_activity_id, pd.linked_results, pd.sort_order
-       FROM reporting_platform.reports annual
-       JOIN reporting_platform.reports prodoc
-         ON prodoc.project_id = annual.project_id AND prodoc.data_type = 'prodoc'
-       JOIN reporting_platform.indicator_data pd ON pd.report_id = prodoc.id
-      WHERE annual.project_id = $1
-        AND annual.data_type IN ('report', 'update')
-     ON CONFLICT (report_id, indicator_id) DO NOTHING`,
-    [projectId]
-  );
-}
+// syncAnnualIndicators (lib/indicator-sync) keeps reports and updates in step
+// with indicators added to the project document after they were created.
 
 // Flat cross-report listing (admin "Full Data" view): one row per indicator line
 // per report — i.e. one row per year-entry, with project/partner context joined.

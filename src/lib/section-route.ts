@@ -26,6 +26,9 @@ export interface SectionConfig {
   max?: number;
   /** Error message returned when the cap is hit. */
   maxMessage?: string;
+  /** reports column holding this section's "nothing to report" flag; cleared
+   *  on POST, since a row now exists (see /api/report-no-rows). */
+  noRowsColumn?: string;
 }
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -37,7 +40,8 @@ function assertIdent(name: string) {
 }
 
 export function makeSectionRoute(config: SectionConfig) {
-  const { table, fields, max, maxMessage } = config;
+  const { table, fields, max, maxMessage, noRowsColumn } = config;
+  if (noRowsColumn) assertIdent(noRowsColumn);
   assertIdent(table);
   fields.forEach(assertIdent);
 
@@ -134,6 +138,13 @@ export function makeSectionRoute(config: SectionConfig) {
          RETURNING *`,
         values
       );
+      if (noRowsColumn) {
+        // A row now exists, so any "nothing to report" confirmation no longer applies.
+        await query(
+          `UPDATE reporting_platform.reports SET ${noRowsColumn} = FALSE WHERE id = $1 AND ${noRowsColumn}`,
+          [reportId]
+        );
+      }
       return NextResponse.json(rows[0], { status: 201 });
     } catch (err) {
       logger.error(`POST /api section (${table}) error:`, err);

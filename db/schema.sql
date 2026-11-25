@@ -303,6 +303,7 @@ CREATE TABLE IF NOT EXISTS reports (
                                                                   -- project update: indirect support costs actually spent in the year this document reports. One figure per document, so it sits here rather than in expenditure_entries (which is keyed by budget category, and ISC is not one). See db/add-expenditure-indirect.sql.
     no_transfers_confirmed     BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No transfers to report" (Transfers section complete with zero rows); cleared when a row is added. See db/add-no-transfers-complementary-confirmed.sql.
     no_complementary_confirmed BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No complementary funding to report" (Complementary section complete with zero rows); cleared when a row is added.
+    no_partnerships_confirmed  BOOLEAN    NOT NULL DEFAULT FALSE,  -- partner ticked "No partnerships to report" (Partnerships section complete with zero rows); cleared when a row is added. See db/add-no-partnerships-confirmed.sql.
     created_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     -- update_index is '' for reports and prodocs, so they stay one per

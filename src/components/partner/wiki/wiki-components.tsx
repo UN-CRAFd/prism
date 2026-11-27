@@ -30,7 +30,7 @@ export function WikiShell({ children }: { children: React.ReactNode }) {
         </button>
       </div>
       <div className="guide-body flex-1 px-8 py-8">
-        <div className="max-w-4xl">{children}</div>
+        <div className="max-w-5xl">{children}</div>
       </div>
     </div>
   );
@@ -77,8 +77,8 @@ export function SectionHeading({
   children: React.ReactNode;
 }) {
   return (
-    <h2 className="mb-4 flex items-center gap-2.5 text-xl font-semibold text-foreground scroll-mt-32">
-      <Icon className="h-5 w-5 shrink-0 text-crafd-yellow" />
+    <h2 className="mb-5 flex items-center gap-3 text-2xl leading-tight font-semibold text-foreground scroll-mt-32">
+      <Icon className="h-6 w-6 shrink-0 text-crafd-yellow" />
       {number && (
         <span className="shrink-0 text-muted-foreground tabular-nums">{number}</span>
       )}

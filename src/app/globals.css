@@ -573,13 +573,11 @@ h6:hover > .wiki-anchor,
   body.guide-print [data-guide-hidden] {
     display: none !important;
   }
-  /* Table of contents — print/PDF only, on its own leading page. The entries are
-     real <a href="#id"> links, which Chrome/Edge turn into internal link
-     annotations when printing to PDF; their targets are ordinary headings that
-     stay rendered in print, so the destinations resolve. */
+  /* The "Contents" list is not printed: the PDF starts with the Guide title and
+     then section 1. (The TOC markup and its styles below are kept, so showing it
+     again is a one-line change: display: block + break-after: page.) */
   body.guide-print .guide-toc {
-    display: block;
-    break-after: page;
+    display: none !important;
   }
   body.guide-print .guide-toc-title {
     margin: 0 0 0.75rem;
@@ -689,3 +687,64 @@ h6:hover > .wiki-anchor,
 .rich-html h5,
 .rich-html h6 { font-size: 1em; }
 .rich-html > :first-child { margin-top: 0; }
+
+/* ── Partner Guide body typography ─────────────────────────────────────────────
+   Section bodies are plain HTML (no classes), so they are styled from the wrapper.
+   Scoped to `.guide-body .rich-html` so the shared `.rich-html` used elsewhere
+   (ProDoc / report rich text) is unchanged. These also apply in print; the print
+   block above still sets the ink colour. */
+.guide-body .rich-html > :first-child {
+  margin-top: 0;
+}
+.guide-body .rich-html p {
+  margin: 0 0 0.85em;
+}
+.guide-body .rich-html h3 {
+  margin: 1.9em 0 0.7em;
+  font-size: 1.1em;
+  line-height: 1.35;
+}
+.guide-body .rich-html ul,
+.guide-body .rich-html ol {
+  margin: 0 0 1em;
+  padding-left: 1.5em;
+}
+.guide-body .rich-html li {
+  margin: 0 0 0.4em;
+  padding-left: 0.15em;
+}
+.guide-body .rich-html li:last-child {
+  margin-bottom: 0;
+}
+.guide-body .rich-html strong {
+  font-weight: 600;
+  color: var(--color-crafd-grey-900);
+}
+.guide-body .rich-html table {
+  table-layout: auto;
+  width: 100%;
+  margin: 1em 0 1.5em;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.guide-body .rich-html th,
+.guide-body .rich-html td {
+  border: 1px solid var(--border, #e4e4e7);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.5;
+}
+/* First column holds the tab / section / term names: never split a word, and keep
+   enough room for "General Information" or "Risk Management" on one or two lines. */
+.guide-body .rich-html th:first-child,
+.guide-body .rich-html td:first-child {
+  min-width: 11rem;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.guide-body .rich-html th {
+  background: var(--muted, #f4f4f5);
+  font-weight: 600;
+  color: var(--color-crafd-grey-900);
+}

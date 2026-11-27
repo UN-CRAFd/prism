@@ -172,7 +172,7 @@ export default function WikiRoute() {
                   {s.title}
                 </SectionHeading>
                 <div
-                  className="rich-html max-w-none text-sm leading-relaxed text-muted-foreground"
+                  className="rich-html max-w-none text-sm leading-7 text-crafd-grey-800"
                   dangerouslySetInnerHTML={{ __html: s.html }}
                 />
               </section>

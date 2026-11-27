@@ -2,5 +2,5 @@ import { redirect } from "next/navigation";
 
 // The guide is now a single long page; legacy per-section routes point at anchors.
 export default function ReportEditorRoute() {
-  redirect("/partner/wiki#report-editor");
+  redirect("/partner/wiki#project-reports");
 }

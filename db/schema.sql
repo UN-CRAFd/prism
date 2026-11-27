@@ -1289,198 +1289,117 @@ SELECT v.name, v.description, v.means_of_verification, v.category, v.cycle, TRUE
   ) AS v(name, description, means_of_verification, category, cycle)
  WHERE NOT EXISTS (SELECT 1 FROM indicators WHERE is_standard);
 
--- Wiki / Guide sections. Faithful HTML conversion of the original hardcoded
--- Guide pages. Bodies are dollar-quoted ($WIKI$) so the embedded HTML/quotes
--- need no escaping. Idempotent via ON CONFLICT (slug). Keep identical to the
--- seed in db/archive/migrations/051_wiki_sections.sql.
+-- Wiki / Guide sections: the partner Guide as rewritten in db/guide-2026-11.md
+-- (Nov 27, 2026). Bodies are dollar-quoted ($WIKI$) so the embedded HTML/quotes
+-- need no escaping. Idempotent via ON CONFLICT (slug). Supersedes the original seed
+-- in db/archive/migrations/051_wiki_sections.sql, which is no longer identical.
 INSERT INTO wiki_sections (slug, title, icon, sort_order, body_html) VALUES
 ('introduction', 'Introduction', 'BookOpen', 1, $WIKI$
-<p><strong>PRISM</strong> is a tool designed to streamline the creation and submission of Project Documents (ProDoc) and annual reports. Once your project document is reviewed and signed by all relevant parties, it initiates the funding disbursements. Please reach out to the CRAF'd Secretariat with any questions.</p>
-<h3>What you'll do in PRISM</h3>
-<ul>
-<li><strong>Create a ProDoc</strong> — Fill in your project's core reference document with general info, narratives, risks, indicators, workplan, and budget.</li>
-<li><strong>Submit Reports</strong> — Each year, complete 14 sections covering qualitative progress and quantitative data, then authorize your submission.</li>
-<li><strong>Respond to Feedback</strong> — CRAF'd reviewers may leave comments on specific sections; reply or edit directly from the platform.</li>
-</ul>
-<p>For questions about report content or deadlines, contact your CRAF'd programme officer at <a href="mailto:crafd@un.org">crafd@un.org</a>.</p>
+<p>PRISM is the CRAF'd platform for your project documents, reports and project updates. You fill them in online, submit them to the CRAF'd Secretariat, and answer CRAF'd's comments in the same place.</p>
+<p>In PRISM you:</p>
+<ul><li><strong>Complete your Project Document (ProDoc).</strong> It describes your project, its work plan, indicators, risks and budget. It must be approved before funds are released.</li><li><strong>Submit Project Reports.</strong> An Annual Report for each year and a Final Report at the end of the project.</li><li><strong>Submit Project Updates.</strong> When CRAF'd opens one for you, for example for a budget revision, a no-cost extension or a tranche release.</li><li><strong>Answer comments.</strong> CRAF'd may comment on parts of your documents. You reply and update your text.</li></ul>
+<p>For questions about content or deadlines, contact the CRAF'd Secretariat at crafd@un.org.</p>
 $WIKI$),
-('getting-started', 'Getting Started', 'LogIn', 2, $WIKI$
-<p>PRISM is a web application — there is nothing to install. You access it in your browser using the credentials CRAF'd provides. This section covers logging in and finding your way around.</p>
-<ol>
-<li><strong>Log in.</strong> Open the PRISM login page and enter the <strong>username</strong> and <strong>password</strong> issued by CRAF'd. Passwords are case-sensitive. If you have lost your credentials, contact your CRAF'd programme officer to request a reset.</li>
-<li><strong>Or use a secure link.</strong> When CRAF'd opens a new report for you, they may send a <strong>secure link</strong> by email that takes you straight to that report — no separate login needed. These links are personal to you; please don't forward them.</li>
-<li><strong>Get your bearings.</strong> Everything is reached from the <strong>left sidebar</strong>. The panel at the bottom shows your organization and a <strong>log-out</strong> button. Use the small arrow on the sidebar edge to collapse or expand it for more screen space.</li>
-</ol>
-<h3>What's in the sidebar</h3>
-<table><thead><tr><th>Menu item</th><th>What it's for</th></tr></thead><tbody>
-<tr><td>Home</td><td>Your landing page — project timeline, upcoming report deadlines, and any comments CRAF'd has left for you.</td></tr>
-<tr><td>Project Document</td><td>Your project's core reference document (ProDoc). Complete this before funding can be disbursed.</td></tr>
-<tr><td>Report Editor</td><td>Your annual and final reports, grouped by project and year. Where you report progress each period.</td></tr>
-<tr><td>Contact Information</td><td>Manage your organization's team contacts, their roles, and email addresses.</td></tr>
-<tr><td>Guide</td><td>This documentation. Use the sub-links to jump to any topic.</td></tr>
-</tbody></table>
-<p><strong>Best experience:</strong> PRISM works in any modern browser (Chrome, Edge, Firefox, or Safari). Keep your browser up to date, and make sure you have a stable internet connection so your work saves reliably.</p>
+('getting-started', 'Getting started', 'LogIn', 2, $WIKI$
+<p>PRISM runs in your browser (Chrome, Edge, Firefox or Safari); there is nothing to install. Your organization has one shared login.</p>
+<h3>Logging in</h3>
+<ol><li><strong>First time.</strong> CRAF'd sends your organization a secure link by email. Open it and set a password. The link is valid for 7 days.</li><li><strong>After that.</strong> Go to the PRISM login page and sign in with your organization's username (or email) and password.</li><li><strong>Password rules.</strong> At least 8 characters, with an uppercase letter, a number and a special character.</li><li><strong>Locked out.</strong> After 5 wrong attempts the account is locked. Contact crafd@un.org to have it unlocked or reset. "Forgot password" does not send an email.</li></ol>
+<p>If someone sets a new password, everyone else using the login is signed out.</p>
+<h3>Staying signed in</h3>
+<p>After 15 minutes without activity, PRISM signs you out. One minute before, a message appears: click <strong>Stay signed in</strong> to continue. Your work is saved as you go, so nothing is lost.</p>
+<h3>The sidebar</h3>
+<table><thead><tr><th>Item</th><th>What it's for</th></tr></thead><tbody><tr><td>Home</td><td>Your projects, timeline and next steps</td></tr><tr><td>Project Document</td><td>Your project documents and their tabs</td></tr><tr><td>Project Report</td><td>Your Annual and Final Reports</td></tr><tr><td>Project Update</td><td>Project updates CRAF'd has opened for you</td></tr><tr><td>Project Contacts</td><td>Your organization's contacts</td></tr><tr><td>Guide</td><td>This guide</td></tr></tbody></table>
+<p>Project Document, Project Report and Project Update only appear when you have one. Inside a document, its tabs are listed in the sidebar.</p>
+<p>To get more space, click the panel icon at the top of the sidebar to collapse it, and the same icon to open it again. Your organization's name and the sign-out button are at the bottom.</p>
 $WIKI$),
-('project-document', 'Project Document', 'FileText', 3, $WIKI$
-<p>The <strong>Project Document (ProDoc)</strong> is your project's core reference document. Access it via <strong>Project Document</strong> in the left sidebar. It must be completed before your project's funding disbursement can be initiated.</p>
-<table><thead><tr><th>Section</th><th>What to fill in</th><th>Required</th></tr></thead><tbody>
-<tr><td>General Information</td><td>Project title, start date, and duration in months. Must be completed before other sections are fully editable.</td><td>Yes</td></tr>
-<tr><td>Narratives</td><td>Several predetermined text boxes — hover each title for detailed instructions. Include hyperlinks to publicly accessible documents.</td><td>Yes</td></tr>
-<tr><td>Indicators</td><td>The standard CRAF'd indicators are already listed for you — remove any that are not relevant to your project, and add your own custom indicators if needed. For each, set the baseline year and value and the target year and value. Used to track progress in annual reports.</td><td>Yes</td></tr>
-<tr><td>Risk Management</td><td>Potential risks with category (Social/Environmental, Financial, Operational, Organizational, Political, Regulatory, or Strategic) and mitigating measures.</td><td>Recommended</td></tr>
-<tr><td>Budgets</td><td>Budgets per participating organization, disaggregated by year, in compliance with UNSDG Budget Categories. Must equal the total approved project amount.</td><td>Yes</td></tr>
-<tr><td>Workplan</td><td>Quarter-grid showing outcomes, outputs, and activities from RBM as rows. Tick the quarters in which each item is planned.</td><td>Yes</td></tr>
-<tr><td>Signatures</td><td>Sign off on the completed Project Document. See the dedicated Signatures section of this guide for the full workflow.</td><td>Yes</td></tr>
-</tbody></table>
-<h3>How to complete the Project Document</h3>
-<ol>
-<li><strong>Open the Project Document.</strong> Click <strong>Project Document</strong> in the sidebar. You will open directly into the <strong>General Information</strong> section — complete this first, as other sections depend on it.</li>
-<li><strong>Fill in General Information.</strong> Enter the <strong>Project Title</strong> (keep it short and meaningful), select the <strong>Start Date</strong> from the calendar picker, and enter the <strong>Duration</strong> as a numeric value in months.</li>
-<li><strong>Complete the Narratives.</strong> The Narratives section contains several predetermined text boxes. Hover over each title to see detailed instructions specific to that narrative. Write substantive responses and include hyperlinks to publicly accessible documents where relevant.</li>
-<li><strong>Review your Indicators.</strong> The standard CRAF'd indicators are already listed for you. Delete any that do not apply to your project, and click <strong>Add</strong> to create your own custom indicators — a custom indicator requires a <strong>name</strong>, a <strong>description</strong>, and a <strong>means of verification</strong>. For each indicator, enter the <strong>Baseline Year</strong> (project start) and <strong>Baseline Value</strong>, then the <strong>Target Year</strong> (project end) and <strong>Target Value</strong>. These values are used to track progress in annual reports.</li>
-<li><strong>Add risks in Risk Management.</strong> Click <strong>Add New Risk</strong> to create a risk entry. For each risk, describe the potential risk, select a category (Social and Environmental, Financial, Operational, Organizational, Political, Regulatory, or Strategic), and describe the measures taken to mitigate it.</li>
-<li><strong>Enter your Budgets.</strong> Enter budgets per participating organization (if applicable), disaggregated by year, in compliance with UNSDG Budget Categories. All budget totals must equal the exact amount approved for the project — the difference between the Grant Size and the Total budget must be under one dollar, or the section flags a budget adjustment.</li>
-<li><strong>Fill in the Workplan grid.</strong> The Workplan is a spreadsheet-like grid automatically populated from your Results Based Management (RBM) section. Each <strong>row</strong> corresponds to an outcome, output, or activity from RBM. <strong>Columns</strong> are organized by year and subdivided into quarters (Q1–Q4). Tick the checkbox in each quarter where the corresponding outcome, output, or activity is planned to take place.</li>
-<li><strong>Sign off in Signatures.</strong> Once every section is complete, open the <strong>Signatures</strong> tab and sign for your project contacts. The CRAF'd Secretariat signs its own line. See the <strong>Signatures</strong> section of this guide for the full workflow.</li>
-</ol>
-<p><strong>Read-only fields:</strong> Fields managed by CRAF'd (e.g. approved budgets, baselines, indicator targets) appear greyed out and cannot be edited. Contact your CRAF'd programme officer if you believe a field should be editable.</p>
+('home', 'Home', 'Home', 3, $WIKI$
+<p>Home shows what needs your attention. The top line sums it up, for example "2 projects · 3 things to do · next deadline 30/11/2026".</p>
+<p>Each project has its own box. Click the box header to open or close it. A project with an overdue item is marked <strong>Overdue</strong> in red. Projects that have ended with nothing left to do move to <strong>Past projects</strong> at the bottom.</p>
+<h3>In each project box</h3>
+<ul><li><strong>Requested / Grant.</strong> The funding amount. It says "Requested" until your Project Document is approved, then "Grant".</li><li><strong>Period.</strong> Start and end dates, and the number of months.</li><li><strong>Open comments.</strong> CRAF'd comments still waiting for your reply.</li><li><strong>Next deadline.</strong> In dark yellow when it is within 14 days, in red when it has passed.</li></ul>
+<h3>The timeline</h3>
+<p>The timeline shows your Project Document, reports and updates in date order, then the project end, the Final Report and closure.</p>
+<table><thead><tr><th>Dot</th><th>Meaning</th></tr></thead><tbody><tr><td>Green ✓</td><td>Approved, or the date has passed</td></tr><tr><td>Grey clock</td><td>With CRAF'd for review</td></tr><tr><td>Yellow</td><td>In progress; the due date shows below</td></tr><tr><td>Empty circle</td><td>Not started yet</td></tr></tbody></table>
+<h3>Your next steps</h3>
+<p>The list under the timeline tells you what to do next. Your Project Document comes first, then overdue items, then the rest by due date.</p>
+<ul><li><strong>Continue</strong> opens a document you are completing.</li><li><strong>Revise</strong> opens a document CRAF'd has sent back to you.</li><li>Documents with CRAF'd are listed as "With CRAF'd for review". There is nothing for you to do on them.</li><li>When nothing is waiting for you, the list says "Nothing to do right now."</li></ul>
 $WIKI$),
-('report-editor', 'Report Editor', 'FileEdit', 4, $WIKI$
-<p>The <strong>Report Editor</strong> is where you submit your project's progress, usually on an annual basis. Access it via <strong>Report Editor</strong> in the sidebar — all reports available to you appear there, organized by project and year. CRAF'd may also send you a direct secure link when a new report is opened. Each report has <strong>14 sections</strong> split into Qualitative and Quantitative groups.</p>
-<table><thead><tr><th>Section</th><th>Group</th><th>What to fill in</th></tr></thead><tbody>
-<tr><td>Overview</td><td>Qualitative</td><td>High-level narrative summary of the project's progress and context during the reporting period.</td></tr>
-<tr><td>Survey</td><td>Qualitative</td><td>Data and findings from the survey conducted as part of the project.</td></tr>
-<tr><td>Key Achievements</td><td>Qualitative</td><td>Narrative description of the project's most significant outputs and outcomes.</td></tr>
-<tr><td>Partnerships</td><td>Qualitative</td><td>Description of partnerships formed and their contribution to the project's results.</td></tr>
-<tr><td>Results</td><td>Qualitative</td><td>Progress against the project's stated results and objectives for the period.</td></tr>
-<tr><td>Lessons Learned</td><td>Qualitative</td><td>Insights gathered during implementation that could improve future projects or inform adaptive management.</td></tr>
-<tr><td>External Coverage</td><td>Qualitative</td><td>Media mentions, publications, or external recognition of the project's work.</td></tr>
-<tr><td>Testimonials</td><td>Qualitative</td><td>Quotes or statements from project beneficiaries, partners, or stakeholders.</td></tr>
-<tr><td>Risk Management</td><td>Quantitative</td><td>Updated risk register with current statuses and any newly identified risks since the last report.</td></tr>
-<tr><td>Indicators</td><td>Quantitative</td><td>Actual values achieved for each indicator compared to baseline and targets.</td></tr>
-<tr><td>Workplan</td><td>Quantitative</td><td>Quarter-grid showing planned vs. completed activities. Tick the quarters completed during this reporting period.</td></tr>
-<tr><td>Expenditure</td><td>Quantitative</td><td>Actual expenditure versus approved budget, disaggregated by year and participating organization.</td></tr>
-<tr><td>Transfers</td><td>Quantitative</td><td>Record of fund transfers between participating organizations or budget lines.</td></tr>
-<tr><td>Complementary Funding</td><td>Quantitative</td><td>Additional funding sources that contributed to the project beyond the core CRAF'd grant.</td></tr>
-</tbody></table>
-<h3>How to complete and submit a Report</h3>
-<ol>
-<li><strong>Open your report.</strong> Click <strong>Report Editor</strong> in the sidebar. Every report available to you is listed there, grouped by project and year — click the one you want to open. If CRAF'd sent you a direct link for a newly opened report, that will take you there too.</li>
-<li><strong>Navigate sections from the sidebar.</strong> Once inside a report, the sidebar shows each of its 14 sections. Sections with a <strong>green checkmark</strong> are considered complete by PRISM. The Report Editor landing page shows an overall completion progress bar.</li>
-<li><strong>Complete the Qualitative sections.</strong> Work through Overview, Survey, Key Achievements, Partnerships, Results, Lessons Learned, External Coverage, and Testimonials. Each is a rich text area — write narrative content describing your project's progress for the period. PRISM auto-saves as you type or leave a field.</li>
-<li><strong>Complete the Quantitative sections.</strong> Fill in Risk Management (updated register), Indicators (actual values vs. targets), Workplan (quarter-grid ticks), Expenditure (actual vs. budget), Transfers, and Complementary Funding. These sections contain structured tables — enter figures in each row.</li>
-<li><strong>Check all sections show a green checkmark.</strong> Review the sidebar to confirm every section has a green checkmark. If any are missing, open that section and complete or save the remaining required fields before returning.</li>
-<li><strong>Authorize and submit.</strong> Click <strong>Authorize</strong> on the Report Editor landing page. Read and accept the authorization statement — this formally submits your report and grants CRAF'd permission to use submitted materials for outreach purposes. The report locks and enters CRAF'd's review queue.</li>
-<li><strong>Respond to CRAF'd comments (if any).</strong> During review, CRAF'd may leave comments on specific sections. You will see a notification on your Home page — click it to jump directly to the relevant section. Edit the content or leave a reply, then save. When CRAF'd is satisfied, they will close the report and it becomes permanently read-only.</li>
-</ol>
-<p><strong>Auto-save:</strong> PRISM saves your work automatically as you type or leave a field. A 'Saved' indicator appears briefly in the top bar. In sections with an explicit Save button, click it after making changes — the button disappears once saved.</p>
-<p><strong>After authorization:</strong> The report locks and all fields become read-only. Changes can only be made if CRAF'd reopens the report for revision.</p>
+('project-document', 'Project Document', 'FileText', 4, $WIKI$
+<p>The Project Document (ProDoc) is your project's core document. CRAF'd must approve it before funds are released. It has seven tabs, listed in the sidebar. A tab gets a green tick when it is complete.</p>
+<table><thead><tr><th>Tab</th><th>What you fill in</th><th>Needed for the tick</th></tr></thead><tbody><tr><td>General Information</td><td>Project name, requested funding (USD), start date, duration in months, geographic scope, description (max. 500 words), Gender Equality Marker, project partners, implementing organizations, contacts</td><td>All fields except partners, organizations and contacts</td></tr><tr><td>Narratives</td><td>One answer per question</td><td>Every answer, max. 500 words each</td></tr><tr><td>Work Plan</td><td>Outcomes, outputs under each outcome, activities under each output, and the quarters each activity takes place</td><td>At least one activity, with its outcome and output</td></tr><tr><td>Indicators</td><td>Baseline and target for each indicator, and the outcomes or outputs it measures</td><td>A baseline, a target and a link for every indicator; every outcome and output has at least one indicator</td></tr><tr><td>Risk Management</td><td>Risks to the project</td><td>Each risk has a description, likelihood and impact</td></tr><tr><td>Budget</td><td>Annual budget per category, a description per category, and the tranche release schedule</td><td>Budget and tranche totals match the requested funding</td></tr><tr><td>Documents</td><td>Supporting files</td><td>At least one file, or "No documents to upload" ticked</td></tr></tbody></table>
+<h3>Tips per tab</h3>
+<ul><li><strong>General Information.</strong> Fill this in first. <strong>Project partners</strong> are the organizations that receive CRAF'd funds directly; they become the rows of the tranche schedule. If a partner is missing from the list, contact CRAF'd. <strong>Implementing organizations</strong> can be typed in freely. Use the information icons for guidance on each field.</li><li><strong>Contacts.</strong> Link people from your Project Contacts, or add new ones, and give each a role: Primary focal point, Alternate focal point or Signatory. You can change contacts later.</li><li><strong>Work Plan.</strong> Items are numbered automatically: 1 (outcome), 1.1 (output), 1.1.1 (activity). Hover the information icons for what each level means.</li><li><strong>Indicators.</strong> The standard CRAF'd indicators are already listed and cannot be removed. Click <strong>Add indicator</strong> for your own: it needs a name, a description and a means of verification, and you choose whether it is reported annually or at closure.</li><li><strong>Risk Management.</strong> Click <strong>Add risk</strong> below the table, fill in the row and click <strong>Save</strong>. Likelihood runs from Rare to Very likely, impact from Insignificant to Extreme. The risk level is calculated for you.</li><li><strong>Budget.</strong> Enter the budget per category and year. Indirect support costs (7%) are added automatically and count towards the total. The total must match the requested funding: up to $1 under, never over. A message shows how far you are off.</li><li><strong>Tranche release schedule.</strong> Below the budget, enter how much each project partner receives per tranche, with a release date and the activities it covers. A release date is required for every amount. The schedule total must also match the requested funding.</li></ul>
+<h3>Submitting the Project Document</h3>
+<p>When every tab has a green tick, click <strong>Submit</strong> in the top bar and confirm. The document is then locked while CRAF'd reviews it. PRISM does not send an email: please let CRAF'd know at crafd@un.org that it is ready.</p>
 $WIKI$),
-('report-lifecycle', 'Lifecycle & Statuses', 'Workflow', 5, $WIKI$
-<p>Both the Project Document and each report move through the same three statuses. The status decides <strong>who can edit</strong> and appears as a coloured pill at the top of the editor. Knowing where you are in the lifecycle explains why a field might be editable one day and read-only the next.</p>
-<table><thead><tr><th>Status</th><th>Who can edit</th><th>What it means</th></tr></thead><tbody>
-<tr><td>Open</td><td>You and CRAF'd</td><td>The document is being drafted. You can edit every field that isn't managed by CRAF'd. Fill in all sections here.</td></tr>
-<tr><td>Under Review</td><td>CRAF'd only</td><td>You have authorized/submitted, and CRAF'd is reviewing. The document becomes read-only for you while reviewers check it and may leave comments.</td></tr>
-<tr><td>Closed</td><td>No one</td><td>The document is finalized and permanently read-only for everyone. Reopening requires CRAF'd to change the status back.</td></tr>
-</tbody></table>
-<h3>The typical journey</h3>
-<ol>
-<li><strong>Draft (Open).</strong> You complete every section. PRISM auto-saves as you go and shows a green checkmark for each finished section.</li>
-<li><strong>Authorize.</strong> For a report, you click <strong>Authorize</strong> and accept the authorization statement to submit. This formally hands the report to CRAF'd and locks it for you.</li>
-<li><strong>Under Review.</strong> CRAF'd checks your submission and may leave comments on specific sections. If changes are needed, they reopen the document so you can respond.</li>
-<li><strong>Closed.</strong> Once CRAF'd is satisfied, the document is closed and becomes a permanent, read-only record.</li>
-</ol>
-<p><strong>Why is this field greyed out?</strong> Most often the document is <strong>Under Review</strong> or <strong>Closed</strong>, so editing is locked. Other fields (approved budgets, baselines, indicator targets, or figures from a previous year) are managed by CRAF'd and stay read-only at all times. Contact your programme officer if you believe something should be editable.</p>
+('project-reports', 'Project Reports', 'FileEdit', 5, $WIKI$
+<p>You submit an Annual Report for each year of the project and a Final Report at the end. Both have the same 13 sections, split into Qualitative and Quantitative. Open a report from <strong>Project Report</strong> in the sidebar or from Home.</p>
+<p>Text fields have a word limit, shown under each box (most are 100 words).</p>
+<table><thead><tr><th>Section</th><th>What you fill in</th><th>Needed for the tick</th></tr></thead><tbody><tr><td>Overview</td><td>Read the project details and the authorization statement</td><td>"I authorize this report" ticked</td></tr><tr><td>Survey</td><td>A rating from 1 to 5 for each question, and an explanation of your rating</td><td>A rating and an explanation for every question</td></tr><tr><td>Results</td><td>Cases where your data informed decisions: context, data-driven decision, resulting impact</td><td>At least 3 results, each with its context</td></tr><tr><td>Key Achievements</td><td>Up to 3 main achievements and why they matter</td><td>At least 1 achievement</td></tr><tr><td>Partnerships</td><td>Partner organizations and the result of each partnership</td><td>Every row has an organization, or "No partnerships to report" ticked</td></tr><tr><td>Lessons Learned</td><td>Up to 5 lessons: category, what you learned, what you changed</td><td>At least 1 lesson, with all three fields</td></tr><tr><td>External Coverage</td><td>The 3 most relevant pieces of coverage or engagement</td><td>3 descriptions</td></tr><tr><td>Testimonials</td><td>A quote from your leadership; optional quotes from partners or users; optional photos</td><td>Leadership quote with author and title; every photo has a caption and credits</td></tr><tr><td>Work Plan</td><td>The status of each activity this year</td><td>A status for every activity</td></tr><tr><td>Indicators</td><td>The value achieved and a status for each indicator</td><td>A value and a status for every indicator</td></tr><tr><td>Budget</td><td>Actual expenditure per category, and transfers to implementing partners</td><td>At least one expenditure above 0, and transfers filled in or "No transfers to report" ticked</td></tr><tr><td>Risk Management</td><td>What has changed for each risk; new risks</td><td>See below</td></tr><tr><td>Complementary Funding</td><td>Other funding the project received</td><td>Every row has a contributor and an amount, or "No complementary funding to report" ticked</td></tr></tbody></table>
+<h3>Section details</h3>
+<ul><li><strong>Work Plan.</strong> Each activity shows its planned quarters. Pick a status. If it is Delayed, At risk or Suspended, a second row opens to mark the updated quarters and add an explanation.</li><li><strong>Indicators.</strong> Baselines and targets come from the Project Document and are shown for reference. Annual Reports use the statuses On track, Off track and Ahead of schedule; the Final Report uses Achieved and Not achieved.</li><li><strong>Budget.</strong> The approved budget and the category descriptions come from the Project Document and cannot be changed here. Enter what was actually spent. Transfers to implementing partners are listed below the budget table.</li><li><strong>Complementary Funding.</strong> For in-kind contributions (for example services or staff time), give an estimated value in USD.</li><li><strong>Testimonials.</strong> Photos are optional. If you add one, give it a caption and credits.</li></ul>
+<h3>Risk Management</h3>
+<p>The risks from your Project Document and earlier reports are listed with their last rating. For each one, answer <strong>Since the last report, this risk…</strong>:</p>
+<table><thead><tr><th>Answer</th><th>What to fill in</th></tr></thead><tbody><tr><td>has not changed</td><td>Nothing more</td></tr><tr><td>is more or less likely</td><td>The new likelihood and impact, and how you are adjusting your mitigation</td></tr><tr><td>has happened</td><td>The impact, and what happened and what you did</td></tr></tbody></table>
+<p>To add a new risk, click <strong>Add risk</strong>. A new risk needs a name, a description, a likelihood and an impact.</p>
+<h3>Submitting a report</h3>
+<ol><li>Complete every section until it has a green tick.</li><li>On <strong>Overview</strong>, tick "I authorize this report".</li><li>Click <strong>Submit</strong> in the top bar and confirm.</li><li>Email crafd@un.org to let CRAF'd know it is ready. PRISM does not send an email.</li></ol>
+<p>If Submit is greyed out, the message next to it tells you which section to complete first.</p>
 $WIKI$),
-('signatures', 'Signatures & Sign-off', 'PenLine', 6, $WIKI$
-<p>The Project Document is finalized by a formal sign-off. The <strong>Signatures</strong> tab in the Project Document editor lists your <strong>project contacts</strong> alongside the <strong>CRAF'd Secretariat</strong>. Signing is what turns a completed ProDoc into an agreement that can initiate funding disbursement.</p>
-<ul>
-<li><strong>Your project contacts.</strong> You (the partner) sign on behalf of each project contact. The contacts shown here come from the General Information / Contact Information you have entered — add or update them there first.</li>
-<li><strong>CRAF'd Secretariat.</strong> Only CRAF'd can sign the Secretariat line. Until they do, it shows "Awaiting signature" — you cannot sign it on their behalf, and they cannot sign for your contacts.</li>
-</ul>
-<h3>How to sign</h3>
-<ol>
-<li><strong>Make sure your contacts are correct.</strong> Signatures are generated from your project contacts. Add each person who needs to sign in the <strong>Contact Information</strong> section (or the ProDoc's General Information) before you open the Signatures tab.</li>
-<li><strong>Open the Signatures tab.</strong> In the <strong>Project Document</strong>, choose <strong>Signatures</strong> from the section dropdown. Each contact appears as a row with a <strong>Sign</strong> button.</li>
-<li><strong>Sign for each contact.</strong> Click <strong>Sign</strong> on a contact's row. PRISM stamps the signature with the date, and the row turns into a green <strong>Signed</strong> badge. Repeat for every project contact.</li>
-<li><strong>CRAF'd signs the Secretariat line.</strong> Once your side is complete, the CRAF'd Secretariat signs its own line. When all parties have signed, the Project Document is fully executed.</li>
-<li><strong>See the signatures on the export.</strong> Signed names and dates appear in the <strong>Signatures</strong> section of the exported/printed Project Document — see <strong>Exporting &amp; Printing</strong> below.</li>
-</ol>
-<p><strong>Signed in error?</strong> You can remove a signature you made by clicking the small remove control next to the Signed badge and confirming. This only applies to your own contact signatures.</p>
-<p><strong>Who signs what:</strong> The partner signs only for project contacts; the CRAF'd Secretariat line is signed only by CRAF'd. Neither side can sign or remove the other's signatures.</p>
+('project-updates', 'Project Updates', 'ClipboardList', 6, $WIKI$
+<p>A Project Update is how you request a change to your project, such as a budget revision, a no-cost extension, a tranche release or reprogramming. To request one, contact CRAF'd at crafd@un.org. CRAF'd then opens the update in PRISM with only the sections that apply, and you fill it in there.</p>
+<p>The update appears under <strong>Project Update</strong> in the sidebar and on Home. Its name shows the year and the type of change, for example "2027-BR" for a budget revision.</p>
+<h3>What you fill in</h3>
+<ul><li><strong>Justification.</strong> Why you are requesting the change, what has changed and why it is needed (max. 100 words).</li><li><strong>The unlocked sections.</strong> For example Work Plan, Budget or Risk Management. They work like the same sections in a report. A budget revision adds columns for the revised budget; an extension adds the new years and quarters.</li><li><strong>HACT Recommendations</strong> (if shown). The findings and recommendations from CRAF'd's assurance activities. You only fill in the <strong>Partner comment</strong> to describe the action you have taken.</li></ul>
+<p>An approved update changes your Project Document. Past reports stay as they were.</p>
+<h3>Submitting an update</h3>
+<p>When every section has a green tick, click <strong>Submit</strong> in the top bar and confirm. No authorization is needed. Then email crafd@un.org to let CRAF'd know it is ready.</p>
 $WIKI$),
-('comments', 'Comments & Feedback', 'MessageSquare', 7, $WIKI$
-<p>Review is a conversation. When CRAF'd looks over your Project Document or a report, reviewers can attach <strong>comments</strong> to specific sections — asking a question, requesting a clarification, or pointing out something that needs a change. This section explains how to find and respond to them.</p>
-<ol>
-<li><strong>Spot the notification.</strong> New comments surface on your <strong>Home</strong> page. Each entry tells you which project, report, and section the comment is on.</li>
-<li><strong>Jump to the section.</strong> Click the comment to open the exact section it refers to, so you can see it in context next to the content being discussed.</li>
-<li><strong>Respond or edit.</strong> Read the comment, then either <strong>reply</strong> to answer the reviewer or <strong>edit the content</strong> to address the request — often both. Your edits auto-save as you make them.</li>
-<li><strong>Let the review continue.</strong> CRAF'd sees your replies and updated content. They may follow up with more comments or, once satisfied, close the document. A closed document becomes permanently read-only.</li>
-</ol>
-<p><strong>Tip:</strong> Keep replies concise and specific — reference the change you made ("Updated the baseline figure to 2024 data") so reviewers can confirm quickly. This shortens the review cycle.</p>
+('statuses-and-submitting', 'Statuses and submitting', 'Workflow', 7, $WIKI$
+<p>Every Project Document, report and update has a status. It is shown on the list pages and decides whether you can edit.</p>
+<table><thead><tr><th>Status</th><th>What it means</th><th>Can you edit?</th></tr></thead><tbody><tr><td>To complete</td><td>You are filling it in</td><td>Yes</td></tr><tr><td>Under review</td><td>You have submitted it and CRAF'd is reviewing it</td><td>No</td></tr><tr><td>To revise</td><td>CRAF'd has sent it back with comments</td><td>Yes</td></tr><tr><td>Approved</td><td>CRAF'd has approved it</td><td>No</td></tr></tbody></table>
+<p>The usual path is: To complete → Under review → Approved. If CRAF'd needs changes, the document goes to To revise; you update it, answer the comments and submit again.</p>
+<p>On the Project Document, Project Report and Project Update pages, use the filter buttons at the top (All, To complete, Under review, To revise, Approved) to show only documents with that status.</p>
+<h3>Submitting</h3>
+<ul><li><strong>Submit</strong> appears in the top bar while a document is To complete or To revise.</li><li>It stays greyed out until every section has a green tick. The message next to it names the section to complete.</li><li>Reports also need "I authorize this report" ticked on the Overview section.</li><li>After you confirm, the document is locked for editing.</li><li>PRISM does not notify CRAF'd. Please email crafd@un.org to say it is ready for review.</li></ul>
+<p>When a document is locked, a banner at the top says it is with the CRAF'd Secretariat for review, or that it has been approved. Contact CRAF'd if changes are needed.</p>
 $WIKI$),
-('contacts', 'Contact Information', 'Contact', 8, $WIKI$
-<p>The <strong>Contact Information</strong> section is where you keep your organization's people up to date. These contacts are more than an address book — they populate the project contacts on your Project Document and drive the <strong>Signatures</strong> sign-off, so keeping them accurate matters.</p>
-<ul>
-<li><strong>Focal Point.</strong> CRAF'd's main point of contact for the project — typically the person accountable for reporting and communication.</li>
-<li><strong>Project Manager.</strong> The person running day-to-day delivery of the project.</li>
-</ul>
-<ol>
-<li><strong>Open Contact Information.</strong> Click <strong>Contact Information</strong> in the sidebar to see your organization's current contacts.</li>
-<li><strong>Add or edit a person.</strong> Add each person with their <strong>name</strong>, <strong>role/title</strong>, and <strong>email</strong>. Assign a relationship — <strong>Focal Point</strong> or <strong>Project Manager</strong> — where relevant.</li>
-<li><strong>Keep it current.</strong> Update contacts whenever someone joins or leaves. Because these feed the ProDoc and the signature lines, an out-of-date list can hold up sign-off.</li>
-</ol>
-<p>Contacts you add here appear as the <strong>project contacts</strong> on the Project Document and in the Signatures tab. Add everyone who needs to sign <em>before</em> you begin the sign-off.</p>
+('comments', 'Comments', 'MessageSquare', 8, $WIKI$
+<p>CRAF'd reviewers can leave comments on a section or on a specific item, such as a risk or an indicator.</p>
+<h3>Where you see them</h3>
+<ul><li>On Home: the <strong>Open comments</strong> tile, and "N comments to address" under the next step it belongs to.</li><li>Under the section heading in the document.</li><li>As a comment icon next to the item. It is yellow while the comment is open and grey once you have addressed it.</li></ul>
+<h3>What you can do</h3>
+<ol><li><strong>Read the comment</strong> and update your content if needed.</li><li><strong>Reply</strong> to explain what you changed or to answer a question. You can edit or delete your own replies.</li><li><strong>Mark as addressed</strong> when you have dealt with it. You can undo this.</li></ol>
+<p>CRAF'd then reviews your reply and resolves the comment. Resolved comments disappear from your view. You can reply to comments even while a document is locked, but you cannot start a new comment yourself.</p>
+<p>Tip: keep replies short and say what you changed, for example "Updated the baseline to 2024 data."</p>
 $WIKI$),
-('exporting', 'Exporting & Printing', 'Printer', 9, $WIKI$
-<p>You can produce a clean PDF of your Project Document at any time — handy for internal review, sharing with colleagues, or keeping a signed record on file. PRISM renders a properly typeset A4 document with your organization's logo, the full content of every section, and the signatures block.</p>
-<ol>
-<li><strong>Open the Project Document.</strong> Go to <strong>Project Document</strong> and make sure the document you want is selected in the dropdown at the top.</li>
-<li><strong>Click Print.</strong> Click the <strong>Print</strong> button next to the dropdown. A print-ready view of the document opens in a new tab.</li>
-<li><strong>Save as PDF.</strong> Your browser's print dialog appears. Choose <strong>Save as PDF</strong> as the destination (rather than a physical printer) and save the file. The dialog may open automatically.</li>
-</ol>
-<p><strong>Real, searchable text:</strong> The PDF uses actual document fonts, so the text stays selectable and searchable — not a flat image. SDG target icons and any signatures are included in the output.</p>
-<p><strong>Sign first for a complete record.</strong> If you export before signing, the signature lines print blank. Complete the <strong>Signatures</strong> tab first if you want the signed names and dates to appear.</p>
+('project-contacts', 'Project Contacts', 'Contact', 9, $WIKI$
+<p><strong>Project Contacts</strong> lists the people at your organization. Each contact shows the projects they are linked to and their role on each.</p>
+<ul><li><strong>Add a contact.</strong> Click <strong>Add contact</strong> below the list. Name, organization and email are required; job title is optional.</li><li><strong>Edit or delete.</strong> A change here updates the contact everywhere it is linked.</li><li><strong>Link to a project.</strong> Contacts are linked to a project, and given their roles, in the Project Document's General Information tab.</li></ul>
+<table><thead><tr><th>Role</th><th>Meaning</th></tr></thead><tbody><tr><td>Primary focal point</td><td>CRAF'd's main contact for the project</td></tr><tr><td>Alternate focal point</td><td>The contact when the primary focal point is unavailable</td></tr><tr><td>Signatory</td><td>Signs the Project Document on behalf of your organization</td></tr></tbody></table>
+<p>Keep contacts up to date when people join or leave.</p>
 $WIKI$),
-('key-features', 'Key Features', 'Sparkles', 10, $WIKI$
-<table><thead><tr><th>Feature</th><th>Category</th><th>What it does</th></tr></thead><tbody>
-<tr><td>Report Editor</td><td>Core</td><td>Complete all 14 sections of your annual or final report in one place. Sections are grouped into Qualitative and Quantitative, with guidance throughout.</td></tr>
-<tr><td>Project Document</td><td>Core</td><td>Manage your project's core reference document — general information, narratives, risk register, indicators, workplan, and budget.</td></tr>
-<tr><td>Auto-save</td><td>Convenience</td><td>All changes save automatically as you type or leave a field. A brief 'Saved' indicator confirms each write. No manual saving needed.</td></tr>
-<tr><td>Feedback &amp; Comments</td><td>Collaboration</td><td>CRAF'd reviewers leave comments on specific sections. These appear on your Home page and link directly to the relevant section.</td></tr>
-<tr><td>Completion Tracking</td><td>Progress</td><td>Green checkmarks in the sidebar show which sections are done. A progress bar on the Report Editor landing page shows overall completion.</td></tr>
-<tr><td>Authorization</td><td>Submission</td><td>Formally submit your report by accepting the authorization statement. The report locks and enters CRAF'd's review queue.</td></tr>
-<tr><td>Timeline</td><td>Planning</td><td>Your Home page shows project start/end dates and report deadlines on a visual timeline, with a pulsing marker for today.</td></tr>
-<tr><td>Contact Information</td><td>Admin</td><td>Manage your organization's team contacts, roles, and email addresses through the Contact Information section.</td></tr>
-</tbody></table>
+('saving-word-limits-and-completion', 'Saving, word limits and completion', 'CheckCircle2', 10, $WIKI$
+<h3>Saving</h3>
+<p>PRISM saves automatically as you type. The top bar shows "Saving…" and then "All changes saved". Some tables (such as new risks or contacts) have their own <strong>Save</strong> button.</p>
+<h3>One person editing at a time</h3>
+<p>Only one person can edit a document at a time. Because your organization shares one login, this can be a colleague. If someone else has it open, you see "{name} currently has this report open" and the page is read-only.</p>
+<p>After 10 minutes without activity, your editing session ends so others can work. One minute before, you can click <strong>Keep editing</strong>. To continue after it has ended, click <strong>Start editing</strong>.</p>
+<h3>Word limits</h3>
+<p>Limited text boxes show a counter, for example "45/100 words". If you go over, the counter turns red. Your text is still saved, but the section does not get its green tick until you shorten it.</p>
+<h3>Green ticks and progress</h3>
+<ul><li>A section gets a green tick in the sidebar when it is complete.</li><li>The list pages show a progress bar for each document: the share of sections complete.</li><li>You can only submit when every section has a tick.</li></ul>
 $WIKI$),
-('glossary', 'Glossary', 'Library', 11, $WIKI$
-<table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>PRISM</td><td>The CRAF'd reporting platform you are using — where Project Documents and reports are created, submitted, and reviewed.</td></tr>
-<tr><td>Project Document (ProDoc)</td><td>Your project's core reference document: general information, narratives, indicators, risks, budgets, workplan, and signatures. Must be completed before funding is disbursed.</td></tr>
-<tr><td>Report</td><td>A periodic (usually annual, and a final) submission of your project's progress, organized into 14 qualitative and quantitative sections.</td></tr>
-<tr><td>RBM (Results Based Management)</td><td>The framework of outcomes, outputs, and activities your project is built around. The Workplan is generated from it.</td></tr>
-<tr><td>Outcome / Output / Activity</td><td>The RBM hierarchy: outcomes are the high-level changes sought, outputs are the deliverables that lead to them, and activities are the concrete tasks that produce outputs.</td></tr>
-<tr><td>Indicator</td><td>A measurable value used to track progress. Each has a baseline (starting point) and a target (goal), with a year for each.</td></tr>
-<tr><td>Baseline / Target</td><td>The indicator's value at the start of the project (baseline) and the value it aims to reach by the end (target).</td></tr>
-<tr><td>SDG Targets</td><td>The specific UN Sustainable Development Goal targets your project contributes to. Each is assigned a focus percentage; together they should total 100%.</td></tr>
-<tr><td>UNSDG Budget Categories</td><td>The standard budget-line categories all expenditure must be reported against.</td></tr>
-<tr><td>Indirect (support) costs</td><td>The percentage added on top of direct project costs to cover overheads. Applied automatically in the budget totals.</td></tr>
-<tr><td>Transfers</td><td>Movements of funds between participating organizations or budget lines, recorded in the report.</td></tr>
-<tr><td>Complementary Funding</td><td>Additional funding sources that contributed to the project beyond the core CRAF'd grant.</td></tr>
-<tr><td>Focal Point</td><td>The primary contact CRAF'd communicates with for the project, usually accountable for reporting.</td></tr>
-<tr><td>Authorize</td><td>The action that formally submits a report to CRAF'd. It locks the report for you and grants CRAF'd permission to use submitted materials for outreach.</td></tr>
-<tr><td>Secure link</td><td>A personal email link CRAF'd can send that opens a specific report directly, without a separate login.</td></tr>
-<tr><td>Auto-save</td><td>PRISM's automatic saving — changes are written as you type or leave a field, confirmed by a brief 'Saved' indicator.</td></tr>
-</tbody></table>
+('printing', 'Printing', 'Printer', 11, $WIKI$
+<p>You can print or save a PDF of a Project Document, report or update at any time.</p>
+<ol><li>Open the document.</li><li>Click <strong>Print</strong> in the top bar. A print view opens.</li><li>In your browser's print dialog, choose <strong>Save as PDF</strong> to save the file, or pick a printer.</li></ol>
+<p>The PDF contains every section with its current content. The text stays selectable and searchable.</p>
+<p>To print this guide, click <strong>Print Guide</strong> at the top of the Guide page.</p>
 $WIKI$),
-('faq', 'FAQ', 'HelpCircle', 12, $WIKI$
-<table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>
-<tr><td>I cannot log in — what should I do?</td><td>Check that you are using the correct username and password provided by CRAF'd. Passwords are case-sensitive. If you have forgotten your password, contact your CRAF'd programme officer to request a reset.</td></tr>
-<tr><td>I manage more than one project — how do I switch between them?</td><td>In the Report Editor section of the sidebar, each project and year appears as a separate entry. Click on the one you want to open.</td></tr>
-<tr><td>A field is greyed out and I cannot edit it — why?</td><td>Fields become read-only after a report has been authorized, when the field is managed by CRAF'd (e.g. approved budgets, baselines, indicator targets), or when it belongs to a previous year in multi-year tables. Contact CRAF'd if you believe a field should be editable.</td></tr>
-<tr><td>How do I know my data has been saved?</td><td>PRISM saves automatically. A 'Saved' indicator appears briefly in the top bar when a change is written. In sections with a Save button, click it after making changes — the button disappears once saved.</td></tr>
-<tr><td>Who do I contact for help?</td><td>For questions about report content or deadlines, contact your CRAF'd programme officer. For technical issues with PRISM, contact the CRAF'd data team — include a screenshot and description of the problem.</td></tr>
-</tbody></table>
+('glossary', 'Glossary', 'Library', 12, $WIKI$
+<table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody><tr><td>PRISM</td><td>The CRAF'd platform for project documents, reports and updates</td></tr><tr><td>Project Document (ProDoc)</td><td>Your project's core document. It must be approved before funds are released</td></tr><tr><td>Annual Report</td><td>The report you submit for each year of the project</td></tr><tr><td>Final Report</td><td>The report you submit at the end of the project, due 6 months after the end date</td></tr><tr><td>Project Update</td><td>A request to change the project, such as a budget revision, no-cost extension, tranche release or reprogramming</td></tr><tr><td>Outcome / Output / Activity</td><td>The levels of your work plan: the change you aim for, the deliverables that lead to it, and the tasks that produce them</td></tr><tr><td>Indicator</td><td>A measurable value that tracks progress, with a baseline and a target</td></tr><tr><td>Standard indicator</td><td>An indicator set by CRAF'd for all projects; it cannot be removed</td></tr><tr><td>Custom indicator</td><td>An indicator you add for your own project</td></tr><tr><td>Baseline / Target</td><td>The value at the start of the project, and the value it aims to reach</td></tr><tr><td>Project partner</td><td>An organization that receives CRAF'd funds directly</td></tr><tr><td>Implementing organization</td><td>An organization that helps deliver the project</td></tr><tr><td>Tranche</td><td>A portion of the funding released at a set date</td></tr><tr><td>Indirect support costs (ISC)</td><td>A percentage (7%) added to direct costs to cover overheads</td></tr><tr><td>Complementary funding</td><td>Other funding the project received, in cash or in kind</td></tr><tr><td>Gender Equality Marker</td><td>A rating (GEM0 to GEM3) of how much the project contributes to gender equality</td></tr><tr><td>HACT</td><td>CRAF'd's assurance activities; findings may appear in a Project Update</td></tr><tr><td>Focal point</td><td>Your organization's main contact for CRAF'd on a project</td></tr><tr><td>Signatory</td><td>The person who signs the Project Document for your organization</td></tr><tr><td>Green tick</td><td>Shows a section is complete</td></tr></tbody></table>
+$WIKI$),
+('frequently-asked-questions', 'Frequently asked questions', 'HelpCircle', 13, $WIKI$
+<table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody><tr><td>Why can't I edit a field?</td><td>The document may be Under review or Approved, a colleague may have it open, or the field comes from the Project Document or is managed by CRAF'd (for example approved budgets, standard indicators and baselines).</td></tr><tr><td>Why is Submit greyed out?</td><td>A section is not complete yet. The message next to the button names it. For reports, also tick "I authorize this report" on Overview.</td></tr><tr><td>A section won't get its green tick.</td><td>Check the required fields, and that no text is over its word limit (the counter turns red).</td></tr><tr><td>Does CRAF'd know I've submitted?</td><td>Not automatically. Please email crafd@un.org after you submit.</td></tr><tr><td>I work on several projects. How do I switch?</td><td>Each project has its own box on Home, and each document is listed in the sidebar.</td></tr><tr><td>A project partner is missing from the list.</td><td>Project partners are added by CRAF'd. Contact crafd@un.org.</td></tr><tr><td>How do I change something after submitting?</td><td>Contact CRAF'd. They can send the document back to you as To revise.</td></tr><tr><td>Who do I contact for help?</td><td>The CRAF'd Secretariat at crafd@un.org. For a technical problem, include a screenshot and a short description.</td></tr></tbody></table>
 $WIKI$)
 ON CONFLICT (slug) DO NOTHING;

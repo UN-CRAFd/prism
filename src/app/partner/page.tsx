@@ -20,9 +20,6 @@ function longDate(d: Date): string {
   return `${get("weekday")} ${get("day")} ${get("month")} ${get("year")}`;
 }
 
-// DD/MM/YYYY → sortable YYYYMMDD.
-const ddmmKey = (s: string) => s.split("/").reverse().join("");
-
 export default function PartnerHomePage() {
   const { user } = useAuth();
 
@@ -69,23 +66,6 @@ export default function PartnerHomePage() {
     return "Good evening";
   }, []);
 
-  // Header summary: the same to-do count and next deadline the project boxes show,
-  // over the current projects.
-  const todoCount = currentProjects.reduce((n, p) => n + p.actions.length, 0);
-  const nextDeadline = currentProjects
-    .map((p) => p.nextDeadline)
-    .filter((d): d is string => !!d)
-    .sort((a, b) => ddmmKey(a).localeCompare(ddmmKey(b)))[0] ?? null;
-  const summary = (() => {
-    const h = labels.partnerHome;
-    const n = currentProjects.length;
-    return [
-      `${n} ${n === 1 ? h.summary.project : h.summary.projects}`,
-      `${todoCount} ${todoCount === 1 ? h.summary.thing : h.summary.things}`,
-      ...(nextDeadline ? [h.summary.nextDeadline.replace("{date}", nextDeadline)] : []),
-    ].join(" · ");
-  })();
-
   const [openBoxes, setOpenBoxes] = useState<Set<number>>(new Set());
   const initializedRef = useRef(false);
 
@@ -111,18 +91,13 @@ export default function PartnerHomePage() {
   return (
     <div className="flex flex-col min-h-full bg-background">
       {/* Header banner */}
-      <div className="bg-neutral-950 text-white px-8 min-h-32 py-4 flex flex-col justify-center">
+      <div className="bg-neutral-950 text-white px-8 h-32 flex flex-col justify-center">
         <h1 className="t-title-banner">
           {mounted
             ? `${greeting}, ${shortName(user?.organization) || user?.name || ""}`
             : " "}
         </h1>
-        {mounted && (
-          <>
-            <p className="mt-1 text-sm text-neutral-400">{longDate(new Date())}</p>
-            {dataLoaded && allProjects.length > 0 && <p className="text-sm text-neutral-400">{summary}</p>}
-          </>
-        )}
+        {mounted && <p className="mt-1 text-sm text-neutral-400">{longDate(new Date())}</p>}
       </div>
 
       <div className="flex-1 px-8 py-8">

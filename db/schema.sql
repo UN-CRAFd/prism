@@ -1313,7 +1313,7 @@ $WIKI$),
 <p>To get more space, click the panel icon at the top of the sidebar to collapse it, and the same icon to open it again. Your organization's name and the sign-out button are at the bottom.</p>
 $WIKI$),
 ('home', 'Home', 'Home', 3, $WIKI$
-<p>Home shows what needs your attention. The top line sums it up, for example "2 projects · 3 things to do · next deadline 30/11/2026".</p>
+<p>Home shows what needs your attention.</p>
 <p>Each project has its own box. Click the box header to open or close it. A project with an overdue item is marked <strong>Overdue</strong> in red. Projects that have ended with nothing left to do move to <strong>Past projects</strong> at the bottom.</p>
 <h3>In each project box</h3>
 <ul><li><strong>Requested / Grant.</strong> The funding amount. It says "Requested" until your Project Document is approved, then "Grant".</li><li><strong>Period.</strong> Start and end dates, and the number of months.</li><li><strong>Open comments.</strong> CRAF'd comments still waiting for your reply.</li><li><strong>Next deadline.</strong> In dark yellow when it is within 14 days, in red when it has passed.</li></ul>

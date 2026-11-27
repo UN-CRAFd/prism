@@ -741,13 +741,6 @@
       "nextDeadline": "Next deadline"
     },
     "nextSteps": "Your next steps",
-    "summary": {
-      "project": "project",
-      "projects": "projects",
-      "thing": "thing to do",
-      "things": "things to do",
-      "nextDeadline": "next deadline {date}"
-    },
     "actionButton": {
       "continue": "Continue",
       "revise": "Revise",
